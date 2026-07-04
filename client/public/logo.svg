@@ -1,0 +1,28 @@
+<svg width="128" height="128" viewBox="0 0 128 128" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#8b5cf6"/>
+      <stop offset="50%" stop-color="#6366f1"/>
+      <stop offset="100%" stop-color="#06b6d4"/>
+    </linearGradient>
+    <linearGradient id="mark" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#fdf4ff"/>
+      <stop offset="100%" stop-color="#ecfeff"/>
+    </linearGradient>
+  </defs>
+
+  <rect x="4" y="4" width="120" height="120" rx="28" fill="#0d0f14"/>
+  <rect x="4" y="4" width="120" height="120" rx="28" fill="url(#bg)" fill-opacity="0.92"/>
+
+  <!-- receipt -->
+  <path d="M40 22 h48 a4 4 0 0 1 4 4 v76 l-7-6 -7 6 -7-6 -7 6 -7-6 -7 6 -7-6 -7 6 V26 a4 4 0 0 1 4-4 z"
+        fill="url(#mark)" opacity="0.97"/>
+
+  <!-- lines -->
+  <rect x="50" y="38" width="28" height="5" rx="2.5" fill="#a78bfa"/>
+  <rect x="50" y="50" width="20" height="5" rx="2.5" fill="#67e8f9"/>
+
+  <!-- dollar coin -->
+  <circle cx="64" cy="76" r="17" fill="#f472b6"/>
+  <text x="64" y="83" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="20" font-weight="700" fill="#0d0f14">$</text>
+</svg>

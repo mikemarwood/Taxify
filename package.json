@@ -1,0 +1,16 @@
+{
+  "name": "taxify",
+  "private": true,
+  "version": "1.0.0",
+  "scripts": {
+    "dev:server": "npm run dev --prefix server",
+    "dev:client": "npm run dev --prefix client",
+    "dev": "concurrently -n server,client -c blue,magenta \"npm:dev:server\" \"npm:dev:client\"",
+    "build": "npm run build --prefix client",
+    "start": "npm run start --prefix server",
+    "import:legacy": "node server/src/scripts/importLegacy.js"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.0"
+  }
+}
