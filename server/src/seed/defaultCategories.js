@@ -11,12 +11,21 @@ export const DEFAULT_CATEGORIES = [
   { name: 'Other', color: '#a1a1aa', icon: 'tag' },
 ];
 
-export function seedDefaultCategories(db, userId) {
-  const insert = db.prepare(
-    'INSERT INTO categories (user_id, name, color, icon) VALUES (?, ?, ?, ?)'
-  );
-  const insertMany = db.transaction((categories) => {
-    for (const c of categories) insert.run(userId, c.name, c.color, c.icon);
-  });
-  insertMany(DEFAULT_CATEGORIES);
+export async function seedDefaultCategories(pool, userId) {
+  const connection = await pool.getConnection();
+  try {
+    await connection.beginTransaction();
+    for (const c of DEFAULT_CATEGORIES) {
+      await connection.execute(
+        'INSERT INTO categories (user_id, name, color, icon) VALUES (?, ?, ?, ?)',
+        [userId, c.name, c.color, c.icon]
+      );
+    }
+    await connection.commit();
+  } catch (err) {
+    await connection.rollback();
+    throw err;
+  } finally {
+    connection.release();
+  }
 }

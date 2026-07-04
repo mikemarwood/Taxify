@@ -1,52 +1,61 @@
-import Database from 'better-sqlite3';
-import path from 'path';
-import fs from 'fs';
-import { fileURLToPath } from 'url';
+import mysql from 'mysql2/promise';
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const dataDir = path.join(__dirname, '..', 'data');
-if (!fs.existsSync(dataDir)) fs.mkdirSync(dataDir, { recursive: true });
+const pool = mysql.createPool({
+  host: process.env.DB_HOST || 'localhost',
+  port: Number(process.env.DB_PORT) || 3306,
+  user: process.env.DB_USER,
+  password: process.env.DB_PASSWORD,
+  database: process.env.DB_NAME,
+  waitForConnections: true,
+  connectionLimit: 10,
+  dateStrings: true,
+});
 
-const db = new Database(path.join(dataDir, 'taxify.db'));
-db.pragma('journal_mode = WAL');
-db.pragma('foreign_keys = ON');
+export async function ensureSchema() {
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS users (
+      id INT PRIMARY KEY AUTO_INCREMENT,
+      email VARCHAR(255) NOT NULL,
+      password_hash VARCHAR(255) NOT NULL,
+      name VARCHAR(255) NOT NULL,
+      created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE KEY uniq_users_email (email)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+  `);
 
-db.exec(`
-  CREATE TABLE IF NOT EXISTS users (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    email TEXT NOT NULL UNIQUE,
-    password_hash TEXT NOT NULL,
-    name TEXT NOT NULL,
-    created_at TEXT NOT NULL DEFAULT (datetime('now'))
-  );
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS categories (
+      id INT PRIMARY KEY AUTO_INCREMENT,
+      user_id INT NOT NULL,
+      name VARCHAR(255) NOT NULL,
+      color VARCHAR(20) NOT NULL,
+      icon VARCHAR(50) NOT NULL DEFAULT 'tag',
+      created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE KEY uniq_categories_user_name (user_id, name),
+      KEY idx_categories_user (user_id),
+      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+  `);
 
-  CREATE TABLE IF NOT EXISTS categories (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    name TEXT NOT NULL,
-    color TEXT NOT NULL,
-    icon TEXT NOT NULL DEFAULT 'tag',
-    created_at TEXT NOT NULL DEFAULT (datetime('now')),
-    UNIQUE(user_id, name)
-  );
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS expenses (
+      id INT PRIMARY KEY AUTO_INCREMENT,
+      user_id INT NOT NULL,
+      category_id INT NULL,
+      item_name VARCHAR(500) NOT NULL,
+      amount DECIMAL(12,2) NOT NULL,
+      currency VARCHAR(10) NOT NULL DEFAULT 'AUD',
+      purchase_date DATE NOT NULL,
+      receipt_path VARCHAR(500) NULL,
+      is_recurring TINYINT(1) NOT NULL DEFAULT 0,
+      frequency VARCHAR(50) NULL,
+      notes TEXT NULL,
+      created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      KEY idx_expenses_user (user_id),
+      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+      FOREIGN KEY (category_id) REFERENCES categories(id) ON DELETE SET NULL
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+  `);
+}
 
-  CREATE TABLE IF NOT EXISTS expenses (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    category_id INTEGER REFERENCES categories(id) ON DELETE SET NULL,
-    item_name TEXT NOT NULL,
-    amount NUMERIC NOT NULL,
-    currency TEXT NOT NULL DEFAULT 'AUD',
-    purchase_date TEXT NOT NULL,
-    receipt_path TEXT,
-    is_recurring INTEGER NOT NULL DEFAULT 0,
-    frequency TEXT,
-    notes TEXT,
-    created_at TEXT NOT NULL DEFAULT (datetime('now'))
-  );
-
-  CREATE INDEX IF NOT EXISTS idx_expenses_user ON expenses(user_id);
-  CREATE INDEX IF NOT EXISTS idx_categories_user ON categories(user_id);
-`);
-
-export default db;
+export default pool;

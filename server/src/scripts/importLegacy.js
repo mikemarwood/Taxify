@@ -15,7 +15,7 @@ import 'dotenv/config';
 import fs from 'fs';
 import path from 'path';
 import xlsx from 'xlsx';
-import db from '../db.js';
+import pool from '../db.js';
 import { hashPassword } from '../auth/password.js';
 import { seedDefaultCategories, DEFAULT_CATEGORIES } from '../seed/defaultCategories.js';
 
@@ -102,45 +102,49 @@ function parseSheetExpenses(rows, fallbackDate) {
   return { recurring, single };
 }
 
-function resolveUser(email, name, password) {
+async function resolveUser(email, name, password) {
   const normalizedEmail = String(email).trim().toLowerCase();
-  let user = db.prepare('SELECT * FROM users WHERE email = ?').get(normalizedEmail);
-  if (user) return user;
+  const [existingRows] = await pool.execute('SELECT * FROM users WHERE email = ?', [normalizedEmail]);
+  if (existingRows[0]) return existingRows[0];
 
   if (!name || !password) {
     throw new Error(`No account exists for ${normalizedEmail} yet — pass a name and password to create one.`);
   }
   const passwordHash = hashPassword(password);
-  const info = db
-    .prepare('INSERT INTO users (email, password_hash, name) VALUES (?, ?, ?)')
-    .run(normalizedEmail, passwordHash, name);
-  seedDefaultCategories(db, info.lastInsertRowid);
-  user = db.prepare('SELECT * FROM users WHERE id = ?').get(info.lastInsertRowid);
+  const [result] = await pool.execute('INSERT INTO users (email, password_hash, name) VALUES (?, ?, ?)', [
+    normalizedEmail,
+    passwordHash,
+    name,
+  ]);
+  await seedDefaultCategories(pool, result.insertId);
+  const [rows] = await pool.execute('SELECT * FROM users WHERE id = ?', [result.insertId]);
   console.log(`Created new account for ${normalizedEmail}`);
-  return user;
+  return rows[0];
 }
 
-function main() {
+async function main() {
   const [, , dir, email, name, password] = process.argv;
   if (!dir || !email) {
     console.error('Usage: node importLegacy.js <path-to-xlsx-dir> <email> [name] [password]');
     process.exit(1);
   }
 
-  const user = resolveUser(email, name, password);
+  const user = await resolveUser(email, name, password);
 
-  let categories = db.prepare('SELECT id, name FROM categories WHERE user_id = ?').all(user.id);
-  const ensureCategory = (categoryName) => {
-    let cat = categories.find((c) => c.name === categoryName);
-    if (cat) return cat.id;
-    const info = db
-      .prepare('INSERT INTO categories (user_id, name, color, icon) VALUES (?, ?, ?, ?)')
-      .run(user.id, categoryName, '#3b82f6', 'briefcase');
-    categories.push({ id: info.lastInsertRowid, name: categoryName });
-    return info.lastInsertRowid;
-  };
+  const [categoryRows] = await pool.execute('SELECT id, name FROM categories WHERE user_id = ?', [user.id]);
+  const categories = categoryRows;
+  async function ensureCategory(categoryName) {
+    const existing = categories.find((c) => c.name === categoryName);
+    if (existing) return existing.id;
+    const [result] = await pool.execute(
+      'INSERT INTO categories (user_id, name, color, icon) VALUES (?, ?, ?, ?)',
+      [user.id, categoryName, '#3b82f6', 'briefcase']
+    );
+    categories.push({ id: result.insertId, name: categoryName });
+    return result.insertId;
+  }
   // make sure defaults exist even for a pre-existing account created before seeding
-  for (const c of DEFAULT_CATEGORIES) ensureCategory(c.name);
+  for (const c of DEFAULT_CATEGORIES) await ensureCategory(c.name);
 
   const files = fs
     .readdirSync(dir)
@@ -150,11 +154,6 @@ function main() {
     console.error(`No "Tax *.xlsx" files found in ${dir}`);
     process.exit(1);
   }
-
-  const insertExpense = db.prepare(
-    `INSERT INTO expenses (user_id, category_id, item_name, amount, currency, purchase_date, is_recurring, frequency)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
-  );
 
   let totalImported = 0;
 
@@ -168,21 +167,36 @@ function main() {
       if (SKIP_SHEETS.has(sheetName)) continue;
 
       const categoryName = CATEGORY_MAP[sheetName] || FALLBACK_CATEGORY;
-      const categoryId = ensureCategory(categoryName);
+      const categoryId = await ensureCategory(categoryName);
       const rows = readSheetRows(workbook, sheetName);
       const { recurring, single } = parseSheetExpenses(rows, fallbackDate);
 
-      const importSheet = db.transaction(() => {
+      const connection = await pool.getConnection();
+      try {
+        await connection.beginTransaction();
         for (const item of recurring) {
-          insertExpense.run(user.id, categoryId, item.itemName, item.amount, 'AUD', fallbackDate, 1, item.frequency);
+          await connection.execute(
+            `INSERT INTO expenses (user_id, category_id, item_name, amount, currency, purchase_date, is_recurring, frequency)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+            [user.id, categoryId, item.itemName, item.amount, 'AUD', fallbackDate, 1, item.frequency]
+          );
           totalImported++;
         }
         for (const item of single) {
-          insertExpense.run(user.id, categoryId, item.itemName, item.amount, item.currency, item.date, 0, null);
+          await connection.execute(
+            `INSERT INTO expenses (user_id, category_id, item_name, amount, currency, purchase_date, is_recurring, frequency)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+            [user.id, categoryId, item.itemName, item.amount, item.currency, item.date, 0, null]
+          );
           totalImported++;
         }
-      });
-      importSheet();
+        await connection.commit();
+      } catch (err) {
+        await connection.rollback();
+        throw err;
+      } finally {
+        connection.release();
+      }
 
       if (recurring.length || single.length) {
         console.log(`  ${sheetName} -> ${categoryName}: ${recurring.length} recurring, ${single.length} single`);
@@ -191,6 +205,10 @@ function main() {
   }
 
   console.log(`\nDone. Imported ${totalImported} expense entries for ${user.email}.`);
+  await pool.end();
 }
 
-main();
+main().catch((err) => {
+  console.error(err);
+  process.exit(1);
+});

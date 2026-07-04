@@ -9,6 +9,7 @@ import { fileURLToPath } from 'url';
 import authRoutes from './routes/auth.routes.js';
 import categoriesRoutes from './routes/categories.routes.js';
 import expensesRoutes from './routes/expenses.routes.js';
+import { ensureSchema } from './db.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
@@ -42,6 +43,14 @@ if (isProd) {
       res.sendFile(path.join(clientDist, 'index.html'));
     });
   }
+}
+
+try {
+  await ensureSchema();
+} catch (err) {
+  console.error('Failed to connect to the database. Check DB_HOST/DB_PORT/DB_USER/DB_PASSWORD/DB_NAME in server/.env');
+  console.error(err);
+  process.exit(1);
 }
 
 app.listen(PORT, () => {
