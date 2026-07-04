@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import pool from '../db.js';
+import pool, { getSetting } from '../db.js';
 import { hashPassword, verifyPassword, isStrongPassword } from '../auth/password.js';
 import { signToken, cookieOptions, COOKIE_NAME } from '../auth/jwt.js';
 import { requireAuth } from '../auth/middleware.js';
@@ -11,6 +11,11 @@ const router = Router();
 router.post(
   '/register',
   asyncHandler(async (req, res) => {
+    const registrationEnabled = await getSetting('registration_enabled');
+    if (registrationEnabled === 'false') {
+      return res.status(403).json({ error: 'Registrations are currently closed' });
+    }
+
     const { email, password, name } = req.body || {};
 
     if (!email || !password || !name) {

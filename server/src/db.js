@@ -81,6 +81,25 @@ export async function ensureSchema() {
       await pool.execute('INSERT INTO default_categories (name, color, icon) VALUES (?, ?, ?)', [c.name, c.color, c.icon]);
     }
   }
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS settings (
+      \`key\` VARCHAR(64) PRIMARY KEY,
+      value VARCHAR(255) NOT NULL
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+  `);
+  await pool.query(`
+    INSERT IGNORE INTO settings (\`key\`, value) VALUES ('registration_enabled', 'true')
+  `);
+}
+
+export async function getSetting(key) {
+  const [rows] = await pool.execute('SELECT value FROM settings WHERE `key` = ?', [key]);
+  return rows[0]?.value ?? null;
+}
+
+export async function setSetting(key, value) {
+  await pool.execute('INSERT INTO settings (`key`, value) VALUES (?, ?) ON DUPLICATE KEY UPDATE value = ?', [key, value, value]);
 }
 
 export default pool;

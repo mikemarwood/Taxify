@@ -74,6 +74,12 @@ export default function Layout({ children }) {
           >
             Log out
           </button>
+          <div style={{ fontSize: 11, color: 'var(--text-muted)', padding: '4px 8px 0', lineHeight: 1.5 }}>
+            © {new Date().getFullYear()} Taxify · Powered by{' '}
+            <a href="https://mikesapphub.com" target="_blank" rel="noreferrer" style={{ color: 'var(--cyan)' }}>
+              Mikes App Hub
+            </a>
+          </div>
         </div>
       </aside>
 

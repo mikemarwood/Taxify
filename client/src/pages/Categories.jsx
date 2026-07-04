@@ -12,6 +12,8 @@ export default function Categories() {
   const [name, setName] = useState('');
   const [color, setColor] = useState(SWATCHES[0]);
   const [busy, setBusy] = useState(false);
+  const [confirmingId, setConfirmingId] = useState(null);
+  const [confirmText, setConfirmText] = useState('');
 
   function load() {
     api.get('/categories').then((res) => setCategories(res.data.categories));
@@ -35,9 +37,20 @@ export default function Categories() {
     }
   }
 
-  async function onDelete(id) {
+  function startDelete(id) {
+    setConfirmingId(id);
+    setConfirmText('');
+  }
+
+  function cancelDelete() {
+    setConfirmingId(null);
+    setConfirmText('');
+  }
+
+  async function confirmDelete(id) {
     try {
       await api.delete(`/categories/${id}`);
+      cancelDelete();
       load();
     } catch (err) {
       toast(err.message, 'error');
@@ -92,13 +105,39 @@ export default function Categories() {
                   gap: 12,
                   padding: '14px 18px',
                   borderBottom: i < categories.length - 1 ? '1px solid var(--border)' : 'none',
+                  flexWrap: 'wrap',
                 }}
               >
                 <div style={{ width: 14, height: 14, borderRadius: '50%', background: c.color }} />
                 <div style={{ flex: 1, fontWeight: 600 }}>{c.name}</div>
-                <button className="btn btn-ghost" style={{ fontSize: 12, padding: '6px 12px' }} onClick={() => onDelete(c.id)}>
-                  Delete
-                </button>
+
+                {confirmingId === c.id ? (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <input
+                      className="input"
+                      autoFocus
+                      placeholder='Type "delete"'
+                      value={confirmText}
+                      onChange={(e) => setConfirmText(e.target.value)}
+                      style={{ width: 130, padding: '6px 10px', fontSize: 12 }}
+                    />
+                    <button
+                      className="btn btn-primary"
+                      style={{ fontSize: 12, padding: '6px 12px', background: 'var(--red)' }}
+                      disabled={confirmText.trim().toLowerCase() !== 'delete'}
+                      onClick={() => confirmDelete(c.id)}
+                    >
+                      Confirm
+                    </button>
+                    <button className="btn btn-ghost" style={{ fontSize: 12, padding: '6px 12px' }} onClick={cancelDelete}>
+                      Cancel
+                    </button>
+                  </div>
+                ) : (
+                  <button className="btn btn-ghost" style={{ fontSize: 12, padding: '6px 12px' }} onClick={() => startDelete(c.id)}>
+                    Delete
+                  </button>
+                )}
               </motion.div>
             ))}
           </AnimatePresence>

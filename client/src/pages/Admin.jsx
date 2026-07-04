@@ -22,9 +22,14 @@ export default function Admin() {
         <button className={tab === 'categories' ? 'btn btn-primary' : 'btn btn-ghost'} onClick={() => setTab('categories')}>
           Default categories
         </button>
+        <button className={tab === 'settings' ? 'btn btn-primary' : 'btn btn-ghost'} onClick={() => setTab('settings')}>
+          Settings
+        </button>
       </div>
 
-      {tab === 'users' ? <UsersTab /> : <DefaultCategoriesTab />}
+      {tab === 'users' && <UsersTab />}
+      {tab === 'categories' && <DefaultCategoriesTab />}
+      {tab === 'settings' && <SettingsTab />}
     </div>
   );
 }
@@ -101,7 +106,12 @@ function UsersTab() {
                 Admin
               </span>
             )}
-            <button className="btn btn-ghost" style={{ fontSize: 12, padding: '6px 12px' }} onClick={() => toggleAdmin(u)}>
+            <button
+              className="btn btn-ghost"
+              style={{ fontSize: 12, padding: '6px 12px' }}
+              onClick={() => toggleAdmin(u)}
+              disabled={u.id === me.id}
+            >
               {u.isAdmin ? 'Demote' : 'Promote'}
             </button>
             <button
@@ -115,6 +125,48 @@ function UsersTab() {
           </motion.div>
         ))}
       </AnimatePresence>
+    </div>
+  );
+}
+
+function SettingsTab() {
+  const toast = useToast();
+  const [registrationEnabled, setRegistrationEnabled] = useState(null);
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    api.get('/admin/settings').then((res) => setRegistrationEnabled(res.data.registrationEnabled));
+  }, []);
+
+  async function toggle() {
+    const next = !registrationEnabled;
+    setBusy(true);
+    try {
+      await api.patch('/admin/settings', { registrationEnabled: next });
+      setRegistrationEnabled(next);
+      toast(next ? 'Registrations are now open' : 'Registrations are now closed', 'success');
+    } catch (err) {
+      toast(err.message, 'error');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  if (registrationEnabled === null) return <SkeletonList rows={1} />;
+
+  return (
+    <div className="card" style={{ padding: 20, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16 }}>
+      <div>
+        <div style={{ fontWeight: 700 }}>New account registration</div>
+        <div style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 2 }}>
+          {registrationEnabled
+            ? 'Anyone can currently create a new Taxify account.'
+            : 'Sign-ups are closed — existing accounts can still log in normally.'}
+        </div>
+      </div>
+      <button className="btn btn-primary" disabled={busy} onClick={toggle} style={{ flexShrink: 0 }}>
+        {registrationEnabled ? 'Turn off' : 'Turn on'}
+      </button>
     </div>
   );
 }

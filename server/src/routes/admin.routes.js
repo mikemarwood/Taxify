@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import pool from '../db.js';
+import pool, { getSetting, setSetting } from '../db.js';
 import { requireAuth, requireAdmin } from '../auth/middleware.js';
 import { asyncHandler } from '../lib/asyncHandler.js';
 
@@ -37,9 +37,8 @@ router.patch(
     const { isAdmin } = req.body || {};
     if (typeof isAdmin !== 'boolean') return res.status(400).json({ error: 'isAdmin must be a boolean' });
 
-    if (targetId === req.user.id && !isAdmin) {
-      const [[{ count }]] = await pool.execute('SELECT COUNT(*) AS count FROM users WHERE is_admin = 1');
-      if (count <= 1) return res.status(400).json({ error: 'You are the only admin — promote someone else first' });
+    if (targetId === req.user.id) {
+      return res.status(400).json({ error: "You can't change your own admin status" });
     }
 
     const [result] = await pool.execute('UPDATE users SET is_admin = ? WHERE id = ?', [isAdmin ? 1 : 0, targetId]);
@@ -88,6 +87,26 @@ router.post(
       }
       throw err;
     }
+  })
+);
+
+router.get(
+  '/settings',
+  asyncHandler(async (req, res) => {
+    const registrationEnabled = await getSetting('registration_enabled');
+    res.json({ registrationEnabled: registrationEnabled !== 'false' });
+  })
+);
+
+router.patch(
+  '/settings',
+  asyncHandler(async (req, res) => {
+    const { registrationEnabled } = req.body || {};
+    if (typeof registrationEnabled !== 'boolean') {
+      return res.status(400).json({ error: 'registrationEnabled must be a boolean' });
+    }
+    await setSetting('registration_enabled', registrationEnabled ? 'true' : 'false');
+    res.json({ ok: true });
   })
 );
 

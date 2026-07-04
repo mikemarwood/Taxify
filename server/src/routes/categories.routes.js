@@ -45,6 +45,16 @@ router.post(
 router.delete(
   '/:id',
   asyncHandler(async (req, res) => {
+    const [[{ count }]] = await pool.execute(
+      'SELECT COUNT(*) AS count FROM expenses WHERE category_id = ? AND user_id = ?',
+      [req.params.id, req.user.id]
+    );
+    if (count > 0) {
+      return res.status(400).json({
+        error: `Cannot delete a category that still has ${count} expense${count === 1 ? '' : 's'} — move or delete them first.`,
+      });
+    }
+
     const [result] = await pool.execute('DELETE FROM categories WHERE id = ? AND user_id = ?', [req.params.id, req.user.id]);
     if (result.affectedRows === 0) return res.status(404).json({ error: 'Category not found' });
     res.json({ ok: true });

@@ -15,13 +15,20 @@ export default function AuthLayout({ title, subtitle, children }) {
       style={{
         minHeight: '100vh',
         display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        padding: 20,
-        gap: 40,
-        flexWrap: 'wrap',
+        flexDirection: 'column',
       }}
     >
+      <div
+        style={{
+          flex: 1,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          padding: 20,
+          gap: 40,
+          flexWrap: 'wrap',
+        }}
+      >
       <motion.div
         initial={{ opacity: 0, x: -16 }}
         animate={{ opacity: 1, x: 0 }}
@@ -59,6 +66,14 @@ export default function AuthLayout({ title, subtitle, children }) {
         <p style={{ fontSize: 14, color: 'var(--text-muted)', margin: '0 0 24px' }}>{subtitle}</p>
         {children}
       </motion.div>
+      </div>
+
+      <div style={{ textAlign: 'center', fontSize: 12, color: 'var(--text-muted)', padding: '16px 20px' }}>
+        © {new Date().getFullYear()} Taxify · Powered by{' '}
+        <a href="https://mikesapphub.com" target="_blank" rel="noreferrer" style={{ color: 'var(--cyan)' }}>
+          Mikes App Hub
+        </a>
+      </div>
     </div>
   );
 }
