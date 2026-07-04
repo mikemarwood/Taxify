@@ -5,7 +5,7 @@ if (!JWT_SECRET) {
   throw new Error('JWT_SECRET is not set. Copy .env.example to .env and set a strong secret.');
 }
 
-const TOKEN_TTL = '7d';
+const TOKEN_TTL = '90d';
 export const COOKIE_NAME = 'taxify_token';
 
 export function signToken(user) {
@@ -25,7 +25,7 @@ export function cookieOptions() {
     httpOnly: true,
     sameSite: 'lax',
     secure: process.env.NODE_ENV === 'production',
-    maxAge: 7 * 24 * 60 * 60 * 1000,
+    maxAge: 90 * 24 * 60 * 60 * 1000,
     path: '/',
   };
 }

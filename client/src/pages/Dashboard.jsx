@@ -7,9 +7,12 @@ import AnimatedNumber from '../components/AnimatedNumber.jsx';
 import CategoryBadge from '../components/CategoryBadge.jsx';
 import { currentFinancialYear } from '../lib/financialYear.js';
 
+const COLLAPSED_ROW_COUNT = 8;
+
 export default function Dashboard() {
   const [expenses, setExpenses] = useState(null);
   const [year, setYear] = useState(null);
+  const [showAll, setShowAll] = useState(false);
 
   useEffect(() => {
     api.get('/expenses').then((res) => {
@@ -43,7 +46,13 @@ export default function Dashboard() {
     return Array.from(map.values()).sort((a, b) => b.total - a.total);
   }, [filtered]);
 
+  useEffect(() => {
+    setShowAll(false);
+  }, [year]);
+
   const loading = expenses === null;
+  const visibleExpenses = showAll ? filtered : filtered.slice(0, COLLAPSED_ROW_COUNT);
+  const hiddenCount = filtered.length - visibleExpenses.length;
 
   return (
     <div>
@@ -96,24 +105,29 @@ export default function Dashboard() {
       )}
 
       {!loading && byCategory.length > 0 && (
-        <div className="card" style={{ padding: 20, marginBottom: 24 }}>
-          <div style={{ fontWeight: 700, marginBottom: 14 }}>Spending by category</div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-            {byCategory.map((c) => (
-              <div key={c.name} style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                <div style={{ width: 110, fontSize: 13, color: 'var(--text-muted)' }}>{c.name}</div>
-                <div style={{ flex: 1, height: 8, background: 'var(--bg-elevated)', borderRadius: 999, overflow: 'hidden' }}>
-                  <motion.div
-                    initial={{ width: 0 }}
-                    animate={{ width: `${(c.total / (byCategory[0].total || 1)) * 100}%` }}
-                    transition={{ duration: 0.6, ease: 'easeOut' }}
-                    style={{ height: '100%', background: c.color, borderRadius: 999 }}
-                  />
+        <div style={{ marginBottom: 24 }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+            <div style={{ fontWeight: 700 }}>Totals by category</div>
+            <Link to="/reports" style={{ fontSize: 12, color: 'var(--cyan)', fontWeight: 600 }}>
+              Compare years →
+            </Link>
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: 10 }}>
+            {byCategory.map((c, i) => (
+              <motion.div
+                key={c.name}
+                className="card"
+                initial={{ opacity: 0, y: 6 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: Math.min(i, 10) * 0.03 }}
+                style={{ padding: '10px 12px' }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: 'var(--text-muted)' }}>
+                  <span style={{ width: 8, height: 8, borderRadius: '50%', background: c.color, flexShrink: 0 }} />
+                  <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.name}</span>
                 </div>
-                <div style={{ width: 90, textAlign: 'right', fontSize: 13, fontWeight: 600 }}>
-                  ${c.total.toFixed(2)}
-                </div>
-              </div>
+                <div style={{ fontSize: 16, fontWeight: 700, marginTop: 4 }}>${c.total.toFixed(2)}</div>
+              </motion.div>
             ))}
           </div>
         </div>
@@ -127,41 +141,70 @@ export default function Dashboard() {
           No expenses yet for this year. <Link to="/add" style={{ color: 'var(--cyan)' }}>Add your first one</Link>.
         </div>
       ) : (
-        <div className="card scrollbar-slim" style={{ overflow: 'hidden' }}>
-          <AnimatePresence initial={false}>
-            {filtered.map((e, i) => (
-              <motion.div
-                key={e.id}
-                initial={{ opacity: 0, y: 8 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: Math.min(i, 10) * 0.02 }}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 14,
-                  padding: '14px 18px',
-                  borderBottom: i < filtered.length - 1 ? '1px solid var(--border)' : 'none',
-                }}
-              >
-                {e.receiptUrl ? (
-                  <a href={e.receiptUrl} target="_blank" rel="noreferrer">
-                    <img src={e.receiptUrl} alt="" style={{ width: 40, height: 40, borderRadius: 10, objectFit: 'cover', border: '1px solid var(--border)' }} onError={(ev) => (ev.target.style.display = 'none')} />
-                  </a>
-                ) : (
-                  <div style={{ width: 40, height: 40, borderRadius: 10, background: 'var(--bg-elevated)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>🧾</div>
-                )}
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{e.itemName}</div>
-                  <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>
-                    {new Date(e.purchaseDate).toLocaleDateString()} {e.isRecurring ? `· ${e.frequency}` : ''}
-                  </div>
-                </div>
-                <CategoryBadge category={e.category} />
-                <div style={{ width: 90, textAlign: 'right', fontWeight: 700 }}>${e.amount.toFixed(2)}</div>
-              </motion.div>
-            ))}
-          </AnimatePresence>
-        </div>
+        <>
+          <div className="card scrollbar-slim" style={{ overflow: 'hidden' }}>
+            <AnimatePresence initial={false}>
+              {visibleExpenses.map((e, i) => (
+                <motion.div
+                  key={e.id}
+                  initial={{ opacity: 0, y: 6 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: Math.min(i, 10) * 0.02 }}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 10,
+                    padding: '8px 16px',
+                    borderBottom: i < visibleExpenses.length - 1 ? '1px solid var(--border)' : 'none',
+                    fontSize: 13,
+                  }}
+                >
+                  <span style={{ width: 78, flexShrink: 0, color: 'var(--text-muted)' }}>
+                    {new Date(e.purchaseDate).toLocaleDateString(undefined, { day: '2-digit', month: 'short' })}
+                  </span>
+                  <span
+                    style={{
+                      flex: 1,
+                      minWidth: 0,
+                      fontWeight: 600,
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                      whiteSpace: 'nowrap',
+                    }}
+                  >
+                    {e.itemName}
+                    {e.isRecurring && <span style={{ color: 'var(--text-muted)', fontWeight: 400 }}> · {e.frequency}</span>}
+                  </span>
+                  <CategoryBadge category={e.category} />
+                  {e.receiptUrl && (
+                    <a href={e.receiptUrl} target="_blank" rel="noreferrer" title="View receipt" style={{ lineHeight: 0 }}>
+                      🧾
+                    </a>
+                  )}
+                  <span style={{ width: 80, textAlign: 'right', fontWeight: 700 }}>${e.amount.toFixed(2)}</span>
+                </motion.div>
+              ))}
+            </AnimatePresence>
+          </div>
+          {hiddenCount > 0 && (
+            <button
+              className="btn btn-ghost"
+              style={{ marginTop: 12, width: '100%', fontSize: 13 }}
+              onClick={() => setShowAll(true)}
+            >
+              View all {filtered.length} expenses
+            </button>
+          )}
+          {showAll && filtered.length > COLLAPSED_ROW_COUNT && (
+            <button
+              className="btn btn-ghost"
+              style={{ marginTop: 12, width: '100%', fontSize: 13 }}
+              onClick={() => setShowAll(false)}
+            >
+              Show less
+            </button>
+          )}
+        </>
       )}
     </div>
   );

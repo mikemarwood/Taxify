@@ -6,6 +6,7 @@ import Register from './pages/Register.jsx';
 import Dashboard from './pages/Dashboard.jsx';
 import AddExpense from './pages/AddExpense.jsx';
 import Categories from './pages/Categories.jsx';
+import Reports from './pages/Reports.jsx';
 
 function Splash() {
   return (
@@ -38,6 +39,7 @@ export default function App() {
       <Route path="/" element={<Protected><Dashboard /></Protected>} />
       <Route path="/add" element={<Protected><AddExpense /></Protected>} />
       <Route path="/categories" element={<Protected><Categories /></Protected>} />
+      <Route path="/reports" element={<Protected><Reports /></Protected>} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );
