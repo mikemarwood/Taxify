@@ -15,9 +15,9 @@ import 'dotenv/config';
 import fs from 'fs';
 import path from 'path';
 import xlsx from 'xlsx';
-import pool from '../db.js';
+import pool, { ensureSchema } from '../db.js';
 import { hashPassword } from '../auth/password.js';
-import { seedDefaultCategories, DEFAULT_CATEGORIES } from '../seed/defaultCategories.js';
+import { seedDefaultCategories } from '../seed/defaultCategories.js';
 
 const CATEGORY_MAP = {
   General: 'General',
@@ -129,6 +129,7 @@ async function main() {
     process.exit(1);
   }
 
+  await ensureSchema();
   const user = await resolveUser(email, name, password);
 
   const [categoryRows] = await pool.execute('SELECT id, name FROM categories WHERE user_id = ?', [user.id]);
@@ -144,7 +145,8 @@ async function main() {
     return result.insertId;
   }
   // make sure defaults exist even for a pre-existing account created before seeding
-  for (const c of DEFAULT_CATEGORIES) await ensureCategory(c.name);
+  const [defaultTemplates] = await pool.execute('SELECT name FROM default_categories');
+  for (const c of defaultTemplates) await ensureCategory(c.name);
 
   const files = fs
     .readdirSync(dir)

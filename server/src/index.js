@@ -9,6 +9,7 @@ import { fileURLToPath } from 'url';
 import authRoutes from './routes/auth.routes.js';
 import categoriesRoutes from './routes/categories.routes.js';
 import expensesRoutes from './routes/expenses.routes.js';
+import adminRoutes from './routes/admin.routes.js';
 import { ensureSchema } from './db.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -25,6 +26,7 @@ if (!isProd) {
 app.use('/api/auth', authRoutes);
 app.use('/api/categories', categoriesRoutes);
 app.use('/api/expenses', expensesRoutes);
+app.use('/api/admin', adminRoutes);
 
 // eslint-disable-next-line no-unused-vars
 app.use((err, req, res, next) => {

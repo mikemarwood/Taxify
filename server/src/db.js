@@ -1,4 +1,5 @@
 import mysql from 'mysql2/promise';
+import { INITIAL_DEFAULT_CATEGORIES } from './seed/defaultCategories.js';
 
 const pool = mysql.createPool({
   host: process.env.DB_HOST || 'localhost',
@@ -18,9 +19,15 @@ export async function ensureSchema() {
       email VARCHAR(255) NOT NULL,
       password_hash VARCHAR(255) NOT NULL,
       name VARCHAR(255) NOT NULL,
+      is_admin TINYINT(1) NOT NULL DEFAULT 0,
       created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
       UNIQUE KEY uniq_users_email (email)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+  `);
+  // Adds is_admin to a users table that already existed before this column
+  // was introduced. MariaDB supports IF NOT EXISTS on ADD COLUMN.
+  await pool.query(`
+    ALTER TABLE users ADD COLUMN IF NOT EXISTS is_admin TINYINT(1) NOT NULL DEFAULT 0
   `);
 
   await pool.query(`
@@ -56,6 +63,24 @@ export async function ensureSchema() {
       FOREIGN KEY (category_id) REFERENCES categories(id) ON DELETE SET NULL
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
   `);
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS default_categories (
+      id INT PRIMARY KEY AUTO_INCREMENT,
+      name VARCHAR(255) NOT NULL,
+      color VARCHAR(20) NOT NULL,
+      icon VARCHAR(50) NOT NULL DEFAULT 'tag',
+      created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE KEY uniq_default_categories_name (name)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+  `);
+
+  const [existing] = await pool.query('SELECT COUNT(*) AS count FROM default_categories');
+  if (existing[0].count === 0) {
+    for (const c of INITIAL_DEFAULT_CATEGORIES) {
+      await pool.execute('INSERT INTO default_categories (name, color, icon) VALUES (?, ?, ?)', [c.name, c.color, c.icon]);
+    }
+  }
 }
 
 export default pool;

@@ -35,7 +35,7 @@ export default function Layout({ children }) {
         </div>
 
         <nav style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-          {navItems.map((item) => (
+          {[...navItems, ...(user?.isAdmin ? [{ to: '/admin', label: 'Admin', icon: '🛠️' }] : [])].map((item) => (
             <NavLink
               key={item.to}
               to={item.to}
