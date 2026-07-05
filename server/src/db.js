@@ -29,6 +29,9 @@ export async function ensureSchema() {
   await pool.query(`
     ALTER TABLE users ADD COLUMN IF NOT EXISTS is_admin TINYINT(1) NOT NULL DEFAULT 0
   `);
+  await pool.query(`
+    ALTER TABLE users ADD COLUMN IF NOT EXISTS avatar_path VARCHAR(500) NULL
+  `);
 
   await pool.query(`
     CREATE TABLE IF NOT EXISTS categories (

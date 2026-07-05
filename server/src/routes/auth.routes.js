@@ -1,10 +1,34 @@
 import { Router } from 'express';
+import multer from 'multer';
+import path from 'path';
+import fs from 'fs';
+import { fileURLToPath } from 'url';
 import pool, { getSetting } from '../db.js';
 import { hashPassword, verifyPassword, isStrongPassword } from '../auth/password.js';
 import { signToken, cookieOptions, COOKIE_NAME } from '../auth/jwt.js';
 import { requireAuth } from '../auth/middleware.js';
 import { seedDefaultCategories } from '../seed/defaultCategories.js';
 import { asyncHandler } from '../lib/asyncHandler.js';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const avatarsDir = path.join(__dirname, '..', '..', 'uploads', 'avatars');
+if (!fs.existsSync(avatarsDir)) fs.mkdirSync(avatarsDir, { recursive: true });
+
+const ALLOWED_AVATAR_MIME = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/gif']);
+const avatarUpload = multer({
+  storage: multer.diskStorage({
+    destination: (req, file, cb) => cb(null, avatarsDir),
+    filename: (req, file, cb) => {
+      const ext = path.extname(file.originalname).toLowerCase();
+      cb(null, `${req.user.id}-${Date.now()}${ext}`);
+    },
+  }),
+  limits: { fileSize: 5 * 1024 * 1024 },
+  fileFilter: (req, file, cb) => {
+    if (!ALLOWED_AVATAR_MIME.has(file.mimetype)) return cb(new Error('Unsupported file type'));
+    cb(null, true);
+  },
+});
 
 const router = Router();
 
@@ -49,7 +73,7 @@ router.post(
     const user = { id: userId, email: normalizedEmail, name };
     const token = signToken(user);
     res.cookie(COOKIE_NAME, token, cookieOptions());
-    res.status(201).json({ user: { id: user.id, email: user.email, name: user.name, isAdmin: false } });
+    res.status(201).json({ user: { id: user.id, email: user.email, name: user.name, isAdmin: false, avatarUrl: null } });
   })
 );
 
@@ -68,7 +92,15 @@ router.post(
 
     const token = signToken(user);
     res.cookie(COOKIE_NAME, token, cookieOptions());
-    res.json({ user: { id: user.id, email: user.email, name: user.name, isAdmin: !!user.is_admin } });
+    res.json({
+      user: {
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        isAdmin: !!user.is_admin,
+        avatarUrl: user.avatar_path ? `/api/auth/avatar/${user.id}` : null,
+      },
+    });
   })
 );
 
@@ -80,5 +112,36 @@ router.post('/logout', (req, res) => {
 router.get('/me', requireAuth, (req, res) => {
   res.json({ user: req.user });
 });
+
+router.post(
+  '/avatar',
+  requireAuth,
+  avatarUpload.single('avatar'),
+  asyncHandler(async (req, res) => {
+    if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
+
+    const [rows] = await pool.execute('SELECT avatar_path FROM users WHERE id = ?', [req.user.id]);
+    const previousPath = rows[0]?.avatar_path;
+
+    await pool.execute('UPDATE users SET avatar_path = ? WHERE id = ?', [req.file.filename, req.user.id]);
+
+    if (previousPath) {
+      fs.unlink(path.join(avatarsDir, previousPath), () => {});
+    }
+
+    res.json({ avatarUrl: `/api/auth/avatar/${req.user.id}` });
+  })
+);
+
+router.get(
+  '/avatar/:id',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const [rows] = await pool.execute('SELECT avatar_path FROM users WHERE id = ?', [req.params.id]);
+    const row = rows[0];
+    if (!row || !row.avatar_path) return res.status(404).json({ error: 'No avatar' });
+    res.sendFile(path.join(avatarsDir, row.avatar_path));
+  })
+);
 
 export default router;

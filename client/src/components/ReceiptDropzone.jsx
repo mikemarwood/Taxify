@@ -4,9 +4,10 @@ import { motion, AnimatePresence } from 'framer-motion';
 const RADIUS = 26;
 const CIRCUMFERENCE = 2 * Math.PI * RADIUS;
 
-export default function ReceiptDropzone({ file, onFileChange, uploadProgress, uploading }) {
+export default function ReceiptDropzone({ file, onFileChange, uploadProgress, status = 'idle', errorMessage }) {
   const [dragOver, setDragOver] = useState(false);
   const inputRef = useRef(null);
+  const busy = status === 'uploading';
 
   const handleFiles = useCallback(
     (files) => {
@@ -29,16 +30,16 @@ export default function ReceiptDropzone({ file, onFileChange, uploadProgress, up
       onDrop={(e) => {
         e.preventDefault();
         setDragOver(false);
-        handleFiles(e.dataTransfer.files);
+        if (!busy) handleFiles(e.dataTransfer.files);
       }}
-      onClick={() => !uploading && inputRef.current?.click()}
+      onClick={() => !busy && inputRef.current?.click()}
       style={{
-        border: `2px dashed ${dragOver ? 'var(--violet)' : 'var(--border)'}`,
+        border: `2px dashed ${status === 'error' ? 'var(--red)' : dragOver ? 'var(--violet)' : 'var(--border)'}`,
         borderRadius: 16,
         padding: 28,
         textAlign: 'center',
-        cursor: uploading ? 'default' : 'pointer',
-        background: dragOver ? 'rgba(139, 92, 246, 0.08)' : 'var(--bg-elevated)',
+        cursor: busy ? 'default' : 'pointer',
+        background: status === 'error' ? 'rgba(239, 68, 68, 0.06)' : dragOver ? 'rgba(139, 92, 246, 0.08)' : 'var(--bg-elevated)',
         transition: 'border-color 0.2s ease, background 0.2s ease',
         position: 'relative',
       }}
@@ -52,7 +53,7 @@ export default function ReceiptDropzone({ file, onFileChange, uploadProgress, up
       />
 
       <AnimatePresence mode="wait">
-        {uploading ? (
+        {status === 'uploading' ? (
           <motion.div key="uploading" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
             <svg width="64" height="64" viewBox="0 0 64 64" style={{ margin: '0 auto', display: 'block' }}>
               <circle className="progress-ring-track" cx="32" cy="32" r={RADIUS} strokeWidth="5" />
@@ -78,6 +79,17 @@ export default function ReceiptDropzone({ file, onFileChange, uploadProgress, up
               </text>
             </svg>
             <p style={{ marginTop: 12, color: 'var(--text-muted)', fontSize: 13 }}>Uploading receipt…</p>
+          </motion.div>
+        ) : status === 'success' ? (
+          <motion.div key="success" initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0 }}>
+            <div style={{ fontSize: 40, color: 'var(--emerald)' }}>✓</div>
+            <p style={{ marginTop: 10, fontSize: 13, color: 'var(--text-muted)' }}>Receipt uploaded</p>
+          </motion.div>
+        ) : status === 'error' ? (
+          <motion.div key="error" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+            <div style={{ fontSize: 40, color: 'var(--red)' }}>⚠</div>
+            <p style={{ marginTop: 10, fontWeight: 600, color: 'var(--red)' }}>Upload failed</p>
+            <p style={{ marginTop: 4, fontSize: 12, color: 'var(--text-muted)' }}>{errorMessage || 'Something went wrong — try again.'}</p>
           </motion.div>
         ) : file ? (
           <motion.div key="preview" initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0 }}>

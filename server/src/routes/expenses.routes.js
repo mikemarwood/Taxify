@@ -15,11 +15,19 @@ if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir, { recursive: true });
 
 const ALLOWED_MIME = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'application/pdf']);
 
+function userReceiptsDir(userId) {
+  return path.join(uploadsDir, String(userId));
+}
+
 const storage = multer.diskStorage({
-  destination: (req, file, cb) => cb(null, uploadsDir),
+  destination: (req, file, cb) => {
+    const dir = userReceiptsDir(req.user.id);
+    fs.mkdirSync(dir, { recursive: true });
+    cb(null, dir);
+  },
   filename: (req, file, cb) => {
     const ext = path.extname(file.originalname).toLowerCase();
-    cb(null, `${req.user.id}-${Date.now()}-${crypto.randomBytes(6).toString('hex')}${ext}`);
+    cb(null, `${Date.now()}-${crypto.randomBytes(6).toString('hex')}${ext}`);
   },
 });
 
@@ -76,9 +84,12 @@ router.post(
     const { itemName, amount, currency, purchaseDate, categoryId, notes, isRecurring, frequency } = req.body || {};
 
     if (!itemName || !String(itemName).trim()) return res.status(400).json({ error: 'Item name is required' });
+    if (String(itemName).trim().length > 200) return res.status(400).json({ error: 'Item name must be 200 characters or fewer' });
     const amountNum = Number(amount);
     if (!Number.isFinite(amountNum) || amountNum <= 0) return res.status(400).json({ error: 'A valid amount is required' });
+    if (amountNum > 999999.99) return res.status(400).json({ error: 'Amount is too large' });
     if (!purchaseDate) return res.status(400).json({ error: 'Purchase date is required' });
+    if (notes && String(notes).length > 1000) return res.status(400).json({ error: 'Notes must be 1000 characters or fewer' });
 
     if (categoryId) {
       const [categoryRows] = await pool.execute('SELECT id FROM categories WHERE id = ? AND user_id = ?', [
@@ -120,7 +131,7 @@ router.get(
     ]);
     const row = rows[0];
     if (!row || !row.receipt_path) return res.status(404).json({ error: 'Receipt not found' });
-    res.sendFile(path.join(uploadsDir, row.receipt_path));
+    res.sendFile(path.join(userReceiptsDir(req.user.id), row.receipt_path));
   })
 );
 
@@ -136,7 +147,7 @@ router.delete(
 
     await pool.execute('DELETE FROM expenses WHERE id = ? AND user_id = ?', [req.params.id, req.user.id]);
     if (row.receipt_path) {
-      const filePath = path.join(uploadsDir, row.receipt_path);
+      const filePath = path.join(userReceiptsDir(req.user.id), row.receipt_path);
       fs.unlink(filePath, () => {});
     }
     res.json({ ok: true });

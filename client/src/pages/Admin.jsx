@@ -12,7 +12,7 @@ export default function Admin() {
 
   return (
     <div style={{ maxWidth: 760 }}>
-      <h1 style={{ margin: '0 0 4px', fontSize: 26 }}>Admin</h1>
+      <h1 style={{ margin: '0 0 4px', fontSize: 26 }}>Administration</h1>
       <p style={{ color: 'var(--text-muted)', margin: '0 0 24px' }}>Manage user accounts and the default category template.</p>
 
       <div style={{ display: 'flex', gap: 8, marginBottom: 20 }}>
@@ -103,25 +103,27 @@ function UsersTab() {
                   background: 'rgba(139, 92, 246, 0.15)',
                 }}
               >
-                Admin
+                Administrator
               </span>
             )}
-            <button
-              className="btn btn-ghost"
-              style={{ fontSize: 12, padding: '6px 12px' }}
-              onClick={() => toggleAdmin(u)}
-              disabled={u.id === me.id}
-            >
-              {u.isAdmin ? 'Demote' : 'Promote'}
-            </button>
-            <button
-              className="btn btn-ghost"
-              style={{ fontSize: 12, padding: '6px 12px' }}
-              onClick={() => deleteUser(u)}
-              disabled={u.id === me.id}
-            >
-              Delete
-            </button>
+            {u.id !== me.id && (
+              <>
+                <button
+                  className="btn btn-ghost"
+                  style={{ fontSize: 12, padding: '6px 12px' }}
+                  onClick={() => toggleAdmin(u)}
+                >
+                  {u.isAdmin ? 'Demote' : 'Promote'}
+                </button>
+                <button
+                  className="btn btn-ghost"
+                  style={{ fontSize: 12, padding: '6px 12px' }}
+                  onClick={() => deleteUser(u)}
+                >
+                  Delete
+                </button>
+              </>
+            )}
           </motion.div>
         ))}
       </AnimatePresence>

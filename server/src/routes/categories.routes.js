@@ -2,6 +2,7 @@ import { Router } from 'express';
 import pool from '../db.js';
 import { requireAuth } from '../auth/middleware.js';
 import { asyncHandler } from '../lib/asyncHandler.js';
+import { toTitleCase } from '../lib/text.js';
 
 const router = Router();
 router.use(requireAuth);
@@ -29,7 +30,7 @@ router.post(
     try {
       const [result] = await pool.execute(
         'INSERT INTO categories (user_id, name, color, icon) VALUES (?, ?, ?, ?)',
-        [req.user.id, String(name).trim(), finalColor, icon || 'tag']
+        [req.user.id, toTitleCase(String(name).trim()), finalColor, icon || 'tag']
       );
       const [rows] = await pool.execute('SELECT id, name, color, icon FROM categories WHERE id = ?', [result.insertId]);
       res.status(201).json({ category: rows[0] });

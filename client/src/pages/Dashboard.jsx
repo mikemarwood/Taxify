@@ -108,8 +108,22 @@ export default function Dashboard() {
         <div style={{ marginBottom: 24 }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
             <div style={{ fontWeight: 700 }}>Totals by category</div>
-            <Link to="/reports" style={{ fontSize: 12, color: 'var(--cyan)', fontWeight: 600 }}>
-              Compare years →
+            <Link
+              to="/reports"
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 6,
+                fontSize: 12,
+                fontWeight: 600,
+                color: 'var(--cyan)',
+                textDecoration: 'none',
+                padding: '6px 12px',
+                borderRadius: 999,
+                border: '1px solid var(--border)',
+              }}
+            >
+              Compare years <span aria-hidden="true">→</span>
             </Link>
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: 10 }}>

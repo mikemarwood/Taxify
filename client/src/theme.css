@@ -61,6 +61,7 @@ button, input, select, textarea {
   font-weight: 600;
   font-size: 14px;
   cursor: pointer;
+  text-decoration: none;
   transition: transform 0.15s ease, box-shadow 0.15s ease, filter 0.15s ease;
 }
 .btn:active { transform: scale(0.97); }
@@ -94,6 +95,22 @@ button, input, select, textarea {
 .input:focus {
   border-color: var(--violet);
   box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.2);
+}
+
+/* Keep browser autofill (e.g. saved passwords) from forcing a light background */
+.input:-webkit-autofill,
+.input:-webkit-autofill:hover,
+.input:-webkit-autofill:focus {
+  -webkit-text-fill-color: var(--text);
+  -webkit-box-shadow: 0 0 0 1000px var(--bg-elevated) inset;
+  caret-color: var(--text);
+  transition: background-color 9999s ease-in-out 0s;
+}
+
+/* Invert the date picker indicator so it's visible on a dark background */
+input[type="date"].input::-webkit-calendar-picker-indicator {
+  filter: invert(1) brightness(1.3);
+  cursor: pointer;
 }
 
 .label {

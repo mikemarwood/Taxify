@@ -1,6 +1,10 @@
+import { useRef, useState } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { useAuth } from '../lib/AuthContext.jsx';
+import { useToast } from './Toast.jsx';
+import { api } from '../lib/api.js';
+import Avatar from './Avatar.jsx';
 
 const navItems = [
   { to: '/', label: 'Dashboard', icon: '📊' },
@@ -10,8 +14,30 @@ const navItems = [
 ];
 
 export default function Layout({ children }) {
-  const { user, logout } = useAuth();
+  const { user, logout, setUser } = useAuth();
   const navigate = useNavigate();
+  const toast = useToast();
+  const avatarInputRef = useRef(null);
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
+
+  async function onAvatarChange(e) {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+    setUploadingAvatar(true);
+    const form = new FormData();
+    form.append('avatar', file);
+    try {
+      const res = await api.post('/auth/avatar', form, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      });
+      setUser((u) => ({ ...u, avatarUrl: `${res.data.avatarUrl}?t=${Date.now()}` }));
+    } catch (err) {
+      toast(err.message, 'error');
+    } finally {
+      setUploadingAvatar(false);
+    }
+  }
 
   return (
     <div style={{ minHeight: '100vh', display: 'flex' }}>
@@ -35,7 +61,7 @@ export default function Layout({ children }) {
         </div>
 
         <nav style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-          {[...navItems, ...(user?.isAdmin ? [{ to: '/admin', label: 'Admin', icon: '🛠️' }] : [])].map((item) => (
+          {[...navItems, ...(user?.isAdmin ? [{ to: '/admin', label: 'Administration', icon: '🛠️' }] : [])].map((item) => (
             <NavLink
               key={item.to}
               to={item.to}
@@ -60,9 +86,39 @@ export default function Layout({ children }) {
         </nav>
 
         <div style={{ marginTop: 'auto', display: 'flex', flexDirection: 'column', gap: 10 }}>
-          <div style={{ fontSize: 13, color: 'var(--text-muted)', padding: '0 8px' }}>
-            Signed in as
-            <div style={{ color: 'var(--text)', fontWeight: 600 }}>{user?.name}</div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '0 8px' }}>
+            <button
+              type="button"
+              onClick={() => avatarInputRef.current?.click()}
+              disabled={uploadingAvatar}
+              title="Change avatar"
+              style={{
+                border: 'none',
+                background: 'none',
+                padding: 0,
+                lineHeight: 0,
+                borderRadius: '50%',
+                cursor: uploadingAvatar ? 'default' : 'pointer',
+                opacity: uploadingAvatar ? 0.6 : 1,
+              }}
+            >
+              <Avatar name={user?.name} avatarUrl={user?.avatarUrl} size={36} />
+            </button>
+            <input ref={avatarInputRef} type="file" accept="image/*" hidden onChange={onAvatarChange} />
+            <div style={{ fontSize: 13, color: 'var(--text-muted)', minWidth: 0 }}>
+              Signed in as
+              <div
+                style={{
+                  color: 'var(--text)',
+                  fontWeight: 600,
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  whiteSpace: 'nowrap',
+                }}
+              >
+                {user?.name}
+              </div>
+            </div>
           </div>
           <button
             className="btn btn-ghost"

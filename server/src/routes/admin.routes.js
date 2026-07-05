@@ -2,6 +2,7 @@ import { Router } from 'express';
 import pool, { getSetting, setSetting } from '../db.js';
 import { requireAuth, requireAdmin } from '../auth/middleware.js';
 import { asyncHandler } from '../lib/asyncHandler.js';
+import { toTitleCase } from '../lib/text.js';
 
 const router = Router();
 router.use(requireAuth, requireAdmin);
@@ -12,7 +13,7 @@ router.get(
   '/users',
   asyncHandler(async (req, res) => {
     const [users] = await pool.execute(
-      `SELECT u.id, u.name, u.email, u.is_admin, u.created_at,
+      `SELECT u.id, u.name, u.email, u.is_admin, u.avatar_path, u.created_at,
               (SELECT COUNT(*) FROM expenses e WHERE e.user_id = u.id) AS expense_count
        FROM users u
        ORDER BY u.created_at`
@@ -23,6 +24,7 @@ router.get(
         name: u.name,
         email: u.email,
         isAdmin: !!u.is_admin,
+        avatarUrl: u.avatar_path ? `/api/auth/avatar/${u.id}` : null,
         createdAt: u.created_at,
         expenseCount: u.expense_count,
       })),
@@ -77,7 +79,7 @@ router.post(
     try {
       const [result] = await pool.execute(
         'INSERT INTO default_categories (name, color, icon) VALUES (?, ?, ?)',
-        [String(name).trim(), finalColor, icon || 'tag']
+        [toTitleCase(String(name).trim()), finalColor, icon || 'tag']
       );
       const [rows] = await pool.execute('SELECT id, name, color, icon FROM default_categories WHERE id = ?', [result.insertId]);
       res.status(201).json({ category: rows[0] });
