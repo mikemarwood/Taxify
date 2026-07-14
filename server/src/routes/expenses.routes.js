@@ -152,6 +152,104 @@ router.post(
   })
 );
 
+router.patch(
+  '/:id',
+  upload.single('receipt'),
+  asyncHandler(async (req, res) => {
+    const cleanupUpload = () => {
+      if (req.file) fs.unlink(req.file.path, () => {});
+    };
+
+    try {
+      const [existingRows] = await pool.execute('SELECT * FROM expenses WHERE id = ? AND user_id = ?', [
+        req.params.id,
+        req.user.id,
+      ]);
+      const existing = existingRows[0];
+      if (!existing) {
+        cleanupUpload();
+        return res.status(404).json({ error: 'Expense not found' });
+      }
+
+      const { itemName, amount, currency, purchaseDate, categoryId, notes, isRecurring, frequency, removeReceipt } = req.body || {};
+
+      if (!itemName || !String(itemName).trim()) {
+        cleanupUpload();
+        return res.status(400).json({ error: 'Item name is required' });
+      }
+      if (String(itemName).trim().length > 200) {
+        cleanupUpload();
+        return res.status(400).json({ error: 'Item name must be 200 characters or fewer' });
+      }
+      const amountNum = Number(amount);
+      if (!Number.isFinite(amountNum) || amountNum <= 0) {
+        cleanupUpload();
+        return res.status(400).json({ error: 'A valid amount is required' });
+      }
+      if (amountNum > 999999.99) {
+        cleanupUpload();
+        return res.status(400).json({ error: 'Amount is too large' });
+      }
+      if (!purchaseDate) {
+        cleanupUpload();
+        return res.status(400).json({ error: 'Purchase date is required' });
+      }
+      if (notes && String(notes).length > 1000) {
+        cleanupUpload();
+        return res.status(400).json({ error: 'Notes must be 1000 characters or fewer' });
+      }
+
+      if (categoryId) {
+        const [categoryRows] = await pool.execute('SELECT id FROM categories WHERE id = ? AND user_id = ?', [
+          categoryId,
+          req.user.id,
+        ]);
+        if (categoryRows.length === 0) {
+          cleanupUpload();
+          return res.status(400).json({ error: 'Invalid category' });
+        }
+      }
+
+      let receiptPath = existing.receipt_path;
+      let oldReceiptToDelete = null;
+      if (req.file) {
+        if (existing.receipt_path) oldReceiptToDelete = existing.receipt_path;
+        receiptPath = req.file.filename;
+      } else if (removeReceipt === 'true' || removeReceipt === true) {
+        if (existing.receipt_path) oldReceiptToDelete = existing.receipt_path;
+        receiptPath = null;
+      }
+
+      await pool.execute(
+        `UPDATE expenses SET category_id = ?, item_name = ?, amount = ?, currency = ?, purchase_date = ?, receipt_path = ?, is_recurring = ?, frequency = ?, notes = ?
+         WHERE id = ? AND user_id = ?`,
+        [
+          categoryId || null,
+          String(itemName).trim(),
+          amountNum,
+          currency || existing.currency || 'AUD',
+          purchaseDate,
+          receiptPath,
+          isRecurring === 'true' || isRecurring === true ? 1 : 0,
+          frequency || null,
+          notes || null,
+          req.params.id,
+          req.user.id,
+        ]
+      );
+
+      if (oldReceiptToDelete) {
+        fs.unlink(path.join(userReceiptsDir(req.user.id), oldReceiptToDelete), () => {});
+      }
+
+      res.json({ ok: true });
+    } catch (err) {
+      cleanupUpload();
+      throw err;
+    }
+  })
+);
+
 router.get(
   '/:id/receipt',
   asyncHandler(async (req, res) => {

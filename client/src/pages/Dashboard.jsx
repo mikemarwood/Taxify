@@ -5,6 +5,7 @@ import { api } from '../lib/api.js';
 import { SkeletonList, SkeletonStat } from '../components/Skeletons.jsx';
 import AnimatedNumber from '../components/AnimatedNumber.jsx';
 import CategoryBadge from '../components/CategoryBadge.jsx';
+import ExpenseModal from '../components/ExpenseModal.jsx';
 import { currentFinancialYear } from '../lib/financialYear.js';
 
 const COLLAPSED_ROW_COUNT = 8;
@@ -13,13 +14,16 @@ export default function Dashboard() {
   const [expenses, setExpenses] = useState(null);
   const [year, setYear] = useState(null);
   const [showAll, setShowAll] = useState(false);
+  const [selectedExpense, setSelectedExpense] = useState(null);
 
-  useEffect(() => {
+  function load() {
     api.get('/expenses').then((res) => {
       setExpenses(res.data.expenses);
-      setYear(currentFinancialYear());
+      setYear((y) => y || currentFinancialYear());
     });
-  }, []);
+  }
+
+  useEffect(load, []);
 
   const filtered = useMemo(() => {
     if (!expenses) return [];
@@ -149,6 +153,7 @@ export default function Dashboard() {
                   initial={{ opacity: 0, y: 6 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: Math.min(i, 10) * 0.02 }}
+                  onClick={() => setSelectedExpense(e)}
                   style={{
                     display: 'flex',
                     alignItems: 'center',
@@ -156,6 +161,7 @@ export default function Dashboard() {
                     padding: '8px 16px',
                     borderBottom: i < visibleExpenses.length - 1 ? '1px solid var(--border)' : 'none',
                     fontSize: 13,
+                    cursor: 'pointer',
                   }}
                 >
                   <span style={{ width: 78, flexShrink: 0, color: 'var(--text-muted)' }}>
@@ -176,7 +182,14 @@ export default function Dashboard() {
                   </span>
                   <CategoryBadge category={e.category} />
                   {e.receiptUrl && (
-                    <a href={e.receiptUrl} target="_blank" rel="noreferrer" title="View receipt" style={{ lineHeight: 0 }}>
+                    <a
+                      href={e.receiptUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      title="View receipt"
+                      style={{ lineHeight: 0 }}
+                      onClick={(evt) => evt.stopPropagation()}
+                    >
                       🧾
                     </a>
                   )}
@@ -204,6 +217,21 @@ export default function Dashboard() {
             </button>
           )}
         </>
+      )}
+
+      {selectedExpense && (
+        <ExpenseModal
+          expense={selectedExpense}
+          onClose={() => setSelectedExpense(null)}
+          onSaved={() => {
+            setSelectedExpense(null);
+            load();
+          }}
+          onDeleted={() => {
+            setSelectedExpense(null);
+            load();
+          }}
+        />
       )}
     </div>
   );
