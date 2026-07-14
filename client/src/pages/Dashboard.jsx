@@ -34,6 +34,17 @@ export default function Dashboard() {
 
   const total = filtered.reduce((sum, e) => sum + e.amount, 0);
 
+  const thisMonthTotal = useMemo(() => {
+    if (!expenses) return 0;
+    const now = new Date();
+    return expenses
+      .filter((e) => {
+        const d = new Date(e.purchaseDate);
+        return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+      })
+      .reduce((sum, e) => sum + e.amount, 0);
+  }, [expenses]);
+
   const byCategory = useMemo(() => {
     const map = new Map();
     for (const e of filtered) {
@@ -82,6 +93,7 @@ export default function Dashboard() {
           <SkeletonStat />
           <SkeletonStat />
           <SkeletonStat />
+          <SkeletonStat />
         </div>
       ) : (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 16, marginBottom: 24 }}>
@@ -92,10 +104,16 @@ export default function Dashboard() {
             </div>
           </motion.div>
           <motion.div className="card" style={{ padding: 20 }} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }}>
+            <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>Claimed this month</div>
+            <div style={{ fontSize: 26, fontWeight: 800, marginTop: 6 }}>
+              <AnimatedNumber value={thisMonthTotal} />
+            </div>
+          </motion.div>
+          <motion.div className="card" style={{ padding: 20 }} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
             <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>Entries</div>
             <div style={{ fontSize: 26, fontWeight: 800, marginTop: 6 }}>{filtered.length}</div>
           </motion.div>
-          <motion.div className="card" style={{ padding: 20 }} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
+          <motion.div className="card" style={{ padding: 20 }} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }}>
             <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>Top category</div>
             <div style={{ fontSize: 18, fontWeight: 700, marginTop: 6, color: byCategory[0]?.color }}>
               {byCategory[0]?.name || '—'}

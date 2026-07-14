@@ -2,27 +2,18 @@
   <defs>
     <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
       <stop offset="0%" stop-color="#2563eb"/>
-      <stop offset="50%" stop-color="#3b82f6"/>
+      <stop offset="55%" stop-color="#3b82f6"/>
       <stop offset="100%" stop-color="#06b6d4"/>
-    </linearGradient>
-    <linearGradient id="mark" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#fdf4ff"/>
-      <stop offset="100%" stop-color="#ecfeff"/>
     </linearGradient>
   </defs>
 
-  <rect x="4" y="4" width="120" height="120" rx="28" fill="#0a0f18"/>
-  <rect x="4" y="4" width="120" height="120" rx="28" fill="url(#bg)" fill-opacity="0.92"/>
+  <rect x="4" y="4" width="120" height="120" rx="26" fill="#0a0f18"/>
+  <rect x="4" y="4" width="120" height="120" rx="26" fill="url(#bg)" fill-opacity="0.95"/>
 
-  <!-- receipt -->
-  <path d="M40 22 h48 a4 4 0 0 1 4 4 v76 l-7-6 -7 6 -7-6 -7 6 -7-6 -7 6 -7-6 -7 6 V26 a4 4 0 0 1 4-4 z"
-        fill="url(#mark)" opacity="0.97"/>
+  <!-- T monogram -->
+  <rect x="36" y="38" width="56" height="13" rx="6.5" fill="#f8fafc"/>
+  <rect x="57.5" y="38" width="13" height="54" rx="6.5" fill="#f8fafc"/>
 
-  <!-- lines -->
-  <rect x="50" y="38" width="28" height="5" rx="2.5" fill="#93c5fd"/>
-  <rect x="50" y="50" width="20" height="5" rx="2.5" fill="#67e8f9"/>
-
-  <!-- dollar coin -->
-  <circle cx="64" cy="76" r="17" fill="#38bdf8"/>
-  <text x="64" y="83" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="20" font-weight="700" fill="#0a0f18">$</text>
+  <!-- accent -->
+  <circle cx="82" cy="90" r="7" fill="#67e8f9"/>
 </svg>

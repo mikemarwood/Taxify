@@ -1,5 +1,6 @@
 import { createContext, useCallback, useContext, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
+import { playSuccess, playError, playInfo } from '../lib/sounds.js';
 
 const ToastContext = createContext(null);
 
@@ -10,6 +11,10 @@ export function ToastProvider({ children }) {
     const id = Math.random().toString(36).slice(2);
     setToasts((t) => [...t, { id, message, type }]);
     setTimeout(() => setToasts((t) => t.filter((x) => x.id !== id)), 3800);
+
+    if (type === 'success') playSuccess();
+    else if (type === 'error') playError();
+    else playInfo();
   }, []);
 
   return (
