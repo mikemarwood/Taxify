@@ -53,7 +53,7 @@ export default function OtpOnboardingModal({ onClose }) {
           <div style={{ fontSize: 28, marginBottom: 8 }}>🔐</div>
           <h2 style={{ fontSize: 20, margin: '0 0 6px' }}>Add an extra layer of security?</h2>
           <p style={{ fontSize: 14, color: 'var(--text-muted)', margin: '0 0 20px' }}>
-            Turn on email login codes (OTP) to protect your account. Here's what it does:
+            Turn on email login codes (MFA) to protect your account. Here's what it does:
           </p>
           <OtpBenefits />
           <div style={{ display: 'flex', gap: 10 }}>

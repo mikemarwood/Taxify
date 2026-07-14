@@ -33,7 +33,7 @@ const storage = multer.diskStorage({
 
 const upload = multer({
   storage,
-  limits: { fileSize: 15 * 1024 * 1024 },
+  limits: { fileSize: 5 * 1024 * 1024 },
   fileFilter: (req, file, cb) => {
     if (!ALLOWED_MIME.has(file.mimetype)) return cb(new Error('Unsupported file type'));
     cb(null, true);
@@ -81,44 +81,74 @@ router.post(
   '/',
   upload.single('receipt'),
   asyncHandler(async (req, res) => {
-    const { itemName, amount, currency, purchaseDate, categoryId, notes, isRecurring, frequency } = req.body || {};
+    const cleanupUpload = () => {
+      if (req.file) fs.unlink(req.file.path, () => {});
+    };
 
-    if (!itemName || !String(itemName).trim()) return res.status(400).json({ error: 'Item name is required' });
-    if (String(itemName).trim().length > 200) return res.status(400).json({ error: 'Item name must be 200 characters or fewer' });
-    const amountNum = Number(amount);
-    if (!Number.isFinite(amountNum) || amountNum <= 0) return res.status(400).json({ error: 'A valid amount is required' });
-    if (amountNum > 999999.99) return res.status(400).json({ error: 'Amount is too large' });
-    if (!purchaseDate) return res.status(400).json({ error: 'Purchase date is required' });
-    if (notes && String(notes).length > 1000) return res.status(400).json({ error: 'Notes must be 1000 characters or fewer' });
+    try {
+      const { itemName, amount, currency, purchaseDate, categoryId, notes, isRecurring, frequency } = req.body || {};
 
-    if (categoryId) {
-      const [categoryRows] = await pool.execute('SELECT id FROM categories WHERE id = ? AND user_id = ?', [
-        categoryId,
-        req.user.id,
-      ]);
-      if (categoryRows.length === 0) return res.status(400).json({ error: 'Invalid category' });
+      if (!itemName || !String(itemName).trim()) {
+        cleanupUpload();
+        return res.status(400).json({ error: 'Item name is required' });
+      }
+      if (String(itemName).trim().length > 200) {
+        cleanupUpload();
+        return res.status(400).json({ error: 'Item name must be 200 characters or fewer' });
+      }
+      const amountNum = Number(amount);
+      if (!Number.isFinite(amountNum) || amountNum <= 0) {
+        cleanupUpload();
+        return res.status(400).json({ error: 'A valid amount is required' });
+      }
+      if (amountNum > 999999.99) {
+        cleanupUpload();
+        return res.status(400).json({ error: 'Amount is too large' });
+      }
+      if (!purchaseDate) {
+        cleanupUpload();
+        return res.status(400).json({ error: 'Purchase date is required' });
+      }
+      if (notes && String(notes).length > 1000) {
+        cleanupUpload();
+        return res.status(400).json({ error: 'Notes must be 1000 characters or fewer' });
+      }
+
+      if (categoryId) {
+        const [categoryRows] = await pool.execute('SELECT id FROM categories WHERE id = ? AND user_id = ?', [
+          categoryId,
+          req.user.id,
+        ]);
+        if (categoryRows.length === 0) {
+          cleanupUpload();
+          return res.status(400).json({ error: 'Invalid category' });
+        }
+      }
+
+      const receiptPath = req.file ? req.file.filename : null;
+
+      const [result] = await pool.execute(
+        `INSERT INTO expenses (user_id, category_id, item_name, amount, currency, purchase_date, receipt_path, is_recurring, frequency, notes)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [
+          req.user.id,
+          categoryId || null,
+          String(itemName).trim(),
+          amountNum,
+          currency || 'AUD',
+          purchaseDate,
+          receiptPath,
+          isRecurring === 'true' || isRecurring === true ? 1 : 0,
+          frequency || null,
+          notes || null,
+        ]
+      );
+
+      res.status(201).json({ id: result.insertId });
+    } catch (err) {
+      cleanupUpload();
+      throw err;
     }
-
-    const receiptPath = req.file ? req.file.filename : null;
-
-    const [result] = await pool.execute(
-      `INSERT INTO expenses (user_id, category_id, item_name, amount, currency, purchase_date, receipt_path, is_recurring, frequency, notes)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [
-        req.user.id,
-        categoryId || null,
-        String(itemName).trim(),
-        amountNum,
-        currency || 'AUD',
-        purchaseDate,
-        receiptPath,
-        isRecurring === 'true' || isRecurring === true ? 1 : 0,
-        frequency || null,
-        notes || null,
-      ]
-    );
-
-    res.status(201).json({ id: result.insertId });
   })
 );
 

@@ -1,19 +1,33 @@
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useToast } from './Toast.jsx';
 
 const RADIUS = 26;
 const CIRCUMFERENCE = 2 * Math.PI * RADIUS;
+const MAX_FILE_BYTES = 5 * 1024 * 1024;
 
 export default function ReceiptDropzone({ file, onFileChange, uploadProgress, status = 'idle', errorMessage }) {
   const [dragOver, setDragOver] = useState(false);
   const inputRef = useRef(null);
+  const cameraInputRef = useRef(null);
+  const toast = useToast();
   const busy = status === 'uploading';
+  const isMobile = useMemo(
+    () => typeof window !== 'undefined' && window.matchMedia?.('(pointer: coarse)').matches,
+    []
+  );
 
   const handleFiles = useCallback(
     (files) => {
-      if (files && files[0]) onFileChange(files[0]);
+      const picked = files && files[0];
+      if (!picked) return;
+      if (picked.size > MAX_FILE_BYTES) {
+        toast('That file is too large — receipts must be 5MB or smaller.', 'error');
+        return;
+      }
+      onFileChange(picked);
     },
-    [onFileChange]
+    [onFileChange, toast]
   );
 
   const preview = file ? URL.createObjectURL(file) : null;
@@ -48,6 +62,14 @@ export default function ReceiptDropzone({ file, onFileChange, uploadProgress, st
         ref={inputRef}
         type="file"
         accept="image/*,application/pdf"
+        hidden
+        onChange={(e) => handleFiles(e.target.files)}
+      />
+      <input
+        ref={cameraInputRef}
+        type="file"
+        accept="image/*"
+        capture="environment"
         hidden
         onChange={(e) => handleFiles(e.target.files)}
       />
@@ -114,8 +136,41 @@ export default function ReceiptDropzone({ file, onFileChange, uploadProgress, st
         ) : (
           <motion.div key="empty" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
             <div style={{ fontSize: 32 }}>🧾</div>
-            <p style={{ marginTop: 8, fontWeight: 600 }}>Drop a receipt here</p>
-            <p style={{ fontSize: 13, color: 'var(--text-muted)' }}>or click to browse — images or PDF</p>
+            {isMobile ? (
+              <>
+                <p style={{ marginTop: 8, fontWeight: 600 }}>Add a receipt</p>
+                <p style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 14 }}>images or PDF, up to 5MB</p>
+                <div style={{ display: 'flex', gap: 10, justifyContent: 'center' }}>
+                  <button
+                    type="button"
+                    className="btn btn-primary"
+                    style={{ padding: '8px 16px', fontSize: 13 }}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      cameraInputRef.current?.click();
+                    }}
+                  >
+                    📷 Take photo
+                  </button>
+                  <button
+                    type="button"
+                    className="btn btn-ghost"
+                    style={{ padding: '8px 16px', fontSize: 13 }}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      inputRef.current?.click();
+                    }}
+                  >
+                    📁 Choose file
+                  </button>
+                </div>
+              </>
+            ) : (
+              <>
+                <p style={{ marginTop: 8, fontWeight: 600 }}>Drop a receipt here</p>
+                <p style={{ fontSize: 13, color: 'var(--text-muted)' }}>or click to browse — images or PDF, up to 5MB</p>
+              </>
+            )}
           </motion.div>
         )}
       </AnimatePresence>

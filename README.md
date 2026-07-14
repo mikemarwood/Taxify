@@ -78,7 +78,7 @@ node server/src/scripts/importLegacy.js "<path-to-folder-with-xlsx-files>" someo
 
 No transaction data from these spreadsheets is ever committed to source control — the script only reads whatever `.xlsx` files you point it at, locally, and writes straight to your (already-configured) database via `DB_*` in `server/.env`.
 
-## Email login codes (OTP)
+## Email login codes (MFA)
 
 Users can opt in to a 4-digit email code at every login (Security page, or a one-time prompt on
 first login). If enabled: a code emailed to the user expires after 5 minutes, and 3 wrong
@@ -86,7 +86,7 @@ attempts locks that account's login for 60 minutes. Admins control only the **de
 signups (Administration → Settings) — off by default; existing users are never changed by it.
 
 This requires SMTP to be configured in `server/.env` (`SMTP_HOST`/`SMTP_PORT`/`SMTP_SECURE`/`SMTP_USER`/`SMTP_PASSWORD`/`SMTP_FROM`,
-see `.env.example`). If a user enables OTP but SMTP isn't configured, login attempts for that
+see `.env.example`). If a user enables MFA but SMTP isn't configured, login attempts for that
 account will fail with a "could not send code" error until SMTP is set up.
 
 Logging in also offers a "this is a public device" checkbox, which uses a browser session

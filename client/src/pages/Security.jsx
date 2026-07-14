@@ -29,7 +29,7 @@ export default function Security() {
       <div className="card" style={{ padding: 20 }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, marginBottom: 16 }}>
           <div>
-            <div style={{ fontWeight: 700 }}>Email login codes (OTP)</div>
+            <div style={{ fontWeight: 700 }}>Email login codes (MFA)</div>
             <div style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 2 }}>
               {user.otpEnabled
                 ? 'On — a code is emailed to you at every login.'

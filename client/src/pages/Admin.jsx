@@ -165,7 +165,7 @@ function SettingsTab() {
     try {
       await api.patch('/admin/settings', { otpDefaultEnabled: next });
       setOtpDefaultEnabled(next);
-      toast(next ? 'New accounts will have OTP login on by default' : 'New accounts will have OTP login off by default', 'success');
+      toast(next ? 'New accounts will have MFA login on by default' : 'New accounts will have MFA login off by default', 'success');
     } catch (err) {
       toast(err.message, 'error');
     } finally {
@@ -193,11 +193,11 @@ function SettingsTab() {
 
       <div className="card" style={{ padding: 20, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16 }}>
         <div>
-          <div style={{ fontWeight: 700 }}>Email login codes (OTP) for new users</div>
+          <div style={{ fontWeight: 700 }}>Email login codes (MFA) for new users</div>
           <div style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 2 }}>
             {otpDefaultEnabled
-              ? 'New accounts start with OTP login turned on.'
-              : 'New accounts start with OTP login turned off — each user can still enable it themselves.'}
+              ? 'New accounts start with MFA login turned on.'
+              : 'New accounts start with MFA login turned off — each user can still enable it themselves.'}
             {' '}Existing users are never changed by this setting.
           </div>
         </div>
