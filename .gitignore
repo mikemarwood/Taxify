@@ -19,4 +19,6 @@ client/android/capacitor-cordova-android-plugins/build/
 client/android/local.properties
 client/android/*.apk
 client/android/*.aab
-client/public/downloads/*.apk
+# client/public/downloads/taxify.apk is committed intentionally — deployment is
+# git-pull based (see deploy.sh) with no separate artifact hosting, so the
+# release APK needs to travel with the repo for the download button/updater to work.
