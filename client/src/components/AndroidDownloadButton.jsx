@@ -29,21 +29,21 @@ export default function AndroidDownloadButton() {
         gap: 10,
         padding: '12px 20px',
         borderRadius: 12,
-        background: 'linear-gradient(135deg, #8b5cf6, #6366f1 50%, #06b6d4)',
+        background: 'linear-gradient(135deg, #2563eb, #3b82f6 50%, #06b6d4)',
         color: '#fff',
         fontWeight: 700,
         fontSize: 14,
         textDecoration: 'none',
-        boxShadow: '0 4px 16px rgba(99, 102, 241, 0.35)',
+        boxShadow: '0 4px 16px rgba(37, 99, 235, 0.35)',
         transition: 'transform 0.15s ease, box-shadow 0.15s ease',
       }}
       onMouseEnter={(e) => {
         e.currentTarget.style.transform = 'translateY(-1px)';
-        e.currentTarget.style.boxShadow = '0 6px 20px rgba(99, 102, 241, 0.45)';
+        e.currentTarget.style.boxShadow = '0 6px 20px rgba(37, 99, 235, 0.45)';
       }}
       onMouseLeave={(e) => {
         e.currentTarget.style.transform = 'translateY(0)';
-        e.currentTarget.style.boxShadow = '0 4px 16px rgba(99, 102, 241, 0.35)';
+        e.currentTarget.style.boxShadow = '0 4px 16px rgba(37, 99, 235, 0.35)';
       }}
     >
       <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
