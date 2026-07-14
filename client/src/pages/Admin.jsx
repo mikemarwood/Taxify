@@ -99,8 +99,8 @@ function UsersTab() {
                   fontWeight: 600,
                   padding: '4px 10px',
                   borderRadius: 999,
-                  color: 'var(--violet)',
-                  background: 'rgba(139, 92, 246, 0.15)',
+                  color: 'var(--red)',
+                  background: 'rgba(239, 68, 68, 0.15)',
                 }}
               >
                 Administrator

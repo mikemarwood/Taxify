@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react';
-import { NavLink, useNavigate } from 'react-router-dom';
+import { Link, NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { useAuth } from '../lib/AuthContext.jsx';
 import { useToast } from './Toast.jsx';
@@ -18,6 +18,7 @@ const navItems = [
 export default function Layout({ children }) {
   const { user, logout, setUser } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
   const toast = useToast();
   const avatarInputRef = useRef(null);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
@@ -107,7 +108,11 @@ export default function Layout({ children }) {
               <Avatar name={user?.name} avatarUrl={user?.avatarUrl} size={36} />
             </button>
             <input ref={avatarInputRef} type="file" accept="image/*" hidden onChange={onAvatarChange} />
-            <div style={{ fontSize: 13, color: 'var(--text-muted)', minWidth: 0 }}>
+            <Link
+              to="/account"
+              style={{ fontSize: 13, color: 'var(--text-muted)', minWidth: 0, textDecoration: 'none' }}
+              title="Account settings"
+            >
               Signed in as
               <div
                 style={{
@@ -120,7 +125,7 @@ export default function Layout({ children }) {
               >
                 {user?.name}
               </div>
-            </div>
+            </Link>
           </div>
           <button
             className="btn btn-ghost"
@@ -150,6 +155,33 @@ export default function Layout({ children }) {
       >
         {children}
       </motion.main>
+
+      {location.pathname !== '/add' && (
+        <Link
+          to="/add"
+          title="Add expense"
+          style={{
+            position: 'fixed',
+            right: 32,
+            bottom: 32,
+            width: 56,
+            height: 56,
+            borderRadius: '50%',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            background: 'var(--gradient-brand)',
+            color: 'white',
+            fontSize: 26,
+            fontWeight: 700,
+            textDecoration: 'none',
+            boxShadow: '0 8px 24px rgba(37, 99, 235, 0.45)',
+            zIndex: 900,
+          }}
+        >
+          +
+        </Link>
+      )}
 
       {user && !user.otpPrompted && <OtpOnboardingModal onClose={() => {}} />}
     </div>
