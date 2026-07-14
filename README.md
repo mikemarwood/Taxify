@@ -80,7 +80,7 @@ No transaction data from these spreadsheets is ever committed to source control 
 
 ## Email login codes (MFA)
 
-Users can opt in to a 4-digit email code at every login (Security page, or a one-time prompt on
+Users can opt in to a 4-digit email code at every login (Account page, or a one-time prompt on
 first login). If enabled: a code emailed to the user expires after 5 minutes, and 3 wrong
 attempts locks that account's login for 60 minutes. Admins control only the **default** for new
 signups (Administration → Settings) — off by default; existing users are never changed by it.

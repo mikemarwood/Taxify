@@ -66,7 +66,7 @@ export default function OtpOnboardingModal({ onClose }) {
             </button>
           </div>
           <p style={{ fontSize: 12, color: 'var(--text-muted)', margin: '14px 0 0', textAlign: 'center' }}>
-            You can change this any time in Security settings.
+            You can change this any time in Account settings.
           </p>
         </motion.div>
       </motion.div>

@@ -197,6 +197,55 @@ router.post(
 );
 
 router.patch(
+  '/profile',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const { name, email } = req.body || {};
+    if (!name || !String(name).trim()) return res.status(400).json({ error: 'Name is required' });
+    if (!email || !String(email).trim()) return res.status(400).json({ error: 'Email is required' });
+
+    const normalizedEmail = String(email).trim().toLowerCase();
+    const trimmedName = String(name).trim();
+
+    try {
+      await pool.execute('UPDATE users SET name = ?, email = ? WHERE id = ?', [trimmedName, normalizedEmail, req.user.id]);
+    } catch (err) {
+      if (err.code === 'ER_DUP_ENTRY') {
+        return res.status(409).json({ error: 'An account with that email already exists' });
+      }
+      throw err;
+    }
+
+    res.json({ user: { ...req.user, name: trimmedName, email: normalizedEmail } });
+  })
+);
+
+router.patch(
+  '/password',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const { currentPassword, newPassword } = req.body || {};
+    if (!currentPassword || !newPassword) {
+      return res.status(400).json({ error: 'Current and new password are required' });
+    }
+    if (!isStrongPassword(newPassword)) {
+      return res.status(400).json({
+        error: 'New password must be at least 8 characters and include an uppercase letter, a lowercase letter, and a number',
+      });
+    }
+
+    const [rows] = await pool.execute('SELECT password_hash FROM users WHERE id = ?', [req.user.id]);
+    const row = rows[0];
+    if (!row || !verifyPassword(currentPassword, row.password_hash)) {
+      return res.status(401).json({ error: 'Current password is incorrect' });
+    }
+
+    await pool.execute('UPDATE users SET password_hash = ? WHERE id = ?', [hashPassword(newPassword), req.user.id]);
+    res.json({ ok: true });
+  })
+);
+
+router.patch(
   '/otp-settings',
   requireAuth,
   asyncHandler(async (req, res) => {

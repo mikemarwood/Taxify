@@ -12,7 +12,7 @@ const navItems = [
   { to: '/add', label: 'Add Expense', icon: '➕' },
   { to: '/categories', label: 'Categories', icon: '🏷️' },
   { to: '/reports', label: 'Reports', icon: '📈' },
-  { to: '/security', label: 'Security', icon: '🔐' },
+  { to: '/account', label: 'Account', icon: '⚙️' },
 ];
 
 export default function Layout({ children }) {

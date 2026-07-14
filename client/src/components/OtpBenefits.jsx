@@ -2,7 +2,7 @@ const BENEFITS = [
   { icon: '🛡️', text: 'Blocks anyone who guesses or steals your password — they still can’t get in without your email.' },
   { icon: '📬', text: 'A fresh 4-digit code is sent to your inbox each time you log in, valid for just 5 minutes.' },
   { icon: '🚫', text: 'Three wrong codes automatically locks login for 60 minutes, stopping brute-force attempts.' },
-  { icon: '⚙️', text: 'Turn it on or off any time from Security settings — no commitment.' },
+  { icon: '⚙️', text: 'Turn it on or off any time from Account settings — no commitment.' },
 ];
 
 export default function OtpBenefits() {

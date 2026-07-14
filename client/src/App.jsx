@@ -8,7 +8,7 @@ import AddExpense from './pages/AddExpense.jsx';
 import Categories from './pages/Categories.jsx';
 import Reports from './pages/Reports.jsx';
 import Admin from './pages/Admin.jsx';
-import Security from './pages/Security.jsx';
+import Account from './pages/Account.jsx';
 
 function Splash() {
   return (
@@ -43,7 +43,7 @@ export default function App() {
       <Route path="/add" element={<Protected><AddExpense /></Protected>} />
       <Route path="/categories" element={<Protected><Categories /></Protected>} />
       <Route path="/reports" element={<Protected><Reports /></Protected>} />
-      <Route path="/security" element={<Protected><Security /></Protected>} />
+      <Route path="/account" element={<Protected><Account /></Protected>} />
       <Route path="/admin" element={<Protected adminOnly><Admin /></Protected>} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>

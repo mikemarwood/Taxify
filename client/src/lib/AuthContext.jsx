@@ -45,8 +45,19 @@ export function AuthProvider({ children }) {
     setUser((u) => (u ? { ...u, otpEnabled: res.data.otpEnabled, otpPrompted: true } : u));
   }, []);
 
+  const updateProfile = useCallback(async (name, email) => {
+    const res = await api.patch('/auth/profile', { name, email });
+    setUser(res.data.user);
+  }, []);
+
+  const changePassword = useCallback(async (currentPassword, newPassword) => {
+    await api.patch('/auth/password', { currentPassword, newPassword });
+  }, []);
+
   return (
-    <AuthContext.Provider value={{ user, loading, login, verifyOtp, register, logout, setOtpEnabled, setUser }}>
+    <AuthContext.Provider
+      value={{ user, loading, login, verifyOtp, register, logout, setOtpEnabled, updateProfile, changePassword, setUser }}
+    >
       {children}
     </AuthContext.Provider>
   );
