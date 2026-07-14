@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import AuthLayout from './AuthLayout.jsx';
 import { useAuth } from '../lib/AuthContext.jsx';
 import { useToast } from '../components/Toast.jsx';
+import { onDigitKeyDown } from '../lib/sounds.js';
 
 function msToClock(ms) {
   const total = Math.max(0, Math.ceil(ms / 1000));
@@ -106,6 +107,7 @@ export default function Login() {
               required
               value={code}
               onChange={(e) => setCode(e.target.value.replace(/\D/g, '').slice(0, 4))}
+              onKeyDown={onDigitKeyDown}
               style={{ fontSize: 22, letterSpacing: 8, textAlign: 'center' }}
             />
           </div>

@@ -4,6 +4,7 @@ import { api } from '../lib/api.js';
 import { useToast } from '../components/Toast.jsx';
 import ReceiptDropzone from '../components/ReceiptDropzone.jsx';
 import CategoryBadge from '../components/CategoryBadge.jsx';
+import { onDigitKeyDown } from '../lib/sounds.js';
 
 export default function AddExpense() {
   const navigate = useNavigate();
@@ -102,7 +103,19 @@ export default function AddExpense() {
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
           <div>
             <label className="label">Amount (AUD)</label>
-            <input className="input" required type="number" min="0.01" max="999999.99" step="0.01" maxLength={10} value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="0.00" />
+            <input
+              className="input"
+              required
+              type="number"
+              min="0.01"
+              max="999999.99"
+              step="0.01"
+              maxLength={10}
+              value={amount}
+              onChange={(e) => setAmount(e.target.value)}
+              onKeyDown={onDigitKeyDown}
+              placeholder="0.00"
+            />
           </div>
           <div>
             <label className="label">Date</label>

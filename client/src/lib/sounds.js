@@ -42,3 +42,12 @@ export function playError() {
 export function playInfo() {
   tone(520, { start: 0, duration: 0.1, peak: 0.06 });
 }
+
+export function playKeypadBeep() {
+  tone(1050, { start: 0, duration: 0.045, type: 'square', peak: 0.045 });
+}
+
+// Attach as onKeyDown on a numeric input to get a soft ATM-style beep per digit.
+export function onDigitKeyDown(e) {
+  if (/^[0-9]$/.test(e.key)) playKeypadBeep();
+}

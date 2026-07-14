@@ -4,6 +4,7 @@ import { api } from '../lib/api.js';
 import { useToast } from './Toast.jsx';
 import CategoryBadge from './CategoryBadge.jsx';
 import ReceiptDropzone from './ReceiptDropzone.jsx';
+import { onDigitKeyDown } from '../lib/sounds.js';
 
 function capitalizeWords(str) {
   return str.replace(/(^|\s)([a-z])/g, (m, sep, ch) => sep + ch.toUpperCase());
@@ -147,6 +148,7 @@ export default function ExpenseModal({ expense, onClose, onSaved, onDeleted }) {
                     step="0.01"
                     value={amount}
                     onChange={(e) => setAmount(e.target.value)}
+                    onKeyDown={onDigitKeyDown}
                   />
                 </div>
                 <div>
