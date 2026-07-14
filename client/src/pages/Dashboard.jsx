@@ -16,6 +16,7 @@ export default function Dashboard() {
   const [year, setYear] = useState(null);
   const [showAll, setShowAll] = useState(false);
   const [selectedExpense, setSelectedExpense] = useState(null);
+  const [categoryFilter, setCategoryFilter] = useState(null);
 
   function load() {
     api.get('/expenses').then((res) => {
@@ -59,11 +60,21 @@ export default function Dashboard() {
 
   useEffect(() => {
     setShowAll(false);
+    setCategoryFilter(null);
   }, [year]);
 
+  useEffect(() => {
+    setShowAll(false);
+  }, [categoryFilter]);
+
+  const categoryFilteredExpenses = useMemo(() => {
+    if (!categoryFilter) return filtered;
+    return filtered.filter((e) => (e.category?.name || 'Uncategorised') === categoryFilter);
+  }, [filtered, categoryFilter]);
+
   const loading = expenses === null;
-  const visibleExpenses = showAll ? filtered : filtered.slice(0, COLLAPSED_ROW_COUNT);
-  const hiddenCount = filtered.length - visibleExpenses.length;
+  const visibleExpenses = showAll ? categoryFilteredExpenses : categoryFilteredExpenses.slice(0, COLLAPSED_ROW_COUNT);
+  const hiddenCount = categoryFilteredExpenses.length - visibleExpenses.length;
 
   return (
     <div>
@@ -117,34 +128,59 @@ export default function Dashboard() {
         <div style={{ marginBottom: 24 }}>
           <div style={{ fontWeight: 700, marginBottom: 10 }}>Totals by category</div>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: 10 }}>
-            {byCategory.map((c, i) => (
-              <motion.div
-                key={c.name}
-                className="card"
-                initial={{ opacity: 0, y: 6 }}
-                animate={{ opacity: 1, y: 0 }}
-                whileHover={{ y: -3 }}
-                transition={{ delay: Math.min(i, 10) * 0.03 }}
-                style={{ padding: '10px 12px' }}
-              >
-                <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: 'var(--text-muted)' }}>
-                  <span aria-hidden="true">{iconEmoji(c.icon)}</span>
-                  <span style={{ width: 8, height: 8, borderRadius: '50%', background: c.color, flexShrink: 0 }} />
-                  <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.name}</span>
-                </div>
-                <div style={{ fontSize: 16, fontWeight: 700, marginTop: 4 }}>${c.total.toFixed(2)}</div>
-              </motion.div>
-            ))}
+            {byCategory.map((c, i) => {
+              const active = categoryFilter === c.name;
+              return (
+                <motion.div
+                  key={c.name}
+                  className="card"
+                  initial={{ opacity: 0, y: 6 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  whileHover={{ y: -3 }}
+                  transition={{ delay: Math.min(i, 10) * 0.03 }}
+                  onClick={() => setCategoryFilter(active ? null : c.name)}
+                  title={`View ${c.name} entries`}
+                  style={{
+                    padding: '10px 12px',
+                    cursor: 'pointer',
+                    border: active ? `1px solid ${c.color}` : '1px solid var(--border)',
+                    boxShadow: active ? `0 0 0 1px ${c.color}` : undefined,
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: 'var(--text-muted)' }}>
+                    <span aria-hidden="true">{iconEmoji(c.icon)}</span>
+                    <span style={{ width: 8, height: 8, borderRadius: '50%', background: c.color, flexShrink: 0 }} />
+                    <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.name}</span>
+                  </div>
+                  <div style={{ fontSize: 16, fontWeight: 700, marginTop: 4 }}>${c.total.toFixed(2)}</div>
+                </motion.div>
+              );
+            })}
           </div>
         </div>
       )}
 
-      <div style={{ fontWeight: 700, marginBottom: 14 }}>Recent expenses</div>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}>
+        <div style={{ fontWeight: 700 }}>{categoryFilter ? `${categoryFilter} entries` : 'Recent expenses'}</div>
+        {categoryFilter && (
+          <button
+            className="btn btn-ghost"
+            style={{ fontSize: 12, padding: '4px 10px' }}
+            onClick={() => setCategoryFilter(null)}
+          >
+            Clear filter ✕
+          </button>
+        )}
+      </div>
       {loading ? (
         <SkeletonList rows={6} />
-      ) : filtered.length === 0 ? (
+      ) : categoryFilteredExpenses.length === 0 ? (
         <div className="card" style={{ padding: 40, textAlign: 'center', color: 'var(--text-muted)' }}>
-          No expenses yet for this year. <Link to="/add" style={{ color: 'var(--blue)' }}>Add your first one</Link>.
+          {categoryFilter ? (
+            `No entries in ${categoryFilter} for this year.`
+          ) : (
+            <>No expenses yet for this year. <Link to="/add" style={{ color: 'var(--blue)' }}>Add your first one</Link>.</>
+          )}
         </div>
       ) : (
         <>
@@ -208,10 +244,10 @@ export default function Dashboard() {
               style={{ marginTop: 12, width: '100%', fontSize: 13 }}
               onClick={() => setShowAll(true)}
             >
-              View all {filtered.length} expenses
+              View all {categoryFilteredExpenses.length} expenses
             </button>
           )}
-          {showAll && filtered.length > COLLAPSED_ROW_COUNT && (
+          {showAll && categoryFilteredExpenses.length > COLLAPSED_ROW_COUNT && (
             <button
               className="btn btn-ghost"
               style={{ marginTop: 12, width: '100%', fontSize: 13 }}
