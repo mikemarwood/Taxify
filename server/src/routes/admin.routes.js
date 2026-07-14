@@ -96,10 +96,8 @@ router.get(
   '/settings',
   asyncHandler(async (req, res) => {
     const registrationEnabled = await getSetting('registration_enabled');
-    const otpDefaultEnabled = await getSetting('otp_default_enabled');
     res.json({
       registrationEnabled: registrationEnabled !== 'false',
-      otpDefaultEnabled: otpDefaultEnabled === 'true',
     });
   })
 );
@@ -107,18 +105,12 @@ router.get(
 router.patch(
   '/settings',
   asyncHandler(async (req, res) => {
-    const { registrationEnabled, otpDefaultEnabled } = req.body || {};
+    const { registrationEnabled } = req.body || {};
     if (registrationEnabled !== undefined) {
       if (typeof registrationEnabled !== 'boolean') {
         return res.status(400).json({ error: 'registrationEnabled must be a boolean' });
       }
       await setSetting('registration_enabled', registrationEnabled ? 'true' : 'false');
-    }
-    if (otpDefaultEnabled !== undefined) {
-      if (typeof otpDefaultEnabled !== 'boolean') {
-        return res.status(400).json({ error: 'otpDefaultEnabled must be a boolean' });
-      }
-      await setSetting('otp_default_enabled', otpDefaultEnabled ? 'true' : 'false');
     }
     res.json({ ok: true });
   })

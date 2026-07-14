@@ -80,14 +80,13 @@ No transaction data from these spreadsheets is ever committed to source control 
 
 ## Email login codes (MFA)
 
-Users can opt in to a 4-digit email code at every login (Account page, or a one-time prompt on
-first login). If enabled: a code emailed to the user expires after 5 minutes, and 3 wrong
-attempts locks that account's login for 60 minutes. Admins control only the **default** for new
-signups (Administration → Settings) — off by default; existing users are never changed by it.
+Every account requires a 4-digit email code at login — it cannot be turned off, for new or
+existing users. A code emailed to the user expires after 5 minutes, and 3 wrong attempts locks
+that account's login for 60 minutes.
 
-This requires SMTP to be configured in `server/.env` (`SMTP_HOST`/`SMTP_PORT`/`SMTP_SECURE`/`SMTP_USER`/`SMTP_PASSWORD`/`SMTP_FROM`,
-see `.env.example`). If a user enables MFA but SMTP isn't configured, login attempts for that
-account will fail with a "could not send code" error until SMTP is set up.
+**This requires SMTP to be configured in `server/.env`** (`SMTP_HOST`/`SMTP_PORT`/`SMTP_SECURE`/`SMTP_USER`/`SMTP_PASSWORD`/`SMTP_FROM`,
+see `.env.example`) **before deploying** — since MFA is mandatory, every login attempt will fail
+with a "could not send code" error for every user until SMTP is set up correctly.
 
 Logging in also offers a "this is a public device" checkbox, which uses a browser session
 cookie instead of a persistent one, so the user is signed out as soon as the browser window closes.

@@ -20,8 +20,8 @@ export const requireAuth = asyncHandler(async (req, res, next) => {
     name: user.name,
     isAdmin: !!user.is_admin,
     avatarUrl: user.avatar_path ? `/api/auth/avatar/${user.id}` : null,
-    otpEnabled: !!user.otp_enabled,
-    otpPrompted: !!user.otp_prompted,
+    otpEnabled: true,
+    otpPrompted: true,
   };
   next();
 });

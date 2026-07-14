@@ -19,8 +19,8 @@ function toPublicUser(user) {
     name: user.name,
     isAdmin: !!user.is_admin,
     avatarUrl: user.avatar_path ? `/api/auth/avatar/${user.id}` : null,
-    otpEnabled: !!user.otp_enabled,
-    otpPrompted: !!user.otp_prompted,
+    otpEnabled: true,
+    otpPrompted: true,
   };
 }
 
@@ -67,13 +67,12 @@ router.post(
 
     const normalizedEmail = String(email).trim().toLowerCase();
     const passwordHash = hashPassword(password);
-    const otpDefaultEnabled = (await getSetting('otp_default_enabled')) === 'true';
 
     let userId;
     try {
       const [result] = await pool.execute(
-        'INSERT INTO users (email, password_hash, name, otp_enabled, otp_prompted) VALUES (?, ?, ?, ?, ?)',
-        [normalizedEmail, passwordHash, String(name).trim(), otpDefaultEnabled ? 1 : 0, otpDefaultEnabled ? 1 : 0]
+        'INSERT INTO users (email, password_hash, name, otp_enabled, otp_prompted) VALUES (?, ?, ?, 1, 1)',
+        [normalizedEmail, passwordHash, String(name).trim()]
       );
       userId = result.insertId;
     } catch (err) {
@@ -95,8 +94,8 @@ router.post(
         name: user.name,
         isAdmin: false,
         avatarUrl: null,
-        otpEnabled: otpDefaultEnabled,
-        otpPrompted: otpDefaultEnabled,
+        otpEnabled: true,
+        otpPrompted: true,
       },
     });
   })
@@ -120,12 +119,6 @@ router.post(
         error: 'Too many incorrect codes. Login is temporarily locked.',
         lockedUntil: user.otp_locked_until,
       });
-    }
-
-    if (!user.otp_enabled) {
-      const token = signToken(user);
-      res.cookie(COOKIE_NAME, token, cookieOptions(!publicDevice));
-      return res.json({ user: toPublicUser(user) });
     }
 
     const code = generateOtp();
@@ -242,18 +235,6 @@ router.patch(
 
     await pool.execute('UPDATE users SET password_hash = ? WHERE id = ?', [hashPassword(newPassword), req.user.id]);
     res.json({ ok: true });
-  })
-);
-
-router.patch(
-  '/otp-settings',
-  requireAuth,
-  asyncHandler(async (req, res) => {
-    const { enabled } = req.body || {};
-    if (typeof enabled !== 'boolean') return res.status(400).json({ error: 'enabled must be a boolean' });
-
-    await pool.execute('UPDATE users SET otp_enabled = ?, otp_prompted = 1 WHERE id = ?', [enabled ? 1 : 0, req.user.id]);
-    res.json({ otpEnabled: enabled });
   })
 );
 

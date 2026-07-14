@@ -5,7 +5,6 @@ import { useAuth } from '../lib/AuthContext.jsx';
 import { useToast } from './Toast.jsx';
 import { api } from '../lib/api.js';
 import Avatar from './Avatar.jsx';
-import OtpOnboardingModal from './OtpOnboardingModal.jsx';
 
 const navItems = [
   { to: '/', label: 'Dashboard', icon: '📊' },
@@ -183,7 +182,6 @@ export default function Layout({ children }) {
         </Link>
       )}
 
-      {user && !user.otpPrompted && <OtpOnboardingModal onClose={() => {}} />}
     </div>
   );
 }

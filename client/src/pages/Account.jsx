@@ -4,7 +4,7 @@ import { useToast } from '../components/Toast.jsx';
 import OtpBenefits from '../components/OtpBenefits.jsx';
 
 export default function Account() {
-  const { user, updateProfile, changePassword, setOtpEnabled } = useAuth();
+  const { user, updateProfile, changePassword } = useAuth();
   const toast = useToast();
 
   const [name, setName] = useState(user.name);
@@ -15,8 +15,6 @@ export default function Account() {
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [passwordBusy, setPasswordBusy] = useState(false);
-
-  const [mfaBusy, setMfaBusy] = useState(false);
 
   const profileChanged = name.trim() !== user.name || email.trim().toLowerCase() !== user.email;
 
@@ -50,19 +48,6 @@ export default function Account() {
       toast(err.message, 'error');
     } finally {
       setPasswordBusy(false);
-    }
-  }
-
-  async function onToggleMfa() {
-    const next = !user.otpEnabled;
-    setMfaBusy(true);
-    try {
-      await setOtpEnabled(next);
-      toast(next ? 'Email login codes are now on' : 'Email login codes are now off', 'success');
-    } catch (err) {
-      toast(err.message, 'error');
-    } finally {
-      setMfaBusy(false);
     }
   }
 
@@ -132,19 +117,13 @@ export default function Account() {
       </form>
 
       <div className="card" style={{ padding: 20 }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, marginBottom: 16 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 16 }}>
           <div>
             <div style={{ fontWeight: 700 }}>Email login codes (MFA)</div>
             <div style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 2 }}>
-              {user.otpEnabled
-                ? 'On — a code is emailed to you at every login.'
-                : 'Off — you sign in with just your password.'}
+              Required — a code is emailed to you at every login.
             </div>
           </div>
-          <button className="btn btn-primary" disabled={mfaBusy} onClick={onToggleMfa} style={{ flexShrink: 0 }}>
-            {mfaBusy && <span className="spinner" />}
-            {user.otpEnabled ? 'Turn off' : 'Turn on'}
-          </button>
         </div>
         <OtpBenefits />
       </div>

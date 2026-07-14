@@ -134,14 +134,11 @@ function UsersTab() {
 function SettingsTab() {
   const toast = useToast();
   const [registrationEnabled, setRegistrationEnabled] = useState(null);
-  const [otpDefaultEnabled, setOtpDefaultEnabled] = useState(null);
   const [busy, setBusy] = useState(false);
-  const [otpBusy, setOtpBusy] = useState(false);
 
   useEffect(() => {
     api.get('/admin/settings').then((res) => {
       setRegistrationEnabled(res.data.registrationEnabled);
-      setOtpDefaultEnabled(res.data.otpDefaultEnabled);
     });
   }, []);
 
@@ -156,20 +153,6 @@ function SettingsTab() {
       toast(err.message, 'error');
     } finally {
       setBusy(false);
-    }
-  }
-
-  async function toggleOtpDefault() {
-    const next = !otpDefaultEnabled;
-    setOtpBusy(true);
-    try {
-      await api.patch('/admin/settings', { otpDefaultEnabled: next });
-      setOtpDefaultEnabled(next);
-      toast(next ? 'New accounts will have MFA login on by default' : 'New accounts will have MFA login off by default', 'success');
-    } catch (err) {
-      toast(err.message, 'error');
-    } finally {
-      setOtpBusy(false);
     }
   }
 
@@ -191,19 +174,11 @@ function SettingsTab() {
         </button>
       </div>
 
-      <div className="card" style={{ padding: 20, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16 }}>
-        <div>
-          <div style={{ fontWeight: 700 }}>Email login codes (MFA) for new users</div>
-          <div style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 2 }}>
-            {otpDefaultEnabled
-              ? 'New accounts start with MFA login turned on.'
-              : 'New accounts start with MFA login turned off — each user can still enable it themselves.'}
-            {' '}Existing users are never changed by this setting.
-          </div>
+      <div className="card" style={{ padding: 20 }}>
+        <div style={{ fontWeight: 700 }}>Email login codes (MFA)</div>
+        <div style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 2 }}>
+          Required for every account — this can no longer be turned off, for new or existing users.
         </div>
-        <button className="btn btn-primary" disabled={otpBusy} onClick={toggleOtpDefault} style={{ flexShrink: 0 }}>
-          {otpDefaultEnabled ? 'Turn off' : 'Turn on'}
-        </button>
       </div>
     </div>
   );
