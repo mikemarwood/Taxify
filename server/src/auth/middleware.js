@@ -7,7 +7,10 @@ export const requireAuth = asyncHandler(async (req, res, next) => {
   const payload = token && verifyToken(token);
   if (!payload) return res.status(401).json({ error: 'Not authenticated' });
 
-  const [rows] = await pool.execute('SELECT id, email, name, is_admin, avatar_path FROM users WHERE id = ?', [payload.sub]);
+  const [rows] = await pool.execute(
+    'SELECT id, email, name, is_admin, avatar_path, otp_enabled, otp_prompted FROM users WHERE id = ?',
+    [payload.sub]
+  );
   const user = rows[0];
   if (!user) return res.status(401).json({ error: 'Not authenticated' });
 
@@ -17,6 +20,8 @@ export const requireAuth = asyncHandler(async (req, res, next) => {
     name: user.name,
     isAdmin: !!user.is_admin,
     avatarUrl: user.avatar_path ? `/api/auth/avatar/${user.id}` : null,
+    otpEnabled: !!user.otp_enabled,
+    otpPrompted: !!user.otp_prompted,
   };
   next();
 });

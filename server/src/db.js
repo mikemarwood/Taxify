@@ -32,6 +32,24 @@ export async function ensureSchema() {
   await pool.query(`
     ALTER TABLE users ADD COLUMN IF NOT EXISTS avatar_path VARCHAR(500) NULL
   `);
+  await pool.query(`
+    ALTER TABLE users ADD COLUMN IF NOT EXISTS otp_enabled TINYINT(1) NOT NULL DEFAULT 0
+  `);
+  await pool.query(`
+    ALTER TABLE users ADD COLUMN IF NOT EXISTS otp_prompted TINYINT(1) NOT NULL DEFAULT 0
+  `);
+  await pool.query(`
+    ALTER TABLE users ADD COLUMN IF NOT EXISTS otp_code VARCHAR(64) NULL
+  `);
+  await pool.query(`
+    ALTER TABLE users ADD COLUMN IF NOT EXISTS otp_expires_at DATETIME NULL
+  `);
+  await pool.query(`
+    ALTER TABLE users ADD COLUMN IF NOT EXISTS otp_attempts INT NOT NULL DEFAULT 0
+  `);
+  await pool.query(`
+    ALTER TABLE users ADD COLUMN IF NOT EXISTS otp_locked_until DATETIME NULL
+  `);
 
   await pool.query(`
     CREATE TABLE IF NOT EXISTS categories (
@@ -93,6 +111,9 @@ export async function ensureSchema() {
   `);
   await pool.query(`
     INSERT IGNORE INTO settings (\`key\`, value) VALUES ('registration_enabled', 'true')
+  `);
+  await pool.query(`
+    INSERT IGNORE INTO settings (\`key\`, value) VALUES ('otp_default_enabled', 'false')
   `);
 }
 

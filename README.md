@@ -6,7 +6,7 @@ A multi-user tax deduction tracker — log a purchase, attach the receipt, pick 
 
 - **Server**: Node.js + Express + MariaDB/MySQL (via `mysql2`)
 - **Client**: React + Vite, `framer-motion` for animations
-- **Auth**: bcrypt-hashed passwords, JWT in an httpOnly cookie
+- **Auth**: bcrypt-hashed passwords, JWT in an httpOnly cookie, optional email OTP login (2FA)
 - **Uploads**: local disk (`server/uploads/`), served back only to the owning user
 
 ## Database setup
@@ -77,6 +77,54 @@ node server/src/scripts/importLegacy.js "<path-to-folder-with-xlsx-files>" someo
 - The `Outcome` sheet (an income summary) is skipped — only expense sheets are imported.
 
 No transaction data from these spreadsheets is ever committed to source control — the script only reads whatever `.xlsx` files you point it at, locally, and writes straight to your (already-configured) database via `DB_*` in `server/.env`.
+
+## Email login codes (OTP)
+
+Users can opt in to a 4-digit email code at every login (Security page, or a one-time prompt on
+first login). If enabled: a code emailed to the user expires after 5 minutes, and 3 wrong
+attempts locks that account's login for 60 minutes. Admins control only the **default** for new
+signups (Administration → Settings) — off by default; existing users are never changed by it.
+
+This requires SMTP to be configured in `server/.env` (`SMTP_HOST`/`SMTP_PORT`/`SMTP_SECURE`/`SMTP_USER`/`SMTP_PASSWORD`/`SMTP_FROM`,
+see `.env.example`). If a user enables OTP but SMTP isn't configured, login attempts for that
+account will fail with a "could not send code" error until SMTP is set up.
+
+Logging in also offers a "this is a public device" checkbox, which uses a browser session
+cookie instead of a persistent one, so the user is signed out as soon as the browser window closes.
+
+## Android app
+
+`client/android/` is a Capacitor wrapper that loads the live site (`https://taxify.mikesapphub.com`)
+inside a native shell — a real installable app, not a rebuild of the UI. It ships with:
+
+- A branded splash screen (`SplashActivity`): animated logo, "Taxify", and "Powered by Mikes App Hub",
+  fading into the app.
+- An in-app update checker: on every resume, `MainActivity` calls `GET /api/app/version`; if the
+  server's `versionCode` is newer than the installed build, it shows a notification + dialog with an
+  **Update** button that downloads and launches the Android installer for the new APK.
+- A native notification channel (`NotificationHelper`), currently used for the update alert — reusable
+  for future triggers.
+
+**Building the APK** requires Android Studio (not available on this machine — no JDK/Android SDK here,
+so this project was scaffolded and hand-written but never compiled). To build it:
+
+```bash
+cd client
+npm install
+npm run build          # produces dist/, used as the offline fallback + copies public/downloads/
+npx cap sync android    # only needed after changing capacitor.config.json or web assets
+```
+
+Then open `client/android` in Android Studio and **Build → Generate Signed Bundle / APK**.
+
+**Shipping an update** — the download button on the login page and the in-app update checker both
+always point at the same file, so releasing is just:
+
+1. Bump `versionCode`/`versionName` in `client/android/app/build.gradle`
+2. Bump the matching values in `server/src/app-version.json`
+3. Build + sign the release APK in Android Studio
+4. Copy it to `client/public/downloads/taxify.apk` (overwrite)
+5. `npm run build` (client) and deploy as usual — both the button and in-app checker pick it up automatically, and `/downloads/*` is served with `Cache-Control: no-store` so nothing caches a stale build.
 
 ## Notes
 

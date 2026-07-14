@@ -15,9 +15,19 @@ export function AuthProvider({ children }) {
       .finally(() => setLoading(false));
   }, []);
 
-  const login = useCallback(async (email, password) => {
-    const res = await api.post('/auth/login', { email, password });
+  const login = useCallback(async (email, password, publicDevice) => {
+    const res = await api.post('/auth/login', { email, password, publicDevice });
+    if (res.data.otpRequired) {
+      return { otpRequired: true, userId: res.data.userId, expiresAt: res.data.expiresAt };
+    }
     setUser(res.data.user);
+    return { otpRequired: false, user: res.data.user };
+  }, []);
+
+  const verifyOtp = useCallback(async (userId, code, publicDevice) => {
+    const res = await api.post('/auth/otp/verify', { userId, code, publicDevice });
+    setUser(res.data.user);
+    return res.data.user;
   }, []);
 
   const register = useCallback(async (name, email, password) => {
@@ -30,8 +40,13 @@ export function AuthProvider({ children }) {
     setUser(null);
   }, []);
 
+  const setOtpEnabled = useCallback(async (enabled) => {
+    const res = await api.patch('/auth/otp-settings', { enabled });
+    setUser((u) => (u ? { ...u, otpEnabled: res.data.otpEnabled, otpPrompted: true } : u));
+  }, []);
+
   return (
-    <AuthContext.Provider value={{ user, loading, login, register, logout, setUser }}>
+    <AuthContext.Provider value={{ user, loading, login, verifyOtp, register, logout, setOtpEnabled, setUser }}>
       {children}
     </AuthContext.Provider>
   );

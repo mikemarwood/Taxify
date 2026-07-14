@@ -9,6 +9,20 @@ import { signToken, cookieOptions, COOKIE_NAME } from '../auth/jwt.js';
 import { requireAuth } from '../auth/middleware.js';
 import { seedDefaultCategories } from '../seed/defaultCategories.js';
 import { asyncHandler } from '../lib/asyncHandler.js';
+import { generateOtp, hashOtp, OTP_TTL_MINUTES, OTP_MAX_ATTEMPTS, OTP_LOCKOUT_MINUTES } from '../auth/otp.js';
+import { sendOtpEmail } from '../lib/mailer.js';
+
+function toPublicUser(user) {
+  return {
+    id: user.id,
+    email: user.email,
+    name: user.name,
+    isAdmin: !!user.is_admin,
+    avatarUrl: user.avatar_path ? `/api/auth/avatar/${user.id}` : null,
+    otpEnabled: !!user.otp_enabled,
+    otpPrompted: !!user.otp_prompted,
+  };
+}
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const avatarsDir = path.join(__dirname, '..', '..', 'uploads', 'avatars');
@@ -53,12 +67,13 @@ router.post(
 
     const normalizedEmail = String(email).trim().toLowerCase();
     const passwordHash = hashPassword(password);
+    const otpDefaultEnabled = (await getSetting('otp_default_enabled')) === 'true';
 
     let userId;
     try {
       const [result] = await pool.execute(
-        'INSERT INTO users (email, password_hash, name) VALUES (?, ?, ?)',
-        [normalizedEmail, passwordHash, String(name).trim()]
+        'INSERT INTO users (email, password_hash, name, otp_enabled, otp_prompted) VALUES (?, ?, ?, ?, ?)',
+        [normalizedEmail, passwordHash, String(name).trim(), otpDefaultEnabled ? 1 : 0, otpDefaultEnabled ? 1 : 0]
       );
       userId = result.insertId;
     } catch (err) {
@@ -73,14 +88,24 @@ router.post(
     const user = { id: userId, email: normalizedEmail, name };
     const token = signToken(user);
     res.cookie(COOKIE_NAME, token, cookieOptions());
-    res.status(201).json({ user: { id: user.id, email: user.email, name: user.name, isAdmin: false, avatarUrl: null } });
+    res.status(201).json({
+      user: {
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        isAdmin: false,
+        avatarUrl: null,
+        otpEnabled: otpDefaultEnabled,
+        otpPrompted: otpDefaultEnabled,
+      },
+    });
   })
 );
 
 router.post(
   '/login',
   asyncHandler(async (req, res) => {
-    const { email, password } = req.body || {};
+    const { email, password, publicDevice } = req.body || {};
     if (!email || !password) return res.status(400).json({ error: 'Email and password are required' });
 
     const normalizedEmail = String(email).trim().toLowerCase();
@@ -90,17 +115,96 @@ router.post(
       return res.status(401).json({ error: 'Invalid email or password' });
     }
 
+    if (user.otp_locked_until && new Date(user.otp_locked_until) > new Date()) {
+      return res.status(423).json({
+        error: 'Too many incorrect codes. Login is temporarily locked.',
+        lockedUntil: user.otp_locked_until,
+      });
+    }
+
+    if (!user.otp_enabled) {
+      const token = signToken(user);
+      res.cookie(COOKIE_NAME, token, cookieOptions(!publicDevice));
+      return res.json({ user: toPublicUser(user) });
+    }
+
+    const code = generateOtp();
+    const expiresAt = new Date(Date.now() + OTP_TTL_MINUTES * 60 * 1000);
+    await pool.execute(
+      'UPDATE users SET otp_code = ?, otp_expires_at = ?, otp_attempts = 0 WHERE id = ?',
+      [hashOtp(code), expiresAt, user.id]
+    );
+
+    try {
+      await sendOtpEmail(user.email, user.name, code, OTP_TTL_MINUTES);
+    } catch (err) {
+      console.error('Failed to send OTP email', err);
+      await pool.execute('UPDATE users SET otp_code = NULL, otp_expires_at = NULL WHERE id = ?', [user.id]);
+      return res.status(500).json({ error: 'Could not send your login code. Please try again shortly.' });
+    }
+
+    res.json({ otpRequired: true, userId: user.id, expiresAt, publicDevice: !!publicDevice });
+  })
+);
+
+router.post(
+  '/otp/verify',
+  asyncHandler(async (req, res) => {
+    const { userId, code, publicDevice } = req.body || {};
+    if (!userId || !code) return res.status(400).json({ error: 'Code is required' });
+
+    const [rows] = await pool.execute('SELECT * FROM users WHERE id = ?', [userId]);
+    const user = rows[0];
+    if (!user) return res.status(401).json({ error: 'Invalid request' });
+
+    if (user.otp_locked_until && new Date(user.otp_locked_until) > new Date()) {
+      return res.status(423).json({
+        error: 'Too many incorrect codes. Login is temporarily locked.',
+        lockedUntil: user.otp_locked_until,
+      });
+    }
+
+    if (!user.otp_code || !user.otp_expires_at || new Date(user.otp_expires_at) < new Date()) {
+      return res.status(400).json({ error: 'That code has expired. Please log in again to get a new one.' });
+    }
+
+    if (hashOtp(String(code)) !== user.otp_code) {
+      const attempts = user.otp_attempts + 1;
+      if (attempts >= OTP_MAX_ATTEMPTS) {
+        const lockedUntil = new Date(Date.now() + OTP_LOCKOUT_MINUTES * 60 * 1000);
+        await pool.execute(
+          'UPDATE users SET otp_code = NULL, otp_expires_at = NULL, otp_attempts = 0, otp_locked_until = ? WHERE id = ?',
+          [lockedUntil, user.id]
+        );
+        return res.status(423).json({
+          error: 'Too many incorrect codes. Login is temporarily locked.',
+          lockedUntil,
+        });
+      }
+      await pool.execute('UPDATE users SET otp_attempts = ? WHERE id = ?', [attempts, user.id]);
+      return res.status(401).json({ error: 'Incorrect code', attemptsRemaining: OTP_MAX_ATTEMPTS - attempts });
+    }
+
+    await pool.execute(
+      'UPDATE users SET otp_code = NULL, otp_expires_at = NULL, otp_attempts = 0, otp_locked_until = NULL WHERE id = ?',
+      [user.id]
+    );
+
     const token = signToken(user);
-    res.cookie(COOKIE_NAME, token, cookieOptions());
-    res.json({
-      user: {
-        id: user.id,
-        email: user.email,
-        name: user.name,
-        isAdmin: !!user.is_admin,
-        avatarUrl: user.avatar_path ? `/api/auth/avatar/${user.id}` : null,
-      },
-    });
+    res.cookie(COOKIE_NAME, token, cookieOptions(!publicDevice));
+    res.json({ user: toPublicUser(user) });
+  })
+);
+
+router.patch(
+  '/otp-settings',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const { enabled } = req.body || {};
+    if (typeof enabled !== 'boolean') return res.status(400).json({ error: 'enabled must be a boolean' });
+
+    await pool.execute('UPDATE users SET otp_enabled = ?, otp_prompted = 1 WHERE id = ?', [enabled ? 1 : 0, req.user.id]);
+    res.json({ otpEnabled: enabled });
   })
 );
 

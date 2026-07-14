@@ -1,4 +1,5 @@
 import { motion } from 'framer-motion';
+import AndroidDownloadButton from '../components/AndroidDownloadButton.jsx';
 
 const FEATURES = [
   { icon: '👥', title: 'Built for every user', text: 'Each account gets its own private set of expenses, categories, and receipts.' },
@@ -52,6 +53,9 @@ export default function AuthLayout({ title, subtitle, children }) {
               </div>
             </div>
           ))}
+        </div>
+        <div style={{ marginTop: 28 }}>
+          <AndroidDownloadButton />
         </div>
       </motion.div>
 

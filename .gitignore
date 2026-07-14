@@ -9,3 +9,14 @@ client/dist/
 .env
 *.log
 .DS_Store
+
+# Android (Capacitor)
+client/android/.gradle/
+client/android/.idea/
+client/android/build/
+client/android/app/build/
+client/android/capacitor-cordova-android-plugins/build/
+client/android/local.properties
+client/android/*.apk
+client/android/*.aab
+client/public/downloads/*.apk

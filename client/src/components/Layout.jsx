@@ -5,12 +5,14 @@ import { useAuth } from '../lib/AuthContext.jsx';
 import { useToast } from './Toast.jsx';
 import { api } from '../lib/api.js';
 import Avatar from './Avatar.jsx';
+import OtpOnboardingModal from './OtpOnboardingModal.jsx';
 
 const navItems = [
   { to: '/', label: 'Dashboard', icon: '📊' },
   { to: '/add', label: 'Add Expense', icon: '➕' },
   { to: '/categories', label: 'Categories', icon: '🏷️' },
   { to: '/reports', label: 'Reports', icon: '📈' },
+  { to: '/security', label: 'Security', icon: '🔐' },
 ];
 
 export default function Layout({ children }) {
@@ -148,6 +150,8 @@ export default function Layout({ children }) {
       >
         {children}
       </motion.main>
+
+      {user && !user.otpPrompted && <OtpOnboardingModal onClose={() => {}} />}
     </div>
   );
 }

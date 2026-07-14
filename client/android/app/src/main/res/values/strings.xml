@@ -1,0 +1,13 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Taxify</string>
+    <string name="title_activity_main">Taxify</string>
+    <string name="package_name">com.mikesapphub.taxify</string>
+    <string name="custom_url_scheme">com.mikesapphub.taxify</string>
+    <string name="powered_by">Powered by Mikes App Hub</string>
+    <string name="update_available_title">Update available</string>
+    <string name="update_available_message">A newer version of Taxify is ready to install.</string>
+    <string name="update_action">Update</string>
+    <string name="update_later">Later</string>
+    <string name="update_channel_name">App updates</string>
+</resources>

@@ -20,12 +20,14 @@ export function verifyToken(token) {
   }
 }
 
-export function cookieOptions() {
+export function cookieOptions(persistent = true) {
   return {
     httpOnly: true,
     sameSite: 'lax',
     secure: process.env.NODE_ENV === 'production',
-    maxAge: 90 * 24 * 60 * 60 * 1000,
+    // A "public device" login omits maxAge so the cookie is a browser session
+    // cookie and disappears as soon as the window/browser is closed.
+    ...(persistent ? { maxAge: 90 * 24 * 60 * 60 * 1000 } : {}),
     path: '/',
   };
 }

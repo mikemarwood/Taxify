@@ -10,6 +10,7 @@ import authRoutes from './routes/auth.routes.js';
 import categoriesRoutes from './routes/categories.routes.js';
 import expensesRoutes from './routes/expenses.routes.js';
 import adminRoutes from './routes/admin.routes.js';
+import appRoutes from './routes/app.routes.js';
 import { ensureSchema } from './db.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -27,6 +28,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/categories', categoriesRoutes);
 app.use('/api/expenses', expensesRoutes);
 app.use('/api/admin', adminRoutes);
+app.use('/api/app', appRoutes);
 
 // eslint-disable-next-line no-unused-vars
 app.use((err, req, res, next) => {
@@ -40,6 +42,9 @@ app.use((err, req, res, next) => {
 if (isProd) {
   const clientDist = path.join(__dirname, '..', '..', 'client', 'dist');
   if (fs.existsSync(clientDist)) {
+    app.use('/downloads', express.static(path.join(clientDist, 'downloads'), {
+      setHeaders: (res) => res.set('Cache-Control', 'no-store'),
+    }));
     app.use(express.static(clientDist));
     app.get(/^(?!\/api).*/, (req, res) => {
       res.sendFile(path.join(clientDist, 'index.html'));

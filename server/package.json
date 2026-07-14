@@ -17,6 +17,7 @@
     "jsonwebtoken": "^9.0.2",
     "multer": "^2.0.1",
     "mysql2": "^3.11.5",
+    "nodemailer": "^9.0.3",
     "xlsx": "^0.18.5"
   }
 }
