@@ -74,7 +74,7 @@ export default function AuthLayout({ title, subtitle, children }) {
 
       <div style={{ textAlign: 'center', fontSize: 12, color: 'var(--text-muted)', padding: '16px 20px' }}>
         © {new Date().getFullYear()} Taxify · Powered by{' '}
-        <a href="https://mikesapphub.com" target="_blank" rel="noreferrer" style={{ color: 'var(--cyan)' }}>
+        <a href="https://mikesapphub.com" target="_blank" rel="noreferrer" style={{ color: 'var(--blue)' }}>
           Mikes App Hub
         </a>
       </div>

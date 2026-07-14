@@ -21,11 +21,6 @@ export default function Dashboard() {
     });
   }, []);
 
-  const years = useMemo(() => {
-    if (!expenses) return [];
-    return Array.from(new Set(expenses.map((e) => e.financialYear))).sort().reverse();
-  }, [expenses]);
-
   const filtered = useMemo(() => {
     if (!expenses) return [];
     if (!year) return expenses;
@@ -73,15 +68,6 @@ export default function Dashboard() {
           <p style={{ color: 'var(--text-muted)', margin: '4px 0 0' }}>Your deductions at a glance.</p>
         </div>
         <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
-          {years.length > 0 && (
-            <select className="input" style={{ width: 'auto' }} value={year || ''} onChange={(e) => setYear(e.target.value)}>
-              {years.map((y) => (
-                <option key={y} value={y}>
-                  FY {y}
-                </option>
-              ))}
-            </select>
-          )}
           <Link to="/add" className="btn btn-primary">
             + Add expense
           </Link>
@@ -124,26 +110,7 @@ export default function Dashboard() {
 
       {!loading && byCategory.length > 0 && (
         <div style={{ marginBottom: 24 }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
-            <div style={{ fontWeight: 700 }}>Totals by category</div>
-            <Link
-              to="/reports"
-              style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: 6,
-                fontSize: 12,
-                fontWeight: 600,
-                color: 'var(--cyan)',
-                textDecoration: 'none',
-                padding: '6px 12px',
-                borderRadius: 999,
-                border: '1px solid var(--border)',
-              }}
-            >
-              Compare years <span aria-hidden="true">→</span>
-            </Link>
-          </div>
+          <div style={{ fontWeight: 700, marginBottom: 10 }}>Totals by category</div>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: 10 }}>
             {byCategory.map((c, i) => (
               <motion.div
@@ -170,7 +137,7 @@ export default function Dashboard() {
         <SkeletonList rows={6} />
       ) : filtered.length === 0 ? (
         <div className="card" style={{ padding: 40, textAlign: 'center', color: 'var(--text-muted)' }}>
-          No expenses yet for this year. <Link to="/add" style={{ color: 'var(--cyan)' }}>Add your first one</Link>.
+          No expenses yet for this year. <Link to="/add" style={{ color: 'var(--blue)' }}>Add your first one</Link>.
         </div>
       ) : (
         <>

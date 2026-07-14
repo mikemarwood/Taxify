@@ -51,7 +51,7 @@ export default function Register() {
         </button>
       </form>
       <p style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 20, textAlign: 'center' }}>
-        Already have an account? <Link to="/login" style={{ color: 'var(--cyan)', fontWeight: 600 }}>Log in</Link>
+        Already have an account? <Link to="/login" style={{ color: 'var(--blue)', fontWeight: 600 }}>Log in</Link>
       </p>
     </AuthLayout>
   );

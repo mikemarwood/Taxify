@@ -134,7 +134,7 @@ export default function Layout({ children }) {
           </button>
           <div style={{ fontSize: 11, color: 'var(--text-muted)', padding: '4px 8px 0', lineHeight: 1.5 }}>
             © {new Date().getFullYear()} Taxify · Powered by{' '}
-            <a href="https://mikesapphub.com" target="_blank" rel="noreferrer" style={{ color: 'var(--cyan)' }}>
+            <a href="https://mikesapphub.com" target="_blank" rel="noreferrer" style={{ color: 'var(--blue)' }}>
               Mikes App Hub
             </a>
           </div>

@@ -1,3 +1,5 @@
+import { iconEmoji } from '../lib/categoryIcons.js';
+
 export default function CategoryBadge({ category }) {
   if (!category) {
     return (
@@ -9,6 +11,9 @@ export default function CategoryBadge({ category }) {
   return (
     <span
       style={{
+        display: 'inline-flex',
+        alignItems: 'center',
+        gap: 5,
         fontSize: 12,
         fontWeight: 600,
         padding: '4px 10px',
@@ -19,6 +24,7 @@ export default function CategoryBadge({ category }) {
         whiteSpace: 'nowrap',
       }}
     >
+      <span aria-hidden="true">{iconEmoji(category.icon)}</span>
       {category.name}
     </span>
   );
