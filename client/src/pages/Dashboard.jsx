@@ -7,6 +7,7 @@ import AnimatedNumber from '../components/AnimatedNumber.jsx';
 import CategoryBadge from '../components/CategoryBadge.jsx';
 import ExpenseModal from '../components/ExpenseModal.jsx';
 import { currentFinancialYear } from '../lib/financialYear.js';
+import { iconEmoji } from '../lib/categoryIcons.js';
 
 const COLLAPSED_ROW_COUNT = 8;
 
@@ -48,7 +49,7 @@ export default function Dashboard() {
     const map = new Map();
     for (const e of filtered) {
       const key = e.category?.name || 'Uncategorised';
-      const entry = map.get(key) || { name: key, color: e.category?.color || '#9198b0', total: 0, count: 0 };
+      const entry = map.get(key) || { name: key, color: e.category?.color || '#9198b0', icon: e.category?.icon, total: 0, count: 0 };
       entry.total += e.amount;
       entry.count += 1;
       map.set(key, entry);
@@ -122,10 +123,12 @@ export default function Dashboard() {
                 className="card"
                 initial={{ opacity: 0, y: 6 }}
                 animate={{ opacity: 1, y: 0 }}
+                whileHover={{ y: -3 }}
                 transition={{ delay: Math.min(i, 10) * 0.03 }}
                 style={{ padding: '10px 12px' }}
               >
                 <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: 'var(--text-muted)' }}>
+                  <span aria-hidden="true">{iconEmoji(c.icon)}</span>
                   <span style={{ width: 8, height: 8, borderRadius: '50%', background: c.color, flexShrink: 0 }} />
                   <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.name}</span>
                 </div>
@@ -150,6 +153,7 @@ export default function Dashboard() {
               {visibleExpenses.map((e, i) => (
                 <motion.div
                   key={e.id}
+                  className="expense-row"
                   initial={{ opacity: 0, y: 6 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: Math.min(i, 10) * 0.02 }}

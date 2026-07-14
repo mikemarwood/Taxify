@@ -158,3 +158,9 @@ input[type="date"].input::-webkit-calendar-picker-indicator {
 
 .scrollbar-slim::-webkit-scrollbar { width: 8px; height: 8px; }
 .scrollbar-slim::-webkit-scrollbar-thumb { background: var(--border); border-radius: 8px; }
+
+.reports-row { transition: background-color 0.15s ease; }
+.reports-row:hover { background-color: var(--bg-elevated); }
+
+.expense-row { transition: background-color 0.15s ease; }
+.expense-row:hover { background-color: var(--bg-elevated); }
