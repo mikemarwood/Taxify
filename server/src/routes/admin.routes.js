@@ -3,6 +3,7 @@ import pool, { getSetting, setSetting } from '../db.js';
 import { requireAuth, requireAdmin } from '../auth/middleware.js';
 import { asyncHandler } from '../lib/asyncHandler.js';
 import { toTitleCase } from '../lib/text.js';
+import { getSmtpConfig, saveSmtpConfig, sendTestEmail } from '../lib/mailer.js';
 
 const router = Router();
 router.use(requireAuth, requireAdmin);
@@ -113,6 +114,59 @@ router.patch(
       await setSetting('registration_enabled', registrationEnabled ? 'true' : 'false');
     }
     res.json({ ok: true });
+  })
+);
+
+router.get(
+  '/email-settings',
+  asyncHandler(async (req, res) => {
+    const config = await getSmtpConfig();
+    res.json({
+      host: config.host,
+      port: config.port,
+      secure: config.secure,
+      user: config.user,
+      from: config.from,
+      hasPassword: !!config.password,
+    });
+  })
+);
+
+router.patch(
+  '/email-settings',
+  asyncHandler(async (req, res) => {
+    const { host, port, secure, user, password, from } = req.body || {};
+    if (host !== undefined && typeof host !== 'string') return res.status(400).json({ error: 'host must be a string' });
+    if (port !== undefined && (!Number.isFinite(Number(port)) || Number(port) <= 0)) {
+      return res.status(400).json({ error: 'port must be a positive number' });
+    }
+    if (secure !== undefined && typeof secure !== 'boolean') return res.status(400).json({ error: 'secure must be a boolean' });
+    if (user !== undefined && typeof user !== 'string') return res.status(400).json({ error: 'user must be a string' });
+    if (password !== undefined && typeof password !== 'string') return res.status(400).json({ error: 'password must be a string' });
+    if (from !== undefined && typeof from !== 'string') return res.status(400).json({ error: 'from must be a string' });
+
+    await saveSmtpConfig({
+      host,
+      port: port !== undefined ? Number(port) : undefined,
+      secure,
+      user,
+      password,
+      from,
+    });
+    res.json({ ok: true });
+  })
+);
+
+router.post(
+  '/email-settings/test',
+  asyncHandler(async (req, res) => {
+    const to = (req.body && req.body.to) || req.user.email;
+    try {
+      await sendTestEmail(to);
+      res.json({ ok: true, to });
+    } catch (err) {
+      res.status(502).json({ error: err.message || 'Failed to send test email' });
+    }
   })
 );
 

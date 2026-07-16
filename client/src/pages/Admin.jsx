@@ -25,11 +25,15 @@ export default function Admin() {
         <button className={tab === 'settings' ? 'btn btn-primary' : 'btn btn-ghost'} onClick={() => setTab('settings')}>
           Settings
         </button>
+        <button className={tab === 'email' ? 'btn btn-primary' : 'btn btn-ghost'} onClick={() => setTab('email')}>
+          Email server
+        </button>
       </div>
 
       {tab === 'users' && <UsersTab />}
       {tab === 'categories' && <DefaultCategoriesTab />}
       {tab === 'settings' && <SettingsTab />}
+      {tab === 'email' && <EmailSettingsTab />}
     </div>
   );
 }
@@ -178,6 +182,160 @@ function SettingsTab() {
         <div style={{ fontWeight: 700 }}>Email login codes (MFA)</div>
         <div style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 2 }}>
           Required for every account — this can no longer be turned off, for new or existing users.
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function EmailSettingsTab() {
+  const toast = useToast();
+  const [form, setForm] = useState(null);
+  const [password, setPassword] = useState('');
+  const [testTo, setTestTo] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [testing, setTesting] = useState(false);
+
+  function load() {
+    api.get('/admin/email-settings').then((res) => {
+      setForm(res.data);
+      setTestTo(res.data.user || '');
+    });
+  }
+  useEffect(load, []);
+
+  function update(field, value) {
+    setForm((f) => ({ ...f, [field]: value }));
+  }
+
+  async function onSave(e) {
+    e.preventDefault();
+    setBusy(true);
+    try {
+      await api.patch('/admin/email-settings', {
+        host: form.host,
+        port: Number(form.port),
+        secure: form.secure,
+        user: form.user,
+        from: form.from,
+        ...(password ? { password } : {}),
+      });
+      setPassword('');
+      toast('Email server settings saved', 'success');
+      load();
+    } catch (err) {
+      toast(err.message, 'error');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function onTest() {
+    setTesting(true);
+    try {
+      const res = await api.post('/admin/email-settings/test', testTo ? { to: testTo } : {});
+      toast(`Test email sent to ${res.data.to}`, 'success');
+    } catch (err) {
+      toast(err.message, 'error');
+    } finally {
+      setTesting(false);
+    }
+  }
+
+  if (form === null) return <SkeletonList rows={4} />;
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+      <p style={{ fontSize: 13, color: 'var(--text-muted)', margin: '-8px 0 0' }}>
+        These settings control the SMTP server used to send login verification codes and other account emails.
+      </p>
+
+      <form onSubmit={onSave} className="card" style={{ padding: 20, display: 'flex', flexDirection: 'column', gap: 14 }}>
+        <div style={{ display: 'flex', gap: 12 }}>
+          <label style={{ flex: 3, fontSize: 13, fontWeight: 600 }}>
+            SMTP host
+            <input
+              className="input"
+              style={{ marginTop: 6, width: '100%' }}
+              placeholder="smtp.example.com"
+              value={form.host || ''}
+              onChange={(e) => update('host', e.target.value)}
+            />
+          </label>
+          <label style={{ flex: 1, fontSize: 13, fontWeight: 600 }}>
+            Port
+            <input
+              className="input"
+              style={{ marginTop: 6, width: '100%' }}
+              placeholder="587"
+              value={form.port || ''}
+              onChange={(e) => update('port', e.target.value)}
+            />
+          </label>
+        </div>
+
+        <label style={{ fontSize: 13, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 8 }}>
+          <input type="checkbox" checked={!!form.secure} onChange={(e) => update('secure', e.target.checked)} />
+          Use TLS/SSL (secure connection)
+        </label>
+
+        <div style={{ display: 'flex', gap: 12 }}>
+          <label style={{ flex: 1, fontSize: 13, fontWeight: 600 }}>
+            SMTP username
+            <input
+              className="input"
+              style={{ marginTop: 6, width: '100%' }}
+              value={form.user || ''}
+              onChange={(e) => update('user', e.target.value)}
+            />
+          </label>
+          <label style={{ flex: 1, fontSize: 13, fontWeight: 600 }}>
+            SMTP password
+            <input
+              className="input"
+              type="password"
+              style={{ marginTop: 6, width: '100%' }}
+              placeholder={form.hasPassword ? '••••••••  (leave blank to keep current)' : ''}
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+            />
+          </label>
+        </div>
+
+        <label style={{ fontSize: 13, fontWeight: 600 }}>
+          From address
+          <input
+            className="input"
+            style={{ marginTop: 6, width: '100%' }}
+            placeholder="Mikes App Hub <no-reply@mikesapphub.com>"
+            value={form.from || ''}
+            onChange={(e) => update('from', e.target.value)}
+          />
+        </label>
+
+        <div>
+          <button className="btn btn-primary" disabled={busy} type="submit">
+            Save
+          </button>
+        </div>
+      </form>
+
+      <div className="card" style={{ padding: 20, display: 'flex', flexDirection: 'column', gap: 12 }}>
+        <div style={{ fontWeight: 700 }}>Send a test email</div>
+        <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>
+          Sends a test message using the settings above (save first if you just changed them).
+        </div>
+        <div style={{ display: 'flex', gap: 10 }}>
+          <input
+            className="input"
+            style={{ flex: 1 }}
+            placeholder="you@example.com"
+            value={testTo}
+            onChange={(e) => setTestTo(e.target.value)}
+          />
+          <button className="btn btn-ghost" disabled={testing} onClick={onTest}>
+            {testing ? 'Sending…' : 'Send test'}
+          </button>
         </div>
       </div>
     </div>
