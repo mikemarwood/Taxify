@@ -3,26 +3,15 @@ import multer from 'multer';
 import path from 'path';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
-import pool, { getSetting } from '../db.js';
+import pool, { getSetting, getMfaMode } from '../db.js';
 import { hashPassword, verifyPassword, isStrongPassword } from '../auth/password.js';
 import { signToken, cookieOptions, COOKIE_NAME } from '../auth/jwt.js';
 import { requireAuth } from '../auth/middleware.js';
 import { seedDefaultCategories } from '../seed/defaultCategories.js';
 import { asyncHandler } from '../lib/asyncHandler.js';
 import { generateOtp, hashOtp, OTP_TTL_MINUTES, OTP_MAX_ATTEMPTS, OTP_LOCKOUT_MINUTES } from '../auth/otp.js';
+import { toPublicUser } from '../auth/publicUser.js';
 import { sendOtpEmail } from '../lib/mailer.js';
-
-function toPublicUser(user) {
-  return {
-    id: user.id,
-    email: user.email,
-    name: user.name,
-    isAdmin: !!user.is_admin,
-    avatarUrl: user.avatar_path ? `/api/auth/avatar/${user.id}` : null,
-    otpEnabled: true,
-    otpPrompted: true,
-  };
-}
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const avatarsDir = path.join(__dirname, '..', '..', 'uploads', 'avatars');
@@ -67,12 +56,14 @@ router.post(
 
     const normalizedEmail = String(email).trim().toLowerCase();
     const passwordHash = hashPassword(password);
+    const mfaMode = await getMfaMode();
+    const otpEnabledAtSignup = mfaMode === 'required' ? 1 : 0;
 
     let userId;
     try {
       const [result] = await pool.execute(
-        'INSERT INTO users (email, password_hash, name, otp_enabled, otp_prompted) VALUES (?, ?, ?, 1, 1)',
-        [normalizedEmail, passwordHash, String(name).trim()]
+        'INSERT INTO users (email, password_hash, name, otp_enabled, otp_prompted) VALUES (?, ?, ?, ?, 0)',
+        [normalizedEmail, passwordHash, String(name).trim(), otpEnabledAtSignup]
       );
       userId = result.insertId;
     } catch (err) {
@@ -84,20 +75,18 @@ router.post(
 
     await seedDefaultCategories(pool, userId);
 
-    const user = { id: userId, email: normalizedEmail, name };
+    const user = {
+      id: userId,
+      email: normalizedEmail,
+      name,
+      is_admin: 0,
+      avatar_path: null,
+      otp_enabled: otpEnabledAtSignup,
+      otp_last_prompted_at: null,
+    };
     const token = signToken(user);
     res.cookie(COOKIE_NAME, token, cookieOptions());
-    res.status(201).json({
-      user: {
-        id: user.id,
-        email: user.email,
-        name: user.name,
-        isAdmin: false,
-        avatarUrl: null,
-        otpEnabled: true,
-        otpPrompted: true,
-      },
-    });
+    res.status(201).json({ user: toPublicUser(user, mfaMode) });
   })
 );
 
@@ -119,6 +108,15 @@ router.post(
         error: 'Too many incorrect codes. Login is temporarily locked.',
         lockedUntil: user.otp_locked_until,
       });
+    }
+
+    const mfaMode = await getMfaMode();
+    const mfaRequiredForUser = mfaMode === 'required' || !!user.otp_enabled;
+
+    if (!mfaRequiredForUser) {
+      const token = signToken(user);
+      res.cookie(COOKIE_NAME, token, cookieOptions(!publicDevice));
+      return res.json({ otpRequired: false, user: toPublicUser(user, mfaMode) });
     }
 
     const code = generateOtp();
@@ -185,7 +183,36 @@ router.post(
 
     const token = signToken(user);
     res.cookie(COOKIE_NAME, token, cookieOptions(!publicDevice));
-    res.json({ user: toPublicUser(user) });
+    const mfaMode = await getMfaMode();
+    res.json({ user: toPublicUser(user, mfaMode) });
+  })
+);
+
+router.patch(
+  '/otp-settings',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const mfaMode = await getMfaMode();
+    if (mfaMode === 'required') {
+      return res.status(400).json({ error: 'MFA is required for every account and cannot be turned off.' });
+    }
+    const { enabled } = req.body || {};
+    if (typeof enabled !== 'boolean') return res.status(400).json({ error: 'enabled must be a boolean' });
+
+    await pool.execute(
+      'UPDATE users SET otp_enabled = ?, otp_last_prompted_at = NOW() WHERE id = ?',
+      [enabled ? 1 : 0, req.user.id]
+    );
+    res.json({ ok: true, otpEnabled: enabled, mfaPromptDue: false });
+  })
+);
+
+router.post(
+  '/otp/dismiss-prompt',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    await pool.execute('UPDATE users SET otp_last_prompted_at = NOW() WHERE id = ?', [req.user.id]);
+    res.json({ ok: true });
   })
 );
 

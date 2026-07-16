@@ -138,11 +138,14 @@ function UsersTab() {
 function SettingsTab() {
   const toast = useToast();
   const [registrationEnabled, setRegistrationEnabled] = useState(null);
+  const [mfaMode, setMfaMode] = useState(null);
   const [busy, setBusy] = useState(false);
+  const [mfaBusy, setMfaBusy] = useState(false);
 
   useEffect(() => {
     api.get('/admin/settings').then((res) => {
       setRegistrationEnabled(res.data.registrationEnabled);
+      setMfaMode(res.data.mfaMode);
     });
   }, []);
 
@@ -160,7 +163,24 @@ function SettingsTab() {
     }
   }
 
-  if (registrationEnabled === null) return <SkeletonList rows={2} />;
+  async function setMode(mode) {
+    if (mode === mfaMode) return;
+    setMfaBusy(true);
+    try {
+      await api.patch('/admin/settings', { mfaMode: mode });
+      setMfaMode(mode);
+      toast(
+        mode === 'required' ? 'MFA is now required for every account' : 'MFA is now optional — users choose for themselves',
+        'success'
+      );
+    } catch (err) {
+      toast(err.message, 'error');
+    } finally {
+      setMfaBusy(false);
+    }
+  }
+
+  if (registrationEnabled === null || mfaMode === null) return <SkeletonList rows={2} />;
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
@@ -179,9 +199,27 @@ function SettingsTab() {
       </div>
 
       <div className="card" style={{ padding: 20 }}>
-        <div style={{ fontWeight: 700 }}>Email login codes (MFA)</div>
-        <div style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 2 }}>
-          Required for every account — this can no longer be turned off, for new or existing users.
+        <div style={{ fontWeight: 700 }}>Multi-Factor Authentication (MFA)</div>
+        <div style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 2, marginBottom: 16 }}>
+          {mfaMode === 'required'
+            ? 'Every account must enter an emailed code at login. Users cannot turn this off.'
+            : 'Off by default — new users start without MFA, but can turn it on any time in Account settings. They’ll occasionally be reminded of the benefits if they haven’t enabled it.'}
+        </div>
+        <div style={{ display: 'flex', gap: 8 }}>
+          <button
+            className={mfaMode === 'optional' ? 'btn btn-primary' : 'btn btn-ghost'}
+            disabled={mfaBusy}
+            onClick={() => setMode('optional')}
+          >
+            Optional
+          </button>
+          <button
+            className={mfaMode === 'required' ? 'btn btn-primary' : 'btn btn-ghost'}
+            disabled={mfaBusy}
+            onClick={() => setMode('required')}
+          >
+            Required
+          </button>
         </div>
       </div>
     </div>

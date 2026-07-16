@@ -1,10 +1,11 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Link, NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { useAuth } from '../lib/AuthContext.jsx';
 import { useToast } from './Toast.jsx';
 import { api } from '../lib/api.js';
 import Avatar from './Avatar.jsx';
+import OtpOnboardingModal from './OtpOnboardingModal.jsx';
 
 const navItems = [
   { to: '/', label: 'Dashboard', icon: '📊' },
@@ -21,6 +22,14 @@ export default function Layout({ children }) {
   const toast = useToast();
   const avatarInputRef = useRef(null);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
+  const [showMfaPrompt, setShowMfaPrompt] = useState(false);
+
+  useEffect(() => {
+    if (user?.mfaPromptDue) {
+      const id = setTimeout(() => setShowMfaPrompt(true), 800);
+      return () => clearTimeout(id);
+    }
+  }, [user?.mfaPromptDue]);
 
   async function onAvatarChange(e) {
     const file = e.target.files?.[0];
@@ -182,6 +191,7 @@ export default function Layout({ children }) {
         </Link>
       )}
 
+      {showMfaPrompt && <OtpOnboardingModal onClose={() => setShowMfaPrompt(false)} />}
     </div>
   );
 }

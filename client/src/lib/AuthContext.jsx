@@ -49,9 +49,31 @@ export function AuthProvider({ children }) {
     await api.patch('/auth/password', { currentPassword, newPassword });
   }, []);
 
+  const setOtpEnabled = useCallback(async (enabled) => {
+    const res = await api.patch('/auth/otp-settings', { enabled });
+    setUser((u) => (u ? { ...u, otpEnabled: res.data.otpEnabled, mfaPromptDue: false } : u));
+  }, []);
+
+  const dismissMfaPrompt = useCallback(async () => {
+    await api.post('/auth/otp/dismiss-prompt');
+    setUser((u) => (u ? { ...u, mfaPromptDue: false } : u));
+  }, []);
+
   return (
     <AuthContext.Provider
-      value={{ user, loading, login, verifyOtp, register, logout, updateProfile, changePassword, setUser }}
+      value={{
+        user,
+        loading,
+        login,
+        verifyOtp,
+        register,
+        logout,
+        updateProfile,
+        changePassword,
+        setOtpEnabled,
+        dismissMfaPrompt,
+        setUser,
+      }}
     >
       {children}
     </AuthContext.Provider>

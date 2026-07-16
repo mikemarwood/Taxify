@@ -4,6 +4,7 @@ import AuthLayout from './AuthLayout.jsx';
 import { useAuth } from '../lib/AuthContext.jsx';
 import { useToast } from '../components/Toast.jsx';
 import { onDigitKeyDown } from '../lib/sounds.js';
+import Toggle from '../components/Toggle.jsx';
 
 function msToClock(ms) {
   const total = Math.max(0, Math.ceil(ms / 1000));
@@ -25,6 +26,7 @@ export default function Login() {
   const [code, setCode] = useState('');
   const [remainingMs, setRemainingMs] = useState(0);
   const [lockedUntil, setLockedUntil] = useState(null);
+  const [lockRemainingMs, setLockRemainingMs] = useState(0);
   const codeInputRef = useRef(null);
 
   useEffect(() => {
@@ -36,8 +38,21 @@ export default function Login() {
   }, [otpState]);
 
   useEffect(() => {
+    if (!lockedUntil) return;
+    const tick = () => setLockRemainingMs(new Date(lockedUntil).getTime() - Date.now());
+    tick();
+    const id = setInterval(tick, 1000);
+    return () => clearInterval(id);
+  }, [lockedUntil]);
+
+  useEffect(() => {
     if (otpState) codeInputRef.current?.focus();
   }, [otpState]);
+
+  function lockAccount(until) {
+    setLockedUntil(until);
+    setLockRemainingMs(new Date(until).getTime() - Date.now());
+  }
 
   async function onSubmit(e) {
     e.preventDefault();
@@ -52,7 +67,7 @@ export default function Login() {
         navigate('/');
       }
     } catch (err) {
-      if (err.lockedUntil) setLockedUntil(err.lockedUntil);
+      if (err.lockedUntil) lockAccount(err.lockedUntil);
       toast(err.message, 'error');
     } finally {
       setBusy(false);
@@ -72,7 +87,7 @@ export default function Login() {
       navigate('/');
     } catch (err) {
       if (err.lockedUntil) {
-        setLockedUntil(err.lockedUntil);
+        lockAccount(err.lockedUntil);
         setOtpState(null);
       }
       toast(err.message, 'error');
@@ -81,12 +96,12 @@ export default function Login() {
     }
   }
 
-  if (lockedUntil && new Date(lockedUntil) > new Date()) {
+  if (lockedUntil && lockRemainingMs > 0) {
     return (
       <AuthLayout title="Login temporarily locked" subtitle="Too many incorrect codes were entered.">
         <p style={{ fontSize: 14, color: 'var(--text-muted)', textAlign: 'center' }}>
-          For your security, login is locked until <strong style={{ color: 'var(--text)' }}>{new Date(lockedUntil).toLocaleTimeString()}</strong>.
-          Please try again after that.
+          For your security, login is locked for another{' '}
+          <strong style={{ color: 'var(--text)' }}>{msToClock(lockRemainingMs)}</strong>. Please try again after that.
         </p>
       </AuthLayout>
     );
@@ -146,10 +161,11 @@ export default function Login() {
           <label className="label">Password</label>
           <input className="input" type="password" required value={password} onChange={(e) => setPassword(e.target.value)} />
         </div>
-        <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: 'var(--text-muted)', cursor: 'pointer' }}>
-          <input type="checkbox" checked={publicDevice} onChange={(e) => setPublicDevice(e.target.checked)} />
-          This is a public or shared device — log me out when the window closes
-        </label>
+        <Toggle
+          checked={publicDevice}
+          onChange={setPublicDevice}
+          label="This is a public or shared device — log me out when the window closes"
+        />
         <button className="btn btn-primary" disabled={busy} type="submit" style={{ marginTop: 8 }}>
           {busy && <span className="spinner" />}
           Log in

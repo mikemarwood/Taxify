@@ -50,11 +50,8 @@ export async function ensureSchema() {
   await pool.query(`
     ALTER TABLE users ADD COLUMN IF NOT EXISTS otp_locked_until DATETIME NULL
   `);
-  // MFA is mandatory for every account — backfill any pre-existing rows that
-  // predate that change so the column reflects reality even though login no
-  // longer branches on it.
   await pool.query(`
-    UPDATE users SET otp_enabled = 1, otp_prompted = 1 WHERE otp_enabled = 0 OR otp_prompted = 0
+    ALTER TABLE users ADD COLUMN IF NOT EXISTS otp_last_prompted_at DATETIME NULL
   `);
 
   await pool.query(`
@@ -118,6 +115,9 @@ export async function ensureSchema() {
   await pool.query(`
     INSERT IGNORE INTO settings (\`key\`, value) VALUES ('registration_enabled', 'true')
   `);
+  await pool.query(`
+    INSERT IGNORE INTO settings (\`key\`, value) VALUES ('mfa_mode', 'optional')
+  `);
 }
 
 export async function getSetting(key) {
@@ -127,6 +127,11 @@ export async function getSetting(key) {
 
 export async function setSetting(key, value) {
   await pool.execute('INSERT INTO settings (`key`, value) VALUES (?, ?) ON DUPLICATE KEY UPDATE value = ?', [key, value, value]);
+}
+
+export async function getMfaMode() {
+  const mode = await getSetting('mfa_mode');
+  return mode === 'required' ? 'required' : 'optional';
 }
 
 export default pool;

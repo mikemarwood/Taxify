@@ -1,6 +1,7 @@
 import { verifyToken, COOKIE_NAME } from './jwt.js';
-import pool from '../db.js';
+import pool, { getMfaMode } from '../db.js';
 import { asyncHandler } from '../lib/asyncHandler.js';
+import { toPublicUser } from './publicUser.js';
 
 export const requireAuth = asyncHandler(async (req, res, next) => {
   const token = req.cookies?.[COOKIE_NAME];
@@ -8,21 +9,14 @@ export const requireAuth = asyncHandler(async (req, res, next) => {
   if (!payload) return res.status(401).json({ error: 'Not authenticated' });
 
   const [rows] = await pool.execute(
-    'SELECT id, email, name, is_admin, avatar_path, otp_enabled, otp_prompted FROM users WHERE id = ?',
+    'SELECT id, email, name, is_admin, avatar_path, otp_enabled, otp_last_prompted_at FROM users WHERE id = ?',
     [payload.sub]
   );
   const user = rows[0];
   if (!user) return res.status(401).json({ error: 'Not authenticated' });
 
-  req.user = {
-    id: user.id,
-    email: user.email,
-    name: user.name,
-    isAdmin: !!user.is_admin,
-    avatarUrl: user.avatar_path ? `/api/auth/avatar/${user.id}` : null,
-    otpEnabled: true,
-    otpPrompted: true,
-  };
+  const mfaMode = await getMfaMode();
+  req.user = toPublicUser(user, mfaMode);
   next();
 });
 

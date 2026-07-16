@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import pool, { getSetting, setSetting } from '../db.js';
+import pool, { getSetting, setSetting, getMfaMode } from '../db.js';
 import { requireAuth, requireAdmin } from '../auth/middleware.js';
 import { asyncHandler } from '../lib/asyncHandler.js';
 import { toTitleCase } from '../lib/text.js';
@@ -97,8 +97,10 @@ router.get(
   '/settings',
   asyncHandler(async (req, res) => {
     const registrationEnabled = await getSetting('registration_enabled');
+    const mfaMode = await getMfaMode();
     res.json({
       registrationEnabled: registrationEnabled !== 'false',
+      mfaMode,
     });
   })
 );
@@ -106,12 +108,18 @@ router.get(
 router.patch(
   '/settings',
   asyncHandler(async (req, res) => {
-    const { registrationEnabled } = req.body || {};
+    const { registrationEnabled, mfaMode } = req.body || {};
     if (registrationEnabled !== undefined) {
       if (typeof registrationEnabled !== 'boolean') {
         return res.status(400).json({ error: 'registrationEnabled must be a boolean' });
       }
       await setSetting('registration_enabled', registrationEnabled ? 'true' : 'false');
+    }
+    if (mfaMode !== undefined) {
+      if (mfaMode !== 'optional' && mfaMode !== 'required') {
+        return res.status(400).json({ error: "mfaMode must be 'optional' or 'required'" });
+      }
+      await setSetting('mfa_mode', mfaMode);
     }
     res.json({ ok: true });
   })

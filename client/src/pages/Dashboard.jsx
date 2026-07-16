@@ -17,6 +17,7 @@ export default function Dashboard() {
   const [showAll, setShowAll] = useState(false);
   const [selectedExpense, setSelectedExpense] = useState(null);
   const [categoryFilter, setCategoryFilter] = useState(null);
+  const [searchQuery, setSearchQuery] = useState('');
 
   function load() {
     api.get('/expenses').then((res) => {
@@ -61,16 +62,24 @@ export default function Dashboard() {
   useEffect(() => {
     setShowAll(false);
     setCategoryFilter(null);
+    setSearchQuery('');
   }, [year]);
 
   useEffect(() => {
     setShowAll(false);
-  }, [categoryFilter]);
+  }, [categoryFilter, searchQuery]);
 
   const categoryFilteredExpenses = useMemo(() => {
-    if (!categoryFilter) return filtered;
-    return filtered.filter((e) => (e.category?.name || 'Uncategorised') === categoryFilter);
-  }, [filtered, categoryFilter]);
+    let result = filtered;
+    if (categoryFilter) {
+      result = result.filter((e) => (e.category?.name || 'Uncategorised') === categoryFilter);
+    }
+    if (searchQuery.trim()) {
+      const q = searchQuery.trim().toLowerCase();
+      result = result.filter((e) => e.itemName?.toLowerCase().includes(q) || e.notes?.toLowerCase().includes(q));
+    }
+    return result;
+  }, [filtered, categoryFilter, searchQuery]);
 
   const loading = expenses === null;
   const visibleExpenses = showAll ? categoryFilteredExpenses : categoryFilteredExpenses.slice(0, COLLAPSED_ROW_COUNT);
@@ -160,7 +169,7 @@ export default function Dashboard() {
         </div>
       )}
 
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14, flexWrap: 'wrap' }}>
         <div style={{ fontWeight: 700 }}>{categoryFilter ? `${categoryFilter} entries` : 'Recent expenses'}</div>
         {categoryFilter && (
           <button
@@ -171,12 +180,24 @@ export default function Dashboard() {
             Clear filter ✕
           </button>
         )}
+        <input
+          type="text"
+          className="input"
+          placeholder="Search expenses…"
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          style={{ marginLeft: 'auto', maxWidth: 240, padding: '8px 12px', fontSize: 13 }}
+        />
       </div>
       {loading ? (
         <SkeletonList rows={6} />
       ) : categoryFilteredExpenses.length === 0 ? (
         <div className="card" style={{ padding: 40, textAlign: 'center', color: 'var(--text-muted)' }}>
-          {categoryFilter ? (
+          {searchQuery.trim() && categoryFilter ? (
+            `No entries in ${categoryFilter} match "${searchQuery.trim()}".`
+          ) : searchQuery.trim() ? (
+            `No entries match "${searchQuery.trim()}".`
+          ) : categoryFilter ? (
             `No entries in ${categoryFilter} for this year.`
           ) : (
             <>No expenses yet for this year. <Link to="/add" style={{ color: 'var(--blue)' }}>Add your first one</Link>.</>
