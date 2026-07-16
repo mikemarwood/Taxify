@@ -155,7 +155,7 @@ export default function Login() {
       <form onSubmit={onSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
         <div>
           <label className="label">Email</label>
-          <input className="input" type="email" required value={email} onChange={(e) => setEmail(e.target.value)} />
+          <input className="input" type="email" required value={email} onChange={(e) => setEmail(e.target.value.toLowerCase())} />
         </div>
         <div>
           <label className="label">Password</label>

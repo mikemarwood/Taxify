@@ -16,7 +16,7 @@ export function AuthProvider({ children }) {
   }, []);
 
   const login = useCallback(async (email, password, publicDevice) => {
-    const res = await api.post('/auth/login', { email, password, publicDevice });
+    const res = await api.post('/auth/login', { email: email.trim().toLowerCase(), password, publicDevice });
     if (res.data.otpRequired) {
       return { otpRequired: true, userId: res.data.userId, expiresAt: res.data.expiresAt };
     }
@@ -31,7 +31,7 @@ export function AuthProvider({ children }) {
   }, []);
 
   const register = useCallback(async (name, email, password) => {
-    const res = await api.post('/auth/register', { name, email, password });
+    const res = await api.post('/auth/register', { name, email: email.trim().toLowerCase(), password });
     setUser(res.data.user);
   }, []);
 
@@ -41,7 +41,7 @@ export function AuthProvider({ children }) {
   }, []);
 
   const updateProfile = useCallback(async (name, email) => {
-    const res = await api.patch('/auth/profile', { name, email });
+    const res = await api.patch('/auth/profile', { name, email: email.trim().toLowerCase() });
     setUser(res.data.user);
   }, []);
 

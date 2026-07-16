@@ -81,7 +81,7 @@ export default function Account() {
         </div>
         <div>
           <label className="label">Email</label>
-          <input className="input" required type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
+          <input className="input" required type="email" value={email} onChange={(e) => setEmail(e.target.value.toLowerCase())} />
         </div>
         <button className="btn btn-primary" type="submit" disabled={profileBusy || !profileChanged} style={{ alignSelf: 'flex-start' }}>
           {profileBusy && <span className="spinner" />}
