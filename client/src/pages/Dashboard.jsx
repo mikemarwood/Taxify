@@ -6,6 +6,7 @@ import { SkeletonList, SkeletonStat } from '../components/Skeletons.jsx';
 import AnimatedNumber from '../components/AnimatedNumber.jsx';
 import CategoryBadge from '../components/CategoryBadge.jsx';
 import ExpenseModal from '../components/ExpenseModal.jsx';
+import ReceiptLightbox from '../components/ReceiptLightbox.jsx';
 import { currentFinancialYear } from '../lib/financialYear.js';
 import { iconEmoji } from '../lib/categoryIcons.js';
 
@@ -18,6 +19,11 @@ export default function Dashboard() {
   const [selectedExpense, setSelectedExpense] = useState(null);
   const [categoryFilter, setCategoryFilter] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
+  const [sortBy, setSortBy] = useState('date-desc');
+  const [showDateRange, setShowDateRange] = useState(false);
+  const [fromDate, setFromDate] = useState('');
+  const [toDate, setToDate] = useState('');
+  const [lightboxUrl, setLightboxUrl] = useState(null);
 
   function load() {
     api.get('/expenses').then((res) => {
@@ -63,11 +69,14 @@ export default function Dashboard() {
     setShowAll(false);
     setCategoryFilter(null);
     setSearchQuery('');
+    setFromDate('');
+    setToDate('');
+    setShowDateRange(false);
   }, [year]);
 
   useEffect(() => {
     setShowAll(false);
-  }, [categoryFilter, searchQuery]);
+  }, [categoryFilter, searchQuery, sortBy, fromDate, toDate]);
 
   const categoryFilteredExpenses = useMemo(() => {
     let result = filtered;
@@ -78,8 +87,26 @@ export default function Dashboard() {
       const q = searchQuery.trim().toLowerCase();
       result = result.filter((e) => e.itemName?.toLowerCase().includes(q) || e.notes?.toLowerCase().includes(q));
     }
+    if (fromDate) {
+      result = result.filter((e) => e.purchaseDate.slice(0, 10) >= fromDate);
+    }
+    if (toDate) {
+      result = result.filter((e) => e.purchaseDate.slice(0, 10) <= toDate);
+    }
+    result = [...result].sort((a, b) => {
+      switch (sortBy) {
+        case 'date-asc':
+          return new Date(a.purchaseDate) - new Date(b.purchaseDate);
+        case 'amount-desc':
+          return b.amount - a.amount;
+        case 'amount-asc':
+          return a.amount - b.amount;
+        default:
+          return new Date(b.purchaseDate) - new Date(a.purchaseDate);
+      }
+    });
     return result;
-  }, [filtered, categoryFilter, searchQuery]);
+  }, [filtered, categoryFilter, searchQuery, sortBy, fromDate, toDate]);
 
   const loading = expenses === null;
   const visibleExpenses = showAll ? categoryFilteredExpenses : categoryFilteredExpenses.slice(0, COLLAPSED_ROW_COUNT);
@@ -169,7 +196,7 @@ export default function Dashboard() {
         </div>
       )}
 
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14, flexWrap: 'wrap' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10, flexWrap: 'wrap' }}>
         <div style={{ fontWeight: 700 }}>{categoryFilter ? `${categoryFilter} entries` : 'Recent expenses'}</div>
         {categoryFilter && (
           <button
@@ -180,15 +207,54 @@ export default function Dashboard() {
             Clear filter ✕
           </button>
         )}
+        <button
+          type="button"
+          className="btn btn-ghost"
+          style={{ fontSize: 12, padding: '4px 10px' }}
+          onClick={() => setShowDateRange((v) => !v)}
+        >
+          {showDateRange ? 'Hide custom range' : 'Custom range'}
+        </button>
+        <select
+          className="input"
+          value={sortBy}
+          onChange={(e) => setSortBy(e.target.value)}
+          style={{ padding: '8px 10px', fontSize: 13, marginLeft: 'auto' }}
+        >
+          <option value="date-desc">Newest first</option>
+          <option value="date-asc">Oldest first</option>
+          <option value="amount-desc">Amount: high to low</option>
+          <option value="amount-asc">Amount: low to high</option>
+        </select>
         <input
           type="text"
           className="input"
           placeholder="Search expenses…"
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
-          style={{ marginLeft: 'auto', maxWidth: 240, padding: '8px 12px', fontSize: 13 }}
+          style={{ maxWidth: 240, padding: '8px 12px', fontSize: 13 }}
         />
       </div>
+      {showDateRange && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14, flexWrap: 'wrap' }}>
+          <label className="label" style={{ margin: 0 }}>From</label>
+          <input type="date" className="input" value={fromDate} onChange={(e) => setFromDate(e.target.value)} style={{ width: 160 }} />
+          <label className="label" style={{ margin: 0 }}>To</label>
+          <input type="date" className="input" value={toDate} onChange={(e) => setToDate(e.target.value)} style={{ width: 160 }} />
+          {(fromDate || toDate) && (
+            <button
+              className="btn btn-ghost"
+              style={{ fontSize: 12, padding: '4px 10px' }}
+              onClick={() => {
+                setFromDate('');
+                setToDate('');
+              }}
+            >
+              Clear range ✕
+            </button>
+          )}
+        </div>
+      )}
       {loading ? (
         <SkeletonList rows={6} />
       ) : categoryFilteredExpenses.length === 0 ? (
@@ -243,16 +309,17 @@ export default function Dashboard() {
                   </span>
                   <CategoryBadge category={e.category} />
                   {e.receiptUrl && (
-                    <a
-                      href={e.receiptUrl}
-                      target="_blank"
-                      rel="noreferrer"
+                    <button
+                      type="button"
                       title="View receipt"
-                      style={{ lineHeight: 0 }}
-                      onClick={(evt) => evt.stopPropagation()}
+                      style={{ lineHeight: 0, background: 'none', border: 'none', padding: 0, cursor: 'pointer' }}
+                      onClick={(evt) => {
+                        evt.stopPropagation();
+                        setLightboxUrl(e.receiptUrl);
+                      }}
                     >
                       🧾
-                    </a>
+                    </button>
                   )}
                   <span style={{ width: 80, textAlign: 'right', fontWeight: 700 }}>${e.amount.toFixed(2)}</span>
                 </motion.div>
@@ -294,6 +361,8 @@ export default function Dashboard() {
           }}
         />
       )}
+
+      {lightboxUrl && <ReceiptLightbox url={lightboxUrl} onClose={() => setLightboxUrl(null)} />}
     </div>
   );
 }

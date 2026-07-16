@@ -4,7 +4,11 @@ import { api } from '../lib/api.js';
 import { useToast } from './Toast.jsx';
 import CategoryBadge from './CategoryBadge.jsx';
 import ReceiptDropzone from './ReceiptDropzone.jsx';
+import Toggle from './Toggle.jsx';
+import ReceiptLightbox from './ReceiptLightbox.jsx';
 import { onDigitKeyDown } from '../lib/sounds.js';
+
+const CURRENCIES = ['AUD', 'USD', 'NZD', 'GBP', 'EUR'];
 
 function capitalizeWords(str) {
   return str.replace(/(^|\s)([a-z])/g, (m, sep, ch) => sep + ch.toUpperCase());
@@ -16,11 +20,15 @@ export default function ExpenseModal({ expense, onClose, onSaved, onDeleted }) {
   const [categories, setCategories] = useState([]);
   const [busy, setBusy] = useState(false);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
+  const [lightboxOpen, setLightboxOpen] = useState(false);
 
   const [itemName, setItemName] = useState(expense.itemName);
   const [amount, setAmount] = useState(String(expense.amount));
+  const [currency, setCurrency] = useState(expense.currency || 'AUD');
   const [purchaseDate, setPurchaseDate] = useState(expense.purchaseDate.slice(0, 10));
   const [categoryId, setCategoryId] = useState(expense.category ? String(expense.category.id) : '');
+  const [isRecurring, setIsRecurring] = useState(!!expense.isRecurring);
+  const [frequency, setFrequency] = useState(expense.frequency || 'monthly');
   const [notes, setNotes] = useState(expense.notes || '');
   const [file, setFile] = useState(null);
   const [removeReceipt, setRemoveReceipt] = useState(false);
@@ -54,8 +62,11 @@ export default function ExpenseModal({ expense, onClose, onSaved, onDeleted }) {
     const form = new FormData();
     form.append('itemName', itemName);
     form.append('amount', amount);
+    form.append('currency', currency);
     form.append('purchaseDate', purchaseDate);
     form.append('categoryId', categoryId);
+    form.append('isRecurring', isRecurring);
+    form.append('frequency', isRecurring ? frequency : '');
     form.append('notes', notes);
     if (file) form.append('receipt', file);
     if (removeReceipt) form.append('removeReceipt', 'true');
@@ -138,18 +149,28 @@ export default function ExpenseModal({ expense, onClose, onSaved, onDeleted }) {
               </div>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
                 <div>
-                  <label className="label">Amount (AUD)</label>
-                  <input
-                    className="input"
-                    required
-                    type="number"
-                    min="0.01"
-                    max="999999.99"
-                    step="0.01"
-                    value={amount}
-                    onChange={(e) => setAmount(e.target.value)}
-                    onKeyDown={onDigitKeyDown}
-                  />
+                  <label className="label">Amount</label>
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    <input
+                      className="input"
+                      required
+                      type="number"
+                      min="0.01"
+                      max="999999.99"
+                      step="0.01"
+                      value={amount}
+                      onChange={(e) => setAmount(e.target.value)}
+                      onKeyDown={onDigitKeyDown}
+                      style={{ flex: 1, minWidth: 0 }}
+                    />
+                    <select className="input" value={currency} onChange={(e) => setCurrency(e.target.value)} style={{ width: 90 }}>
+                      {CURRENCIES.map((c) => (
+                        <option key={c} value={c}>
+                          {c}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
                 </div>
                 <div>
                   <label className="label">Date</label>
@@ -173,6 +194,17 @@ export default function ExpenseModal({ expense, onClose, onSaved, onDeleted }) {
                 )}
               </div>
               <div>
+                <Toggle checked={isRecurring} onChange={setIsRecurring} label="Recurring expense" />
+                {isRecurring && (
+                  <select className="input" style={{ marginTop: 8 }} value={frequency} onChange={(e) => setFrequency(e.target.value)}>
+                    <option value="weekly">Weekly</option>
+                    <option value="monthly">Monthly</option>
+                    <option value="quarterly">Quarterly</option>
+                    <option value="yearly">Yearly</option>
+                  </select>
+                )}
+              </div>
+              <div>
                 <label className="label">Notes (optional)</label>
                 <textarea className="input" rows={2} maxLength={1000} value={notes} onChange={(e) => setNotes(e.target.value)} />
               </div>
@@ -180,9 +212,9 @@ export default function ExpenseModal({ expense, onClose, onSaved, onDeleted }) {
                 <label className="label">Receipt</label>
                 {expense.receiptUrl && !file && !removeReceipt ? (
                   <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                    <a href={expense.receiptUrl} target="_blank" rel="noreferrer" className="btn btn-ghost" style={{ fontSize: 13 }}>
+                    <button type="button" className="btn btn-ghost" style={{ fontSize: 13 }} onClick={() => setLightboxOpen(true)}>
                       🧾 View current receipt
-                    </a>
+                    </button>
                     <button type="button" className="btn btn-ghost" style={{ fontSize: 13 }} onClick={() => setRemoveReceipt(true)}>
                       Remove
                     </button>
@@ -211,7 +243,9 @@ export default function ExpenseModal({ expense, onClose, onSaved, onDeleted }) {
             <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
               <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 }}>
                 <h2 style={{ margin: 0, fontSize: 20 }}>{expense.itemName}</h2>
-                <div style={{ fontSize: 22, fontWeight: 800, whiteSpace: 'nowrap' }}>${expense.amount.toFixed(2)}</div>
+                <div style={{ fontSize: 22, fontWeight: 800, whiteSpace: 'nowrap' }}>
+                  {expense.amount.toFixed(2)} {expense.currency || 'AUD'}
+                </div>
               </div>
 
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center' }}>
@@ -230,9 +264,9 @@ export default function ExpenseModal({ expense, onClose, onSaved, onDeleted }) {
 
               <div>
                 {expense.receiptUrl ? (
-                  <a href={expense.receiptUrl} target="_blank" rel="noreferrer" className="btn btn-ghost" style={{ fontSize: 13 }}>
+                  <button type="button" className="btn btn-ghost" style={{ fontSize: 13 }} onClick={() => setLightboxOpen(true)}>
                     🧾 View attachment
-                  </a>
+                  </button>
                 ) : (
                   <span style={{ fontSize: 13, color: 'var(--text-muted)' }}>No receipt attached</span>
                 )}
@@ -266,6 +300,9 @@ export default function ExpenseModal({ expense, onClose, onSaved, onDeleted }) {
           )}
         </motion.div>
       </motion.div>
+      {lightboxOpen && expense.receiptUrl && (
+        <ReceiptLightbox url={expense.receiptUrl} onClose={() => setLightboxOpen(false)} />
+      )}
     </AnimatePresence>
   );
 }

@@ -3,13 +3,19 @@ import { motion } from 'framer-motion';
 import { api } from '../lib/api.js';
 import { SkeletonList, SkeletonStat } from '../components/Skeletons.jsx';
 import { iconEmoji } from '../lib/categoryIcons.js';
+import CategoryBadge from '../components/CategoryBadge.jsx';
+import ExpenseModal from '../components/ExpenseModal.jsx';
 
 export default function Reports() {
   const [expenses, setExpenses] = useState(null);
+  const [categoryFilter, setCategoryFilter] = useState(null);
+  const [selectedExpense, setSelectedExpense] = useState(null);
 
-  useEffect(() => {
+  function load() {
     api.get('/expenses').then((res) => setExpenses(res.data.expenses));
-  }, []);
+  }
+
+  useEffect(load, []);
 
   const { categories, years, cellTotals, categoryTotals, yearTotals, grandTotal } = useMemo(() => {
     if (!expenses) {
@@ -46,6 +52,13 @@ export default function Reports() {
   }, [expenses]);
 
   const loading = expenses === null;
+
+  const filteredExpenses = useMemo(() => {
+    if (!expenses || !categoryFilter) return [];
+    return expenses
+      .filter((e) => (e.category?.name || 'Uncategorised') === categoryFilter)
+      .sort((a, b) => new Date(b.purchaseDate) - new Date(a.purchaseDate));
+  }, [expenses, categoryFilter]);
 
   function fmt(value) {
     if (!value) return <span style={{ color: 'var(--text-muted)' }}>—</span>;
@@ -108,8 +121,15 @@ export default function Reports() {
                 {categories.map((c, i) => {
                   const total = categoryTotals.get(c.name) || 0;
                   const share = grandTotal ? (total / grandTotal) * 100 : 0;
+                  const active = categoryFilter === c.name;
                   return (
-                    <tr key={c.name} className="reports-row">
+                    <tr
+                      key={c.name}
+                      className="reports-row"
+                      onClick={() => setCategoryFilter(active ? null : c.name)}
+                      title={`View ${c.name} entries`}
+                      style={{ cursor: 'pointer', background: active ? 'var(--bg-elevated)' : undefined }}
+                    >
                       <td style={tdStyle('left')}>
                         <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
                           <span aria-hidden="true">{iconEmoji(c.icon)}</span>
@@ -154,7 +174,70 @@ export default function Reports() {
               </tbody>
             </table>
           </motion.div>
+
+          {categoryFilter && (
+            <div style={{ marginTop: 24 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}>
+                <div style={{ fontWeight: 700 }}>{categoryFilter} entries</div>
+                <button
+                  className="btn btn-ghost"
+                  style={{ fontSize: 12, padding: '4px 10px' }}
+                  onClick={() => setCategoryFilter(null)}
+                >
+                  Clear filter ✕
+                </button>
+              </div>
+              {filteredExpenses.length === 0 ? (
+                <div className="card" style={{ padding: 40, textAlign: 'center', color: 'var(--text-muted)' }}>
+                  No entries in {categoryFilter}.
+                </div>
+              ) : (
+                <div className="card scrollbar-slim" style={{ overflow: 'hidden' }}>
+                  {filteredExpenses.map((e, i) => (
+                    <div
+                      key={e.id}
+                      className="expense-row"
+                      onClick={() => setSelectedExpense(e)}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 10,
+                        padding: '8px 16px',
+                        borderBottom: i < filteredExpenses.length - 1 ? '1px solid var(--border)' : 'none',
+                        fontSize: 13,
+                        cursor: 'pointer',
+                      }}
+                    >
+                      <span style={{ width: 78, flexShrink: 0, color: 'var(--text-muted)' }}>
+                        {new Date(e.purchaseDate).toLocaleDateString(undefined, { day: '2-digit', month: 'short', year: 'numeric' })}
+                      </span>
+                      <span style={{ flex: 1, minWidth: 0, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {e.itemName}
+                      </span>
+                      <CategoryBadge category={e.category} />
+                      <span style={{ width: 80, textAlign: 'right', fontWeight: 700 }}>${e.amount.toFixed(2)}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
         </>
+      )}
+
+      {selectedExpense && (
+        <ExpenseModal
+          expense={selectedExpense}
+          onClose={() => setSelectedExpense(null)}
+          onSaved={() => {
+            setSelectedExpense(null);
+            load();
+          }}
+          onDeleted={() => {
+            setSelectedExpense(null);
+            load();
+          }}
+        />
       )}
     </div>
   );
