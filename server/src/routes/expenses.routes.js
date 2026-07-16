@@ -40,6 +40,26 @@ const upload = multer({
   },
 });
 
+const TRASH_RETENTION_DAYS = 30;
+
+export async function purgeExpiredTrash(dbPool) {
+  const [rows] = await dbPool.execute(
+    `SELECT id, user_id, receipt_path FROM expenses
+     WHERE deleted_at IS NOT NULL AND deleted_at < DATE_SUB(NOW(), INTERVAL ${TRASH_RETENTION_DAYS} DAY)`
+  );
+  if (rows.length === 0) return;
+
+  for (const row of rows) {
+    if (row.receipt_path) {
+      fs.unlink(path.join(userReceiptsDir(row.user_id), row.receipt_path), () => {});
+    }
+  }
+  await dbPool.query(
+    `DELETE FROM expenses WHERE id IN (${rows.map(() => '?').join(',')})`,
+    rows.map((r) => r.id)
+  );
+}
+
 const router = Router();
 router.use(requireAuth);
 
@@ -52,7 +72,7 @@ router.get(
               c.id AS category_id, c.name AS category_name, c.color AS category_color, c.icon AS category_icon
        FROM expenses e
        LEFT JOIN categories c ON c.id = e.category_id
-       WHERE e.user_id = ?
+       WHERE e.user_id = ? AND e.deleted_at IS NULL
        ORDER BY e.purchase_date DESC, e.id DESC`,
       [req.user.id]
     );
@@ -68,10 +88,55 @@ router.get(
       isRecurring: !!r.is_recurring,
       frequency: r.frequency,
       notes: r.notes,
+      createdAt: r.created_at,
       category: r.category_id
         ? { id: r.category_id, name: r.category_name, color: r.category_color, icon: r.category_icon }
         : null,
     }));
+
+    res.json({ expenses });
+  })
+);
+
+router.get(
+  '/trash',
+  asyncHandler(async (req, res) => {
+    await purgeExpiredTrash(pool);
+
+    const [rows] = await pool.execute(
+      `SELECT e.id, e.item_name, e.amount, e.currency, e.purchase_date, e.receipt_path,
+              e.is_recurring, e.frequency, e.notes, e.created_at, e.deleted_at,
+              c.id AS category_id, c.name AS category_name, c.color AS category_color, c.icon AS category_icon
+       FROM expenses e
+       LEFT JOIN categories c ON c.id = e.category_id
+       WHERE e.user_id = ? AND e.deleted_at IS NOT NULL
+       ORDER BY e.deleted_at DESC`,
+      [req.user.id]
+    );
+
+    const expenses = rows.map((r) => {
+      const deletedAt = new Date(r.deleted_at);
+      const purgeAt = new Date(deletedAt.getTime() + TRASH_RETENTION_DAYS * 24 * 60 * 60 * 1000);
+      const daysRemaining = Math.max(0, Math.ceil((purgeAt.getTime() - Date.now()) / (24 * 60 * 60 * 1000)));
+      return {
+        id: r.id,
+        itemName: r.item_name,
+        amount: Number(r.amount),
+        currency: r.currency,
+        purchaseDate: r.purchase_date,
+        financialYear: financialYearOf(r.purchase_date),
+        receiptUrl: r.receipt_path ? `/api/expenses/${r.id}/receipt` : null,
+        isRecurring: !!r.is_recurring,
+        frequency: r.frequency,
+        notes: r.notes,
+        createdAt: r.created_at,
+        deletedAt: r.deleted_at,
+        daysRemaining,
+        category: r.category_id
+          ? { id: r.category_id, name: r.category_name, color: r.category_color, icon: r.category_icon }
+          : null,
+      };
+    });
 
     res.json({ expenses });
   })
@@ -266,17 +331,50 @@ router.get(
 router.delete(
   '/:id',
   asyncHandler(async (req, res) => {
-    const [rows] = await pool.execute('SELECT receipt_path FROM expenses WHERE id = ? AND user_id = ?', [
+    const [rows] = await pool.execute(
+      'SELECT id FROM expenses WHERE id = ? AND user_id = ? AND deleted_at IS NULL',
+      [req.params.id, req.user.id]
+    );
+    if (!rows[0]) return res.status(404).json({ error: 'Expense not found' });
+
+    await pool.execute('UPDATE expenses SET deleted_at = NOW() WHERE id = ? AND user_id = ?', [
       req.params.id,
       req.user.id,
     ]);
+    res.json({ ok: true });
+  })
+);
+
+router.post(
+  '/:id/restore',
+  asyncHandler(async (req, res) => {
+    const [rows] = await pool.execute(
+      'SELECT id FROM expenses WHERE id = ? AND user_id = ? AND deleted_at IS NOT NULL',
+      [req.params.id, req.user.id]
+    );
+    if (!rows[0]) return res.status(404).json({ error: 'Expense not found in recycle bin' });
+
+    await pool.execute('UPDATE expenses SET deleted_at = NULL WHERE id = ? AND user_id = ?', [
+      req.params.id,
+      req.user.id,
+    ]);
+    res.json({ ok: true });
+  })
+);
+
+router.delete(
+  '/:id/permanent',
+  asyncHandler(async (req, res) => {
+    const [rows] = await pool.execute(
+      'SELECT receipt_path FROM expenses WHERE id = ? AND user_id = ? AND deleted_at IS NOT NULL',
+      [req.params.id, req.user.id]
+    );
     const row = rows[0];
-    if (!row) return res.status(404).json({ error: 'Expense not found' });
+    if (!row) return res.status(404).json({ error: 'Expense not found in recycle bin' });
 
     await pool.execute('DELETE FROM expenses WHERE id = ? AND user_id = ?', [req.params.id, req.user.id]);
     if (row.receipt_path) {
-      const filePath = path.join(userReceiptsDir(req.user.id), row.receipt_path);
-      fs.unlink(filePath, () => {});
+      fs.unlink(path.join(userReceiptsDir(req.user.id), row.receipt_path), () => {});
     }
     res.json({ ok: true });
   })

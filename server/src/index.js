@@ -8,10 +8,10 @@ import { fileURLToPath } from 'url';
 
 import authRoutes from './routes/auth.routes.js';
 import categoriesRoutes from './routes/categories.routes.js';
-import expensesRoutes from './routes/expenses.routes.js';
+import expensesRoutes, { purgeExpiredTrash } from './routes/expenses.routes.js';
 import adminRoutes from './routes/admin.routes.js';
 import appRoutes from './routes/app.routes.js';
-import { ensureSchema } from './db.js';
+import pool, { ensureSchema } from './db.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
@@ -59,6 +59,11 @@ try {
   console.error(err);
   process.exit(1);
 }
+
+purgeExpiredTrash(pool).catch((err) => console.error('Failed to purge expired recycle bin entries', err));
+setInterval(() => {
+  purgeExpiredTrash(pool).catch((err) => console.error('Failed to purge expired recycle bin entries', err));
+}, 60 * 60 * 1000);
 
 app.listen(PORT, () => {
   console.log(`Taxify server listening on http://localhost:${PORT}`);

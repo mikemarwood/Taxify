@@ -14,6 +14,17 @@ function capitalizeWords(str) {
   return str.replace(/(^|\s)([a-z])/g, (m, sep, ch) => sep + ch.toUpperCase());
 }
 
+function DetailRow({ label, value }) {
+  return (
+    <div>
+      <div style={{ fontSize: 11.5, fontWeight: 700, letterSpacing: 0.4, textTransform: 'uppercase', color: 'var(--text-muted)', marginBottom: 3 }}>
+        {label}
+      </div>
+      <div style={{ fontSize: 14, fontWeight: 600 }}>{value}</div>
+    </div>
+  );
+}
+
 export default function ExpenseModal({ expense, onClose, onSaved, onDeleted }) {
   const toast = useToast();
   const [editing, setEditing] = useState(false);
@@ -97,7 +108,7 @@ export default function ExpenseModal({ expense, onClose, onSaved, onDeleted }) {
     setBusy(true);
     try {
       await api.delete(`/expenses/${expense.id}`);
-      toast('Expense deleted', 'success');
+      toast('Moved to Recycle Bin', 'success');
       onDeleted();
     } catch (err) {
       toast(err.message, 'error');
@@ -113,7 +124,6 @@ export default function ExpenseModal({ expense, onClose, onSaved, onDeleted }) {
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
-        onClick={onClose}
         style={{
           position: 'fixed',
           inset: 0,
@@ -132,7 +142,6 @@ export default function ExpenseModal({ expense, onClose, onSaved, onDeleted }) {
           transition={{ duration: 0.2, ease: 'easeOut' }}
           className="card"
           style={{ width: '100%', maxWidth: 480, maxHeight: '90vh', overflowY: 'auto', padding: 28 }}
-          onClick={(e) => e.stopPropagation()}
         >
           {editing ? (
             <form onSubmit={onSave} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
@@ -240,32 +249,74 @@ export default function ExpenseModal({ expense, onClose, onSaved, onDeleted }) {
               </div>
             </form>
           ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-              <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 }}>
-                <h2 style={{ margin: 0, fontSize: 20 }}>{expense.itemName}</h2>
-                <div style={{ fontSize: 22, fontWeight: 800, whiteSpace: 'nowrap' }}>
-                  {expense.amount.toFixed(2)} {expense.currency || 'AUD'}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'flex-start',
+                  justifyContent: 'space-between',
+                  gap: 16,
+                  paddingBottom: 18,
+                  borderBottom: '1px solid var(--border)',
+                }}
+              >
+                <div style={{ minWidth: 0 }}>
+                  <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: 0.6, textTransform: 'uppercase', color: 'var(--text-muted)', marginBottom: 8 }}>
+                    Expense Record · #{expense.id}
+                  </div>
+                  <h2 style={{ margin: 0, fontSize: 21, lineHeight: 1.3, wordBreak: 'break-word' }}>{expense.itemName}</h2>
+                  <div style={{ marginTop: 10 }}>
+                    <CategoryBadge category={expense.category} />
+                  </div>
+                </div>
+                <div style={{ textAlign: 'right', flexShrink: 0 }}>
+                  <div style={{ fontSize: 24, fontWeight: 800, whiteSpace: 'nowrap' }}>{expense.amount.toFixed(2)}</div>
+                  <div style={{ fontSize: 12.5, color: 'var(--text-muted)', fontWeight: 600 }}>{expense.currency || 'AUD'}</div>
                 </div>
               </div>
 
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center' }}>
-                <CategoryBadge category={expense.category} />
-                <span style={{ fontSize: 13, color: 'var(--text-muted)' }}>
-                  {new Date(expense.purchaseDate).toLocaleDateString(undefined, { day: '2-digit', month: 'short', year: 'numeric' })}
-                </span>
-                {expense.isRecurring && (
-                  <span style={{ fontSize: 13, color: 'var(--text-muted)' }}>· {expense.frequency}</span>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', rowGap: 16, columnGap: 16 }}>
+                <DetailRow
+                  label="Purchase date"
+                  value={new Date(expense.purchaseDate).toLocaleDateString(undefined, {
+                    day: '2-digit',
+                    month: 'long',
+                    year: 'numeric',
+                  })}
+                />
+                <DetailRow label="Category" value={expense.category?.name || 'Uncategorised'} />
+                <DetailRow
+                  label="Recurring"
+                  value={expense.isRecurring ? `Yes · ${expense.frequency}` : 'No'}
+                />
+                {expense.createdAt && (
+                  <DetailRow
+                    label="Added on"
+                    value={new Date(expense.createdAt).toLocaleDateString(undefined, {
+                      day: '2-digit',
+                      month: 'short',
+                      year: 'numeric',
+                    })}
+                  />
                 )}
               </div>
 
               {expense.notes && (
-                <p style={{ margin: 0, fontSize: 14, color: 'var(--text-muted)', whiteSpace: 'pre-wrap' }}>{expense.notes}</p>
+                <div>
+                  <div style={{ fontSize: 11.5, fontWeight: 700, letterSpacing: 0.4, textTransform: 'uppercase', color: 'var(--text-muted)', marginBottom: 6 }}>
+                    Notes
+                  </div>
+                  <p style={{ margin: 0, fontSize: 14, color: 'var(--text)', whiteSpace: 'pre-wrap', lineHeight: 1.5 }}>{expense.notes}</p>
+                </div>
               )}
 
               <div>
+                <div style={{ fontSize: 11.5, fontWeight: 700, letterSpacing: 0.4, textTransform: 'uppercase', color: 'var(--text-muted)', marginBottom: 6 }}>
+                  Attachment
+                </div>
                 {expense.receiptUrl ? (
                   <button type="button" className="btn btn-ghost" style={{ fontSize: 13 }} onClick={() => setLightboxOpen(true)}>
-                    🧾 View attachment
+                    🧾 View receipt
                   </button>
                 ) : (
                   <span style={{ fontSize: 13, color: 'var(--text-muted)' }}>No receipt attached</span>
@@ -273,18 +324,23 @@ export default function ExpenseModal({ expense, onClose, onSaved, onDeleted }) {
               </div>
 
               {confirmingDelete ? (
-                <div style={{ display: 'flex', gap: 10, alignItems: 'center', marginTop: 4 }}>
-                  <span style={{ fontSize: 13, color: 'var(--text-muted)', flex: 1 }}>Delete this expense?</span>
-                  <button className="btn btn-primary" style={{ background: 'var(--red)', fontSize: 13 }} disabled={busy} onClick={onDelete}>
-                    {busy && <span className="spinner" />}
-                    Confirm delete
-                  </button>
-                  <button className="btn btn-ghost" style={{ fontSize: 13 }} onClick={() => setConfirmingDelete(false)}>
-                    Cancel
-                  </button>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 4, paddingTop: 16, borderTop: '1px solid var(--border)' }}>
+                  <span style={{ fontSize: 13, color: 'var(--text-muted)' }}>
+                    Move this expense to the Recycle Bin? You can restore it any time within 30 days, after which it's
+                    deleted permanently.
+                  </span>
+                  <div style={{ display: 'flex', gap: 10 }}>
+                    <button className="btn btn-primary" style={{ background: 'var(--red)', fontSize: 13, flex: 1 }} disabled={busy} onClick={onDelete}>
+                      {busy && <span className="spinner" />}
+                      Move to Recycle Bin
+                    </button>
+                    <button className="btn btn-ghost" style={{ fontSize: 13 }} onClick={() => setConfirmingDelete(false)}>
+                      Cancel
+                    </button>
+                  </div>
                 </div>
               ) : (
-                <div style={{ display: 'flex', gap: 10, marginTop: 4 }}>
+                <div style={{ display: 'flex', gap: 10, marginTop: 4, paddingTop: 16, borderTop: '1px solid var(--border)' }}>
                   <button className="btn btn-primary" style={{ flex: 1 }} onClick={() => setEditing(true)}>
                     Edit
                   </button>

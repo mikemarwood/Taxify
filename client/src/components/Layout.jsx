@@ -12,6 +12,7 @@ const navItems = [
   { to: '/add', label: 'Add Expense', icon: '➕' },
   { to: '/categories', label: 'Categories', icon: '🏷️' },
   { to: '/reports', label: 'Reports', icon: '📈' },
+  { to: '/recycle-bin', label: 'Recycle Bin', icon: '🗑️' },
   { to: '/account', label: 'Account', icon: '⚙️' },
 ];
 

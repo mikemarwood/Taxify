@@ -10,6 +10,7 @@ import Categories from './pages/Categories.jsx';
 import Reports from './pages/Reports.jsx';
 import Admin from './pages/Admin.jsx';
 import Account from './pages/Account.jsx';
+import RecycleBin from './pages/RecycleBin.jsx';
 
 function Splash() {
   return (
@@ -46,6 +47,7 @@ export default function App() {
       <Route path="/categories" element={<Protected><Categories /></Protected>} />
       <Route path="/reports" element={<Protected><Reports /></Protected>} />
       <Route path="/account" element={<Protected><Account /></Protected>} />
+      <Route path="/recycle-bin" element={<Protected><RecycleBin /></Protected>} />
       <Route path="/admin" element={<Protected adminOnly><Admin /></Protected>} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>

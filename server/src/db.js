@@ -87,6 +87,11 @@ export async function ensureSchema() {
       FOREIGN KEY (category_id) REFERENCES categories(id) ON DELETE SET NULL
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
   `);
+  // Soft-delete support: a non-null deleted_at moves an expense into the
+  // recycle bin instead of removing it immediately.
+  await pool.query(`
+    ALTER TABLE expenses ADD COLUMN IF NOT EXISTS deleted_at DATETIME NULL
+  `);
 
   await pool.query(`
     CREATE TABLE IF NOT EXISTS default_categories (
