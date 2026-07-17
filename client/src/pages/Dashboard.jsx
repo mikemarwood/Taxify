@@ -7,6 +7,7 @@ import AnimatedNumber from '../components/AnimatedNumber.jsx';
 import CategoryBadge from '../components/CategoryBadge.jsx';
 import ExpenseModal from '../components/ExpenseModal.jsx';
 import ReceiptLightbox from '../components/ReceiptLightbox.jsx';
+import ExportMenu from '../components/ExportMenu.jsx';
 import { currentFinancialYear } from '../lib/financialYear.js';
 import { iconEmoji } from '../lib/categoryIcons.js';
 import { useAuth } from '../lib/AuthContext.jsx';
@@ -122,6 +123,7 @@ export default function Dashboard() {
           <p style={{ color: 'var(--text-muted)', margin: '4px 0 0' }}>Your deductions at a glance.</p>
         </div>
         <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+          <ExportMenu baseUrl="/api/export/expenses" label="Export all" />
           {user?.role !== 'accountant' && (
             <Link to="/add" className="btn btn-primary">
               + Add expense

@@ -213,3 +213,6 @@ input[type="date"].input::-webkit-calendar-picker-indicator {
 
 .expense-row { transition: background-color 0.15s ease; }
 .expense-row:hover { background-color: var(--bg-elevated); }
+
+.export-menu-item { transition: background-color 0.15s ease; }
+.export-menu-item:hover { background-color: var(--bg-elevated); }

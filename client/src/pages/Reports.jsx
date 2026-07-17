@@ -5,6 +5,7 @@ import { SkeletonList, SkeletonStat } from '../components/Skeletons.jsx';
 import { iconEmoji } from '../lib/categoryIcons.js';
 import CategoryBadge from '../components/CategoryBadge.jsx';
 import ExpenseModal from '../components/ExpenseModal.jsx';
+import ExportMenu from '../components/ExportMenu.jsx';
 
 export default function Reports() {
   const [expenses, setExpenses] = useState(null);
@@ -67,8 +68,13 @@ export default function Reports() {
 
   return (
     <div>
-      <h1 style={{ margin: '0 0 4px', fontSize: 26 }}>Reports</h1>
-      <p style={{ color: 'var(--text-muted)', margin: '0 0 24px' }}>Compare spending by category across tax years.</p>
+      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 16, marginBottom: 24 }}>
+        <div>
+          <h1 style={{ margin: '0 0 4px', fontSize: 26 }}>Reports</h1>
+          <p style={{ color: 'var(--text-muted)', margin: 0 }}>Compare spending by category across tax years.</p>
+        </div>
+        <ExportMenu baseUrl="/api/export/categories" label="Export summary" />
+      </div>
 
       {loading ? (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 16, marginBottom: 24 }}>

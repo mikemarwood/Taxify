@@ -12,6 +12,7 @@ import expensesRoutes, { purgeExpiredTrash } from './routes/expenses.routes.js';
 import adminRoutes from './routes/admin.routes.js';
 import appRoutes from './routes/app.routes.js';
 import billingRoutes from './routes/billing.routes.js';
+import exportRoutes from './routes/export.routes.js';
 import { purgeUnactivatedAccounts, runBillingReminders } from './jobs/billingJobs.js';
 import pool, { ensureSchema } from './db.js';
 
@@ -35,6 +36,7 @@ app.use('/api/expenses', expensesRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/app', appRoutes);
 app.use('/api/billing', billingRoutes);
+app.use('/api/export', exportRoutes);
 
 // eslint-disable-next-line no-unused-vars
 app.use((err, req, res, next) => {
