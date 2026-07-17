@@ -7,6 +7,7 @@ import ReceiptDropzone from './ReceiptDropzone.jsx';
 import Toggle from './Toggle.jsx';
 import ReceiptLightbox from './ReceiptLightbox.jsx';
 import { onDigitKeyDown } from '../lib/sounds.js';
+import { useAuth } from '../lib/AuthContext.jsx';
 
 const CURRENCIES = ['AUD', 'USD', 'NZD', 'GBP', 'EUR'];
 
@@ -26,6 +27,8 @@ function DetailRow({ label, value }) {
 }
 
 export default function ExpenseModal({ expense, onClose, onSaved, onDeleted }) {
+  const { user } = useAuth();
+  const readOnly = user?.role === 'accountant';
   const toast = useToast();
   const [editing, setEditing] = useState(false);
   const [categories, setCategories] = useState([]);
@@ -341,13 +344,17 @@ export default function ExpenseModal({ expense, onClose, onSaved, onDeleted }) {
                 </div>
               ) : (
                 <div style={{ display: 'flex', gap: 10, marginTop: 4, paddingTop: 16, borderTop: '1px solid var(--border)' }}>
-                  <button className="btn btn-primary" style={{ flex: 1 }} onClick={() => setEditing(true)}>
-                    Edit
-                  </button>
-                  <button className="btn btn-ghost" onClick={() => setConfirmingDelete(true)}>
-                    Delete
-                  </button>
-                  <button className="btn btn-ghost" onClick={onClose}>
+                  {!readOnly && (
+                    <>
+                      <button className="btn btn-primary" style={{ flex: 1 }} onClick={() => setEditing(true)}>
+                        Edit
+                      </button>
+                      <button className="btn btn-ghost" onClick={() => setConfirmingDelete(true)}>
+                        Delete
+                      </button>
+                    </>
+                  )}
+                  <button className="btn btn-ghost" style={readOnly ? { flex: 1 } : undefined} onClick={onClose}>
                     Close
                   </button>
                 </div>

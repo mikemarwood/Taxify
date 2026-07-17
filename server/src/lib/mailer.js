@@ -122,6 +122,103 @@ export async function sendOtpEmail(to, name, code, expiresMinutes) {
   });
 }
 
+export async function sendActivationEmail(to, name, activationUrl) {
+  await sendMail({
+    to,
+    subject: 'Activate your Taxify account',
+    title: 'Account Activation',
+    heading: `Welcome, ${name}!`,
+    bodyHtml: `
+      <p style="font-size:14px;color:#4b5563;margin:0 0 20px;line-height:1.5;">
+        You're almost set up. Click the button below to activate your Taxify account and start your
+        14-day free trial with full access to every feature.
+      </p>
+      <div style="text-align:center;margin:0 0 20px;">
+        <a href="${activationUrl}" style="display:inline-block;background:#1e3a8a;color:#ffffff;font-weight:700;font-size:14px;text-decoration:none;padding:14px 28px;border-radius:8px;">
+          Activate my account
+        </a>
+      </div>
+      <p style="font-size:13px;color:#4b5563;margin:0;line-height:1.5;">
+        This link expires in 5 days. If it's not used by then, the account is automatically removed
+        and you're welcome to sign up again.
+      </p>
+    `,
+  });
+}
+
+export async function sendInviteEmail(to, name, role, acceptUrl, inviterName) {
+  const roleLabel = role === 'accountant' ? 'accountant (read-only)' : 'family member';
+  await sendMail({
+    to,
+    subject: `${inviterName} invited you to Taxify`,
+    title: 'Account Invitation',
+    heading: `Hi ${name},`,
+    bodyHtml: `
+      <p style="font-size:14px;color:#4b5563;margin:0 0 20px;line-height:1.5;">
+        ${inviterName} has invited you to Taxify as a <strong>${roleLabel}</strong>. Set a password to
+        finish creating your account.
+      </p>
+      <div style="text-align:center;margin:0 0 20px;">
+        <a href="${acceptUrl}" style="display:inline-block;background:#1e3a8a;color:#ffffff;font-weight:700;font-size:14px;text-decoration:none;padding:14px 28px;border-radius:8px;">
+          Set my password
+        </a>
+      </div>
+      <p style="font-size:13px;color:#4b5563;margin:0;line-height:1.5;">
+        This link expires in 5 days.
+      </p>
+    `,
+  });
+}
+
+export async function sendTrialEndingEmail(to, name, daysLeft, trialEndsAt) {
+  const when = new Date(trialEndsAt).toLocaleDateString(undefined, { day: '2-digit', month: 'long', year: 'numeric' });
+  await sendMail({
+    to,
+    subject: `Your Taxify trial ends in ${daysLeft} day${daysLeft === 1 ? '' : 's'}`,
+    title: 'Trial Ending Soon',
+    heading: `Hi ${name},`,
+    bodyHtml: `
+      <p style="font-size:14px;color:#4b5563;margin:0 0 20px;line-height:1.5;">
+        Your free trial ends on <strong>${when}</strong> (${daysLeft} day${daysLeft === 1 ? '' : 's'} from now).
+        Subscribe from your Account page to keep uninterrupted access to your expenses, reports, and receipts.
+      </p>
+    `,
+  });
+}
+
+export async function sendTrialExpiredEmail(to, name) {
+  await sendMail({
+    to,
+    subject: 'Your Taxify trial has ended',
+    title: 'Access Restricted',
+    heading: `Hi ${name},`,
+    bodyHtml: `
+      <p style="font-size:14px;color:#4b5563;margin:0 0 20px;line-height:1.5;">
+        Your 14-day free trial has ended, so access to your Taxify account is now restricted. Your data
+        is safe and waiting for you — subscribe from your Account page any time to pick up right where
+        you left off.
+      </p>
+    `,
+  });
+}
+
+export async function sendSubscriptionRenewingEmail(to, name, periodEnd) {
+  const when = new Date(periodEnd).toLocaleDateString(undefined, { day: '2-digit', month: 'long', year: 'numeric' });
+  await sendMail({
+    to,
+    subject: `Your Taxify plan renews on ${when}`,
+    title: 'Upcoming Renewal',
+    heading: `Hi ${name},`,
+    bodyHtml: `
+      <p style="font-size:14px;color:#4b5563;margin:0 0 20px;line-height:1.5;">
+        Just a heads-up — your annual Taxify plan will renew on <strong>${when}</strong> using the card
+        on file. No action is needed unless you'd like to update your payment details or cancel from
+        your Account page.
+      </p>
+    `,
+  });
+}
+
 export async function sendTestEmail(to) {
   await sendMail({
     to,

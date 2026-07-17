@@ -2,16 +2,28 @@ import { Router } from 'express';
 import multer from 'multer';
 import path from 'path';
 import fs from 'fs';
+import crypto from 'crypto';
 import { fileURLToPath } from 'url';
 import pool, { getSetting, getMfaMode } from '../db.js';
 import { hashPassword, verifyPassword, isStrongPassword } from '../auth/password.js';
 import { signToken, cookieOptions, COOKIE_NAME } from '../auth/jwt.js';
-import { requireAuth } from '../auth/middleware.js';
+import { requireAuth, requireAccountOwner } from '../auth/middleware.js';
 import { seedDefaultCategories } from '../seed/defaultCategories.js';
 import { asyncHandler } from '../lib/asyncHandler.js';
 import { generateOtp, hashOtp, OTP_TTL_MINUTES, OTP_MAX_ATTEMPTS, OTP_LOCKOUT_MINUTES } from '../auth/otp.js';
 import { toPublicUser } from '../auth/publicUser.js';
-import { sendOtpEmail } from '../lib/mailer.js';
+import { computeAccessLocked } from '../auth/access.js';
+import { sendOtpEmail, sendActivationEmail, sendInviteEmail } from '../lib/mailer.js';
+
+const ACTIVATION_TOKEN_DAYS = 5;
+const TRIAL_DAYS = 14;
+
+function generateActivationToken() {
+  const token = crypto.randomBytes(32).toString('hex');
+  const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
+  const expiresAt = new Date(Date.now() + ACTIVATION_TOKEN_DAYS * 24 * 60 * 60 * 1000);
+  return { token, tokenHash, expiresAt };
+}
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const avatarsDir = path.join(__dirname, '..', '..', 'uploads', 'avatars');
@@ -43,7 +55,7 @@ router.post(
       return res.status(403).json({ error: 'Registrations are currently closed' });
     }
 
-    const { email, password, name } = req.body || {};
+    const { email, password, name, planType } = req.body || {};
 
     if (!email || !password || !name) {
       return res.status(400).json({ error: 'Name, email and password are required' });
@@ -53,17 +65,20 @@ router.post(
         error: 'Password must be at least 8 characters and include an uppercase letter, a lowercase letter, and a number',
       });
     }
+    const finalPlanType = planType === 'family' ? 'family' : 'individual';
 
     const normalizedEmail = String(email).trim().toLowerCase();
     const passwordHash = hashPassword(password);
     const mfaMode = await getMfaMode();
     const otpEnabledAtSignup = mfaMode === 'required' ? 1 : 0;
+    const { token, tokenHash, expiresAt } = generateActivationToken();
 
     let userId;
     try {
       const [result] = await pool.execute(
-        'INSERT INTO users (email, password_hash, name, otp_enabled, otp_prompted) VALUES (?, ?, ?, ?, 0)',
-        [normalizedEmail, passwordHash, String(name).trim(), otpEnabledAtSignup]
+        `INSERT INTO users (email, password_hash, name, otp_enabled, otp_prompted, role, plan_type, activation_token_hash, activation_token_expires_at)
+         VALUES (?, ?, ?, ?, 0, 'owner', ?, ?, ?)`,
+        [normalizedEmail, passwordHash, String(name).trim(), otpEnabledAtSignup, finalPlanType, tokenHash, expiresAt]
       );
       userId = result.insertId;
     } catch (err) {
@@ -75,18 +90,214 @@ router.post(
 
     await seedDefaultCategories(pool, userId);
 
-    const user = {
-      id: userId,
-      email: normalizedEmail,
-      name,
-      is_admin: 0,
-      avatar_path: null,
-      otp_enabled: otpEnabledAtSignup,
-      otp_last_prompted_at: null,
-    };
-    const token = signToken(user);
-    res.cookie(COOKIE_NAME, token, cookieOptions());
-    res.status(201).json({ user: toPublicUser(user, mfaMode) });
+    const activationUrl = `${process.env.CLIENT_ORIGIN || 'http://localhost:5173'}/activate?token=${token}`;
+    try {
+      await sendActivationEmail(normalizedEmail, String(name).trim(), activationUrl);
+    } catch (err) {
+      console.error('Failed to send activation email', err);
+    }
+
+    res.status(201).json({ pendingActivation: true, email: normalizedEmail });
+  })
+);
+
+router.get(
+  '/activate',
+  asyncHandler(async (req, res) => {
+    const { token } = req.query || {};
+    if (!token) return res.status(400).json({ error: 'Activation token is required' });
+
+    const tokenHash = crypto.createHash('sha256').update(String(token)).digest('hex');
+    const [rows] = await pool.execute(
+      'SELECT * FROM users WHERE activation_token_hash = ? AND activated_at IS NULL',
+      [tokenHash]
+    );
+    const user = rows[0];
+    if (!user || new Date(user.activation_token_expires_at) < new Date()) {
+      return res.status(400).json({ error: 'This activation link is invalid or has expired.' });
+    }
+
+    const trialEndsAt = new Date(Date.now() + TRIAL_DAYS * 24 * 60 * 60 * 1000);
+    await pool.execute(
+      `UPDATE users SET activated_at = NOW(), activation_token_hash = NULL, activation_token_expires_at = NULL,
+       trial_ends_at = ?, subscription_status = 'trialing' WHERE id = ?`,
+      [trialEndsAt, user.id]
+    );
+
+    const token2 = signToken(user);
+    res.cookie(COOKIE_NAME, token2, cookieOptions());
+    const mfaMode = await getMfaMode();
+    user.trial_ends_at = trialEndsAt;
+    user.subscription_status = 'trialing';
+    const publicUser = toPublicUser(user, mfaMode);
+    publicUser.accessLocked = false;
+    res.json({ user: publicUser });
+  })
+);
+
+router.post(
+  '/resend-activation',
+  asyncHandler(async (req, res) => {
+    const { email } = req.body || {};
+    if (!email) return res.status(400).json({ error: 'Email is required' });
+
+    const normalizedEmail = String(email).trim().toLowerCase();
+    const [rows] = await pool.execute('SELECT * FROM users WHERE email = ? AND activated_at IS NULL', [normalizedEmail]);
+    const user = rows[0];
+    // Always respond the same way whether or not the account exists, so this
+    // endpoint can't be used to probe which emails are registered.
+    if (!user) return res.json({ ok: true });
+
+    const issuedAt = new Date(new Date(user.activation_token_expires_at).getTime() - ACTIVATION_TOKEN_DAYS * 24 * 60 * 60 * 1000);
+    if (user.activation_token_expires_at && Date.now() - issuedAt.getTime() < 60 * 1000) {
+      return res.json({ ok: true });
+    }
+
+    const { token, tokenHash, expiresAt } = generateActivationToken();
+    await pool.execute('UPDATE users SET activation_token_hash = ?, activation_token_expires_at = ? WHERE id = ?', [
+      tokenHash,
+      expiresAt,
+      user.id,
+    ]);
+
+    const activationUrl = `${process.env.CLIENT_ORIGIN || 'http://localhost:5173'}/activate?token=${token}`;
+    try {
+      await sendActivationEmail(user.email, user.name, activationUrl);
+    } catch (err) {
+      console.error('Failed to send activation email', err);
+    }
+
+    res.json({ ok: true });
+  })
+);
+
+router.post(
+  '/invite',
+  requireAuth,
+  requireAccountOwner,
+  asyncHandler(async (req, res) => {
+    const { name, email, role } = req.body || {};
+    if (!name || !String(name).trim()) return res.status(400).json({ error: 'Name is required' });
+    if (!email || !String(email).trim()) return res.status(400).json({ error: 'Email is required' });
+    if (role !== 'sub_user' && role !== 'accountant') {
+      return res.status(400).json({ error: 'role must be sub_user or accountant' });
+    }
+
+    const [existingRows] = await pool.execute('SELECT id FROM users WHERE account_holder_id = ? AND role = ?', [
+      req.user.id,
+      role,
+    ]);
+    if (existingRows.length > 0) {
+      return res.status(400).json({
+        error: role === 'accountant' ? 'You already have an accountant invited' : 'You already have a family member invited',
+      });
+    }
+    if (role === 'sub_user' && req.user.planType !== 'family') {
+      return res.status(400).json({ error: 'Upgrade to the Family plan to add a second user' });
+    }
+
+    const normalizedEmail = String(email).trim().toLowerCase();
+    const placeholderHash = hashPassword(crypto.randomBytes(32).toString('hex'));
+    const { token, tokenHash, expiresAt } = generateActivationToken();
+
+    let userId;
+    try {
+      const [result] = await pool.execute(
+        `INSERT INTO users (email, password_hash, name, role, account_holder_id, activation_token_hash, activation_token_expires_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?)`,
+        [normalizedEmail, placeholderHash, String(name).trim(), role, req.user.id, tokenHash, expiresAt]
+      );
+      userId = result.insertId;
+    } catch (err) {
+      if (err.code === 'ER_DUP_ENTRY') {
+        return res.status(409).json({ error: 'An account with that email already exists' });
+      }
+      throw err;
+    }
+
+    if (role === 'sub_user') {
+      await seedDefaultCategories(pool, userId);
+    }
+
+    const acceptUrl = `${process.env.CLIENT_ORIGIN || 'http://localhost:5173'}/accept-invite?token=${token}`;
+    try {
+      await sendInviteEmail(normalizedEmail, String(name).trim(), role, acceptUrl, req.user.name);
+    } catch (err) {
+      console.error('Failed to send invite email', err);
+    }
+
+    res.status(201).json({ ok: true });
+  })
+);
+
+router.post(
+  '/accept-invite',
+  asyncHandler(async (req, res) => {
+    const { token, password } = req.body || {};
+    if (!token || !password) return res.status(400).json({ error: 'Token and password are required' });
+    if (!isStrongPassword(password)) {
+      return res.status(400).json({
+        error: 'Password must be at least 8 characters and include an uppercase letter, a lowercase letter, and a number',
+      });
+    }
+
+    const tokenHash = crypto.createHash('sha256').update(String(token)).digest('hex');
+    const [rows] = await pool.execute(
+      'SELECT * FROM users WHERE activation_token_hash = ? AND activated_at IS NULL',
+      [tokenHash]
+    );
+    const user = rows[0];
+    if (!user || new Date(user.activation_token_expires_at) < new Date()) {
+      return res.status(400).json({ error: 'This invitation link is invalid or has expired.' });
+    }
+
+    await pool.execute(
+      `UPDATE users SET password_hash = ?, activated_at = NOW(), activation_token_hash = NULL, activation_token_expires_at = NULL
+       WHERE id = ?`,
+      [hashPassword(password), user.id]
+    );
+
+    const jwt = signToken(user);
+    res.cookie(COOKIE_NAME, jwt, cookieOptions());
+    const mfaMode = await getMfaMode();
+    const publicUser = toPublicUser(user, mfaMode);
+    publicUser.accessLocked = await computeAccessLocked(publicUser);
+    res.json({ user: publicUser });
+  })
+);
+
+router.get(
+  '/family',
+  requireAuth,
+  requireAccountOwner,
+  asyncHandler(async (req, res) => {
+    const [rows] = await pool.execute(
+      'SELECT id, name, email, role, activated_at FROM users WHERE account_holder_id = ? ORDER BY role, name',
+      [req.user.id]
+    );
+    res.json({
+      members: rows.map((r) => ({
+        id: r.id,
+        name: r.name,
+        email: r.email,
+        role: r.role,
+        active: !!r.activated_at,
+      })),
+    });
+  })
+);
+
+router.delete(
+  '/family/:id',
+  requireAuth,
+  requireAccountOwner,
+  asyncHandler(async (req, res) => {
+    const [result] = await pool.execute('DELETE FROM users WHERE id = ? AND account_holder_id = ?', [
+      req.params.id,
+      req.user.id,
+    ]);
+    if (result.affectedRows === 0) return res.status(404).json({ error: 'Not found' });
+    res.json({ ok: true });
   })
 );
 
@@ -103,6 +314,13 @@ router.post(
       return res.status(401).json({ error: 'Invalid email or password' });
     }
 
+    if (!user.activated_at) {
+      return res.status(403).json({
+        error: 'Please activate your account first — check your email for the activation link.',
+        notActivated: true,
+      });
+    }
+
     if (user.otp_locked_until && new Date(user.otp_locked_until) > new Date()) {
       return res.status(423).json({
         error: 'Too many incorrect codes. Login is temporarily locked.',
@@ -116,7 +334,9 @@ router.post(
     if (!mfaRequiredForUser) {
       const token = signToken(user);
       res.cookie(COOKIE_NAME, token, cookieOptions(!publicDevice));
-      return res.json({ otpRequired: false, user: toPublicUser(user, mfaMode) });
+      const publicUser = toPublicUser(user, mfaMode);
+      publicUser.accessLocked = await computeAccessLocked(publicUser);
+      return res.json({ otpRequired: false, user: publicUser });
     }
 
     const code = generateOtp();
@@ -184,7 +404,9 @@ router.post(
     const token = signToken(user);
     res.cookie(COOKIE_NAME, token, cookieOptions(!publicDevice));
     const mfaMode = await getMfaMode();
-    res.json({ user: toPublicUser(user, mfaMode) });
+    const publicUser = toPublicUser(user, mfaMode);
+    publicUser.accessLocked = await computeAccessLocked(publicUser);
+    res.json({ user: publicUser });
   })
 );
 

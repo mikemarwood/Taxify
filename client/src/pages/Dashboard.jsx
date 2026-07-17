@@ -9,10 +9,12 @@ import ExpenseModal from '../components/ExpenseModal.jsx';
 import ReceiptLightbox from '../components/ReceiptLightbox.jsx';
 import { currentFinancialYear } from '../lib/financialYear.js';
 import { iconEmoji } from '../lib/categoryIcons.js';
+import { useAuth } from '../lib/AuthContext.jsx';
 
 const COLLAPSED_ROW_COUNT = 8;
 
 export default function Dashboard() {
+  const { user } = useAuth();
   const [expenses, setExpenses] = useState(null);
   const [year, setYear] = useState(null);
   const [showAll, setShowAll] = useState(false);
@@ -120,9 +122,11 @@ export default function Dashboard() {
           <p style={{ color: 'var(--text-muted)', margin: '4px 0 0' }}>Your deductions at a glance.</p>
         </div>
         <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
-          <Link to="/add" className="btn btn-primary">
-            + Add expense
-          </Link>
+          {user?.role !== 'accountant' && (
+            <Link to="/add" className="btn btn-primary">
+              + Add expense
+            </Link>
+          )}
         </div>
       </div>
 

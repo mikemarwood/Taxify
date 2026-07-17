@@ -11,6 +11,8 @@ import categoriesRoutes from './routes/categories.routes.js';
 import expensesRoutes, { purgeExpiredTrash } from './routes/expenses.routes.js';
 import adminRoutes from './routes/admin.routes.js';
 import appRoutes from './routes/app.routes.js';
+import billingRoutes from './routes/billing.routes.js';
+import { purgeUnactivatedAccounts, runBillingReminders } from './jobs/billingJobs.js';
 import pool, { ensureSchema } from './db.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -18,6 +20,9 @@ const app = express();
 const PORT = process.env.PORT || 4000;
 const isProd = process.env.NODE_ENV === 'production';
 
+// Stripe requires the raw request body to verify webhook signatures, so this
+// must be parsed before the global express.json() touches it.
+app.use('/api/billing/webhook', express.raw({ type: 'application/json' }));
 app.use(express.json());
 app.use(cookieParser());
 if (!isProd) {
@@ -29,6 +34,7 @@ app.use('/api/categories', categoriesRoutes);
 app.use('/api/expenses', expensesRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/app', appRoutes);
+app.use('/api/billing', billingRoutes);
 
 // eslint-disable-next-line no-unused-vars
 app.use((err, req, res, next) => {
@@ -64,6 +70,16 @@ purgeExpiredTrash(pool).catch((err) => console.error('Failed to purge expired re
 setInterval(() => {
   purgeExpiredTrash(pool).catch((err) => console.error('Failed to purge expired recycle bin entries', err));
 }, 60 * 60 * 1000);
+
+purgeUnactivatedAccounts(pool).catch((err) => console.error('Failed to purge unactivated accounts', err));
+setInterval(() => {
+  purgeUnactivatedAccounts(pool).catch((err) => console.error('Failed to purge unactivated accounts', err));
+}, 60 * 60 * 1000);
+
+runBillingReminders(pool).catch((err) => console.error('Failed to run billing reminders', err));
+setInterval(() => {
+  runBillingReminders(pool).catch((err) => console.error('Failed to run billing reminders', err));
+}, 6 * 60 * 60 * 1000);
 
 app.listen(PORT, () => {
   console.log(`Taxify server listening on http://localhost:${PORT}`);

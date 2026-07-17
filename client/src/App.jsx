@@ -1,9 +1,11 @@
-import { Routes, Route, Navigate } from 'react-router-dom';
+import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from './lib/AuthContext.jsx';
 import Layout from './components/Layout.jsx';
 import Landing from './pages/Landing.jsx';
 import Login from './pages/Login.jsx';
 import Register from './pages/Register.jsx';
+import Activate from './pages/Activate.jsx';
+import AcceptInvite from './pages/AcceptInvite.jsx';
 import Dashboard from './pages/Dashboard.jsx';
 import AddExpense from './pages/AddExpense.jsx';
 import Categories from './pages/Categories.jsx';
@@ -11,6 +13,7 @@ import Reports from './pages/Reports.jsx';
 import Admin from './pages/Admin.jsx';
 import Account from './pages/Account.jsx';
 import RecycleBin from './pages/RecycleBin.jsx';
+import SubscriptionRequired from './pages/SubscriptionRequired.jsx';
 
 function Splash() {
   return (
@@ -23,9 +26,17 @@ function Splash() {
 
 function Protected({ children, adminOnly }) {
   const { user, loading } = useAuth();
+  const location = useLocation();
   if (loading) return <Splash />;
   if (!user) return <Navigate to="/login" replace />;
   if (adminOnly && !user.isAdmin) return <Navigate to="/" replace />;
+  if (!adminOnly && user.accessLocked && location.pathname !== '/account') {
+    return (
+      <Layout>
+        <SubscriptionRequired />
+      </Layout>
+    );
+  }
   return <Layout>{children}</Layout>;
 }
 
@@ -42,6 +53,8 @@ export default function App() {
       <Route path="/landing" element={<Landing />} />
       <Route path="/login" element={<PublicOnly><Login /></PublicOnly>} />
       <Route path="/register" element={<PublicOnly><Register /></PublicOnly>} />
+      <Route path="/activate" element={<Activate />} />
+      <Route path="/accept-invite" element={<AcceptInvite />} />
       <Route path="/" element={<Protected><Dashboard /></Protected>} />
       <Route path="/add" element={<Protected><AddExpense /></Protected>} />
       <Route path="/categories" element={<Protected><Categories /></Protected>} />

@@ -5,7 +5,8 @@ import fs from 'fs';
 import crypto from 'crypto';
 import { fileURLToPath } from 'url';
 import pool from '../db.js';
-import { requireAuth } from '../auth/middleware.js';
+import { requireAuth, requireActiveAccess } from '../auth/middleware.js';
+import { getVisibleUserIds } from '../auth/access.js';
 import { asyncHandler } from '../lib/asyncHandler.js';
 import { financialYearOf } from '../lib/financialYear.js';
 
@@ -61,20 +62,21 @@ export async function purgeExpiredTrash(dbPool) {
 }
 
 const router = Router();
-router.use(requireAuth);
+router.use(requireAuth, requireActiveAccess);
 
 router.get(
   '/',
   asyncHandler(async (req, res) => {
+    const visibleUserIds = await getVisibleUserIds(req.user);
     const [rows] = await pool.execute(
       `SELECT e.id, e.item_name, e.amount, e.currency, e.purchase_date, e.receipt_path,
               e.is_recurring, e.frequency, e.notes, e.created_at,
               c.id AS category_id, c.name AS category_name, c.color AS category_color, c.icon AS category_icon
        FROM expenses e
        LEFT JOIN categories c ON c.id = e.category_id
-       WHERE e.user_id = ? AND e.deleted_at IS NULL
+       WHERE e.user_id IN (${visibleUserIds.map(() => '?').join(',')}) AND e.deleted_at IS NULL
        ORDER BY e.purchase_date DESC, e.id DESC`,
-      [req.user.id]
+      visibleUserIds
     );
 
     const expenses = rows.map((r) => ({

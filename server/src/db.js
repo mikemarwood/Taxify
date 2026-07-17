@@ -54,6 +54,19 @@ export async function ensureSchema() {
     ALTER TABLE users ADD COLUMN IF NOT EXISTS otp_last_prompted_at DATETIME NULL
   `);
 
+  // Billing/subscription support: activation, trial, plan, and Stripe state.
+  await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS role VARCHAR(20) NOT NULL DEFAULT 'owner'`);
+  await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS account_holder_id INT NULL`);
+  await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS plan_type VARCHAR(20) NULL`);
+  await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS activation_token_hash VARCHAR(64) NULL`);
+  await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS activation_token_expires_at DATETIME NULL`);
+  await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS activated_at DATETIME NULL`);
+  await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS trial_ends_at DATETIME NULL`);
+  await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS subscription_status VARCHAR(20) NOT NULL DEFAULT 'trialing'`);
+  await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS stripe_customer_id VARCHAR(255) NULL`);
+  await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS stripe_subscription_id VARCHAR(255) NULL`);
+  await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS subscription_current_period_end DATETIME NULL`);
+
   await pool.query(`
     CREATE TABLE IF NOT EXISTS categories (
       id INT PRIMARY KEY AUTO_INCREMENT,
@@ -123,6 +136,29 @@ export async function ensureSchema() {
   await pool.query(`
     INSERT IGNORE INTO settings (\`key\`, value) VALUES ('mfa_mode', 'optional')
   `);
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS sent_reminders (
+      id INT PRIMARY KEY AUTO_INCREMENT,
+      user_id INT NOT NULL,
+      reminder_key VARCHAR(40) NOT NULL,
+      sent_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE KEY uniq_user_reminder (user_id, reminder_key),
+      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+  `);
+
+  // One-time backfill: accounts created before the billing system existed are
+  // grandfathered onto a fresh trial rather than being treated as unactivated.
+  const backfillDone = await getSetting('billing_backfill_done');
+  if (backfillDone !== 'true') {
+    await pool.query(`
+      UPDATE users
+      SET activated_at = NOW(), trial_ends_at = DATE_ADD(NOW(), INTERVAL 14 DAY), subscription_status = 'trialing'
+      WHERE activated_at IS NULL
+    `);
+    await setSetting('billing_backfill_done', 'true');
+  }
 }
 
 export async function getSetting(key) {

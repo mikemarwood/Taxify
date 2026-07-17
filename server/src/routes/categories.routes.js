@@ -1,11 +1,11 @@
 import { Router } from 'express';
 import pool from '../db.js';
-import { requireAuth } from '../auth/middleware.js';
+import { requireAuth, requireActiveAccess } from '../auth/middleware.js';
 import { asyncHandler } from '../lib/asyncHandler.js';
 import { toTitleCase } from '../lib/text.js';
 
 const router = Router();
-router.use(requireAuth);
+router.use(requireAuth, requireActiveAccess);
 
 const PALETTE = ['#8b5cf6', '#06b6d4', '#f59e0b', '#ec4899', '#10b981', '#3b82f6', '#a1a1aa', '#ef4444', '#eab308', '#14b8a6'];
 

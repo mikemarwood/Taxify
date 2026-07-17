@@ -30,9 +30,25 @@ export function AuthProvider({ children }) {
     return res.data.user;
   }, []);
 
-  const register = useCallback(async (name, email, password) => {
-    const res = await api.post('/auth/register', { name, email: email.trim().toLowerCase(), password });
+  const register = useCallback(async (name, email, password, planType) => {
+    const res = await api.post('/auth/register', { name, email: email.trim().toLowerCase(), password, planType });
+    return res.data;
+  }, []);
+
+  const activate = useCallback(async (token) => {
+    const res = await api.get(`/auth/activate?token=${encodeURIComponent(token)}`);
     setUser(res.data.user);
+    return res.data.user;
+  }, []);
+
+  const acceptInvite = useCallback(async (token, password) => {
+    const res = await api.post('/auth/accept-invite', { token, password });
+    setUser(res.data.user);
+    return res.data.user;
+  }, []);
+
+  const resendActivation = useCallback(async (email) => {
+    await api.post('/auth/resend-activation', { email: email.trim().toLowerCase() });
   }, []);
 
   const logout = useCallback(async () => {
@@ -67,6 +83,9 @@ export function AuthProvider({ children }) {
         login,
         verifyOtp,
         register,
+        activate,
+        acceptInvite,
+        resendActivation,
         logout,
         updateProfile,
         changePassword,

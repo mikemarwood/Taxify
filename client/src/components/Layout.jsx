@@ -73,7 +73,10 @@ export default function Layout({ children }) {
         </div>
 
         <nav style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-          {[...navItems, ...(user?.isAdmin ? [{ to: '/admin', label: 'Administration', icon: '🛠️' }] : [])].map((item) => (
+          {[
+            ...(user?.role === 'accountant' ? navItems.filter((i) => ['/', '/reports', '/account'].includes(i.to)) : navItems),
+            ...(user?.isAdmin ? [{ to: '/admin', label: 'Administration', icon: '🛠️' }] : []),
+          ].map((item) => (
             <NavLink
               key={item.to}
               to={item.to}
@@ -165,7 +168,7 @@ export default function Layout({ children }) {
         {children}
       </motion.main>
 
-      {location.pathname !== '/add' && (
+      {location.pathname !== '/add' && user?.role !== 'accountant' && (
         <Link
           to="/add"
           title="Add expense"
