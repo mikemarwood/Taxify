@@ -45,6 +45,25 @@ const FEATURES = [
   },
 ];
 
+const PLANS = [
+  {
+    name: 'Individual',
+    price: '$49',
+    period: '/year',
+    text: 'Everything you need to track your own deductions, year round.',
+    features: ['1 user account', 'Unlimited expenses & receipts', 'Full reports & search', 'Optional read-only accountant access'],
+    highlight: false,
+  },
+  {
+    name: 'Family',
+    price: '$79',
+    period: '/year',
+    text: 'The same full feature set, shared across two people.',
+    features: ['Account holder + 1 extra full user', 'Each person tracks their own expenses', 'Optional read-only accountant access', 'Manage both users from one place'],
+    highlight: true,
+  },
+];
+
 const STEPS = [
   { number: '01', title: 'Log an expense', text: 'Add the amount, date, and category in seconds — attach a receipt if you have one.' },
   { number: '02', title: 'Let it organise itself', text: 'Taxify sorts everything by category and financial year automatically as you go.' },
@@ -151,7 +170,7 @@ export default function Landing() {
             </Link>
           </div>
           <p style={{ fontSize: 12.5, color: 'var(--text-muted)', marginTop: 18 }}>
-            No credit card required · Set up in under a minute
+            14-day free trial · No credit card required
           </p>
         </motion.section>
 
@@ -171,8 +190,8 @@ export default function Landing() {
           }}
         >
           {[
-            ['8', 'Ready-made tax categories'],
-            ['5', 'Currencies supported'],
+            ['14-day', 'Free trial, no card required'],
+            ['2', 'Plans — Individual or Family'],
             ['bcrypt', 'Password hashing'],
             ['2FA', 'Email login codes'],
           ].map(([stat, label]) => (
@@ -237,6 +256,67 @@ export default function Landing() {
           </div>
         </section>
 
+        <section style={{ marginBottom: 'clamp(48px, 8vw, 88px)' }}>
+          <div style={{ textAlign: 'center', marginBottom: 40 }}>
+            <h2 style={{ fontSize: 'clamp(24px, 4vw, 32px)', margin: '0 0 12px', fontWeight: 800 }}>
+              Simple, honest pricing
+            </h2>
+            <p style={{ color: 'var(--text-muted)', fontSize: 15, maxWidth: 520, margin: '0 auto' }}>
+              Start with a 14-day free trial on either plan. Billed once a year — no surprises.
+            </p>
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 20, maxWidth: 640, margin: '0 auto' }}>
+            {PLANS.map((p, i) => (
+              <motion.div
+                key={p.name}
+                className="card"
+                initial={{ opacity: 0, y: 16 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true, margin: '-60px' }}
+                transition={{ duration: 0.35, delay: i * 0.08, ease: 'easeOut' }}
+                style={{
+                  padding: 28,
+                  border: p.highlight ? '1px solid var(--violet)' : '1px solid var(--border)',
+                  boxShadow: p.highlight ? '0 0 0 1px var(--violet)' : undefined,
+                  position: 'relative',
+                }}
+              >
+                {p.highlight && (
+                  <div
+                    style={{
+                      position: 'absolute',
+                      top: -12,
+                      left: 24,
+                      background: 'var(--gradient-brand)',
+                      color: 'white',
+                      fontSize: 11,
+                      fontWeight: 700,
+                      padding: '4px 12px',
+                      borderRadius: 999,
+                    }}
+                  >
+                    MOST POPULAR
+                  </div>
+                )}
+                <div style={{ fontWeight: 700, fontSize: 16 }}>{p.name}</div>
+                <div style={{ margin: '10px 0 4px' }}>
+                  <span style={{ fontSize: 32, fontWeight: 800 }}>{p.price}</span>
+                  <span style={{ fontSize: 14, color: 'var(--text-muted)' }}>{p.period}</span>
+                </div>
+                <p style={{ fontSize: 13, color: 'var(--text-muted)', margin: '0 0 18px', lineHeight: 1.5 }}>{p.text}</p>
+                <ul style={{ margin: 0, padding: 0, listStyle: 'none', display: 'flex', flexDirection: 'column', gap: 10 }}>
+                  {p.features.map((f) => (
+                    <li key={f} style={{ display: 'flex', gap: 8, fontSize: 13, alignItems: 'flex-start' }}>
+                      <span style={{ color: 'var(--emerald)' }} aria-hidden="true">✓</span>
+                      <span>{f}</span>
+                    </li>
+                  ))}
+                </ul>
+              </motion.div>
+            ))}
+          </div>
+        </section>
+
         <motion.section
           initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
@@ -253,11 +333,11 @@ export default function Landing() {
             Ready to stop losing receipts?
           </h2>
           <p style={{ color: 'var(--text-muted)', fontSize: 15, maxWidth: 480, margin: '0 auto 24px' }}>
-            Create your free account and have your first expense logged before your coffee's cold.
+            Start your 14-day free trial and have your first expense logged before your coffee's cold.
           </p>
           <div style={{ display: 'flex', gap: 12, justifyContent: 'center', flexWrap: 'wrap', marginBottom: 20 }}>
             <Link to="/register" className="btn btn-primary" style={{ padding: '13px 28px', fontSize: 15 }}>
-              Create your free account
+              Start free trial
             </Link>
           </div>
           <div style={{ display: 'flex', justifyContent: 'center' }}>

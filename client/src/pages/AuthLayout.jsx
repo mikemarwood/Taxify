@@ -2,12 +2,12 @@ import { motion } from 'framer-motion';
 import AndroidDownloadButton from '../components/AndroidDownloadButton.jsx';
 
 const FEATURES = [
-  { icon: '👥', title: 'Built for every user', text: 'Each account gets its own private set of expenses, categories, and receipts.' },
+  { icon: '🎉', title: '14-day free trial', text: 'Full access to every feature from day one — no card required to get started.' },
   { icon: '🏷️', title: 'Tax categories, ready to go', text: 'Start with General, Training, Tooling, Electronics, Home Rental, and more — no setup.' },
   { icon: '🧾', title: 'Drag-and-drop receipts', text: 'Snap or drag a receipt in and watch it upload with live progress — no fumbling with forms.' },
   { icon: '📈', title: 'Year-over-year reports', text: 'Compare spending by category across tax years at a glance, ready for tax time.' },
+  { icon: '👨‍👩‍👧', title: 'Family & accountant access', text: 'Share a Family plan with a second user, or give your accountant read-only access any time.' },
   { icon: '🔒', title: 'Passwords, properly secured', text: 'Every password is hashed with bcrypt before it ever touches the database.' },
-  { icon: '⚡', title: 'Fast, dark, and colourful', text: 'A snappy interface that stays out of your way, built to actually enjoy using.' },
 ];
 
 export default function AuthLayout({ title, subtitle, children }) {
