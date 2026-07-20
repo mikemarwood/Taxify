@@ -4,12 +4,14 @@
 // bundles anyone's real transaction data into the committed source.
 //
 // Usage:
-//   node server/src/scripts/importLegacy.js <path-to-xlsx-dir> <email> [name] [password]
+//   node server/src/scripts/importLegacy.js <company-code> <path-to-xlsx-dir> <email> [name] [password]
 //
-// Looks for files matching "Tax *.xlsx" in the given directory. Each sheet
-// (other than "Outcome", which is an income summary) becomes expenses under
-// a matching category: General/Training/Tooling/Electronics/Home Rental map
-// directly; any other sheet name (a business name) maps to "Business".
+// <company-code> selects which tenant database to import into (looked up in
+// mike_apphub — see server/src/tenant/). Looks for files matching
+// "Tax *.xlsx" in the given directory. Each sheet (other than "Outcome",
+// which is an income summary) becomes expenses under a matching category:
+// General/Training/Tooling/Electronics/Home Rental map directly; any other
+// sheet name (a business name) maps to "Business".
 
 import 'dotenv/config';
 import fs from 'fs';
@@ -18,6 +20,7 @@ import xlsx from 'xlsx';
 import pool, { ensureSchema } from '../db.js';
 import { hashPassword } from '../auth/password.js';
 import { seedDefaultCategories } from '../seed/defaultCategories.js';
+import { resolveByCode, contextFor, tenantStore } from '../tenant/tenants.js';
 
 const CATEGORY_MAP = {
   General: 'General',
@@ -123,12 +126,20 @@ async function resolveUser(email, name, password) {
 }
 
 async function main() {
-  const [, , dir, email, name, password] = process.argv;
-  if (!dir || !email) {
-    console.error('Usage: node importLegacy.js <path-to-xlsx-dir> <email> [name] [password]');
+  const [, , companyCode, dir, email, name, password] = process.argv;
+  if (!companyCode || !dir || !email) {
+    console.error('Usage: node importLegacy.js <company-code> <path-to-xlsx-dir> <email> [name] [password]');
     process.exit(1);
   }
+  const tenant = await resolveByCode(companyCode);
+  if (!tenant) {
+    console.error(`Unknown or inactive company code "${companyCode}"`);
+    process.exit(1);
+  }
+  await tenantStore.run(contextFor(tenant), () => runImport(dir, email, name, password));
+}
 
+async function runImport(dir, email, name, password) {
   await ensureSchema();
   const user = await resolveUser(email, name, password);
 

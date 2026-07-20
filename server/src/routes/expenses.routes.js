@@ -9,15 +9,14 @@ import { requireAuth, requireActiveAccess } from '../auth/middleware.js';
 import { getVisibleUserIds } from '../auth/access.js';
 import { asyncHandler } from '../lib/asyncHandler.js';
 import { financialYearOf } from '../lib/financialYear.js';
+import { tenantUploadsDir } from '../tenant/uploads.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const uploadsDir = path.join(__dirname, '..', '..', 'uploads');
-if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir, { recursive: true });
 
 const ALLOWED_MIME = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'application/pdf']);
 
 function userReceiptsDir(userId) {
-  return path.join(uploadsDir, String(userId));
+  return path.join(tenantUploadsDir(), String(userId));
 }
 
 const storage = multer.diskStorage({

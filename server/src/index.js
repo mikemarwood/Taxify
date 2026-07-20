@@ -15,6 +15,14 @@ import billingRoutes from './routes/billing.routes.js';
 import exportRoutes from './routes/export.routes.js';
 import { purgeUnactivatedAccounts, runBillingReminders } from './jobs/billingJobs.js';
 import pool, { ensureSchema } from './db.js';
+import { tenantStore, contextFor, listTenants } from './tenant/tenants.js';
+import {
+  tenantMiddleware,
+  companyPage,
+  tenantSelect,
+  tenantClear,
+  tenantCurrent,
+} from './tenant/middleware.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
@@ -29,6 +37,17 @@ app.use(cookieParser());
 if (!isProd) {
   app.use(cors({ origin: process.env.CLIENT_ORIGIN || 'http://localhost:5173', credentials: true }));
 }
+
+// Tenant gate: /company (+ its tiny API) resolve with no tenant at
+// all; every other route runs behind tenantMiddleware, which picks the
+// tenant from the hub's X-Tenant-Code header or the signed fallback
+// cookie and scopes the rest of the request (DB pool, uploads dir) to
+// it. See tenant/middleware.js for the full resolution order.
+app.get('/company', companyPage);
+app.post('/api/tenant-select', tenantSelect);
+app.post('/api/tenant-clear', tenantClear);
+app.get('/api/tenant-current', tenantCurrent);
+app.use(tenantMiddleware);
 
 app.use('/api/auth', authRoutes);
 app.use('/api/categories', categoriesRoutes);
@@ -60,27 +79,57 @@ if (isProd) {
   }
 }
 
+// Every tenant has its own database, so schema migrations and the
+// scheduled jobs below run once per active tenant, each inside a
+// tenantStore context so pool.query (via the proxyPool in db.js)
+// reaches that tenant's own database.
+async function forEachTenant(label, fn) {
+  let tenants;
+  try {
+    tenants = await listTenants();
+  } catch (err) {
+    console.error(`[${label}] could not read mike_apphub:`, err.message);
+    return;
+  }
+  for (const tenant of tenants) {
+    try {
+      await tenantStore.run(contextFor(tenant), () => fn(tenant));
+    } catch (err) {
+      console.error(`[${label}] tenant "${tenant.code}" failed:`, err.message);
+    }
+  }
+}
+
 try {
-  await ensureSchema();
+  await forEachTenant('bootstrap', async (tenant) => {
+    console.log(`[bootstrap] tenant "${tenant.code}": applying schema`);
+    await ensureSchema();
+  });
 } catch (err) {
-  console.error('Failed to connect to the database. Check DB_HOST/DB_PORT/DB_USER/DB_PASSWORD/DB_NAME in server/.env');
+  console.error('Failed to run startup schema migrations against tenant databases.');
   console.error(err);
   process.exit(1);
 }
 
-purgeExpiredTrash(pool).catch((err) => console.error('Failed to purge expired recycle bin entries', err));
+forEachTenant('recycle-bin-purge', () => purgeExpiredTrash(pool))
+  .catch((err) => console.error('Failed to purge expired recycle bin entries', err));
 setInterval(() => {
-  purgeExpiredTrash(pool).catch((err) => console.error('Failed to purge expired recycle bin entries', err));
+  forEachTenant('recycle-bin-purge', () => purgeExpiredTrash(pool))
+    .catch((err) => console.error('Failed to purge expired recycle bin entries', err));
 }, 60 * 60 * 1000);
 
-purgeUnactivatedAccounts(pool).catch((err) => console.error('Failed to purge unactivated accounts', err));
+forEachTenant('unactivated-purge', () => purgeUnactivatedAccounts(pool))
+  .catch((err) => console.error('Failed to purge unactivated accounts', err));
 setInterval(() => {
-  purgeUnactivatedAccounts(pool).catch((err) => console.error('Failed to purge unactivated accounts', err));
+  forEachTenant('unactivated-purge', () => purgeUnactivatedAccounts(pool))
+    .catch((err) => console.error('Failed to purge unactivated accounts', err));
 }, 60 * 60 * 1000);
 
-runBillingReminders(pool).catch((err) => console.error('Failed to run billing reminders', err));
+forEachTenant('billing-reminders', () => runBillingReminders(pool))
+  .catch((err) => console.error('Failed to run billing reminders', err));
 setInterval(() => {
-  runBillingReminders(pool).catch((err) => console.error('Failed to run billing reminders', err));
+  forEachTenant('billing-reminders', () => runBillingReminders(pool))
+    .catch((err) => console.error('Failed to run billing reminders', err));
 }, 6 * 60 * 60 * 1000);
 
 app.listen(PORT, () => {
