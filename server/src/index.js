@@ -23,6 +23,7 @@ import {
   tenantClear,
   tenantCurrent,
 } from './tenant/middleware.js';
+import { TENANT_COOKIE_NAME } from './tenant/cookies.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
@@ -47,6 +48,18 @@ app.get('/company', companyPage);
 app.post('/api/tenant-select', tenantSelect);
 app.post('/api/tenant-clear', tenantClear);
 app.get('/api/tenant-current', tenantCurrent);
+
+// Public marketing page — plain server-rendered HTML (not the React SPA),
+// so it renders with no tenant/company code and so Mike's App Hub's
+// server-side scraper (which fetches this with plain fetch(), no JS) gets
+// real content for the /apps/taxify listing page. Same pattern True Budget
+// uses for its landing.html. Registered before tenantMiddleware so it never
+// requires a tenant.
+app.get(['/', '/landing'], (req, res, next) => {
+  if (req.headers['x-tenant-code'] || req.cookies?.[TENANT_COOKIE_NAME]) return next();
+  res.sendFile(path.join(__dirname, '..', '..', 'landing.html'));
+});
+
 app.use(tenantMiddleware);
 
 app.use('/api/auth', authRoutes);

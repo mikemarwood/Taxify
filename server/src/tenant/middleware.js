@@ -63,13 +63,18 @@ function redirectToCompany(res, error, detail) {
 }
 
 // Paths that must resolve with no tenant context at all — the
-// /company gate itself, its API, and static assets.
+// /company gate itself, its API, static assets, and the public
+// marketing landing page (pure client-rendered content, no
+// tenant-scoped API calls, so it must never be gated behind a
+// company code — this is also what Mike's App Hub fetches to build
+// the public /apps/taxify listing page).
 const PUBLIC_PATHS = new Set([
   '/company',
   '/api/tenant-select',
   '/api/tenant-clear',
   '/api/tenant-current',
   '/favicon.ico',
+  '/landing',
 ]);
 
 function isPublicPath(reqPath) {

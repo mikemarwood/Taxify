@@ -1,0 +1,340 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Taxify — Track every tax deduction, without the spreadsheet</title>
+<meta name="description" content="Taxify logs your expenses, sorts them into categories, and builds year-over-year reports — so tax time takes minutes, not weekends.">
+<meta name="theme-color" content="#0a0f18">
+<link rel="icon" type="image/svg+xml" href="/logo.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg: #0a0f18;
+    --bg-elevated: #0f1826;
+    --bg-card: #101a2b;
+    --border: #1e2c3f;
+    --text: #e8eef7;
+    --text-muted: #8fa2ba;
+    --violet: #2563eb;
+    --cyan: #06b6d4;
+    --blue: #3b82f6;
+    --emerald: #10b981;
+    --gradient-brand: linear-gradient(135deg, var(--blue), var(--violet) 55%, var(--cyan));
+  }
+  html, body { height: 100%; }
+  body {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    background:
+      radial-gradient(circle at 15% 0%, rgba(59, 130, 246, 0.14), transparent 40%),
+      radial-gradient(circle at 85% 20%, rgba(6, 182, 212, 0.12), transparent 40%),
+      var(--bg);
+    color: var(--text);
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+  a { color: inherit; text-decoration: none; }
+  .container { max-width: 1200px; margin: 0 auto; padding: 0 clamp(20px, 5vw, 64px); }
+  .card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+  }
+
+  header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 20px clamp(20px, 5vw, 64px);
+    max-width: 1200px;
+    margin: 0 auto;
+  }
+  .brand { display: flex; align-items: center; gap: 10px; }
+  .brand img { width: 32px; height: 32px; }
+  .brand span { font-weight: 800; font-size: 20px; }
+  .nav-actions { display: flex; gap: 10px; align-items: center; }
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 10px 18px;
+    border-radius: 10px;
+    font-weight: 600;
+    font-size: 13.5px;
+    cursor: pointer;
+    border: 1px solid transparent;
+  }
+  .btn-ghost { background: transparent; border-color: var(--border); color: var(--text); }
+  .btn-primary { background: var(--gradient-brand); color: white; }
+  .btn-lg { padding: 13px 28px; font-size: 15px; }
+
+  main { max-width: 1200px; margin: 0 auto; padding: 0 clamp(20px, 5vw, 64px) 80px; }
+
+  .hero { text-align: center; padding: clamp(40px, 8vw, 96px) 0 clamp(32px, 6vw, 56px); }
+  .badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 14px;
+    border-radius: 999px;
+    border: 1px solid var(--border);
+    background: var(--bg-elevated);
+    font-size: 12.5px;
+    color: var(--text-muted);
+    margin-bottom: 24px;
+  }
+  h1 {
+    font-size: clamp(32px, 6vw, 52px);
+    line-height: 1.15;
+    margin: 0 0 20px;
+    font-weight: 800;
+    max-width: 780px;
+    margin-inline: auto;
+  }
+  .lede {
+    font-size: clamp(15px, 2vw, 18px);
+    color: var(--text-muted);
+    max-width: 600px;
+    margin: 0 auto 36px;
+  }
+  .hero-actions { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
+  .hero-note { font-size: 12.5px; color: var(--text-muted); margin-top: 18px; }
+
+  .stats {
+    padding: 28px clamp(20px, 4vw, 40px);
+    margin-bottom: clamp(48px, 8vw, 88px);
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 20px;
+    text-align: center;
+  }
+  .stat-num {
+    font-size: 24px;
+    font-weight: 800;
+    background: var(--gradient-brand);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+  .stat-label { font-size: 12.5px; color: var(--text-muted); margin-top: 4px; }
+
+  section { margin-bottom: clamp(48px, 8vw, 88px); }
+  .section-head { text-align: center; margin-bottom: 40px; }
+  h2 { font-size: clamp(24px, 4vw, 32px); margin: 0 0 12px; font-weight: 800; }
+  .section-head p { color: var(--text-muted); font-size: 15px; max-width: 520px; margin: 0 auto; }
+
+  .features-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px; }
+  .feature-card { padding: 24px; }
+  .feature-icon { font-size: 26px; margin-bottom: 12px; }
+  .feature-title { font-weight: 700; font-size: 15px; margin-bottom: 6px; }
+  .feature-text { font-size: 13.5px; color: var(--text-muted); }
+
+  .steps-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 20px; }
+  .step { padding: 0 8px; }
+  .step-num {
+    font-size: 13px;
+    font-weight: 800;
+    background: var(--gradient-brand);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    margin-bottom: 10px;
+  }
+  .step-title { font-weight: 700; font-size: 17px; margin-bottom: 8px; }
+  .step-text { font-size: 13.5px; color: var(--text-muted); }
+
+  .plans-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 20px; max-width: 640px; margin: 0 auto; }
+  .plan-card { padding: 28px; position: relative; border: 1px solid var(--border); }
+  .plan-card.highlight { border-color: var(--violet); box-shadow: 0 0 0 1px var(--violet); }
+  .plan-badge {
+    position: absolute;
+    top: -12px;
+    left: 24px;
+    background: var(--gradient-brand);
+    color: white;
+    font-size: 11px;
+    font-weight: 700;
+    padding: 4px 12px;
+    border-radius: 999px;
+  }
+  .plan-name { font-weight: 700; font-size: 16px; }
+  .plan-price { margin: 10px 0 4px; }
+  .plan-price .amount { font-size: 32px; font-weight: 800; }
+  .plan-price .period { font-size: 14px; color: var(--text-muted); }
+  .plan-text { font-size: 13px; color: var(--text-muted); margin: 0 0 18px; }
+  .plan-features { list-style: none; display: flex; flex-direction: column; gap: 10px; }
+  .plan-features li { display: flex; gap: 8px; font-size: 13px; align-items: flex-start; }
+  .plan-features li .check { color: var(--emerald); }
+
+  .cta-card { padding: clamp(28px, 5vw, 48px); text-align: center; margin-bottom: clamp(32px, 6vw, 56px); }
+  .cta-card h2 { margin: 0 0 12px; }
+  .cta-card p { color: var(--text-muted); font-size: 15px; max-width: 480px; margin: 0 auto 24px; }
+
+  footer { text-align: center; font-size: 12px; color: var(--text-muted); padding: 16px 20px; }
+  footer a { color: var(--blue); }
+</style>
+</head>
+<body>
+  <header>
+    <a class="brand" href="/landing">
+      <img src="/logo.svg" alt="Taxify" width="32" height="32">
+      <span>Taxify</span>
+    </a>
+    <div class="nav-actions">
+      <a href="/login" class="btn btn-ghost">Log in</a>
+      <a href="/register" class="btn btn-primary">Sign up free</a>
+    </div>
+  </header>
+
+  <main>
+    <section class="hero">
+      <div class="badge">✨ Built for freelancers, tradies &amp; small business owners</div>
+      <h1>Track every tax deduction, without the spreadsheet.</h1>
+      <p class="lede">Taxify logs your expenses, sorts them into categories, and builds year-over-year reports — so tax time takes minutes, not weekends.</p>
+      <div class="hero-actions">
+        <a href="/register" class="btn btn-primary btn-lg">Get started — it's free</a>
+        <a href="/login" class="btn btn-ghost btn-lg">I already have an account</a>
+      </div>
+      <p class="hero-note">14-day free trial · No credit card required</p>
+    </section>
+
+    <section class="card stats">
+      <div>
+        <div class="stat-num">14-day</div>
+        <div class="stat-label">Free trial, no card required</div>
+      </div>
+      <div>
+        <div class="stat-num">2</div>
+        <div class="stat-label">Plans — Individual or Family</div>
+      </div>
+      <div>
+        <div class="stat-num">bcrypt</div>
+        <div class="stat-label">Password hashing</div>
+      </div>
+      <div>
+        <div class="stat-num">2FA</div>
+        <div class="stat-label">Email login codes</div>
+      </div>
+    </section>
+
+    <section>
+      <div class="section-head">
+        <h2>Everything you need to stay on top of deductions</h2>
+        <p>No accounting degree required — just log as you go and let Taxify do the sorting.</p>
+      </div>
+      <div class="features-grid">
+        <div class="card feature-card">
+          <div class="feature-icon">🧾</div>
+          <div class="feature-title">Drag-and-drop receipts</div>
+          <div class="feature-text">Snap a photo or drag a file in and watch it upload with live progress. Every receipt lives right alongside the expense it belongs to.</div>
+        </div>
+        <div class="card feature-card">
+          <div class="feature-icon">🏷️</div>
+          <div class="feature-title">Tax categories, ready to go</div>
+          <div class="feature-text">Start with a full set of deduction categories — General, Training, Tooling, Electronics, Home Rental and more — no setup required.</div>
+        </div>
+        <div class="card feature-card">
+          <div class="feature-icon">🔁</div>
+          <div class="feature-title">Recurring expenses</div>
+          <div class="feature-text">Mark a bill as weekly, monthly, quarterly, or yearly once, and it stays flagged for you every time it comes around.</div>
+        </div>
+        <div class="card feature-card">
+          <div class="feature-icon">🌐</div>
+          <div class="feature-title">Multi-currency support</div>
+          <div class="feature-text">Log expenses in AUD, USD, GBP, EUR, or NZD — perfect for contractors and travellers working across borders.</div>
+        </div>
+        <div class="card feature-card">
+          <div class="feature-icon">🔎</div>
+          <div class="feature-title">Instant search &amp; filters</div>
+          <div class="feature-text">Filter by category, custom date range, or search by keyword to find any entry in seconds — even years of records.</div>
+        </div>
+        <div class="card feature-card">
+          <div class="feature-icon">📈</div>
+          <div class="feature-title">Year-over-year reports</div>
+          <div class="feature-text">Compare spending by category across tax years at a glance, with visual breakdowns ready for tax time.</div>
+        </div>
+        <div class="card feature-card">
+          <div class="feature-icon">🔒</div>
+          <div class="feature-title">Bank-grade account security</div>
+          <div class="feature-text">Passwords are hashed with bcrypt and never stored in plain text, with email-based two-factor login codes to keep your account yours alone.</div>
+        </div>
+        <div class="card feature-card">
+          <div class="feature-icon">📱</div>
+          <div class="feature-title">Take it anywhere</div>
+          <div class="feature-text">Use Taxify in any browser, or install the Android app for quick expense logging on the go.</div>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <div class="section-head">
+        <h2>From receipt to report in three steps</h2>
+      </div>
+      <div class="steps-grid">
+        <div class="step">
+          <div class="step-num">STEP 01</div>
+          <div class="step-title">Log an expense</div>
+          <div class="step-text">Add the amount, date, and category in seconds — attach a receipt if you have one.</div>
+        </div>
+        <div class="step">
+          <div class="step-num">STEP 02</div>
+          <div class="step-title">Let it organise itself</div>
+          <div class="step-text">Taxify sorts everything by category and financial year automatically as you go.</div>
+        </div>
+        <div class="step">
+          <div class="step-num">STEP 03</div>
+          <div class="step-title">Export at tax time</div>
+          <div class="step-text">Open Reports for a category-by-category, year-by-year breakdown ready to hand to your accountant.</div>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <div class="section-head">
+        <h2>Simple, honest pricing</h2>
+        <p>Start with a 14-day free trial on either plan. Billed once a year — no surprises.</p>
+      </div>
+      <div class="plans-grid">
+        <div class="card plan-card">
+          <div class="plan-name">Individual</div>
+          <div class="plan-price"><span class="amount">$49</span><span class="period">/year</span></div>
+          <p class="plan-text">Everything you need to track your own deductions, year round.</p>
+          <ul class="plan-features">
+            <li><span class="check">✓</span><span>1 user account</span></li>
+            <li><span class="check">✓</span><span>Unlimited expenses &amp; receipts</span></li>
+            <li><span class="check">✓</span><span>Full reports &amp; search</span></li>
+            <li><span class="check">✓</span><span>Optional read-only accountant access</span></li>
+          </ul>
+        </div>
+        <div class="card plan-card highlight">
+          <div class="plan-badge">MOST POPULAR</div>
+          <div class="plan-name">Family</div>
+          <div class="plan-price"><span class="amount">$79</span><span class="period">/year</span></div>
+          <p class="plan-text">The same full feature set, shared across two people.</p>
+          <ul class="plan-features">
+            <li><span class="check">✓</span><span>Account holder + 1 extra full user</span></li>
+            <li><span class="check">✓</span><span>Each person tracks their own expenses</span></li>
+            <li><span class="check">✓</span><span>Optional read-only accountant access</span></li>
+            <li><span class="check">✓</span><span>Manage both users from one place</span></li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <section class="card cta-card">
+      <h2>Ready to stop losing receipts?</h2>
+      <p>Start your 14-day free trial and have your first expense logged before your coffee's cold.</p>
+      <a href="/register" class="btn btn-primary btn-lg">Start free trial</a>
+    </section>
+  </main>
+
+  <footer>
+    © <span id="year"></span> Taxify · Powered by <a href="https://mikesapphub.com" target="_blank" rel="noreferrer">Mikes App Hub</a>
+  </footer>
+
+  <script>
+    document.getElementById('year').textContent = new Date().getFullYear();
+  </script>
+</body>
+</html>
