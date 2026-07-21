@@ -67,9 +67,7 @@ const HUB_ORIGIN = process.env.APPHUB_ORIGIN || 'https://mikesapphub.com';
 const APPHUB_PRODUCT_SLUG = process.env.APPHUB_PRODUCT_SLUG || 'taxify';
 const LANDING_HTML_PATH = path.join(__dirname, '..', '..', 'landing.html');
 
-app.get(['/', '/landing'], async (req, res, next) => {
-  if (req.headers['x-tenant-code'] || req.cookies?.[TENANT_COOKIE_NAME]) return next();
-
+async function serveLandingPage(req, res) {
   // Only a real top-level browser navigation gets the hub-proxy treatment
   // below. Everything else — the hub's own scraper (x-central-api-key),
   // curl, or any other non-browser caller — gets the bare static file.
@@ -98,7 +96,18 @@ app.get(['/', '/landing'], async (req, res, next) => {
     console.error('[landing] hub proxy failed, falling back to static page:', err.message);
     res.sendFile(LANDING_HTML_PATH);
   }
+}
+
+// "/" is dual-purpose — logged-in / tenant-resolved visitors land on their
+// dashboard there, so a tenant cookie or header defers to the normal app
+// flow. "/landing" is unambiguously the public marketing page: it must
+// always render for everyone, even a returning visitor whose browser is
+// carrying a tenant cookie from earlier app use.
+app.get('/', async (req, res, next) => {
+  if (req.headers['x-tenant-code'] || req.cookies?.[TENANT_COOKIE_NAME]) return next();
+  return serveLandingPage(req, res);
 });
+app.get('/landing', serveLandingPage);
 
 app.use(tenantMiddleware);
 
