@@ -49,15 +49,55 @@ app.post('/api/tenant-select', tenantSelect);
 app.post('/api/tenant-clear', tenantClear);
 app.get('/api/tenant-current', tenantCurrent);
 
-// Public marketing page — plain server-rendered HTML (not the React SPA),
-// so it renders with no tenant/company code and so Mike's App Hub's
-// server-side scraper (which fetches this with plain fetch(), no JS) gets
-// real content for the /apps/taxify listing page. Same pattern True Budget
-// uses for its landing.html. Registered before tenantMiddleware so it never
-// requires a tenant.
-app.get(['/', '/landing'], (req, res, next) => {
+// Public marketing page. Two audiences hit this with no tenant resolved:
+//
+//   1. Mike's App Hub's own server-side scraper (fetchAndStripExternalPage),
+//      which pulls this page's raw HTML with plain fetch() (no JS) to build
+//      the /apps/taxify listing. It identifies itself with the
+//      x-central-api-key header — for that caller we serve the bare static
+//      file below, since anything else would recurse (see next point).
+//   2. A real visitor landing on this URL directly (not through the hub, no
+//      tenant cookie/header). For them we transparently proxy the hub's own
+//      /apps/taxify page — the exact HTML the hub wraps around this same
+//      static file (header, "Need help?" widget, footer) — so this URL and
+//      the hub listing page render identically. Falls back to the bare
+//      static file if the hub is unreachable so the site still works
+//      standalone.
+const HUB_ORIGIN = process.env.APPHUB_ORIGIN || 'https://mikesapphub.com';
+const APPHUB_PRODUCT_SLUG = process.env.APPHUB_PRODUCT_SLUG || 'taxify';
+const LANDING_HTML_PATH = path.join(__dirname, '..', '..', 'landing.html');
+
+app.get(['/', '/landing'], async (req, res, next) => {
   if (req.headers['x-tenant-code'] || req.cookies?.[TENANT_COOKIE_NAME]) return next();
-  res.sendFile(path.join(__dirname, '..', '..', 'landing.html'));
+
+  // Only a real top-level browser navigation gets the hub-proxy treatment
+  // below. Everything else — the hub's own scraper (x-central-api-key),
+  // curl, or any other non-browser caller — gets the bare static file.
+  // This is also what breaks the fetch loop: our own outgoing fetch() to
+  // the hub never sends Sec-Fetch-Mode (only real browsers do), so if the
+  // hub's own fetch back to us ever lands here, it fails this check and
+  // serves the static file instead of proxying again — independent of
+  // whether the hub's x-central-api-key is even configured.
+  const isBrowserNavigation = req.headers['sec-fetch-mode'] === 'navigate' && !req.headers['x-central-api-key'];
+  if (!isBrowserNavigation) return res.sendFile(LANDING_HTML_PATH);
+
+  try {
+    const ac = new AbortController();
+    const timer = setTimeout(() => ac.abort(), 5000);
+    let html;
+    try {
+      const r = await fetch(`${HUB_ORIGIN}/apps/${APPHUB_PRODUCT_SLUG}`, { signal: ac.signal });
+      if (!r.ok) throw new Error(`hub returned HTTP ${r.status}`);
+      html = await r.text();
+    } finally {
+      clearTimeout(timer);
+    }
+    res.set('Content-Type', 'text/html; charset=utf-8');
+    res.send(html);
+  } catch (err) {
+    console.error('[landing] hub proxy failed, falling back to static page:', err.message);
+    res.sendFile(LANDING_HTML_PATH);
+  }
 });
 
 app.use(tenantMiddleware);
