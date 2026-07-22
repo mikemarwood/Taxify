@@ -14,7 +14,6 @@ import { generateOtp, hashOtp, OTP_TTL_MINUTES, OTP_MAX_ATTEMPTS, OTP_LOCKOUT_MI
 import { toPublicUser } from '../auth/publicUser.js';
 import { computeAccessLocked } from '../auth/access.js';
 import { sendOtpEmail, sendActivationEmail, sendInviteEmail } from '../lib/mailer.js';
-import { tenantAvatarsDir } from '../tenant/uploads.js';
 
 const ACTIVATION_TOKEN_DAYS = 5;
 const TRIAL_DAYS = 14;
@@ -27,11 +26,13 @@ function generateActivationToken() {
 }
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const avatarsDir = path.join(__dirname, '..', '..', 'uploads', 'avatars');
+if (!fs.existsSync(avatarsDir)) fs.mkdirSync(avatarsDir, { recursive: true });
 
 const ALLOWED_AVATAR_MIME = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/gif']);
 const avatarUpload = multer({
   storage: multer.diskStorage({
-    destination: (req, file, cb) => cb(null, tenantAvatarsDir()),
+    destination: (req, file, cb) => cb(null, avatarsDir),
     filename: (req, file, cb) => {
       const ext = path.extname(file.originalname).toLowerCase();
       cb(null, `${req.user.id}-${Date.now()}${ext}`);
@@ -508,7 +509,7 @@ router.post(
     await pool.execute('UPDATE users SET avatar_path = ? WHERE id = ?', [req.file.filename, req.user.id]);
 
     if (previousPath) {
-      fs.unlink(path.join(tenantAvatarsDir(), previousPath), () => {});
+      fs.unlink(path.join(avatarsDir, previousPath), () => {});
     }
 
     res.json({ avatarUrl: `/api/auth/avatar/${req.user.id}` });
@@ -522,7 +523,7 @@ router.get(
     const [rows] = await pool.execute('SELECT avatar_path FROM users WHERE id = ?', [req.params.id]);
     const row = rows[0];
     if (!row || !row.avatar_path) return res.status(404).json({ error: 'No avatar' });
-    res.sendFile(path.join(tenantAvatarsDir(), row.avatar_path));
+    res.sendFile(path.join(avatarsDir, row.avatar_path));
   })
 );
 

@@ -1,12 +1,16 @@
+import mysql from 'mysql2/promise';
 import { INITIAL_DEFAULT_CATEGORIES } from './seed/defaultCategories.js';
-import { proxyPool } from './tenant/tenants.js';
 
-// `pool` is a proxy that routes every query to whichever tenant is
-// active on the current request's AsyncLocalStorage context (see
-// tenant/tenants.js). Every call site below and throughout the app
-// keeps calling pool.query/execute exactly as before — the tenant
-// resolution is invisible here.
-const pool = proxyPool;
+const pool = mysql.createPool({
+  host: process.env.DB_HOST || 'localhost',
+  port: Number(process.env.DB_PORT) || 3306,
+  user: process.env.DB_USER,
+  password: process.env.DB_PASSWORD,
+  database: process.env.DB_NAME,
+  waitForConnections: true,
+  connectionLimit: 10,
+  dateStrings: true,
+});
 
 export async function ensureSchema() {
   await pool.query(`
@@ -123,21 +127,14 @@ export async function ensureSchema() {
   await pool.query(`
     CREATE TABLE IF NOT EXISTS settings (
       \`key\` VARCHAR(64) PRIMARY KEY,
-      value VARCHAR(255) NOT NULL,
-      updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+      value VARCHAR(255) NOT NULL
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
-  `);
-  await pool.query(`
-    ALTER TABLE settings ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
   `);
   await pool.query(`
     INSERT IGNORE INTO settings (\`key\`, value) VALUES ('registration_enabled', 'true')
   `);
   await pool.query(`
     INSERT IGNORE INTO settings (\`key\`, value) VALUES ('mfa_mode', 'optional')
-  `);
-  await pool.query(`
-    INSERT IGNORE INTO settings (\`key\`, value) VALUES ('server_name', 'Taxify')
   `);
 
   await pool.query(`
@@ -176,11 +173,6 @@ export async function setSetting(key, value) {
 export async function getMfaMode() {
   const mode = await getSetting('mfa_mode');
   return mode === 'required' ? 'required' : 'optional';
-}
-
-export async function getServerName() {
-  const name = await getSetting('server_name');
-  return name || 'Taxify';
 }
 
 export default pool;

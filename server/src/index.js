@@ -15,15 +15,6 @@ import billingRoutes from './routes/billing.routes.js';
 import exportRoutes from './routes/export.routes.js';
 import { purgeUnactivatedAccounts, runBillingReminders } from './jobs/billingJobs.js';
 import pool, { ensureSchema } from './db.js';
-import { tenantStore, contextFor, listTenants } from './tenant/tenants.js';
-import {
-  tenantMiddleware,
-  companyPage,
-  tenantSelect,
-  tenantClear,
-  tenantCurrent,
-} from './tenant/middleware.js';
-import { TENANT_COOKIE_NAME } from './tenant/cookies.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
@@ -39,30 +30,19 @@ if (!isProd) {
   app.use(cors({ origin: process.env.CLIENT_ORIGIN || 'http://localhost:5173', credentials: true }));
 }
 
-// Tenant gate: /company (+ its tiny API) resolve with no tenant at
-// all; every other route runs behind tenantMiddleware, which picks the
-// tenant from the hub's X-Tenant-Code header or the signed fallback
-// cookie and scopes the rest of the request (DB pool, uploads dir) to
-// it. See tenant/middleware.js for the full resolution order.
-app.get('/company', companyPage);
-app.post('/api/tenant-select', tenantSelect);
-app.post('/api/tenant-clear', tenantClear);
-app.get('/api/tenant-current', tenantCurrent);
-
-// Public marketing page. Two audiences hit this with no tenant resolved:
+// Public marketing page. Two audiences hit this:
 //
 //   1. Mike's App Hub's own server-side scraper (fetchAndStripExternalPage),
 //      which pulls this page's raw HTML with plain fetch() (no JS) to build
 //      the /apps/taxify listing. It identifies itself with the
 //      x-central-api-key header — for that caller we serve the bare static
 //      file below, since anything else would recurse (see next point).
-//   2. A real visitor landing on this URL directly (not through the hub, no
-//      tenant cookie/header). For them we transparently proxy the hub's own
-//      /apps/taxify page — the exact HTML the hub wraps around this same
-//      static file (header, "Need help?" widget, footer) — so this URL and
-//      the hub listing page render identically. Falls back to the bare
-//      static file if the hub is unreachable so the site still works
-//      standalone.
+//   2. A real visitor landing on this URL directly. For them we
+//      transparently proxy the hub's own /apps/taxify page — the exact HTML
+//      the hub wraps around this same static file (header, "Need help?"
+//      widget, footer) — so this URL and the hub listing page render
+//      identically. Falls back to the bare static file if the hub is
+//      unreachable so the site still works standalone.
 const HUB_ORIGIN = process.env.APPHUB_ORIGIN || 'https://mikesapphub.com';
 const APPHUB_PRODUCT_SLUG = process.env.APPHUB_PRODUCT_SLUG || 'taxify';
 const LANDING_HTML_PATH = path.join(__dirname, '..', '..', 'landing.html');
@@ -98,18 +78,7 @@ async function serveLandingPage(req, res) {
   }
 }
 
-// "/" is dual-purpose — logged-in / tenant-resolved visitors land on their
-// dashboard there, so a tenant cookie or header defers to the normal app
-// flow. "/landing" is unambiguously the public marketing page: it must
-// always render for everyone, even a returning visitor whose browser is
-// carrying a tenant cookie from earlier app use.
-app.get('/', async (req, res, next) => {
-  if (req.headers['x-tenant-code'] || req.cookies?.[TENANT_COOKIE_NAME]) return next();
-  return serveLandingPage(req, res);
-});
 app.get('/landing', serveLandingPage);
-
-app.use(tenantMiddleware);
 
 app.use('/api/auth', authRoutes);
 app.use('/api/categories', categoriesRoutes);
@@ -141,57 +110,27 @@ if (isProd) {
   }
 }
 
-// Every tenant has its own database, so schema migrations and the
-// scheduled jobs below run once per active tenant, each inside a
-// tenantStore context so pool.query (via the proxyPool in db.js)
-// reaches that tenant's own database.
-async function forEachTenant(label, fn) {
-  let tenants;
-  try {
-    tenants = await listTenants();
-  } catch (err) {
-    console.error(`[${label}] could not read mike_apphub:`, err.message);
-    return;
-  }
-  for (const tenant of tenants) {
-    try {
-      await tenantStore.run(contextFor(tenant), () => fn(tenant));
-    } catch (err) {
-      console.error(`[${label}] tenant "${tenant.code}" failed:`, err.message);
-    }
-  }
-}
-
 try {
-  await forEachTenant('bootstrap', async (tenant) => {
-    console.log(`[bootstrap] tenant "${tenant.code}": applying schema`);
-    await ensureSchema();
-  });
+  await ensureSchema();
 } catch (err) {
-  console.error('Failed to run startup schema migrations against tenant databases.');
+  console.error('Failed to connect to the database. Check DB_HOST/DB_PORT/DB_USER/DB_PASSWORD/DB_NAME in server/.env');
   console.error(err);
   process.exit(1);
 }
 
-forEachTenant('recycle-bin-purge', () => purgeExpiredTrash(pool))
-  .catch((err) => console.error('Failed to purge expired recycle bin entries', err));
+purgeExpiredTrash(pool).catch((err) => console.error('Failed to purge expired recycle bin entries', err));
 setInterval(() => {
-  forEachTenant('recycle-bin-purge', () => purgeExpiredTrash(pool))
-    .catch((err) => console.error('Failed to purge expired recycle bin entries', err));
+  purgeExpiredTrash(pool).catch((err) => console.error('Failed to purge expired recycle bin entries', err));
 }, 60 * 60 * 1000);
 
-forEachTenant('unactivated-purge', () => purgeUnactivatedAccounts(pool))
-  .catch((err) => console.error('Failed to purge unactivated accounts', err));
+purgeUnactivatedAccounts(pool).catch((err) => console.error('Failed to purge unactivated accounts', err));
 setInterval(() => {
-  forEachTenant('unactivated-purge', () => purgeUnactivatedAccounts(pool))
-    .catch((err) => console.error('Failed to purge unactivated accounts', err));
+  purgeUnactivatedAccounts(pool).catch((err) => console.error('Failed to purge unactivated accounts', err));
 }, 60 * 60 * 1000);
 
-forEachTenant('billing-reminders', () => runBillingReminders(pool))
-  .catch((err) => console.error('Failed to run billing reminders', err));
+runBillingReminders(pool).catch((err) => console.error('Failed to run billing reminders', err));
 setInterval(() => {
-  forEachTenant('billing-reminders', () => runBillingReminders(pool))
-    .catch((err) => console.error('Failed to run billing reminders', err));
+  runBillingReminders(pool).catch((err) => console.error('Failed to run billing reminders', err));
 }, 6 * 60 * 60 * 1000);
 
 app.listen(PORT, () => {

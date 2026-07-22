@@ -1,5 +1,5 @@
 import nodemailer from 'nodemailer';
-import { getSetting, setSetting, getServerName } from '../db.js';
+import { getSetting, setSetting } from '../db.js';
 
 const SMTP_SETTING_KEYS = {
   host: 'smtp_host',
@@ -123,15 +123,14 @@ export async function sendOtpEmail(to, name, code, expiresMinutes) {
 }
 
 export async function sendActivationEmail(to, name, activationUrl) {
-  const serverName = await getServerName();
   await sendMail({
     to,
-    subject: `Activate your ${serverName} account`,
+    subject: 'Activate your Taxify account',
     title: 'Account Activation',
     heading: `Welcome, ${name}!`,
     bodyHtml: `
       <p style="font-size:14px;color:#4b5563;margin:0 0 20px;line-height:1.5;">
-        You're almost set up. Click the button below to activate your ${serverName} account and start your
+        You're almost set up. Click the button below to activate your Taxify account and start your
         14-day free trial with full access to every feature.
       </p>
       <div style="text-align:center;margin:0 0 20px;">
@@ -149,15 +148,14 @@ export async function sendActivationEmail(to, name, activationUrl) {
 
 export async function sendInviteEmail(to, name, role, acceptUrl, inviterName) {
   const roleLabel = role === 'accountant' ? 'accountant (read-only)' : 'family member';
-  const serverName = await getServerName();
   await sendMail({
     to,
-    subject: `${inviterName} invited you to ${serverName}`,
+    subject: `${inviterName} invited you to Taxify`,
     title: 'Account Invitation',
     heading: `Hi ${name},`,
     bodyHtml: `
       <p style="font-size:14px;color:#4b5563;margin:0 0 20px;line-height:1.5;">
-        ${inviterName} has invited you to ${serverName} as a <strong>${roleLabel}</strong>. Set a password to
+        ${inviterName} has invited you to Taxify as a <strong>${roleLabel}</strong>. Set a password to
         finish creating your account.
       </p>
       <div style="text-align:center;margin:0 0 20px;">
@@ -174,10 +172,9 @@ export async function sendInviteEmail(to, name, role, acceptUrl, inviterName) {
 
 export async function sendTrialEndingEmail(to, name, daysLeft, trialEndsAt) {
   const when = new Date(trialEndsAt).toLocaleDateString(undefined, { day: '2-digit', month: 'long', year: 'numeric' });
-  const serverName = await getServerName();
   await sendMail({
     to,
-    subject: `Your ${serverName} trial ends in ${daysLeft} day${daysLeft === 1 ? '' : 's'}`,
+    subject: `Your Taxify trial ends in ${daysLeft} day${daysLeft === 1 ? '' : 's'}`,
     title: 'Trial Ending Soon',
     heading: `Hi ${name},`,
     bodyHtml: `
@@ -190,15 +187,14 @@ export async function sendTrialEndingEmail(to, name, daysLeft, trialEndsAt) {
 }
 
 export async function sendTrialExpiredEmail(to, name) {
-  const serverName = await getServerName();
   await sendMail({
     to,
-    subject: `Your ${serverName} trial has ended`,
+    subject: 'Your Taxify trial has ended',
     title: 'Access Restricted',
     heading: `Hi ${name},`,
     bodyHtml: `
       <p style="font-size:14px;color:#4b5563;margin:0 0 20px;line-height:1.5;">
-        Your 14-day free trial has ended, so access to your ${serverName} account is now restricted. Your data
+        Your 14-day free trial has ended, so access to your Taxify account is now restricted. Your data
         is safe and waiting for you — subscribe from your Account page any time to pick up right where
         you left off.
       </p>
@@ -208,15 +204,14 @@ export async function sendTrialExpiredEmail(to, name) {
 
 export async function sendSubscriptionRenewingEmail(to, name, periodEnd) {
   const when = new Date(periodEnd).toLocaleDateString(undefined, { day: '2-digit', month: 'long', year: 'numeric' });
-  const serverName = await getServerName();
   await sendMail({
     to,
-    subject: `Your ${serverName} plan renews on ${when}`,
+    subject: `Your Taxify plan renews on ${when}`,
     title: 'Upcoming Renewal',
     heading: `Hi ${name},`,
     bodyHtml: `
       <p style="font-size:14px;color:#4b5563;margin:0 0 20px;line-height:1.5;">
-        Just a heads-up — your annual ${serverName} plan will renew on <strong>${when}</strong> using the card
+        Just a heads-up — your annual Taxify plan will renew on <strong>${when}</strong> using the card
         on file. No action is needed unless you'd like to update your payment details or cancel from
         your Account page.
       </p>

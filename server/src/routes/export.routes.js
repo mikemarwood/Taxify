@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import ExcelJS from 'exceljs';
 import PDFDocument from 'pdfkit';
-import pool, { getServerName } from '../db.js';
+import pool from '../db.js';
 import { requireAuth, requireActiveAccess } from '../auth/middleware.js';
 import { getVisibleUserIds } from '../auth/access.js';
 import { asyncHandler } from '../lib/asyncHandler.js';
@@ -55,19 +55,18 @@ router.get(
   '/expenses.xlsx',
   asyncHandler(async (req, res) => {
     const expenses = await loadExpenses(req);
-    const serverName = await getServerName();
 
     const workbook = new ExcelJS.Workbook();
-    workbook.creator = serverName;
+    workbook.creator = 'Taxify';
     const sheet = workbook.addWorksheet('Expenses', { pageSetup: { fitToPage: true, fitToWidth: 1 } });
-    sheet.headerFooter.oddHeader = `&R&14&B${serverName}`;
+    sheet.headerFooter.oddHeader = '&R&14&BTaxify';
 
     sheet.mergeCells('A1:C1');
     sheet.getCell('A1').value = 'Expense report';
     sheet.getCell('A1').font = { bold: true, size: 16, color: { argb: 'FF0A0F18' } };
     sheet.getCell('A1').alignment = { vertical: 'middle' };
     sheet.mergeCells('D1:G1');
-    sheet.getCell('D1').value = serverName.toUpperCase();
+    sheet.getCell('D1').value = 'TAXIFY';
     sheet.getCell('D1').font = { bold: true, size: 14, color: { argb: 'FF2563EB' } };
     sheet.getCell('D1').alignment = { horizontal: 'right', vertical: 'middle' };
     sheet.getRow(1).height = 26;
@@ -125,7 +124,6 @@ router.get(
   '/expenses.pdf',
   asyncHandler(async (req, res) => {
     const expenses = await loadExpenses(req);
-    const serverName = await getServerName();
 
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', 'attachment; filename="taxify-expenses.pdf"');
@@ -155,7 +153,7 @@ router.get(
       return y + 20;
     }
 
-    let y = addBrandHeader(doc, { title: 'Expense report', subtitle: `${expenses.length} entries`, serverName });
+    let y = addBrandHeader(doc, { title: 'Expense report', subtitle: `${expenses.length} entries` });
     y = drawTableHeader(y);
 
     let total = 0;
@@ -163,9 +161,9 @@ router.get(
     expenses.forEach((e, i) => {
       total += e.amount;
       if (y > doc.page.height - doc.page.margins.bottom - 30) {
-        addFooter(doc, serverName);
+        addFooter(doc);
         doc.addPage();
-        y = addBrandHeader(doc, { title: 'Expense report (cont.)', serverName });
+        y = addBrandHeader(doc, { title: 'Expense report (cont.)' });
         y = drawTableHeader(y);
         doc.font('Helvetica').fontSize(9);
       }
@@ -192,7 +190,7 @@ router.get(
     });
 
     doc.font('Helvetica-Bold').fontSize(10).text(`Total: ${total.toFixed(2)}`, doc.page.margins.left, y + 10);
-    addFooter(doc, serverName);
+    addFooter(doc);
     doc.end();
   })
 );
@@ -202,17 +200,16 @@ router.get(
   asyncHandler(async (req, res) => {
     const expenses = await loadExpenses(req);
     const { categories, years, cells, totals } = buildCategorySummary(expenses);
-    const serverName = await getServerName();
 
     const workbook = new ExcelJS.Workbook();
-    workbook.creator = serverName;
+    workbook.creator = 'Taxify';
     const sheet = workbook.addWorksheet('Category summary');
     const totalCols = years.length + 2; // Category + one per year + Total
 
     sheet.getCell(1, 1).value = 'Category summary';
     sheet.getCell(1, 1).font = { bold: true, size: 16, color: { argb: 'FF0A0F18' } };
     const brandCell = sheet.getCell(1, totalCols);
-    brandCell.value = serverName.toUpperCase();
+    brandCell.value = 'TAXIFY';
     brandCell.font = { bold: true, size: 14, color: { argb: 'FF2563EB' } };
     brandCell.alignment = { horizontal: 'right' };
     sheet.getRow(1).height = 26;
@@ -261,7 +258,6 @@ router.get(
   asyncHandler(async (req, res) => {
     const expenses = await loadExpenses(req);
     const { categories, years, cells, totals } = buildCategorySummary(expenses);
-    const serverName = await getServerName();
 
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', 'attachment; filename="taxify-category-summary.pdf"');
@@ -287,15 +283,15 @@ router.get(
       return y + 20;
     }
 
-    let y = addBrandHeader(doc, { title: 'Category summary', subtitle: `${categories.length} categories`, serverName });
+    let y = addBrandHeader(doc, { title: 'Category summary', subtitle: `${categories.length} categories` });
     y = drawTableHeader(y);
 
     doc.font('Helvetica').fontSize(9);
     categories.forEach((cat, i) => {
       if (y > doc.page.height - doc.page.margins.bottom - 30) {
-        addFooter(doc, serverName);
+        addFooter(doc);
         doc.addPage();
-        y = addBrandHeader(doc, { title: 'Category summary (cont.)', serverName });
+        y = addBrandHeader(doc, { title: 'Category summary (cont.)' });
         y = drawTableHeader(y);
         doc.font('Helvetica').fontSize(9);
       }
@@ -316,7 +312,7 @@ router.get(
 
     const grandTotal = Array.from(totals.values()).reduce((s, v) => s + v, 0);
     doc.font('Helvetica-Bold').fontSize(10).text(`Grand total: ${grandTotal.toFixed(2)}`, doc.page.margins.left, y + 10);
-    addFooter(doc, serverName);
+    addFooter(doc);
     doc.end();
   })
 );
