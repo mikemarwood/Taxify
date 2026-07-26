@@ -28,12 +28,16 @@ export default function Admin() {
         <button className={tab === 'email' ? 'btn btn-primary' : 'btn btn-ghost'} onClick={() => setTab('email')}>
           Email server
         </button>
+        <button className={tab === 'stripe' ? 'btn btn-primary' : 'btn btn-ghost'} onClick={() => setTab('stripe')}>
+          Stripe
+        </button>
       </div>
 
       {tab === 'users' && <UsersTab />}
       {tab === 'categories' && <DefaultCategoriesTab />}
       {tab === 'settings' && <SettingsTab />}
       {tab === 'email' && <EmailSettingsTab />}
+      {tab === 'stripe' && <StripeSettingsTab />}
     </div>
   );
 }
@@ -376,6 +380,224 @@ function EmailSettingsTab() {
           </button>
         </div>
       </div>
+    </div>
+  );
+}
+
+function StripeModeSection({ label, hint, section, values, secretDraft, onFieldChange, onSecretChange, onTest, testing }) {
+  return (
+    <div className="card" style={{ padding: 20, display: 'flex', flexDirection: 'column', gap: 14 }}>
+      <div>
+        <div style={{ fontWeight: 700 }}>{label}</div>
+        <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>{hint}</div>
+      </div>
+
+      <label style={{ fontSize: 13, fontWeight: 600 }}>
+        Publishable key
+        <input
+          className="input"
+          style={{ marginTop: 6, width: '100%' }}
+          placeholder={section === 'test' ? 'pk_test_...' : 'pk_live_...'}
+          value={values.publishableKey || ''}
+          onChange={(e) => onFieldChange(section, 'publishableKey', e.target.value)}
+        />
+      </label>
+
+      <label style={{ fontSize: 13, fontWeight: 600 }}>
+        Secret key
+        <input
+          className="input"
+          type="password"
+          style={{ marginTop: 6, width: '100%' }}
+          placeholder={values.hasSecretKey ? '••••••••  (leave blank to keep current)' : section === 'test' ? 'sk_test_...' : 'sk_live_...'}
+          value={secretDraft || ''}
+          onChange={(e) => onSecretChange(section, e.target.value)}
+        />
+      </label>
+
+      <label style={{ fontSize: 13, fontWeight: 600 }}>
+        Webhook signing secret
+        <input
+          className="input"
+          style={{ marginTop: 6, width: '100%' }}
+          placeholder="whsec_..."
+          value={values.webhookSecret || ''}
+          onChange={(e) => onFieldChange(section, 'webhookSecret', e.target.value)}
+        />
+      </label>
+
+      <div style={{ display: 'flex', gap: 12 }}>
+        <label style={{ fontSize: 13, fontWeight: 600, flex: 1 }}>
+          Individual plan price ID
+          <input
+            className="input"
+            style={{ marginTop: 6, width: '100%' }}
+            placeholder="price_..."
+            value={values.priceIndividual || ''}
+            onChange={(e) => onFieldChange(section, 'priceIndividual', e.target.value)}
+          />
+        </label>
+        <label style={{ fontSize: 13, fontWeight: 600, flex: 1 }}>
+          Family plan price ID
+          <input
+            className="input"
+            style={{ marginTop: 6, width: '100%' }}
+            placeholder="price_..."
+            value={values.priceFamily || ''}
+            onChange={(e) => onFieldChange(section, 'priceFamily', e.target.value)}
+          />
+        </label>
+      </div>
+
+      <div>
+        <button className="btn btn-ghost" disabled={testing} onClick={() => onTest(section)} type="button">
+          {testing ? 'Testing…' : `Test ${section} connection`}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function StripeSettingsTab() {
+  const toast = useToast();
+  const [mode, setMode] = useState(null);
+  const [live, setLive] = useState({});
+  const [test, setTest] = useState({});
+  const [liveSecret, setLiveSecret] = useState('');
+  const [testSecret, setTestSecret] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [testingMode, setTestingMode] = useState(null);
+
+  function load() {
+    api.get('/admin/stripe-settings').then((res) => {
+      setMode(res.data.mode);
+      setLive(res.data.live);
+      setTest(res.data.test);
+    });
+  }
+  useEffect(load, []);
+
+  function onFieldChange(section, field, value) {
+    const setter = section === 'test' ? setTest : setLive;
+    setter((f) => ({ ...f, [field]: value }));
+  }
+
+  function onSecretChange(section, value) {
+    if (section === 'test') setTestSecret(value);
+    else setLiveSecret(value);
+  }
+
+  async function onSave(e) {
+    e.preventDefault();
+    setBusy(true);
+    try {
+      await api.patch('/admin/stripe-settings', {
+        mode,
+        live: {
+          publishableKey: live.publishableKey,
+          webhookSecret: live.webhookSecret,
+          priceIndividual: live.priceIndividual,
+          priceFamily: live.priceFamily,
+          ...(liveSecret ? { secretKey: liveSecret } : {}),
+        },
+        test: {
+          publishableKey: test.publishableKey,
+          webhookSecret: test.webhookSecret,
+          priceIndividual: test.priceIndividual,
+          priceFamily: test.priceFamily,
+          ...(testSecret ? { secretKey: testSecret } : {}),
+        },
+      });
+      setLiveSecret('');
+      setTestSecret('');
+      toast('Stripe settings saved', 'success');
+      load();
+    } catch (err) {
+      toast(err.message, 'error');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function onTest(section) {
+    setTestingMode(section);
+    try {
+      const res = await api.post('/admin/stripe-settings/test', { mode: section });
+      toast(`Connected to Stripe (${res.data.mode} mode)`, 'success');
+    } catch (err) {
+      toast(err.message, 'error');
+    } finally {
+      setTestingMode(null);
+    }
+  }
+
+  if (mode === null) return <SkeletonList rows={4} />;
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+      <p style={{ fontSize: 13, color: 'var(--text-muted)', margin: '-8px 0 0' }}>
+        These keys connect Taxify to Stripe for subscription checkout, billing portal, and webhooks. Keep separate
+        live and test credentials here, then flip the active mode to try out plans with Stripe's test cards without
+        touching real payments.
+      </p>
+
+      <div className="card" style={{ padding: 20, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <div>
+          <div style={{ fontWeight: 700 }}>Active mode</div>
+          <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>
+            {mode === 'test'
+              ? 'Test mode is live — checkout, portal, and webhooks use your test credentials.'
+              : 'Live mode is active — checkout, portal, and webhooks use your live credentials.'}
+          </div>
+        </div>
+        <div style={{ display: 'flex', gap: 8 }}>
+          <button
+            type="button"
+            className={mode === 'live' ? 'btn btn-primary' : 'btn btn-ghost'}
+            onClick={() => setMode('live')}
+          >
+            Live
+          </button>
+          <button
+            type="button"
+            className={mode === 'test' ? 'btn btn-primary' : 'btn btn-ghost'}
+            onClick={() => setMode('test')}
+          >
+            Test
+          </button>
+        </div>
+      </div>
+
+      <form onSubmit={onSave} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+        <StripeModeSection
+          label="Live credentials"
+          hint="Used for real customer payments when Active mode is set to Live."
+          section="live"
+          values={live}
+          secretDraft={liveSecret}
+          onFieldChange={onFieldChange}
+          onSecretChange={onSecretChange}
+          onTest={onTest}
+          testing={testingMode === 'live'}
+        />
+        <StripeModeSection
+          label="Test credentials"
+          hint="Used with Stripe's test cards when Active mode is set to Test — nothing here touches real money."
+          section="test"
+          values={test}
+          secretDraft={testSecret}
+          onFieldChange={onFieldChange}
+          onSecretChange={onSecretChange}
+          onTest={onTest}
+          testing={testingMode === 'test'}
+        />
+
+        <div>
+          <button className="btn btn-primary" disabled={busy} type="submit">
+            Save
+          </button>
+        </div>
+      </form>
     </div>
   );
 }

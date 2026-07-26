@@ -2,7 +2,7 @@ import { Router } from 'express';
 import pool from '../db.js';
 import { requireAuth, requireAccountOwner } from '../auth/middleware.js';
 import { asyncHandler } from '../lib/asyncHandler.js';
-import { getStripe, priceIdForPlan } from '../lib/stripe.js';
+import { getStripe, getStripeConfig, priceIdForPlan } from '../lib/stripe.js';
 
 const CLIENT_ORIGIN = process.env.CLIENT_ORIGIN || 'http://localhost:5173';
 
@@ -13,14 +13,15 @@ router.post(
   requireAuth,
   requireAccountOwner,
   asyncHandler(async (req, res) => {
-    const stripe = getStripe();
+    const stripe = await getStripe();
     const planType = req.user.planType || 'individual';
+    const priceId = await priceIdForPlan(planType);
 
     const session = await stripe.checkout.sessions.create({
       mode: 'subscription',
       customer: req.user.stripeCustomerId || undefined,
       customer_email: req.user.stripeCustomerId ? undefined : req.user.email,
-      line_items: [{ price: priceIdForPlan(planType), quantity: 1 }],
+      line_items: [{ price: priceId, quantity: 1 }],
       client_reference_id: String(req.user.id),
       metadata: { userId: String(req.user.id) },
       success_url: `${CLIENT_ORIGIN}/account?checkout=success`,
@@ -40,7 +41,7 @@ router.post(
     const customerId = rows[0]?.stripe_customer_id;
     if (!customerId) return res.status(400).json({ error: 'No billing account yet — subscribe first' });
 
-    const stripe = getStripe();
+    const stripe = await getStripe();
     const session = await stripe.billingPortal.sessions.create({
       customer: customerId,
       return_url: `${CLIENT_ORIGIN}/account`,
@@ -53,10 +54,11 @@ router.post(
 router.post(
   '/webhook',
   asyncHandler(async (req, res) => {
-    const stripe = getStripe();
+    const stripe = await getStripe();
+    const { webhookSecret } = await getStripeConfig();
     let event;
     try {
-      event = stripe.webhooks.constructEvent(req.body, req.headers['stripe-signature'], process.env.STRIPE_WEBHOOK_SECRET);
+      event = stripe.webhooks.constructEvent(req.body, req.headers['stripe-signature'], webhookSecret);
     } catch (err) {
       console.error('Stripe webhook signature verification failed', err.message);
       return res.status(400).send(`Webhook Error: ${err.message}`);

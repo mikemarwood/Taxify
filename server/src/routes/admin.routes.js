@@ -4,6 +4,8 @@ import { requireAuth, requireAdmin } from '../auth/middleware.js';
 import { asyncHandler } from '../lib/asyncHandler.js';
 import { toTitleCase } from '../lib/text.js';
 import { getSmtpConfig, saveSmtpConfig, sendTestEmail } from '../lib/mailer.js';
+import { getStripeAdminSettings, saveStripeAdminSettings, getStripeSecretKeyForMode } from '../lib/stripe.js';
+import Stripe from 'stripe';
 
 const router = Router();
 router.use(requireAuth, requireAdmin);
@@ -174,6 +176,62 @@ router.post(
       res.json({ ok: true, to });
     } catch (err) {
       res.status(502).json({ error: err.message || 'Failed to send test email' });
+    }
+  })
+);
+
+function validateSection(values, name) {
+  if (values === undefined) return;
+  if (typeof values !== 'object' || values === null) {
+    throw Object.assign(new Error(`${name} must be an object`), { status: 400 });
+  }
+  for (const field of ['publishableKey', 'secretKey', 'webhookSecret', 'priceIndividual', 'priceFamily']) {
+    if (values[field] !== undefined && typeof values[field] !== 'string') {
+      throw Object.assign(new Error(`${name}.${field} must be a string`), { status: 400 });
+    }
+  }
+}
+
+router.get(
+  '/stripe-settings',
+  asyncHandler(async (req, res) => {
+    const settings = await getStripeAdminSettings();
+    res.json(settings);
+  })
+);
+
+router.patch(
+  '/stripe-settings',
+  asyncHandler(async (req, res) => {
+    const { mode, live, test } = req.body || {};
+    if (mode !== undefined && mode !== 'live' && mode !== 'test') {
+      return res.status(400).json({ error: 'mode must be "live" or "test"' });
+    }
+    try {
+      validateSection(live, 'live');
+      validateSection(test, 'test');
+    } catch (err) {
+      return res.status(err.status || 400).json({ error: err.message });
+    }
+    await saveStripeAdminSettings({ mode, live, test });
+    res.json({ ok: true });
+  })
+);
+
+router.post(
+  '/stripe-settings/test',
+  asyncHandler(async (req, res) => {
+    const mode = req.body?.mode === 'test' ? 'test' : 'live';
+    const secretKey = await getStripeSecretKeyForMode(mode);
+    if (!secretKey) {
+      return res.status(400).json({ error: `No secret key saved for ${mode} mode yet` });
+    }
+    try {
+      const stripe = new Stripe(secretKey);
+      await stripe.balance.retrieve();
+      res.json({ ok: true, mode });
+    } catch (err) {
+      res.status(502).json({ error: err.message || 'Failed to connect to Stripe' });
     }
   })
 );
