@@ -7,6 +7,7 @@ import Register from './pages/Register.jsx';
 import Activate from './pages/Activate.jsx';
 import AcceptInvite from './pages/AcceptInvite.jsx';
 import Dashboard from './pages/Dashboard.jsx';
+import Expenses from './pages/Expenses.jsx';
 import AddExpense from './pages/AddExpense.jsx';
 import Categories from './pages/Categories.jsx';
 import Reports from './pages/Reports.jsx';
@@ -56,6 +57,7 @@ export default function App() {
       <Route path="/activate" element={<Activate />} />
       <Route path="/accept-invite" element={<AcceptInvite />} />
       <Route path="/" element={<Protected><Dashboard /></Protected>} />
+      <Route path="/expenses" element={<Protected><Expenses /></Protected>} />
       <Route path="/add" element={<Protected><AddExpense /></Protected>} />
       <Route path="/categories" element={<Protected><Categories /></Protected>} />
       <Route path="/reports" element={<Protected><Reports /></Protected>} />

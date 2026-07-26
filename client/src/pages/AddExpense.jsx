@@ -122,6 +122,10 @@ export default function AddExpense() {
     return str.replace(/(^|\s)([a-z])/g, (m, sep, ch) => sep + ch.toUpperCase());
   }
 
+  function capitalizeSentences(str) {
+    return str.replace(/(^\s*|[.!?]\s+)([a-z])/g, (m, sep, ch) => sep + ch.toUpperCase());
+  }
+
   return (
     <div style={{ maxWidth: 560 }}>
       <h1 style={{ margin: '0 0 4px', fontSize: 26 }}>Add expense</h1>
@@ -214,7 +218,7 @@ export default function AddExpense() {
 
         <div>
           <label className="label">Notes (optional)</label>
-          <textarea className="input" rows={2} maxLength={1000} value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Any extra detail for your records" />
+          <textarea className="input" rows={2} maxLength={1000} value={notes} onChange={(e) => setNotes(capitalizeSentences(e.target.value))} placeholder="Any extra detail for your records" />
         </div>
 
         <div>

@@ -46,9 +46,14 @@ export default function ReceiptLightbox({ url, onClose }) {
               onError={() => setImgError(true)}
             />
           )}
-          <button className="btn btn-ghost" onClick={onClose} style={{ marginTop: 12, width: '100%' }}>
-            Close
-          </button>
+          <div style={{ display: 'flex', gap: 10, marginTop: 12 }}>
+            <a href={`${url}?download=1`} download className="btn btn-primary" style={{ flex: 1, textAlign: 'center' }}>
+              Download
+            </a>
+            <button className="btn btn-ghost" onClick={onClose} style={{ flex: 1 }}>
+              Close
+            </button>
+          </div>
         </motion.div>
       </motion.div>
     </AnimatePresence>

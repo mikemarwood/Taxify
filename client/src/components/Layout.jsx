@@ -9,6 +9,7 @@ import OtpOnboardingModal from './OtpOnboardingModal.jsx';
 
 const navItems = [
   { to: '/', label: 'Dashboard', icon: '📊' },
+  { to: '/expenses', label: 'Expenses', icon: '📋' },
   { to: '/add', label: 'Add Expense', icon: '➕' },
   { to: '/categories', label: 'Categories', icon: '🏷️' },
   { to: '/reports', label: 'Reports', icon: '📈' },
@@ -31,6 +32,20 @@ export default function Layout({ children }) {
       return () => clearTimeout(id);
     }
   }, [user?.mfaPromptDue]);
+
+  useEffect(() => {
+    api
+      .get('/expenses/auto-generated/unnotified')
+      .then((res) => {
+        const list = res.data.expenses;
+        if (list.length === 1) {
+          toast(`Auto-added recurring expense: ${list[0].itemName} ($${list[0].amount.toFixed(2)})`, 'info');
+        } else if (list.length > 1) {
+          toast(`${list.length} recurring expenses were added automatically`, 'info');
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   async function onAvatarChange(e) {
     const file = e.target.files?.[0];
@@ -74,7 +89,7 @@ export default function Layout({ children }) {
 
         <nav style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
           {[
-            ...(user?.role === 'accountant' ? navItems.filter((i) => ['/', '/reports', '/account'].includes(i.to)) : navItems),
+            ...(user?.role === 'accountant' ? navItems.filter((i) => ['/', '/expenses', '/reports', '/account'].includes(i.to)) : navItems),
             ...(user?.isAdmin ? [{ to: '/admin', label: 'Administration', icon: '🛠️' }] : []),
           ].map((item) => (
             <NavLink

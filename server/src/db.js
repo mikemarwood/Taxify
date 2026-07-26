@@ -105,6 +105,18 @@ export async function ensureSchema() {
   await pool.query(`
     ALTER TABLE expenses ADD COLUMN IF NOT EXISTS deleted_at DATETIME NULL
   `);
+  // Recurring-expense automation: next_due_date drives when the background
+  // job spawns the next occurrence; auto_generated/notified_at track rows
+  // the job created and whether the user has been toasted about them yet.
+  await pool.query(`
+    ALTER TABLE expenses ADD COLUMN IF NOT EXISTS next_due_date DATE NULL
+  `);
+  await pool.query(`
+    ALTER TABLE expenses ADD COLUMN IF NOT EXISTS auto_generated TINYINT(1) NOT NULL DEFAULT 0
+  `);
+  await pool.query(`
+    ALTER TABLE expenses ADD COLUMN IF NOT EXISTS notified_at DATETIME NULL
+  `);
 
   await pool.query(`
     CREATE TABLE IF NOT EXISTS default_categories (

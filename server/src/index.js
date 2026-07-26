@@ -14,6 +14,7 @@ import appRoutes from './routes/app.routes.js';
 import billingRoutes from './routes/billing.routes.js';
 import exportRoutes from './routes/export.routes.js';
 import { purgeUnactivatedAccounts, runBillingReminders } from './jobs/billingJobs.js';
+import { runRecurringExpenses } from './jobs/expenseJobs.js';
 import pool, { ensureSchema } from './db.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -132,6 +133,11 @@ runBillingReminders(pool).catch((err) => console.error('Failed to run billing re
 setInterval(() => {
   runBillingReminders(pool).catch((err) => console.error('Failed to run billing reminders', err));
 }, 6 * 60 * 60 * 1000);
+
+runRecurringExpenses(pool).catch((err) => console.error('Failed to run recurring expenses', err));
+setInterval(() => {
+  runRecurringExpenses(pool).catch((err) => console.error('Failed to run recurring expenses', err));
+}, 60 * 60 * 1000);
 
 app.listen(PORT, () => {
   console.log(`Taxify server listening on http://localhost:${PORT}`);
