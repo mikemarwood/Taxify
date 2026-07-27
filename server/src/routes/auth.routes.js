@@ -527,4 +527,19 @@ router.get(
   })
 );
 
+router.delete(
+  '/avatar',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const [rows] = await pool.execute('SELECT avatar_path FROM users WHERE id = ?', [req.user.id]);
+    const previousPath = rows[0]?.avatar_path;
+    if (!previousPath) return res.status(404).json({ error: 'No avatar to remove' });
+
+    await pool.execute('UPDATE users SET avatar_path = NULL WHERE id = ?', [req.user.id]);
+    fs.unlink(path.join(avatarsDir, previousPath), () => {});
+
+    res.json({ ok: true });
+  })
+);
+
 export default router;

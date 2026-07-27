@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link, NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { useAuth } from '../lib/AuthContext.jsx';
@@ -18,12 +18,10 @@ const navItems = [
 ];
 
 export default function Layout({ children }) {
-  const { user, logout, setUser } = useAuth();
+  const { user, logout } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const toast = useToast();
-  const avatarInputRef = useRef(null);
-  const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const [showMfaPrompt, setShowMfaPrompt] = useState(false);
 
   useEffect(() => {
@@ -46,25 +44,6 @@ export default function Layout({ children }) {
       })
       .catch(() => {});
   }, []);
-
-  async function onAvatarChange(e) {
-    const file = e.target.files?.[0];
-    e.target.value = '';
-    if (!file) return;
-    setUploadingAvatar(true);
-    const form = new FormData();
-    form.append('avatar', file);
-    try {
-      const res = await api.post('/auth/avatar', form, {
-        headers: { 'Content-Type': 'multipart/form-data' },
-      });
-      setUser((u) => ({ ...u, avatarUrl: `${res.data.avatarUrl}?t=${Date.now()}` }));
-    } catch (err) {
-      toast(err.message, 'error');
-    } finally {
-      setUploadingAvatar(false);
-    }
-  }
 
   return (
     <div style={{ minHeight: '100vh', display: 'flex' }}>
@@ -117,24 +96,9 @@ export default function Layout({ children }) {
 
         <div style={{ marginTop: 'auto', display: 'flex', flexDirection: 'column', gap: 10 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '0 8px' }}>
-            <button
-              type="button"
-              onClick={() => avatarInputRef.current?.click()}
-              disabled={uploadingAvatar}
-              title="Change avatar"
-              style={{
-                border: 'none',
-                background: 'none',
-                padding: 0,
-                lineHeight: 0,
-                borderRadius: '50%',
-                cursor: uploadingAvatar ? 'default' : 'pointer',
-                opacity: uploadingAvatar ? 0.6 : 1,
-              }}
-            >
+            <Link to="/account" title="Account settings" style={{ lineHeight: 0 }}>
               <Avatar name={user?.name} avatarUrl={user?.avatarUrl} size={36} />
-            </button>
-            <input ref={avatarInputRef} type="file" accept="image/*" hidden onChange={onAvatarChange} />
+            </Link>
             <Link
               to="/account"
               style={{ fontSize: 13, color: 'var(--text-muted)', minWidth: 0, textDecoration: 'none' }}

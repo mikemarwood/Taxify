@@ -1,9 +1,144 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useAuth } from '../lib/AuthContext.jsx';
 import { useToast } from '../components/Toast.jsx';
 import { api } from '../lib/api.js';
 import OtpBenefits from '../components/OtpBenefits.jsx';
 import Toggle from '../components/Toggle.jsx';
+import Avatar from '../components/Avatar.jsx';
+import AvatarEditorModal from '../components/AvatarEditorModal.jsx';
+
+const MAX_AVATAR_BYTES = 5 * 1024 * 1024;
+
+function AvatarSection({ user, setUser }) {
+  const toast = useToast();
+  const fileInputRef = useRef(null);
+  const [editorSrc, setEditorSrc] = useState(null);
+  const [editorIsBlobUrl, setEditorIsBlobUrl] = useState(false);
+  const [avatarBusy, setAvatarBusy] = useState(false);
+  const [removeConfirming, setRemoveConfirming] = useState(false);
+
+  function closeEditor() {
+    if (editorIsBlobUrl && editorSrc) URL.revokeObjectURL(editorSrc);
+    setEditorSrc(null);
+    setEditorIsBlobUrl(false);
+  }
+
+  function onSelectFile(e) {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+    if (file.size > MAX_AVATAR_BYTES) {
+      toast('That image is too large — avatars must be 5MB or smaller.', 'error');
+      return;
+    }
+    setEditorSrc(URL.createObjectURL(file));
+    setEditorIsBlobUrl(true);
+  }
+
+  function openReposition() {
+    if (!user.avatarUrl) return;
+    setEditorSrc(user.avatarUrl);
+    setEditorIsBlobUrl(false);
+  }
+
+  async function onSaveCrop(blob) {
+    setAvatarBusy(true);
+    const form = new FormData();
+    form.append('avatar', blob, 'avatar.png');
+    try {
+      const res = await api.post('/auth/avatar', form, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      });
+      setUser((u) => (u ? { ...u, avatarUrl: `${res.data.avatarUrl}?t=${Date.now()}` } : u));
+      toast('Avatar updated', 'success');
+      closeEditor();
+    } catch (err) {
+      toast(err.message, 'error');
+    } finally {
+      setAvatarBusy(false);
+    }
+  }
+
+  async function onConfirmRemove() {
+    setAvatarBusy(true);
+    try {
+      await api.delete('/auth/avatar');
+      setUser((u) => (u ? { ...u, avatarUrl: null } : u));
+      toast('Avatar removed', 'success');
+      setRemoveConfirming(false);
+    } catch (err) {
+      toast(err.message, 'error');
+    } finally {
+      setAvatarBusy(false);
+    }
+  }
+
+  return (
+    <div className="card" style={{ padding: 20, display: 'flex', flexDirection: 'column', gap: 14 }}>
+      <div style={{ fontWeight: 700 }}>Avatar</div>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 18, flexWrap: 'wrap' }}>
+        <Avatar name={user.name} avatarUrl={user.avatarUrl} size={72} />
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+            <button
+              type="button"
+              className="btn btn-primary"
+              style={{ fontSize: 13 }}
+              onClick={() => fileInputRef.current?.click()}
+              disabled={avatarBusy}
+            >
+              Upload photo
+            </button>
+            {user.avatarUrl && (
+              <button type="button" className="btn btn-ghost" style={{ fontSize: 13 }} onClick={openReposition} disabled={avatarBusy}>
+                Reposition
+              </button>
+            )}
+            {user.avatarUrl && !removeConfirming && (
+              <button
+                type="button"
+                className="btn btn-ghost"
+                style={{ fontSize: 13 }}
+                onClick={() => setRemoveConfirming(true)}
+                disabled={avatarBusy}
+              >
+                Remove
+              </button>
+            )}
+          </div>
+          {removeConfirming && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <span style={{ fontSize: 12.5, color: 'var(--text-muted)' }}>Remove your avatar?</span>
+              <button
+                type="button"
+                className="btn btn-primary"
+                style={{ fontSize: 12, padding: '4px 10px', background: 'var(--red)' }}
+                disabled={avatarBusy}
+                onClick={onConfirmRemove}
+              >
+                {avatarBusy && <span className="spinner" />}
+                Confirm
+              </button>
+              <button
+                type="button"
+                className="btn btn-ghost"
+                style={{ fontSize: 12, padding: '4px 10px' }}
+                onClick={() => setRemoveConfirming(false)}
+                disabled={avatarBusy}
+              >
+                Cancel
+              </button>
+            </div>
+          )}
+          <input ref={fileInputRef} type="file" accept="image/*" hidden onChange={onSelectFile} />
+          <span style={{ fontSize: 11.5, color: 'var(--text-muted)' }}>JPG, PNG, WEBP or GIF, up to 5MB.</span>
+        </div>
+      </div>
+
+      {editorSrc && <AvatarEditorModal imageSrc={editorSrc} busy={avatarBusy} onCancel={closeEditor} onSave={onSaveCrop} />}
+    </div>
+  );
+}
 
 function BillingSection({ user }) {
   const toast = useToast();
@@ -193,7 +328,7 @@ function FamilySection({ user }) {
 }
 
 export default function Account() {
-  const { user, updateProfile, changePassword, setOtpEnabled } = useAuth();
+  const { user, updateProfile, changePassword, setOtpEnabled, setUser } = useAuth();
   const toast = useToast();
 
   const [name, setName] = useState(user.name);
@@ -260,6 +395,8 @@ export default function Account() {
         <h1 style={{ margin: '0 0 4px', fontSize: 26 }}>Account settings</h1>
         <p style={{ color: 'var(--text-muted)', margin: 0 }}>Update your details, password, and how you sign in.</p>
       </div>
+
+      <AvatarSection user={user} setUser={setUser} />
 
       {user.role === 'owner' && <BillingSection user={user} />}
       {user.role === 'owner' && <FamilySection user={user} />}
