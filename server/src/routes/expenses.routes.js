@@ -10,22 +10,36 @@ import { getVisibleUserIds } from '../auth/access.js';
 import { asyncHandler } from '../lib/asyncHandler.js';
 import { financialYearOf } from '../lib/financialYear.js';
 import { advanceDate } from '../lib/recurrence.js';
+import { receiptDirFor, assertWithin, isSafeFilename } from '../lib/receiptStorage.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const uploadsDir = path.join(__dirname, '..', '..', 'uploads');
 if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir, { recursive: true });
 
 const ALLOWED_MIME = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'application/pdf']);
+const ALLOWED_RECEIPT_EXT = new Set(['.jpg', '.jpeg', '.png', '.webp', '.gif', '.pdf']);
 
-function userReceiptsDir(userId) {
-  return path.join(uploadsDir, String(userId));
+function dirFor(email, purchaseDate, categoryName) {
+  return receiptDirFor(uploadsDir, email, purchaseDate, categoryName);
+}
+
+async function categoryNameFor(userId, categoryId) {
+  if (!categoryId) return 'Uncategorised';
+  const [rows] = await pool.execute('SELECT name FROM categories WHERE id = ? AND user_id = ?', [categoryId, userId]);
+  return rows[0]?.name || 'Uncategorised';
 }
 
 const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    const dir = userReceiptsDir(req.user.id);
-    fs.mkdirSync(dir, { recursive: true });
-    cb(null, dir);
+  destination: async (req, file, cb) => {
+    try {
+      const categoryName = await categoryNameFor(req.user.id, req.body?.categoryId);
+      const purchaseDate = req.body?.purchaseDate || new Date().toISOString();
+      const dir = dirFor(req.user.email, purchaseDate, categoryName);
+      fs.mkdirSync(dir, { recursive: true });
+      cb(null, dir);
+    } catch (err) {
+      cb(err);
+    }
   },
   filename: (req, file, cb) => {
     const ext = path.extname(file.originalname).toLowerCase();
@@ -46,14 +60,18 @@ const TRASH_RETENTION_DAYS = 30;
 
 export async function purgeExpiredTrash(dbPool) {
   const [rows] = await dbPool.execute(
-    `SELECT id, user_id, receipt_path FROM expenses
-     WHERE deleted_at IS NOT NULL AND deleted_at < DATE_SUB(NOW(), INTERVAL ${TRASH_RETENTION_DAYS} DAY)`
+    `SELECT e.id, e.receipt_path, e.purchase_date, u.email AS user_email, c.name AS category_name
+     FROM expenses e
+     JOIN users u ON u.id = e.user_id
+     LEFT JOIN categories c ON c.id = e.category_id
+     WHERE e.deleted_at IS NOT NULL AND e.deleted_at < DATE_SUB(NOW(), INTERVAL ${TRASH_RETENTION_DAYS} DAY)`
   );
   if (rows.length === 0) return;
 
   for (const row of rows) {
     if (row.receipt_path) {
-      fs.unlink(path.join(userReceiptsDir(row.user_id), row.receipt_path), () => {});
+      const dir = receiptDirFor(uploadsDir, row.user_email, row.purchase_date, row.category_name);
+      fs.unlink(path.join(dir, row.receipt_path), () => {});
     }
   }
   await dbPool.query(
@@ -88,6 +106,7 @@ router.get(
       purchaseDate: r.purchase_date,
       financialYear: financialYearOf(r.purchase_date),
       receiptUrl: r.receipt_path ? `/api/expenses/${r.id}/receipt` : null,
+      receiptFilename: r.receipt_path || null,
       isRecurring: !!r.is_recurring,
       frequency: r.frequency,
       notes: r.notes,
@@ -185,7 +204,7 @@ router.post(
     };
 
     try {
-      const { itemName, amount, currency, purchaseDate, categoryId, notes, isRecurring, frequency } = req.body || {};
+      const { itemName, amount, currency, purchaseDate, categoryId, notes, isRecurring, frequency, receiptFilename } = req.body || {};
 
       if (!itemName || !String(itemName).trim()) {
         cleanupUpload();
@@ -213,8 +232,9 @@ router.post(
         return res.status(400).json({ error: 'Notes must be 1000 characters or fewer' });
       }
 
+      let newCategoryName = 'Uncategorised';
       if (categoryId) {
-        const [categoryRows] = await pool.execute('SELECT id FROM categories WHERE id = ? AND user_id = ?', [
+        const [categoryRows] = await pool.execute('SELECT id, name FROM categories WHERE id = ? AND user_id = ?', [
           categoryId,
           req.user.id,
         ]);
@@ -222,9 +242,29 @@ router.post(
           cleanupUpload();
           return res.status(400).json({ error: 'Invalid category' });
         }
+        newCategoryName = categoryRows[0].name;
       }
 
-      const receiptPath = req.file ? req.file.filename : null;
+      let receiptPath = req.file ? req.file.filename : null;
+      if (!req.file && receiptFilename) {
+        if (!isSafeFilename(receiptFilename)) {
+          cleanupUpload();
+          return res.status(400).json({ error: 'Invalid receipt file' });
+        }
+        const dir = dirFor(req.user.email, purchaseDate, newCategoryName);
+        let candidate;
+        try {
+          candidate = assertWithin(uploadsDir, path.join(dir, receiptFilename));
+        } catch {
+          cleanupUpload();
+          return res.status(400).json({ error: 'Invalid receipt file' });
+        }
+        if (!fs.existsSync(candidate)) {
+          cleanupUpload();
+          return res.status(400).json({ error: 'Receipt file not found' });
+        }
+        receiptPath = receiptFilename;
+      }
       const recurring = isRecurring === 'true' || isRecurring === true;
       const nextDueDate = recurring ? advanceDate(purchaseDate, frequency) : null;
 
@@ -273,7 +313,7 @@ router.patch(
         return res.status(404).json({ error: 'Expense not found' });
       }
 
-      const { itemName, amount, currency, purchaseDate, categoryId, notes, isRecurring, frequency, removeReceipt } = req.body || {};
+      const { itemName, amount, currency, purchaseDate, categoryId, notes, isRecurring, frequency, removeReceipt, receiptFilename } = req.body || {};
 
       if (!itemName || !String(itemName).trim()) {
         cleanupUpload();
@@ -301,8 +341,9 @@ router.patch(
         return res.status(400).json({ error: 'Notes must be 1000 characters or fewer' });
       }
 
+      let newCategoryName = 'Uncategorised';
       if (categoryId) {
-        const [categoryRows] = await pool.execute('SELECT id FROM categories WHERE id = ? AND user_id = ?', [
+        const [categoryRows] = await pool.execute('SELECT id, name FROM categories WHERE id = ? AND user_id = ?', [
           categoryId,
           req.user.id,
         ]);
@@ -310,16 +351,47 @@ router.patch(
           cleanupUpload();
           return res.status(400).json({ error: 'Invalid category' });
         }
+        newCategoryName = categoryRows[0].name;
       }
 
+      const oldCategoryName = await categoryNameFor(req.user.id, existing.category_id);
+      const oldDir = dirFor(req.user.email, existing.purchase_date, oldCategoryName);
+      const newDir = dirFor(req.user.email, purchaseDate, newCategoryName);
+
       let receiptPath = existing.receipt_path;
-      let oldReceiptToDelete = null;
+      let deleteOldAbsPath = null;
+      let moveFrom = null;
+      let moveTo = null;
+
       if (req.file) {
-        if (existing.receipt_path) oldReceiptToDelete = existing.receipt_path;
+        if (existing.receipt_path) deleteOldAbsPath = path.join(oldDir, existing.receipt_path);
         receiptPath = req.file.filename;
       } else if (removeReceipt === 'true' || removeReceipt === true) {
-        if (existing.receipt_path) oldReceiptToDelete = existing.receipt_path;
+        if (existing.receipt_path) deleteOldAbsPath = path.join(oldDir, existing.receipt_path);
         receiptPath = null;
+      } else if (receiptFilename) {
+        if (!isSafeFilename(receiptFilename)) {
+          cleanupUpload();
+          return res.status(400).json({ error: 'Invalid receipt file' });
+        }
+        let candidate;
+        try {
+          candidate = assertWithin(uploadsDir, path.join(newDir, receiptFilename));
+        } catch {
+          cleanupUpload();
+          return res.status(400).json({ error: 'Invalid receipt file' });
+        }
+        if (!fs.existsSync(candidate)) {
+          cleanupUpload();
+          return res.status(400).json({ error: 'Receipt file not found' });
+        }
+        if (existing.receipt_path && !(existing.receipt_path === receiptFilename && oldDir === newDir)) {
+          deleteOldAbsPath = path.join(oldDir, existing.receipt_path);
+        }
+        receiptPath = receiptFilename;
+      } else if (existing.receipt_path && oldDir !== newDir) {
+        moveFrom = path.join(oldDir, existing.receipt_path);
+        moveTo = path.join(newDir, existing.receipt_path);
       }
 
       const recurring = isRecurring === 'true' || isRecurring === true;
@@ -344,8 +416,14 @@ router.patch(
         ]
       );
 
-      if (oldReceiptToDelete) {
-        fs.unlink(path.join(userReceiptsDir(req.user.id), oldReceiptToDelete), () => {});
+      if (deleteOldAbsPath) {
+        fs.unlink(deleteOldAbsPath, () => {});
+      }
+      if (moveFrom && moveTo) {
+        fs.mkdirSync(newDir, { recursive: true });
+        fs.rename(moveFrom, moveTo, (err) => {
+          if (err) console.error('Failed to relocate receipt file', err);
+        });
       }
 
       res.json({ ok: true });
@@ -359,18 +437,108 @@ router.patch(
 router.get(
   '/:id/receipt',
   asyncHandler(async (req, res) => {
-    const [rows] = await pool.execute('SELECT receipt_path, item_name FROM expenses WHERE id = ? AND user_id = ?', [
-      req.params.id,
-      req.user.id,
-    ]);
+    const [rows] = await pool.execute(
+      `SELECT e.receipt_path, e.item_name, e.purchase_date, c.name AS category_name
+       FROM expenses e LEFT JOIN categories c ON c.id = e.category_id
+       WHERE e.id = ? AND e.user_id = ?`,
+      [req.params.id, req.user.id]
+    );
     const row = rows[0];
     if (!row || !row.receipt_path) return res.status(404).json({ error: 'Receipt not found' });
-    const filePath = path.join(userReceiptsDir(req.user.id), row.receipt_path);
+    const dir = dirFor(req.user.email, row.purchase_date, row.category_name || 'Uncategorised');
+    const filePath = assertWithin(uploadsDir, path.join(dir, row.receipt_path));
     if (req.query.download) {
       const ext = path.extname(row.receipt_path);
       const safeName = row.item_name.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
       return res.download(filePath, `receipt-${safeName || 'expense'}${ext}`);
     }
+    res.sendFile(filePath);
+  })
+);
+
+router.get(
+  '/receipts/browse',
+  asyncHandler(async (req, res) => {
+    const { categoryId, purchaseDate } = req.query;
+    if (!purchaseDate) return res.status(400).json({ error: 'purchaseDate is required' });
+
+    let categoryName = 'Uncategorised';
+    if (categoryId) {
+      const [rows] = await pool.execute('SELECT name FROM categories WHERE id = ? AND user_id = ?', [
+        categoryId,
+        req.user.id,
+      ]);
+      if (rows.length === 0) return res.status(400).json({ error: 'Invalid category' });
+      categoryName = rows[0].name;
+    }
+
+    const dir = dirFor(req.user.email, purchaseDate, categoryName);
+    let entries = [];
+    try {
+      entries = fs.readdirSync(dir, { withFileTypes: true });
+    } catch {
+      entries = [];
+    }
+    const filenames = entries
+      .filter((e) => e.isFile() && ALLOWED_RECEIPT_EXT.has(path.extname(e.name).toLowerCase()))
+      .map((e) => e.name);
+
+    const assignedMap = new Map();
+    if (filenames.length > 0) {
+      const [rows] = await pool.execute(
+        `SELECT id, item_name, receipt_path FROM expenses
+         WHERE user_id = ? AND deleted_at IS NULL AND receipt_path IN (${filenames.map(() => '?').join(',')})`,
+        [req.user.id, ...filenames]
+      );
+      for (const r of rows) assignedMap.set(r.receipt_path, { id: r.id, itemName: r.item_name });
+    }
+
+    const files = filenames.map((name) => {
+      let stat = null;
+      try {
+        stat = fs.statSync(path.join(dir, name));
+      } catch {
+        stat = null;
+      }
+      const assignedTo = assignedMap.get(name) || null;
+      return {
+        filename: name,
+        sizeBytes: stat ? stat.size : null,
+        modifiedAt: stat ? stat.mtime : null,
+        assigned: !!assignedTo,
+        assignedTo,
+      };
+    });
+
+    res.json({ files });
+  })
+);
+
+router.get(
+  '/receipts/file',
+  asyncHandler(async (req, res) => {
+    const { categoryId, purchaseDate, filename } = req.query;
+    if (!purchaseDate || !filename) return res.status(400).json({ error: 'purchaseDate and filename are required' });
+    if (!isSafeFilename(filename)) return res.status(400).json({ error: 'Invalid filename' });
+
+    let categoryName = 'Uncategorised';
+    if (categoryId) {
+      const [rows] = await pool.execute('SELECT name FROM categories WHERE id = ? AND user_id = ?', [
+        categoryId,
+        req.user.id,
+      ]);
+      if (rows.length === 0) return res.status(400).json({ error: 'Invalid category' });
+      categoryName = rows[0].name;
+    }
+
+    const dir = dirFor(req.user.email, purchaseDate, categoryName);
+    let filePath;
+    try {
+      filePath = assertWithin(uploadsDir, path.join(dir, filename));
+    } catch {
+      return res.status(400).json({ error: 'Invalid file path' });
+    }
+    if (!fs.existsSync(filePath)) return res.status(404).json({ error: 'File not found' });
     res.sendFile(filePath);
   })
 );
@@ -413,7 +581,9 @@ router.delete(
   '/:id/permanent',
   asyncHandler(async (req, res) => {
     const [rows] = await pool.execute(
-      'SELECT receipt_path FROM expenses WHERE id = ? AND user_id = ? AND deleted_at IS NOT NULL',
+      `SELECT e.receipt_path, e.purchase_date, c.name AS category_name
+       FROM expenses e LEFT JOIN categories c ON c.id = e.category_id
+       WHERE e.id = ? AND e.user_id = ? AND e.deleted_at IS NOT NULL`,
       [req.params.id, req.user.id]
     );
     const row = rows[0];
@@ -421,7 +591,8 @@ router.delete(
 
     await pool.execute('DELETE FROM expenses WHERE id = ? AND user_id = ?', [req.params.id, req.user.id]);
     if (row.receipt_path) {
-      fs.unlink(path.join(userReceiptsDir(req.user.id), row.receipt_path), () => {});
+      const dir = dirFor(req.user.email, row.purchase_date, row.category_name || 'Uncategorised');
+      fs.unlink(path.join(dir, row.receipt_path), () => {});
     }
     res.json({ ok: true });
   })

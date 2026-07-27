@@ -4,6 +4,7 @@ import { api } from '../lib/api.js';
 import { useToast } from './Toast.jsx';
 import CategoryBadge from './CategoryBadge.jsx';
 import ReceiptDropzone from './ReceiptDropzone.jsx';
+import ReceiptGallery from './ReceiptGallery.jsx';
 import Toggle from './Toggle.jsx';
 import ReceiptLightbox from './ReceiptLightbox.jsx';
 import { onDigitKeyDown } from '../lib/sounds.js';
@@ -49,6 +50,7 @@ export default function ExpenseModal({ expense, onClose, onSaved, onDeleted }) {
   const [frequency, setFrequency] = useState(expense.frequency || 'monthly');
   const [notes, setNotes] = useState(expense.notes || '');
   const [file, setFile] = useState(null);
+  const [pickedFilename, setPickedFilename] = useState(null);
   const [removeReceipt, setRemoveReceipt] = useState(false);
   const [progress, setProgress] = useState(0);
   const [receiptStatus, setReceiptStatus] = useState('idle');
@@ -62,6 +64,15 @@ export default function ExpenseModal({ expense, onClose, onSaved, onDeleted }) {
 
   function onFileChange(next) {
     setFile(next);
+    if (next) setPickedFilename(null);
+    setRemoveReceipt(false);
+    setReceiptStatus('idle');
+    setReceiptError('');
+  }
+
+  function onPickReceipt(filename) {
+    setPickedFilename(filename);
+    setFile(null);
     setRemoveReceipt(false);
     setReceiptStatus('idle');
     setReceiptError('');
@@ -87,6 +98,7 @@ export default function ExpenseModal({ expense, onClose, onSaved, onDeleted }) {
     form.append('frequency', isRecurring ? frequency : '');
     form.append('notes', notes);
     if (file) form.append('receipt', file);
+    else if (pickedFilename) form.append('receiptFilename', pickedFilename);
     if (removeReceipt) form.append('removeReceipt', 'true');
 
     try {
@@ -226,13 +238,32 @@ export default function ExpenseModal({ expense, onClose, onSaved, onDeleted }) {
               </div>
               <div>
                 <label className="label">Receipt</label>
-                {expense.receiptUrl && !file && !removeReceipt ? (
+                {expense.receiptUrl && !file && !pickedFilename && !removeReceipt ? (
                   <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                     <button type="button" className="btn btn-ghost" style={{ fontSize: 13 }} onClick={() => setLightboxOpen(true)}>
                       🧾 View current receipt
                     </button>
                     <button type="button" className="btn btn-ghost" style={{ fontSize: 13 }} onClick={() => setRemoveReceipt(true)}>
                       Remove
+                    </button>
+                  </div>
+                ) : pickedFilename ? (
+                  <div
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      gap: 10,
+                      padding: '10px 14px',
+                      border: '1px solid var(--border)',
+                      borderRadius: 12,
+                      background: 'var(--bg-elevated)',
+                      fontSize: 13,
+                    }}
+                  >
+                    <span>🧾 Using existing receipt: {pickedFilename}</span>
+                    <button type="button" className="btn btn-ghost" style={{ fontSize: 12, padding: '4px 10px' }} onClick={() => setPickedFilename(null)}>
+                      Clear
                     </button>
                   </div>
                 ) : (
@@ -244,6 +275,12 @@ export default function ExpenseModal({ expense, onClose, onSaved, onDeleted }) {
                     errorMessage={receiptError}
                   />
                 )}
+                <ReceiptGallery
+                  categoryId={categoryId}
+                  purchaseDate={purchaseDate}
+                  currentFilename={expense.receiptFilename}
+                  onPick={onPickReceipt}
+                />
               </div>
               <div style={{ display: 'flex', gap: 10, marginTop: 4 }}>
                 <button className="btn btn-primary" type="submit" disabled={busy || !formComplete} style={{ flex: 1 }}>

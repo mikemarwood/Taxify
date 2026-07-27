@@ -1,11 +1,42 @@
 import { Router } from 'express';
+import path from 'path';
+import fs from 'fs';
+import { fileURLToPath } from 'url';
 import pool from '../db.js';
 import { requireAuth, requireActiveAccess } from '../auth/middleware.js';
 import { asyncHandler } from '../lib/asyncHandler.js';
 import { toTitleCase } from '../lib/text.js';
+import { userRootDir, categoryToFolderSegment } from '../lib/receiptStorage.js';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const uploadsDir = path.join(__dirname, '..', '..', 'uploads');
 
 const router = Router();
 router.use(requireAuth, requireActiveAccess);
+
+// Every financial-year folder under the user's root that currently has a
+// subfolder for this category — used by both rename (to move) and delete
+// (to check for leftover files / remove).
+function categoryFoldersFor(userEmail, categorySegment) {
+  const root = userRootDir(uploadsDir, userEmail);
+  let yearDirs = [];
+  try {
+    yearDirs = fs.readdirSync(root, { withFileTypes: true }).filter((e) => e.isDirectory()).map((e) => e.name);
+  } catch {
+    return [];
+  }
+  return yearDirs
+    .map((year) => path.join(root, year, categorySegment))
+    .filter((dir) => fs.existsSync(dir));
+}
+
+function dirHasFiles(dir) {
+  try {
+    return fs.readdirSync(dir).some((name) => fs.statSync(path.join(dir, name)).isFile());
+  } catch {
+    return false;
+  }
+}
 
 const PALETTE = ['#8b5cf6', '#06b6d4', '#f59e0b', '#ec4899', '#10b981', '#3b82f6', '#a1a1aa', '#ef4444', '#eab308', '#14b8a6'];
 
@@ -85,6 +116,27 @@ router.patch(
         req.user.id,
       ]);
       const [rows] = await pool.execute('SELECT id, name, color, icon FROM categories WHERE id = ?', [req.params.id]);
+
+      if (finalName !== existing.name) {
+        const oldSeg = categoryToFolderSegment(existing.name);
+        const newSeg = categoryToFolderSegment(finalName);
+        for (const oldDir of categoryFoldersFor(req.user.email, oldSeg)) {
+          const newDir = path.join(path.dirname(oldDir), newSeg);
+          try {
+            if (fs.existsSync(newDir)) {
+              for (const file of fs.readdirSync(oldDir)) {
+                fs.renameSync(path.join(oldDir, file), path.join(newDir, file));
+              }
+              fs.rmSync(oldDir, { recursive: true, force: true });
+            } else {
+              fs.renameSync(oldDir, newDir);
+            }
+          } catch (err) {
+            console.error('Failed to rename category receipt folder', err);
+          }
+        }
+      }
+
       res.json({ category: rows[0] });
     } catch (err) {
       if (err.code === 'ER_DUP_ENTRY') {
@@ -98,6 +150,12 @@ router.patch(
 router.delete(
   '/:id',
   asyncHandler(async (req, res) => {
+    const [categoryRows] = await pool.execute('SELECT name FROM categories WHERE id = ? AND user_id = ?', [
+      req.params.id,
+      req.user.id,
+    ]);
+    if (!categoryRows[0]) return res.status(404).json({ error: 'Category not found' });
+
     const [[{ count }]] = await pool.execute(
       'SELECT COUNT(*) AS count FROM expenses WHERE category_id = ? AND user_id = ?',
       [req.params.id, req.user.id]
@@ -108,8 +166,25 @@ router.delete(
       });
     }
 
+    const categorySeg = categoryToFolderSegment(categoryRows[0].name);
+    const folders = categoryFoldersFor(req.user.email, categorySeg);
+    if (folders.some(dirHasFiles)) {
+      return res.status(400).json({
+        error: 'This category still has unassigned receipt files — remove them first.',
+      });
+    }
+
     const [result] = await pool.execute('DELETE FROM categories WHERE id = ? AND user_id = ?', [req.params.id, req.user.id]);
     if (result.affectedRows === 0) return res.status(404).json({ error: 'Category not found' });
+
+    for (const dir of folders) {
+      try {
+        fs.rmSync(dir, { recursive: true, force: true });
+      } catch (err) {
+        console.error('Failed to remove category receipt folder', err);
+      }
+    }
+
     res.json({ ok: true });
   })
 );
