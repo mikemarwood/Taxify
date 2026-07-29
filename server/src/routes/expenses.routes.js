@@ -58,7 +58,7 @@ const upload = multer({
   storage,
   limits: { fileSize: MAX_UPLOAD_BYTES },
   fileFilter: (req, file, cb) => {
-    if (!isAllowedUpload(file)) return cb(new Error(UPLOAD_REJECTED_MESSAGE));
+    if (!isAllowedUpload(file)) return cb(Object.assign(new Error(UPLOAD_REJECTED_MESSAGE), { status: 400 }));
     cb(null, true);
   },
 });

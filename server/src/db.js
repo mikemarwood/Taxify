@@ -111,6 +111,36 @@ export async function ensureSchema() {
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
   `);
 
+  // CREATE TABLE IF NOT EXISTS leaves an existing table alone, so an install
+  // that already created category_documents never picks up later columns from
+  // the definition above — they have to be added explicitly.
+  await pool.query(`ALTER TABLE category_documents ADD COLUMN IF NOT EXISTS document_name VARCHAR(255) NULL`);
+
+  // The unique key originally covered (category_id, filename), which was right
+  // when documents sat directly under the category. Now they're filed per
+  // financial year, the same statement name can legitimately appear in two
+  // years, so the year has to be part of the key.
+  //
+  // Keyed off the schema rather than a settings flag: this runs before the
+  // settings table exists, and the index itself is the honest record of
+  // whether the change has been applied.
+  const [indexCols] = await pool.query(
+    `SELECT COLUMN_NAME FROM information_schema.STATISTICS
+     WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'category_documents'
+       AND INDEX_NAME = 'uniq_category_document'`
+  );
+  if (indexCols.length > 0 && !indexCols.some((c) => c.COLUMN_NAME === 'financial_year')) {
+    try {
+      await pool.query(`ALTER TABLE category_documents DROP INDEX uniq_category_document`);
+      await pool.query(
+        `ALTER TABLE category_documents ADD UNIQUE KEY uniq_category_document (category_id, financial_year, filename)`
+      );
+      console.log('[schema] rebuilt category document index to include the financial year');
+    } catch (err) {
+      console.error('Could not rebuild the category document index', err.message);
+    }
+  }
+
   await pool.query(`
     CREATE TABLE IF NOT EXISTS expenses (
       id INT PRIMARY KEY AUTO_INCREMENT,

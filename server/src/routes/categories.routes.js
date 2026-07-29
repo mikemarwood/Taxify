@@ -300,13 +300,13 @@ const documentUpload = multer({
         // multer streams files as it parses, so a text field only exists here
         // if it was sent before the files — the client appends it first.
         const year = req.body?.financialYear;
-        if (!isFinancialYearLabel(year)) return cb(new Error('A financial year is required'));
+        if (!isFinancialYearLabel(year)) return cb(Object.assign(new Error('A financial year is required'), { status: 400 }));
 
         const [rows] = await pool.execute('SELECT name FROM categories WHERE id = ? AND user_id = ?', [
           req.params.id,
           req.user.id,
         ]);
-        if (!rows[0]) return cb(new Error('Category not found'));
+        if (!rows[0]) return cb(Object.assign(new Error('Category not found'), { status: 404 }));
         const dir = categoryDocumentDir(uploadsDir, req.user.id, rows[0].name, year);
         fs.mkdirSync(dir, { recursive: true });
         req._uploadDir = assertWithin(uploadsDir, dir);
@@ -325,7 +325,7 @@ const documentUpload = multer({
   }),
   limits: { fileSize: MAX_UPLOAD_BYTES, files: 50 },
   fileFilter: (req, file, cb) => {
-    if (!isAllowedUpload(file)) return cb(new Error(UPLOAD_REJECTED_MESSAGE));
+    if (!isAllowedUpload(file)) return cb(Object.assign(new Error(UPLOAD_REJECTED_MESSAGE), { status: 400 }));
     cb(null, true);
   },
 });

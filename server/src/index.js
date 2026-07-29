@@ -92,8 +92,15 @@ app.use('/api/export', exportRoutes);
 
 // eslint-disable-next-line no-unused-vars
 app.use((err, req, res, next) => {
-  if (err?.name === 'MulterError' || err?.message === 'Unsupported file type') {
+  // Multer's own errors (file too large, too many files) and anything thrown
+  // deliberately with a status are safe to show — they describe a decision the
+  // caller can act on. Everything else is a fault, and its message could carry
+  // internals, so it stays in the log.
+  if (err?.name === 'MulterError') {
     return res.status(400).json({ error: err.message });
+  }
+  if (err?.status && err.status < 500) {
+    return res.status(err.status).json({ error: err.message });
   }
   console.error(err);
   res.status(500).json({ error: 'Something went wrong' });
