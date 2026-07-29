@@ -66,3 +66,18 @@ const SAFE_FILENAME = /^[A-Za-z0-9][A-Za-z0-9._-]{0,150}$/;
 export function isSafeFilename(name) {
   return typeof name === 'string' && SAFE_FILENAME.test(name) && !name.includes('..');
 }
+
+// Turns an arbitrary upload name into one isSafeFilename() accepts, keeping it
+// recognisable in the picker. The random suffix means two files both called
+// "invoice.pdf" can sit in the inbox together. `rand` is injected so callers
+// decide the entropy source.
+export function stagedFilename(originalName, rand) {
+  const ext = path.extname(originalName).toLowerCase();
+  const base = path
+    .basename(originalName, path.extname(originalName))
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 60);
+  return `${base || 'receipt'}-${rand}${ext}`;
+}

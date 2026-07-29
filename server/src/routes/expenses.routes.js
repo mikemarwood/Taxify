@@ -10,7 +10,7 @@ import { getVisibleUserIds } from '../auth/access.js';
 import { asyncHandler } from '../lib/asyncHandler.js';
 import { financialYearOf } from '../lib/financialYear.js';
 import { advanceDate } from '../lib/recurrence.js';
-import { receiptDirFor, inboxDirFor, assertWithin, isSafeFilename } from '../lib/receiptStorage.js';
+import { receiptDirFor, inboxDirFor, assertWithin, isSafeFilename, stagedFilename } from '../lib/receiptStorage.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const uploadsDir = path.join(__dirname, '..', '..', 'uploads');
@@ -84,19 +84,6 @@ function inboxFor(email) {
   return inboxDirFor(uploadsDir, email);
 }
 
-// Keeps the original name recognisable in the picker while satisfying
-// isSafeFilename(), and appends entropy so two "invoice.pdf" uploads coexist.
-function stagedFilename(originalName) {
-  const ext = path.extname(originalName).toLowerCase();
-  const base = path
-    .basename(originalName, path.extname(originalName))
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '')
-    .slice(0, 60);
-  return `${base || 'receipt'}-${crypto.randomBytes(3).toString('hex')}${ext}`;
-}
-
 const inboxUpload = multer({
   storage: multer.diskStorage({
     destination: (req, file, cb) => {
@@ -108,7 +95,7 @@ const inboxUpload = multer({
         cb(err);
       }
     },
-    filename: (req, file, cb) => cb(null, stagedFilename(file.originalname)),
+    filename: (req, file, cb) => cb(null, stagedFilename(file.originalname, crypto.randomBytes(3).toString('hex'))),
   }),
   limits: { fileSize: 5 * 1024 * 1024, files: 50 },
   fileFilter: (req, file, cb) => {
