@@ -9,10 +9,34 @@ import ReceiptInbox from '../components/ReceiptInbox.jsx';
 import { defaultFinancialYear } from '../lib/financialYear.js';
 import Icon from '../components/Icon.jsx';
 
+// Lets the one search box take an amount as well as text. A bare number
+// matches by prefix, so "47" finds $47.91 and $47.00 — typing the exact cents
+// isn't required to find a receipt you half-remember. Comparisons and ranges
+// are there because "everything over $500" is the other way people look for a
+// specific expense.
+function matchesAmount(amount, query) {
+  const comparison = /^([<>]=?)\s*\$?(\d+(?:\.\d+)?)$/.exec(query);
+  if (comparison) {
+    const n = Number(comparison[2]);
+    if (comparison[1] === '>') return amount > n;
+    if (comparison[1] === '>=') return amount >= n;
+    if (comparison[1] === '<') return amount < n;
+    return amount <= n;
+  }
+
+  const range = /^\$?(\d+(?:\.\d+)?)\s*-\s*\$?(\d+(?:\.\d+)?)$/.exec(query);
+  if (range) return amount >= Number(range[1]) && amount <= Number(range[2]);
+
+  const bare = query.replace(/^\$/, '');
+  if (!/^\d+(\.\d+)?$/.test(bare)) return false;
+  return amount.toFixed(2).startsWith(bare);
+}
+
 export default function Expenses() {
   const [expenses, setExpenses] = useState(null);
   const [year, setYear] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
+  const [categoryFilter, setCategoryFilter] = useState('all');
   const [selectedExpense, setSelectedExpense] = useState(null);
   const [lightboxUrl, setLightboxUrl] = useState(null);
   const [inboxOpen, setInboxOpen] = useState(false);
@@ -46,16 +70,29 @@ export default function Expenses() {
     return expenses.filter((e) => e.financialYear === year);
   }, [expenses, year]);
 
+  const categoryNames = useMemo(() => {
+    if (!expenses) return [];
+    return Array.from(new Set(expenses.map((e) => e.category?.name || 'Uncategorised'))).sort((a, b) =>
+      a.localeCompare(b)
+    );
+  }, [expenses]);
+
   const searched = useMemo(() => {
-    if (!searchQuery.trim()) return yearFiltered;
+    let list = yearFiltered;
+    if (categoryFilter !== 'all') {
+      list = list.filter((e) => (e.category?.name || 'Uncategorised') === categoryFilter);
+    }
+    if (!searchQuery.trim()) return list;
+
     const q = searchQuery.trim().toLowerCase();
-    return yearFiltered.filter(
+    return list.filter(
       (e) =>
         e.itemName?.toLowerCase().includes(q) ||
         e.notes?.toLowerCase().includes(q) ||
-        (e.category?.name || 'Uncategorised').toLowerCase().includes(q)
+        (e.category?.name || 'Uncategorised').toLowerCase().includes(q) ||
+        matchesAmount(e.amount, q)
     );
-  }, [yearFiltered, searchQuery]);
+  }, [yearFiltered, searchQuery, categoryFilter]);
 
   const groups = useMemo(() => {
     const map = new Map();
@@ -124,7 +161,7 @@ export default function Expenses() {
       )}
 
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 18, flexWrap: 'wrap' }}>
-        <select className="input" value={year || ''} onChange={(e) => setYear(e.target.value)} style={{ width: 160, padding: '8px 10px', fontSize: 13 }}>
+        <select className="input" value={year || ''} onChange={(e) => setYear(e.target.value)} style={{ width: 150, padding: '8px 10px', fontSize: 13 }}>
           <option value="all">All years</option>
           {years.map((y) => (
             <option key={y} value={y}>
@@ -132,14 +169,41 @@ export default function Expenses() {
             </option>
           ))}
         </select>
+        <select
+          className="input"
+          value={categoryFilter}
+          onChange={(e) => setCategoryFilter(e.target.value)}
+          style={{ width: 190, padding: '8px 10px', fontSize: 13 }}
+        >
+          <option value="all">All categories</option>
+          {categoryNames.map((name) => (
+            <option key={name} value={name}>
+              {name}
+            </option>
+          ))}
+        </select>
         <input
           type="text"
           className="input"
-          placeholder="Search expenses…"
+          placeholder="Search name, notes or amount…"
+          title={'Type a name, or an amount: 47.91, 47, >100, <20, 50-100'}
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
-          style={{ maxWidth: 260, padding: '8px 12px', fontSize: 13, marginLeft: 'auto' }}
+          style={{ maxWidth: 280, padding: '8px 12px', fontSize: 13, marginLeft: 'auto' }}
         />
+        {(searchQuery.trim() || categoryFilter !== 'all') && (
+          <button
+            type="button"
+            className="btn btn-ghost"
+            style={{ fontSize: 12.5, padding: '7px 12px' }}
+            onClick={() => {
+              setSearchQuery('');
+              setCategoryFilter('all');
+            }}
+          >
+            Clear
+          </button>
+        )}
       </div>
 
       {loading ? (
