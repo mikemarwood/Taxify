@@ -1,45 +1,46 @@
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import AndroidDownloadButton from '../components/AndroidDownloadButton.jsx';
+import Icon from '../components/Icon.jsx';
 
 const FEATURES = [
   {
-    icon: '🧾',
+    icon: 'receipt',
     title: 'Drag-and-drop receipts',
     text: 'Snap a photo or drag a file in and watch it upload with live progress. Every receipt lives right alongside the expense it belongs to.',
   },
   {
-    icon: '🏷️',
+    icon: 'tag',
     title: 'Tax categories, ready to go',
     text: 'Start with a full set of deduction categories — General, Training, Tooling, Electronics, Home Rental and more — no setup required.',
   },
   {
-    icon: '🔁',
+    icon: 'repeat',
     title: 'Recurring expenses',
     text: 'Mark a bill as weekly, monthly, quarterly, or yearly once, and it stays flagged for you every time it comes around.',
   },
   {
-    icon: '🌐',
+    icon: 'globe',
     title: 'Multi-currency support',
     text: 'Log expenses in AUD, USD, GBP, EUR, or NZD — perfect for contractors and travellers working across borders.',
   },
   {
-    icon: '🔎',
+    icon: 'search',
     title: 'Instant search & filters',
     text: 'Filter by category, custom date range, or search by keyword to find any entry in seconds — even years of records.',
   },
   {
-    icon: '📈',
+    icon: 'chart',
     title: 'Year-over-year reports',
     text: 'Compare spending by category across tax years at a glance, with visual breakdowns ready for tax time.',
   },
   {
-    icon: '🔒',
+    icon: 'lock',
     title: 'Bank-grade account security',
     text: 'Passwords are hashed with bcrypt and never stored in plain text, with email-based two-factor login codes to keep your account yours alone.',
   },
   {
-    icon: '📱',
+    icon: 'phone',
     title: 'Take it anywhere',
     text: 'Use Taxify in any browser, or install the Android app for quick expense logging on the go.',
   },
@@ -80,7 +81,22 @@ function FeatureCard({ icon, title, text, index }) {
       transition={{ duration: 0.35, delay: Math.min(index, 6) * 0.05, ease: 'easeOut' }}
       style={{ padding: 24 }}
     >
-      <div style={{ fontSize: 26, marginBottom: 12 }}>{icon}</div>
+      <div
+        style={{
+          width: 40,
+          height: 40,
+          marginBottom: 14,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          borderRadius: 10,
+          color: 'var(--violet)',
+          background: 'rgba(139, 92, 246, 0.12)',
+          border: '1px solid rgba(139, 92, 246, 0.28)',
+        }}
+      >
+        <Icon name={icon} size={20} />
+      </div>
       <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 6 }}>{title}</div>
       <div style={{ fontSize: 13.5, color: 'var(--text-muted)', lineHeight: 1.55 }}>{text}</div>
     </motion.div>
@@ -135,7 +151,7 @@ export default function Landing() {
               marginBottom: 24,
             }}
           >
-            <span aria-hidden="true">✨</span> Built for freelancers, tradies &amp; small business owners
+            Built for freelancers, tradies &amp; small business owners
           </div>
           <h1
             style={{

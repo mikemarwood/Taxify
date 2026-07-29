@@ -9,7 +9,7 @@ import ExpenseModal from '../components/ExpenseModal.jsx';
 import ReceiptLightbox from '../components/ReceiptLightbox.jsx';
 import ExportMenu from '../components/ExportMenu.jsx';
 import { defaultFinancialYear } from '../lib/financialYear.js';
-import { iconEmoji } from '../lib/categoryIcons.js';
+import Icon from '../components/Icon.jsx';
 import { useAuth } from '../lib/AuthContext.jsx';
 
 const COLLAPSED_ROW_COUNT = 8;
@@ -190,7 +190,7 @@ export default function Dashboard() {
                   }}
                 >
                   <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: 'var(--text-muted)' }}>
-                    <span aria-hidden="true">{iconEmoji(c.icon)}</span>
+                    <Icon name={c.icon} size={14} style={{ color: c.color }} />
                     <span style={{ width: 8, height: 8, borderRadius: '50%', background: c.color, flexShrink: 0 }} />
                     <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.name}</span>
                   </div>
@@ -319,13 +319,13 @@ export default function Dashboard() {
                     <button
                       type="button"
                       title="View receipt"
-                      style={{ lineHeight: 0, background: 'none', border: 'none', padding: 0, cursor: 'pointer' }}
+                      style={{ lineHeight: 0, background: 'none', border: 'none', padding: 0, cursor: 'pointer', color: 'var(--text-muted)' }}
                       onClick={(evt) => {
                         evt.stopPropagation();
                         setLightboxUrl({ url: e.receiptUrl, filename: e.receiptFilename });
                       }}
                     >
-                      🧾
+                      <Icon name="receipt" size={15} />
                     </button>
                   )}
                   <span style={{ width: 80, textAlign: 'right', fontWeight: 700 }}>${e.amount.toFixed(2)}</span>

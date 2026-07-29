@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { api } from '../lib/api.js';
 import ReceiptLightbox from './ReceiptLightbox.jsx';
+import Icon from './Icon.jsx';
 
 const FILTERS = [
   { key: 'all', label: 'All' },
@@ -19,7 +20,7 @@ function isHeicFilename(name) {
 }
 
 function placeholderFor(filename) {
-  return isHeicFilename(filename) ? '🖼' : '📄';
+  return isHeicFilename(filename) ? 'image' : 'file-text';
 }
 
 export function folderFileUrl(categoryId, purchaseDate, filename) {
@@ -88,8 +89,8 @@ function Thumb({ url, filename, selected, dimmed, badge, onSelect, onPreview, ti
         {isImageFilename(filename) ? (
           <img src={url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
         ) : (
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', fontSize: 26 }}>
-            {placeholderFor(filename)}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: 'var(--text-muted)' }}>
+            <Icon name={placeholderFor(filename)} size={26} />
           </div>
         )}
         {badge && (
@@ -132,12 +133,10 @@ function Thumb({ url, filename, selected, dimmed, badge, onSelect, onPreview, ti
           border: 'none',
           background: 'rgba(5, 6, 10, 0.66)',
           color: '#fff',
-          fontSize: 11,
-          lineHeight: 1,
           cursor: 'pointer',
         }}
       >
-        🔍
+        <Icon name="zoom-in" size={12} />
       </button>
     </div>
   );

@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { motion } from 'framer-motion';
 import { api } from '../lib/api.js';
 import { SkeletonList, SkeletonStat } from '../components/Skeletons.jsx';
-import { iconEmoji } from '../lib/categoryIcons.js';
+import Icon from '../components/Icon.jsx';
 import CategoryBadge from '../components/CategoryBadge.jsx';
 import ExpenseModal from '../components/ExpenseModal.jsx';
 import ExportMenu from '../components/ExportMenu.jsx';
@@ -138,7 +138,7 @@ export default function Reports() {
                     >
                       <td style={tdStyle('left')}>
                         <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
-                          <span aria-hidden="true">{iconEmoji(c.icon)}</span>
+                          <Icon name={c.icon} size={14} style={{ color: c.color }} />
                           <span style={{ width: 8, height: 8, borderRadius: '50%', background: c.color, flexShrink: 0 }} />
                           {c.name}
                         </span>

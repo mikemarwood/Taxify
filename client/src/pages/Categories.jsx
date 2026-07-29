@@ -3,7 +3,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { api } from '../lib/api.js';
 import { useToast } from '../components/Toast.jsx';
 import { SkeletonList } from '../components/Skeletons.jsx';
-import { ICON_OPTIONS, iconEmoji } from '../lib/categoryIcons.js';
+import { ICON_OPTIONS } from '../lib/categoryIcons.js';
+import Icon from '../components/Icon.jsx';
 
 const SWATCHES = ['#8b5cf6', '#06b6d4', '#f59e0b', '#ec4899', '#10b981', '#3b82f6', '#ef4444', '#eab308', '#14b8a6', '#a1a1aa'];
 
@@ -19,16 +20,19 @@ function IconPicker({ value, onChange }) {
           onClick={() => onChange(icon)}
           title={icon}
           style={{
-            width: 26,
-            height: 26,
-            fontSize: 14,
+            width: 28,
+            height: 28,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
             borderRadius: 8,
+            color: value === icon ? 'var(--violet)' : 'var(--text-muted)',
             background: value === icon ? 'var(--bg-elevated)' : 'transparent',
             border: value === icon ? '1px solid var(--violet)' : '1px solid transparent',
             cursor: 'pointer',
           }}
         >
-          {iconEmoji(icon)}
+          <Icon name={icon} size={15} />
         </button>
       ))}
     </div>
@@ -226,7 +230,7 @@ export default function Categories() {
                   </div>
                 ) : (
                   <>
-                    <span style={{ fontSize: 18, lineHeight: 1 }}>{iconEmoji(c.icon)}</span>
+                    <Icon name={c.icon} size={17} style={{ color: c.color }} />
                     <div style={{ width: 12, height: 12, borderRadius: '50%', background: c.color }} />
                     <div style={{ flex: 1, fontWeight: 600 }}>{c.name}</div>
 

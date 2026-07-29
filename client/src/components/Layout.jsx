@@ -5,16 +5,17 @@ import { useAuth } from '../lib/AuthContext.jsx';
 import { useToast } from './Toast.jsx';
 import { api } from '../lib/api.js';
 import Avatar from './Avatar.jsx';
+import Icon from './Icon.jsx';
 import OtpOnboardingModal from './OtpOnboardingModal.jsx';
 
 const navItems = [
-  { to: '/', label: 'Dashboard', icon: '📊' },
-  { to: '/expenses', label: 'Expenses', icon: '📋' },
-  { to: '/add', label: 'Add Expense', icon: '➕' },
-  { to: '/categories', label: 'Categories', icon: '🏷️' },
-  { to: '/reports', label: 'Reports', icon: '📈' },
-  { to: '/recycle-bin', label: 'Recycle Bin', icon: '🗑️' },
-  { to: '/account', label: 'Account', icon: '⚙️' },
+  { to: '/', label: 'Dashboard', icon: 'dashboard' },
+  { to: '/expenses', label: 'Expenses', icon: 'list' },
+  { to: '/add', label: 'Add Expense', icon: 'plus-circle' },
+  { to: '/categories', label: 'Categories', icon: 'tag' },
+  { to: '/reports', label: 'Reports', icon: 'chart' },
+  { to: '/recycle-bin', label: 'Recycle Bin', icon: 'trash' },
+  { to: '/account', label: 'Account', icon: 'settings' },
 ];
 
 export default function Layout({ children }) {
@@ -69,7 +70,7 @@ export default function Layout({ children }) {
         <nav style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
           {[
             ...(user?.role === 'accountant' ? navItems.filter((i) => ['/', '/expenses', '/reports', '/account'].includes(i.to)) : navItems),
-            ...(user?.isAdmin ? [{ to: '/admin', label: 'Administration', icon: '🛠️' }] : []),
+            ...(user?.isAdmin ? [{ to: '/admin', label: 'Administration', icon: 'wrench' }] : []),
           ].map((item) => (
             <NavLink
               key={item.to}
@@ -88,7 +89,7 @@ export default function Layout({ children }) {
                 background: isActive ? 'var(--gradient-brand)' : 'transparent',
               })}
             >
-              <span>{item.icon}</span>
+              <Icon name={item.icon} size={17} />
               {item.label}
             </NavLink>
           ))}

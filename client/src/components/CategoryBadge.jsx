@@ -1,4 +1,4 @@
-import { iconEmoji } from '../lib/categoryIcons.js';
+import Icon from './Icon.jsx';
 
 export default function CategoryBadge({ category }) {
   if (!category) {
@@ -24,7 +24,7 @@ export default function CategoryBadge({ category }) {
         whiteSpace: 'nowrap',
       }}
     >
-      <span aria-hidden="true">{iconEmoji(category.icon)}</span>
+      <Icon name={category.icon} size={13} />
       {category.name}
     </span>
   );

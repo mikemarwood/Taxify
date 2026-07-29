@@ -1,13 +1,14 @@
 import { motion } from 'framer-motion';
 import AndroidDownloadButton from '../components/AndroidDownloadButton.jsx';
+import Icon from '../components/Icon.jsx';
 
 const FEATURES = [
-  { icon: '🎉', title: '14-day free trial', text: 'Full access to every feature from day one — no card required to get started.' },
-  { icon: '🏷️', title: 'Tax categories, ready to go', text: 'Start with General, Training, Tooling, Electronics, Home Rental, and more — no setup.' },
-  { icon: '🧾', title: 'Drag-and-drop receipts', text: 'Snap or drag a receipt in and watch it upload with live progress — no fumbling with forms.' },
-  { icon: '📈', title: 'Year-over-year reports', text: 'Compare spending by category across tax years at a glance, ready for tax time.' },
-  { icon: '👨‍👩‍👧', title: 'Family & accountant access', text: 'Share a Family plan with a second user, or give your accountant read-only access any time.' },
-  { icon: '🔒', title: 'Passwords, properly secured', text: 'Every password is hashed with bcrypt before it ever touches the database.' },
+  { icon: 'gift', title: '14-day free trial', text: 'Full access to every feature from day one — no card required to get started.' },
+  { icon: 'tag', title: 'Tax categories, ready to go', text: 'Start with General, Training, Tooling, Electronics, Home Rental, and more — no setup.' },
+  { icon: 'receipt', title: 'Drag-and-drop receipts', text: 'Snap or drag a receipt in and watch it upload with live progress — no fumbling with forms.' },
+  { icon: 'chart', title: 'Year-over-year reports', text: 'Compare spending by category across tax years at a glance, ready for tax time.' },
+  { icon: 'users', title: 'Family & accountant access', text: 'Share a Family plan with a second user, or give your accountant read-only access any time.' },
+  { icon: 'lock', title: 'Passwords, properly secured', text: 'Every password is hashed with bcrypt before it ever touches the database.' },
 ];
 
 export default function AuthLayout({ title, subtitle, children }) {
@@ -46,7 +47,7 @@ export default function AuthLayout({ title, subtitle, children }) {
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
           {FEATURES.map((f) => (
             <div key={f.title} style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
-              <span style={{ fontSize: 20, lineHeight: 1 }}>{f.icon}</span>
+              <Icon name={f.icon} size={19} style={{ color: 'var(--violet)', marginTop: 1 }} />
               <div>
                 <div style={{ fontWeight: 700, fontSize: 14 }}>{f.title}</div>
                 <div style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 2 }}>{f.text}</div>

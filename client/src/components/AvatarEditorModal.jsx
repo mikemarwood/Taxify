@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import Icon from './Icon.jsx';
 
 const VIEWPORT = 260;
 const OUTPUT_SIZE = 480;
@@ -162,7 +163,7 @@ export default function AvatarEditorModal({ imageSrc, busy, onCancel, onSave }) 
           </div>
 
           <div style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 10 }}>
-            <span style={{ fontSize: 16 }}>🔍</span>
+            <Icon name="zoom-in" size={16} style={{ color: 'var(--text-muted)' }} />
             <input
               type="range"
               min={MIN_ZOOM}

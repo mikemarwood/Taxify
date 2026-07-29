@@ -6,6 +6,7 @@ import ReceiptDropzone from '../components/ReceiptDropzone.jsx';
 import ReceiptGallery from '../components/ReceiptGallery.jsx';
 import CategoryBadge from '../components/CategoryBadge.jsx';
 import Toggle from '../components/Toggle.jsx';
+import Icon from '../components/Icon.jsx';
 import { onDigitKeyDown } from '../lib/sounds.js';
 
 const LAST_CATEGORY_KEY = 'taxify:lastCategoryByItem';
@@ -259,8 +260,9 @@ export default function AddExpense() {
                 fontSize: 13,
               }}
             >
-              <span>
-                🧾 {pickedSource === 'inbox' ? 'Moving from inbox' : 'Using existing receipt'}: {pickedFilename}
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 7, minWidth: 0 }}>
+                <Icon name="receipt" size={15} />
+                {pickedSource === 'inbox' ? 'Moving from inbox' : 'Using existing receipt'}: {pickedFilename}
               </span>
               <button
                 type="button"

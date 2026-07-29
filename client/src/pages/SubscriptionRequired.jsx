@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom';
 import { useAuth } from '../lib/AuthContext.jsx';
+import Icon from '../components/Icon.jsx';
 
 export default function SubscriptionRequired() {
   const { user } = useAuth();
@@ -9,7 +10,9 @@ export default function SubscriptionRequired() {
   return (
     <div style={{ display: 'flex', justifyContent: 'center', padding: '60px 20px' }}>
       <div className="card" style={{ maxWidth: 460, width: '100%', padding: 32, textAlign: 'center' }}>
-        <div style={{ fontSize: 32, marginBottom: 12 }}>🔒</div>
+        <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 14, color: 'var(--violet)' }}>
+          <Icon name="lock" size={30} />
+        </div>
         <h1 style={{ fontSize: 21, margin: '0 0 10px' }}>
           {expired ? 'Your trial has ended' : 'Subscription required'}
         </h1>

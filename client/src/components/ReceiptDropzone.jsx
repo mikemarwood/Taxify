@@ -1,6 +1,7 @@
 import { useCallback, useMemo, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useToast } from './Toast.jsx';
+import Icon from './Icon.jsx';
 
 const RADIUS = 26;
 const CIRCUMFERENCE = 2 * Math.PI * RADIUS;
@@ -104,12 +105,16 @@ export default function ReceiptDropzone({ file, onFileChange, uploadProgress, st
           </motion.div>
         ) : status === 'success' ? (
           <motion.div key="success" initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0 }}>
-            <div style={{ fontSize: 40, color: 'var(--emerald)' }}>✓</div>
+            <div style={{ display: 'flex', justifyContent: 'center', color: 'var(--emerald)' }}>
+              <Icon name="check-circle" size={38} />
+            </div>
             <p style={{ marginTop: 10, fontSize: 13, color: 'var(--text-muted)' }}>Receipt uploaded</p>
           </motion.div>
         ) : status === 'error' ? (
           <motion.div key="error" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-            <div style={{ fontSize: 40, color: 'var(--red)' }}>⚠</div>
+            <div style={{ display: 'flex', justifyContent: 'center', color: 'var(--red)' }}>
+              <Icon name="alert" size={38} />
+            </div>
             <p style={{ marginTop: 10, fontWeight: 600, color: 'var(--red)' }}>Upload failed</p>
             <p style={{ marginTop: 4, fontSize: 12, color: 'var(--text-muted)' }}>{errorMessage || 'Something went wrong — try again.'}</p>
           </motion.div>
@@ -118,7 +123,9 @@ export default function ReceiptDropzone({ file, onFileChange, uploadProgress, st
             {isImage ? (
               <img src={preview} alt="Receipt preview" style={{ maxHeight: 140, borderRadius: 10, margin: '0 auto', display: 'block' }} />
             ) : (
-              <div style={{ fontSize: 40 }}>📄</div>
+              <div style={{ display: 'flex', justifyContent: 'center', color: 'var(--text-muted)' }}>
+                <Icon name="file-text" size={38} />
+              </div>
             )}
             <p style={{ marginTop: 10, fontSize: 13, color: 'var(--text-muted)' }}>{file.name}</p>
             <button
@@ -135,7 +142,9 @@ export default function ReceiptDropzone({ file, onFileChange, uploadProgress, st
           </motion.div>
         ) : (
           <motion.div key="empty" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-            <div style={{ fontSize: 32 }}>🧾</div>
+            <div style={{ display: 'flex', justifyContent: 'center', color: 'var(--text-muted)' }}>
+              <Icon name="receipt" size={30} />
+            </div>
             {isMobile ? (
               <>
                 <p style={{ marginTop: 8, fontWeight: 600 }}>Add a receipt</p>
@@ -144,24 +153,26 @@ export default function ReceiptDropzone({ file, onFileChange, uploadProgress, st
                   <button
                     type="button"
                     className="btn btn-primary"
-                    style={{ padding: '8px 16px', fontSize: 13 }}
+                    style={{ padding: '8px 16px', fontSize: 13, display: 'inline-flex', alignItems: 'center', gap: 7 }}
                     onClick={(e) => {
                       e.stopPropagation();
                       cameraInputRef.current?.click();
                     }}
                   >
-                    📷 Take photo
+                    <Icon name="camera" size={15} />
+                    Take photo
                   </button>
                   <button
                     type="button"
                     className="btn btn-ghost"
-                    style={{ padding: '8px 16px', fontSize: 13 }}
+                    style={{ padding: '8px 16px', fontSize: 13, display: 'inline-flex', alignItems: 'center', gap: 7 }}
                     onClick={(e) => {
                       e.stopPropagation();
                       inputRef.current?.click();
                     }}
                   >
-                    📁 Choose file
+                    <Icon name="folder" size={15} />
+                    Choose file
                   </button>
                 </div>
               </>

@@ -4,6 +4,7 @@ import { api } from '../lib/api.js';
 import { useToast } from './Toast.jsx';
 import ReceiptLightbox from './ReceiptLightbox.jsx';
 import CategoryBadge from './CategoryBadge.jsx';
+import Icon from './Icon.jsx';
 import { inboxFileUrl } from './ReceiptGallery.jsx';
 
 const MAX_FILE_BYTES = 5 * 1024 * 1024;
@@ -15,7 +16,7 @@ function isImageFilename(name) {
 // HEIC/HEIF store and download fine, but Chrome and Firefox can't decode them
 // in an <img>, so they show a placeholder rather than a broken image.
 function placeholderFor(name) {
-  return /\.(heic|heif)$/i.test(name) ? '🖼' : '📄';
+  return /\.(heic|heif)$/i.test(name) ? 'image' : 'file-text';
 }
 
 function folderLabel(name) {
@@ -434,24 +435,26 @@ export default function ReceiptInbox({ onClose, onChanged }) {
                     <button
                       type="button"
                       className="btn btn-ghost"
-                      style={{ padding: '5px 12px', fontSize: 12 }}
+                      style={{ padding: '5px 12px', fontSize: 12, display: 'inline-flex', alignItems: 'center', gap: 6 }}
                       onClick={(e) => {
                         e.stopPropagation();
                         inputRef.current?.click();
                       }}
                     >
-                      📄 Add files
+                      <Icon name="upload" size={14} />
+                      Add files
                     </button>
                     <button
                       type="button"
                       className="btn btn-ghost"
-                      style={{ padding: '5px 12px', fontSize: 12 }}
+                      style={{ padding: '5px 12px', fontSize: 12, display: 'inline-flex', alignItems: 'center', gap: 6 }}
                       onClick={(e) => {
                         e.stopPropagation();
                         folderInputRef.current?.click();
                       }}
                     >
-                      📁 Add a folder
+                      <Icon name="folder-plus" size={14} />
+                      Add a folder
                     </button>
                   </div>
                 )}
@@ -551,8 +554,8 @@ export default function ReceiptInbox({ onClose, onChanged }) {
                                 style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
                               />
                             ) : (
-                              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', fontSize: 26 }}>
-                                {placeholderFor(f.filename)}
+                              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: 'var(--text-muted)' }}>
+                                <Icon name={placeholderFor(f.filename)} size={26} />
                               </div>
                             )}
                           </div>
@@ -563,7 +566,7 @@ export default function ReceiptInbox({ onClose, onChanged }) {
                             onClick={() => setPreview({ url: inboxFileUrl(f.filename, f.folder), filename: f.filename })}
                             style={iconBtn({ left: 4 })}
                           >
-                            🔍
+                            <Icon name="zoom-in" size={12} />
                           </button>
                           <button
                             type="button"
@@ -572,7 +575,7 @@ export default function ReceiptInbox({ onClose, onChanged }) {
                             onClick={() => discard(f)}
                             style={iconBtn({ right: 4 })}
                           >
-                            ×
+                            <Icon name="x" size={12} />
                           </button>
                           {activeFolder === '__all__' && f.folder && (
                             <span
@@ -587,12 +590,15 @@ export default function ReceiptInbox({ onClose, onChanged }) {
                                 borderRadius: 5,
                                 background: 'rgba(5, 6, 10, 0.72)',
                                 color: '#fff',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: 4,
                                 overflow: 'hidden',
-                                textOverflow: 'ellipsis',
                                 whiteSpace: 'nowrap',
                               }}
                             >
-                              📁 {folderLabel(f.folder)}
+                              <Icon name="folder" size={10} />
+                              <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{folderLabel(f.folder)}</span>
                             </span>
                           )}
                           <div
@@ -713,10 +719,10 @@ export default function ReceiptInbox({ onClose, onChanged }) {
                           </span>
                           <CategoryBadge category={e.category} />
                           <span
-                            style={{ width: 16, textAlign: 'center' }}
-                            title={justFiled.has(e.id) ? 'Filed just now — open ⓘ to see where' : 'No receipt yet'}
+                            style={{ width: 16, display: 'flex', justifyContent: 'center', color: justFiled.has(e.id) ? 'var(--green, #10b981)' : 'var(--text-muted)' }}
+                            title={justFiled.has(e.id) ? 'Filed just now — open the details to see where' : 'No receipt yet'}
                           >
-                            {justFiled.has(e.id) ? '✅' : '—'}
+                            {justFiled.has(e.id) ? <Icon name="check-circle" size={15} /> : '—'}
                           </span>
                           <span style={{ width: 64, textAlign: 'right', fontWeight: 700 }}>${e.amount.toFixed(2)}</span>
                           <button
@@ -732,16 +738,17 @@ export default function ReceiptInbox({ onClose, onChanged }) {
                               flexShrink: 0,
                               width: 22,
                               height: 22,
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
                               borderRadius: 6,
                               border: '1px solid var(--border)',
                               background: 'transparent',
                               color: isOpen ? 'var(--violet)' : 'var(--text-muted)',
-                              fontSize: 11,
-                              lineHeight: 1,
                               cursor: 'pointer',
                             }}
                           >
-                            ⓘ
+                            <Icon name="info" size={13} />
                           </button>
                         </div>
 
@@ -776,7 +783,9 @@ export default function ReceiptInbox({ onClose, onChanged }) {
           onClose={() => setMenu(null)}
           items={[
             {
-              label: '🔍 Preview (scroll to zoom)',
+              icon: 'zoom-in',
+              label: 'Preview',
+              hint: 'opens full size — scroll to zoom in and read it',
               onSelect: () =>
                 setPreview({
                   url: inboxFileUrl(menu.receipt.filename, menu.receipt.folder),
@@ -784,15 +793,17 @@ export default function ReceiptInbox({ onClose, onChanged }) {
                 }),
             },
             {
-              label: picked && picked.filename === menu.receipt.filename ? '✓ Selected' : '👆 Select for assigning',
+              icon: picked && picked.filename === menu.receipt.filename ? 'check' : 'pointer',
+              label: picked && picked.filename === menu.receipt.filename ? 'Selected' : 'Select for assigning',
               onSelect: () => setPicked(menu.receipt),
             },
             {
-              label: '↗ Open in a new tab',
+              icon: 'external-link',
+              label: 'Open in a new tab',
               onSelect: () =>
                 window.open(inboxFileUrl(menu.receipt.filename, menu.receipt.folder), '_blank', 'noopener'),
             },
-            { label: '🗑 Discard', danger: true, onSelect: () => discard(menu.receipt) },
+            { icon: 'trash', label: 'Discard', danger: true, onSelect: () => discard(menu.receipt) },
           ]}
         />
       )}
@@ -805,12 +816,14 @@ export default function ReceiptInbox({ onClose, onChanged }) {
           onClose={() => setMenu(null)}
           items={[
             {
-              label: '📁 Move here',
+              icon: 'arrow-right',
+              label: 'Move here',
               hint: 'files it under this expense and clears it from the inbox',
               onSelect: () => assign(menu.receipt, menu.expense, false),
             },
             {
-              label: '📋 Copy here',
+              icon: 'copy',
+              label: 'Copy here',
               hint: 'files a copy and keeps the original staged for other expenses',
               onSelect: () => assign(menu.receipt, menu.expense, true),
             },
@@ -896,10 +909,12 @@ function PopMenu({ x, y, title, items, onClose }) {
               item.onSelect();
             }}
             style={{
-              display: 'block',
+              display: 'flex',
+              alignItems: 'flex-start',
+              gap: 9,
               width: '100%',
               textAlign: 'left',
-              padding: '7px 9px',
+              padding: '8px 9px',
               borderRadius: 7,
               border: 'none',
               background: 'transparent',
@@ -914,10 +929,13 @@ function PopMenu({ x, y, title, items, onClose }) {
               e.currentTarget.style.background = 'transparent';
             }}
           >
-            <span style={{ fontWeight: 600 }}>{item.label}</span>
-            {item.hint && (
-              <span style={{ display: 'block', fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>{item.hint}</span>
-            )}
+            {item.icon && <Icon name={item.icon} size={14} style={{ marginTop: 1 }} />}
+            <span style={{ minWidth: 0 }}>
+              <span style={{ fontWeight: 600, display: 'block' }}>{item.label}</span>
+              {item.hint && (
+                <span style={{ display: 'block', fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>{item.hint}</span>
+              )}
+            </span>
           </button>
         ))}
       </div>
@@ -976,8 +994,14 @@ function ExpenseDetails({ expense, onPreview, onCopyPath }) {
             </div>
           )}
           <div style={{ display: 'flex', gap: 8 }}>
-            <button type="button" className="btn btn-ghost" style={{ fontSize: 11.5, padding: '4px 10px' }} onClick={onPreview}>
-              🔍 Preview
+            <button
+              type="button"
+              className="btn btn-ghost"
+              style={{ fontSize: 11.5, padding: '4px 10px', display: 'inline-flex', alignItems: 'center', gap: 6 }}
+              onClick={onPreview}
+            >
+              <Icon name="zoom-in" size={13} />
+              Preview
             </button>
             {expense.receiptPath && (
               <button type="button" className="btn btn-ghost" style={{ fontSize: 11.5, padding: '4px 10px' }} onClick={onCopyPath}>

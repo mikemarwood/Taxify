@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import Icon from './Icon.jsx';
 
 export default function ExportMenu({ baseUrl, label = 'Export' }) {
   const [open, setOpen] = useState(false);
@@ -14,8 +15,14 @@ export default function ExportMenu({ baseUrl, label = 'Export' }) {
 
   return (
     <div ref={ref} style={{ position: 'relative' }}>
-      <button type="button" className="btn btn-ghost" style={{ fontSize: 13 }} onClick={() => setOpen((v) => !v)}>
-        ⬇ {label}
+      <button
+        type="button"
+        className="btn btn-ghost"
+        style={{ fontSize: 13, display: 'inline-flex', alignItems: 'center', gap: 7 }}
+        onClick={() => setOpen((v) => !v)}
+      >
+        <Icon name="download" size={15} />
+        {label}
       </button>
       {open && (
         <div
@@ -42,10 +49,14 @@ export default function ExportMenu({ baseUrl, label = 'Export' }) {
               fontWeight: 600,
               textDecoration: 'none',
               color: 'var(--text)',
+              display: 'flex',
+              alignItems: 'center',
+              gap: 8,
             }}
             className="export-menu-item"
           >
-            📊 Excel (.xlsx)
+            <Icon name="chart" size={14} />
+            Excel (.xlsx)
           </a>
           <a
             href={`${baseUrl}.pdf`}
@@ -57,10 +68,14 @@ export default function ExportMenu({ baseUrl, label = 'Export' }) {
               fontWeight: 600,
               textDecoration: 'none',
               color: 'var(--text)',
+              display: 'flex',
+              alignItems: 'center',
+              gap: 8,
             }}
             className="export-menu-item"
           >
-            📄 PDF (.pdf)
+            <Icon name="file-text" size={14} />
+            PDF (.pdf)
           </a>
         </div>
       )}

@@ -7,7 +7,7 @@ import ExpenseModal from '../components/ExpenseModal.jsx';
 import ReceiptLightbox from '../components/ReceiptLightbox.jsx';
 import ReceiptInbox from '../components/ReceiptInbox.jsx';
 import { defaultFinancialYear } from '../lib/financialYear.js';
-import { iconEmoji } from '../lib/categoryIcons.js';
+import Icon from '../components/Icon.jsx';
 
 export default function Expenses() {
   const [expenses, setExpenses] = useState(null);
@@ -84,8 +84,9 @@ export default function Expenses() {
           <h1 style={{ margin: 0, fontSize: 26 }}>Expenses</h1>
           <p style={{ color: 'var(--text-muted)', margin: '4px 0 0' }}>Every expense, grouped by category.</p>
         </div>
-        <button className="btn btn-ghost" onClick={() => setInboxOpen(true)} style={{ fontSize: 13 }}>
-          🧾 Receipt inbox
+        <button className="btn btn-ghost" onClick={() => setInboxOpen(true)} style={{ fontSize: 13, display: 'inline-flex', alignItems: 'center', gap: 7 }}>
+          <Icon name="receipt" size={15} />
+          Receipt inbox
           {inboxCount > 0 && (
             <span
               style={{
@@ -152,7 +153,7 @@ export default function Expenses() {
           {groups.map((g) => (
             <div key={g.name}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
-                <span aria-hidden="true">{iconEmoji(g.icon)}</span>
+                <Icon name={g.icon} size={15} style={{ color: g.color }} />
                 <span style={{ width: 8, height: 8, borderRadius: '50%', background: g.color, flexShrink: 0 }} />
                 <span style={{ fontWeight: 700 }}>{g.name}</span>
                 <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>
@@ -202,13 +203,13 @@ export default function Expenses() {
                         <button
                           type="button"
                           title="View receipt"
-                          style={{ lineHeight: 0, background: 'none', border: 'none', padding: 0, cursor: 'pointer' }}
+                          style={{ lineHeight: 0, background: 'none', border: 'none', padding: 0, cursor: 'pointer', color: 'var(--text-muted)' }}
                           onClick={(evt) => {
                             evt.stopPropagation();
                             setLightboxUrl({ url: e.receiptUrl, filename: e.receiptFilename });
                           }}
                         >
-                          🧾
+                          <Icon name="receipt" size={15} />
                         </button>
                       )}
                       <span style={{ width: 80, textAlign: 'right', fontWeight: 700 }}>${e.amount.toFixed(2)}</span>

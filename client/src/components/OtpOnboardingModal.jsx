@@ -1,6 +1,7 @@
 import { AnimatePresence, motion } from 'framer-motion';
 import { useState } from 'react';
 import OtpBenefits from './OtpBenefits.jsx';
+import Icon from './Icon.jsx';
 import { useAuth } from '../lib/AuthContext.jsx';
 import { useToast } from './Toast.jsx';
 
@@ -50,7 +51,9 @@ export default function OtpOnboardingModal({ onClose }) {
           className="card"
           style={{ width: '100%', maxWidth: 420, padding: 32 }}
         >
-          <div style={{ fontSize: 28, marginBottom: 8 }}>🔐</div>
+          <div style={{ marginBottom: 12, color: 'var(--violet)' }}>
+            <Icon name="shield" size={28} />
+          </div>
           <h2 style={{ fontSize: 20, margin: '0 0 6px' }}>Add an extra layer of security?</h2>
           <p style={{ fontSize: 14, color: 'var(--text-muted)', margin: '0 0 20px' }}>
             Turn on Multi-Factor Authentication (MFA) to protect your account. Here's what it does:
