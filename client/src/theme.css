@@ -1,46 +1,59 @@
-/* Fluent-inspired light theme.
+/* Professional blue theme.
  *
- * Deliberately not white: the page sits on a soft grey and cards lift off it
- * a shade lighter, the way Windows 11 layers Mica under its surfaces. Large
- * areas of #fff at full brightness are what make a light UI tiring to read
- * all day, and this is an app people keep open while doing their books.
+ * Two zones, deliberately: a deep navy navigation rail against a light,
+ * blue-tinted working area. That contrast is where the app gets its presence —
+ * the chrome recedes into something solid and dark, and the content sits on
+ * paper. It's the arrangement most financial software lands on, because the
+ * numbers should be the brightest thing on screen.
  *
- * Text is near-black rather than black, borders are low-contrast, and depth
- * comes from a small shadow rather than a heavy one. Accent is the Windows
- * system blue, dark enough to pass contrast on these surfaces.
+ * The light side is tinted blue rather than neutral grey, and never white:
+ * large areas of #fff at full brightness are what make a light UI tiring over
+ * a long session, and this is an app people keep open while doing their books.
+ * Text is deep navy rather than black, borders are low-contrast, and depth
+ * comes from a short shadow rather than a glow.
  */
 :root {
-  --bg: #e8eaee;
-  --bg-subtle: #eef0f3;
-  --bg-elevated: #f1f3f6;
-  --bg-card: #fafbfc;
-  --bg-inset: #e3e6eb;
+  --bg: #e6ecf5;
+  --bg-subtle: #eef2f9;
+  --bg-elevated: #eff4fa;
+  --bg-card: #f9fbfe;
+  --bg-inset: #dde5f1;
 
-  --border: #d5d9e0;
-  --border-strong: #c2c8d2;
+  --border: #ccd8e8;
+  --border-strong: #b2c2d8;
 
-  --text: #1a1c20;
-  --text-muted: #5b6270;
-  --text-subtle: #7c8494;
+  --text: #10233d;
+  --text-muted: #4d6180;
+  --text-subtle: #708299;
 
-  /* Names kept from the dark theme so components don't all need editing —
-     the values are retuned for a light background. */
-  --violet: #0f6cbd;
-  --cyan: #0b7285;
-  --amber: #a16207;
-  --pink: #be185d;
-  --emerald: #0e7a45;
-  --blue: #0067c0;
-  --red: #c42b1c;
-  --green: #0e7a45;
+  /* The navigation rail. Dark enough to anchor the page, blue enough to
+     belong to the same family as the accent rather than reading as black. */
+  --nav-bg: linear-gradient(180deg, #10294c 0%, #143257 55%, #102a4b 100%);
+  --nav-border: rgba(255, 255, 255, 0.09);
+  --nav-text: #a9bfdd;
+  --nav-text-active: #ffffff;
+  --nav-hover: rgba(255, 255, 255, 0.07);
+  --nav-active-bg: rgba(255, 255, 255, 0.11);
+  --nav-accent: #56a3f5;
 
-  --accent: #0067c0;
-  --accent-hover: #005fb8;
-  --accent-pressed: #0055a3;
-  --accent-soft: rgba(0, 103, 192, 0.1);
-  --accent-ring: rgba(0, 103, 192, 0.28);
+  /* Names kept from the original theme so components don't all need editing —
+     the values are retuned to sit on a light blue background. */
+  --violet: #1559b8;
+  --cyan: #0b6d84;
+  --amber: #9a5b06;
+  --pink: #b31a5c;
+  --emerald: #0c7343;
+  --blue: #1559b8;
+  --red: #c02a1d;
+  --green: #0c7343;
 
-  --gradient-brand: linear-gradient(135deg, #0f6cbd, #0067c0 60%, #0b5fa8);
+  --accent: #1559b8;
+  --accent-hover: #114ca0;
+  --accent-pressed: #0e4189;
+  --accent-soft: rgba(21, 89, 184, 0.1);
+  --accent-ring: rgba(21, 89, 184, 0.28);
+
+  --gradient-brand: linear-gradient(135deg, #1a66cf, #1559b8 55%, #114a9c);
 
   /* Fluent-style elevation: a hairline plus a short, soft drop. */
   --shadow-sm: 0 1px 2px rgba(16, 24, 40, 0.06);
@@ -332,4 +345,13 @@ input[type="date"].input::-webkit-calendar-picker-indicator:hover { opacity: 1; 
 
 /* Fluent's navigation rows reveal a subtle fill on hover rather than a border. */
 .nav-item { transition: background 0.12s var(--ease-standard), color 0.12s var(--ease-standard); }
-.nav-item:hover { background: var(--bg-elevated) !important; color: var(--text) !important; }
+.nav-item:hover { background: var(--nav-hover) !important; color: var(--nav-text-active) !important; }
+
+/* Controls that live inside the dark navigation rail. */
+.nav-btn {
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid var(--nav-border);
+  color: var(--nav-text-active);
+}
+.nav-btn:hover:not(:disabled) { background: rgba(255, 255, 255, 0.14); }
+.nav-btn:active:not(:disabled) { background: rgba(255, 255, 255, 0.06); }

@@ -54,10 +54,11 @@ export default function Layout({ children }) {
         style={{
           width: 232,
           flexShrink: 0,
-          // The rail sits on its own surface, the way a Fluent navigation
-          // pane does — the page content is what should read as "the paper".
-          background: 'var(--bg-subtle)',
-          borderRight: '1px solid var(--border)',
+          // A dark rail against light content: the chrome recedes and the
+          // numbers stay the brightest thing on screen.
+          background: 'var(--nav-bg)',
+          color: 'var(--nav-text)',
+          borderRight: '1px solid var(--nav-border)',
           padding: '20px 12px',
           display: 'flex',
           flexDirection: 'column',
@@ -69,7 +70,7 @@ export default function Layout({ children }) {
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '0 8px' }}>
           <img src="/logo.svg" alt="Taxify" width="34" height="34" />
-          <span style={{ fontWeight: 800, fontSize: 19, letterSpacing: -0.5 }}>Taxify</span>
+          <span style={{ fontWeight: 700, fontSize: 19, letterSpacing: -0.4, color: 'var(--nav-text-active)' }}>Taxify</span>
         </div>
 
         <nav style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
@@ -93,9 +94,8 @@ export default function Layout({ children }) {
                 fontSize: 14,
                 fontWeight: isActive ? 600 : 500,
                 textDecoration: 'none',
-                color: isActive ? 'var(--text)' : 'var(--text-muted)',
-                background: isActive ? 'var(--bg-card)' : 'transparent',
-                boxShadow: isActive ? 'var(--shadow-sm)' : 'none',
+                color: isActive ? 'var(--nav-text-active)' : 'var(--nav-text)',
+                background: isActive ? 'var(--nav-active-bg)' : 'transparent',
               })}
             >
               {({ isActive }) => (
@@ -114,11 +114,11 @@ export default function Layout({ children }) {
                         width: 3,
                         height: 16,
                         borderRadius: 999,
-                        background: 'var(--accent)',
+                        background: 'var(--nav-accent)',
                       }}
                     />
                   )}
-                  <Icon name={item.icon} size={17} style={{ color: isActive ? 'var(--accent)' : 'inherit' }} />
+                  <Icon name={item.icon} size={17} style={{ color: isActive ? 'var(--nav-accent)' : 'inherit' }} />
                   {item.label}
                 </>
               )}
@@ -133,14 +133,15 @@ export default function Layout({ children }) {
             </Link>
             <Link
               to="/account"
-              style={{ fontSize: 13, color: 'var(--text-muted)', minWidth: 0, textDecoration: 'none' }}
+              style={{ fontSize: 12.5, color: 'var(--nav-text)', minWidth: 0, textDecoration: 'none' }}
               title="Account settings"
             >
               Signed in as
               <div
                 style={{
-                  color: 'var(--text)',
+                  color: 'var(--nav-text-active)',
                   fontWeight: 600,
+                  fontSize: 13.5,
                   overflow: 'hidden',
                   textOverflow: 'ellipsis',
                   whiteSpace: 'nowrap',
@@ -151,18 +152,19 @@ export default function Layout({ children }) {
             </Link>
           </div>
           <button
-            className="btn btn-ghost"
+            className="btn nav-btn"
             style={{ fontSize: 13 }}
             onClick={async () => {
+              playClick();
               await logout();
               navigate('/login');
             }}
           >
             Log out
           </button>
-          <div style={{ fontSize: 11, color: 'var(--text-muted)', padding: '4px 8px 0', lineHeight: 1.5 }}>
+          <div style={{ fontSize: 11, color: 'var(--nav-text)', opacity: 0.75, padding: '4px 8px 0', lineHeight: 1.5 }}>
             © {new Date().getFullYear()} Taxify · Powered by{' '}
-            <a href="https://mikesapphub.com" target="_blank" rel="noreferrer" style={{ color: 'var(--blue)' }}>
+            <a href="https://mikesapphub.com" target="_blank" rel="noreferrer" style={{ color: 'var(--nav-accent)' }}>
               Mikes App Hub
             </a>
           </div>
