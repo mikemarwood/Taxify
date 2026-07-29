@@ -17,6 +17,7 @@ import fs from 'fs';
 import path from 'path';
 import crypto from 'crypto';
 import { fileURLToPath } from 'url';
+import pool from '../db.js';
 import { inboxDirFor, stagedFilename, isSafeFilename, isSafeFolderName, toFolderSlug, assertWithin } from '../lib/receiptStorage.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -45,7 +46,7 @@ function folderFor(source, full, flat) {
   return isSafeFolderName(slug) ? slug : null;
 }
 
-function main() {
+async function main() {
   const argv = process.argv.slice(2);
   const dryRun = argv.includes('--dry-run');
   const flat = argv.includes('--flat');
@@ -60,7 +61,16 @@ function main() {
     process.exit(1);
   }
 
-  const inboxRoot = inboxDirFor(uploadsDir, email);
+  // Folders are keyed by user id, but an email is what a human running this
+  // actually knows, so it's resolved here rather than asked for.
+  const [users] = await pool.execute('SELECT id FROM users WHERE email = ?', [String(email).trim().toLowerCase()]);
+  if (!users[0]) {
+    console.error(`No user with the email ${email}`);
+    process.exit(1);
+  }
+  const userId = users[0].id;
+
+  const inboxRoot = inboxDirFor(uploadsDir, userId);
   if (!dryRun) fs.mkdirSync(inboxRoot, { recursive: true });
 
   const files = walk(source);
@@ -123,4 +133,9 @@ function main() {
   }
 }
 
-main();
+main()
+  .catch((err) => {
+    console.error(err);
+    process.exitCode = 1;
+  })
+  .finally(() => pool.end());

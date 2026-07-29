@@ -16,6 +16,7 @@ import exportRoutes from './routes/export.routes.js';
 import { purgeUnactivatedAccounts, runBillingReminders } from './jobs/billingJobs.js';
 import { runRecurringExpenses } from './jobs/expenseJobs.js';
 import pool, { ensureSchema } from './db.js';
+import { migrateReceiptFolders } from './migrations/receiptFolders.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
@@ -117,6 +118,16 @@ try {
   console.error('Failed to connect to the database. Check DB_HOST/DB_PORT/DB_USER/DB_PASSWORD/DB_NAME in server/.env');
   console.error(err);
   process.exit(1);
+}
+
+// Receipt folders are derived from the user id on every read, so this has to
+// finish relocating them before the first request arrives — hence awaited
+// here rather than run as a background job.
+try {
+  await migrateReceiptFolders(pool, path.join(__dirname, '..', 'uploads'));
+} catch (err) {
+  console.error('Failed to migrate receipt folders — receipts may not be found until this succeeds');
+  console.error(err);
 }
 
 purgeExpiredTrash(pool).catch((err) => console.error('Failed to purge expired recycle bin entries', err));

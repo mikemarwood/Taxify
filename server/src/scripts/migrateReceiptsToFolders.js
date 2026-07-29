@@ -53,7 +53,7 @@ async function main() {
 
   for (const row of rows) {
     const oldPath = path.join(uploadsDir, String(row.user_id), row.receipt_path);
-    const newDir = receiptDirFor(uploadsDir, row.user_email, row.purchase_date, row.category_name || 'Uncategorised');
+    const newDir = receiptDirFor(uploadsDir, row.user_id, row.purchase_date, row.category_name || 'Uncategorised');
     const newPath = path.join(newDir, row.receipt_path);
 
     if (fs.existsSync(newPath)) {

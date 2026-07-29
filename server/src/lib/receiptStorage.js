@@ -12,14 +12,23 @@ function sanitizeSegment(raw, fallback) {
   return cleaned || fallback;
 }
 
+// Receipts used to be filed under a slug of the user's email. An id never
+// changes, where an email does — and changing one silently orphaned every
+// receipt, since the folder is derived rather than stored. Kept only so the
+// startup migration can find the old folders (see migrations/receiptFolders).
+//
 // mike.smith@hotmail.com -> mike.smith-hotmail-com
-export function emailToFolderSegment(email) {
+export function legacyEmailToFolderSegment(email) {
   const str = String(email || '');
   const at = str.lastIndexOf('@');
   if (at === -1) return sanitizeSegment(str, 'user');
   const local = str.slice(0, at);
   const domain = str.slice(at + 1).replace(/\./g, '-');
   return sanitizeSegment(`${local}-${domain}`, 'user');
+}
+
+export function legacyUserRootDir(uploadsRoot, email) {
+  return path.join(uploadsRoot, legacyEmailToFolderSegment(email));
 }
 
 // Category display names stay Title Case (see toTitleCase in categories
@@ -30,31 +39,50 @@ export function categoryToFolderSegment(name) {
 
 export { financialYearOf };
 
-export function receiptDirFor(uploadsRoot, email, purchaseDate, categoryName) {
-  const emailSeg = emailToFolderSegment(email);
-  const yearSeg = financialYearOf(purchaseDate);
-  const categorySeg = categoryToFolderSegment(categoryName);
-  return path.join(uploadsRoot, emailSeg, yearSeg, categorySeg);
+// <uploads>/<userId> — the id is already filesystem-safe, but it's coerced
+// through the same sanitiser so a bad caller can't walk out of uploads/.
+export function userRootDir(uploadsRoot, userId) {
+  return path.join(uploadsRoot, sanitizeSegment(userId, 'user'));
+}
+
+// Everything receipt-shaped for a user lives under here: the financial-year
+// folders and the inbox. The extra segment leaves room for other per-user
+// files (exports, avatars) to sit beside it later without mixing in with
+// folders named after a financial year.
+export const RECEIPTS_SEGMENT = 'receipts';
+
+export function receiptsRootDir(uploadsRoot, userId) {
+  return path.join(userRootDir(uploadsRoot, userId), RECEIPTS_SEGMENT);
+}
+
+// <uploads>/<userId>/receipts/<financial-year>/<category>
+export function receiptDirFor(uploadsRoot, userId, purchaseDate, categoryName) {
+  return path.join(
+    receiptsRootDir(uploadsRoot, userId),
+    financialYearOf(purchaseDate),
+    categoryToFolderSegment(categoryName)
+  );
 }
 
 // The same folders as receiptDirFor, but relative to the uploads root and
 // always forward-slashed — this is what gets shown to the user, so it must
 // read the same on Windows and Linux.
-export function receiptRelDirFor(email, purchaseDate, categoryName) {
-  return [emailToFolderSegment(email), financialYearOf(purchaseDate), categoryToFolderSegment(categoryName)].join('/');
-}
-
-export function userRootDir(uploadsRoot, email) {
-  return path.join(uploadsRoot, emailToFolderSegment(email));
+export function receiptRelDirFor(userId, purchaseDate, categoryName) {
+  return [
+    sanitizeSegment(userId, 'user'),
+    RECEIPTS_SEGMENT,
+    financialYearOf(purchaseDate),
+    categoryToFolderSegment(categoryName),
+  ].join('/');
 }
 
 // Staging area for receipts uploaded in bulk before they're linked to an
-// expense. Sits beside the financial-year folders under the user's root; the
-// leading underscore keeps it from ever colliding with a "2024-2025" segment.
+// expense. Sits beside the financial-year folders; the leading underscore
+// keeps it from ever colliding with a "2024-2025" segment.
 export const INBOX_SEGMENT = '_inbox';
 
-export function inboxDirFor(uploadsRoot, email, folder) {
-  const base = path.join(userRootDir(uploadsRoot, email), INBOX_SEGMENT);
+export function inboxDirFor(uploadsRoot, userId, folder) {
+  const base = path.join(receiptsRootDir(uploadsRoot, userId), INBOX_SEGMENT);
   return folder ? path.join(base, folder) : base;
 }
 

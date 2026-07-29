@@ -6,7 +6,7 @@ import pool from '../db.js';
 import { requireAuth, requireActiveAccess } from '../auth/middleware.js';
 import { asyncHandler } from '../lib/asyncHandler.js';
 import { toTitleCase } from '../lib/text.js';
-import { userRootDir, categoryToFolderSegment } from '../lib/receiptStorage.js';
+import { receiptsRootDir, categoryToFolderSegment, INBOX_SEGMENT } from '../lib/receiptStorage.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const uploadsDir = path.join(__dirname, '..', '..', 'uploads');
@@ -14,14 +14,18 @@ const uploadsDir = path.join(__dirname, '..', '..', 'uploads');
 const router = Router();
 router.use(requireAuth, requireActiveAccess);
 
-// Every financial-year folder under the user's root that currently has a
-// subfolder for this category — used by both rename (to move) and delete
-// (to check for leftover files / remove).
-function categoryFoldersFor(userEmail, categorySegment) {
-  const root = userRootDir(uploadsDir, userEmail);
+// Every financial-year folder under the user's receipts root that currently
+// has a subfolder for this category — used by both rename (to move) and
+// delete (to check for leftover files / remove). The inbox sits beside the
+// year folders and is organised by its own slugs, so it's skipped.
+function categoryFoldersFor(userId, categorySegment) {
+  const root = receiptsRootDir(uploadsDir, userId);
   let yearDirs = [];
   try {
-    yearDirs = fs.readdirSync(root, { withFileTypes: true }).filter((e) => e.isDirectory()).map((e) => e.name);
+    yearDirs = fs
+      .readdirSync(root, { withFileTypes: true })
+      .filter((e) => e.isDirectory() && e.name !== INBOX_SEGMENT)
+      .map((e) => e.name);
   } catch {
     return [];
   }
@@ -120,7 +124,7 @@ router.patch(
       if (finalName !== existing.name) {
         const oldSeg = categoryToFolderSegment(existing.name);
         const newSeg = categoryToFolderSegment(finalName);
-        for (const oldDir of categoryFoldersFor(req.user.email, oldSeg)) {
+        for (const oldDir of categoryFoldersFor(req.user.id, oldSeg)) {
           const newDir = path.join(path.dirname(oldDir), newSeg);
           try {
             if (fs.existsSync(newDir)) {
@@ -167,7 +171,7 @@ router.delete(
     }
 
     const categorySeg = categoryToFolderSegment(categoryRows[0].name);
-    const folders = categoryFoldersFor(req.user.email, categorySeg);
+    const folders = categoryFoldersFor(req.user.id, categorySeg);
     if (folders.some(dirHasFiles)) {
       return res.status(400).json({
         error: 'This category still has unassigned receipt files — remove them first.',

@@ -46,8 +46,8 @@ function isAllowedUpload(file) {
   return ALLOWED_RECEIPT_EXT.has(path.extname(file.originalname).toLowerCase());
 }
 
-function dirFor(email, purchaseDate, categoryName) {
-  return receiptDirFor(uploadsDir, email, purchaseDate, categoryName);
+function dirFor(userId, purchaseDate, categoryName) {
+  return receiptDirFor(uploadsDir, userId, purchaseDate, categoryName);
 }
 
 async function categoryNameFor(userId, categoryId) {
@@ -61,7 +61,7 @@ const storage = multer.diskStorage({
     try {
       const categoryName = await categoryNameFor(req.user.id, req.body?.categoryId);
       const purchaseDate = req.body?.purchaseDate || new Date().toISOString();
-      const dir = dirFor(req.user.email, purchaseDate, categoryName);
+      const dir = dirFor(req.user.id, purchaseDate, categoryName);
       fs.mkdirSync(dir, { recursive: true });
       cb(null, dir);
     } catch (err) {
@@ -89,8 +89,8 @@ const upload = multer({
 // into the owning expense's <user>/<financial-year>/<category> folder.
 // ---------------------------------------------------------------------------
 
-function inboxFor(email, folder) {
-  return inboxDirFor(uploadsDir, email, folder);
+function inboxFor(userId, folder) {
+  return inboxDirFor(uploadsDir, userId, folder);
 }
 
 // Rejects anything that isn't a valid single-level folder, so a caller can't
@@ -120,7 +120,7 @@ const inboxUpload = multer({
   storage: multer.diskStorage({
     destination: (req, file, cb) => {
       try {
-        const dir = inboxFor(req.user.email, uploadFolderFor(req, file));
+        const dir = inboxFor(req.user.id, uploadFolderFor(req, file));
         fs.mkdirSync(dir, { recursive: true });
         cb(null, assertWithin(uploadsDir, dir));
       } catch (err) {
@@ -139,10 +139,10 @@ const inboxUpload = multer({
 
 // Once the last receipt leaves a staged folder, drop the folder too so the
 // picker stops offering an empty group.
-function pruneEmptyInboxFolder(email, folder) {
+function pruneEmptyInboxFolder(userId, folder) {
   if (!folder) return;
   try {
-    const dir = assertWithin(uploadsDir, inboxFor(email, folder));
+    const dir = assertWithin(uploadsDir, inboxFor(userId, folder));
     if (fs.readdirSync(dir).length === 0) fs.rmdirSync(dir);
   } catch {
     // best effort — a non-empty or already-removed folder is fine
@@ -156,8 +156,8 @@ function pruneEmptyInboxFolder(email, folder) {
 // can be attached to several expenses in a row. Each expense gets its own copy
 // because the destination folder is derived from that expense's year and
 // category — two expenses in different categories can't share a file on disk.
-function placeFromInbox(email, filename, destDir, folder, { keep = false } = {}) {
-  const source = assertWithin(uploadsDir, path.join(inboxFor(email, folder), filename));
+function placeFromInbox(userId, filename, destDir, folder, { keep = false } = {}) {
+  const source = assertWithin(uploadsDir, path.join(inboxFor(userId, folder), filename));
   if (!fs.existsSync(source)) return null;
 
   fs.mkdirSync(destDir, { recursive: true });
@@ -182,7 +182,7 @@ function placeFromInbox(email, filename, destDir, folder, { keep = false } = {})
     fs.copyFileSync(source, target);
     fs.unlinkSync(source);
   }
-  pruneEmptyInboxFolder(email, folder);
+  pruneEmptyInboxFolder(userId, folder);
   return finalName;
 }
 
@@ -199,16 +199,15 @@ async function otherExpensesUsingReceipt(dbPool, user, receiptPath, dir, exclude
      WHERE e.user_id = ? AND e.receipt_path = ? AND e.deleted_at IS NULL AND e.id <> ?`,
     [user.id, receiptPath, excludeExpenseId || 0]
   );
-  return rows.filter((r) => dirFor(user.email, r.purchase_date, r.category_name || 'Uncategorised') === dir).length;
+  return rows.filter((r) => dirFor(user.id, r.purchase_date, r.category_name || 'Uncategorised') === dir).length;
 }
 
 const TRASH_RETENTION_DAYS = 30;
 
 export async function purgeExpiredTrash(dbPool) {
   const [rows] = await dbPool.execute(
-    `SELECT e.id, e.user_id, e.receipt_path, e.purchase_date, u.email AS user_email, c.name AS category_name
+    `SELECT e.id, e.user_id, e.receipt_path, e.purchase_date, c.name AS category_name
      FROM expenses e
-     JOIN users u ON u.id = e.user_id
      LEFT JOIN categories c ON c.id = e.category_id
      WHERE e.deleted_at IS NOT NULL AND e.deleted_at < DATE_SUB(NOW(), INTERVAL ${TRASH_RETENTION_DAYS} DAY)`
   );
@@ -216,11 +215,11 @@ export async function purgeExpiredTrash(dbPool) {
 
   for (const row of rows) {
     if (row.receipt_path) {
-      const dir = receiptDirFor(uploadsDir, row.user_email, row.purchase_date, row.category_name);
+      const dir = receiptDirFor(uploadsDir, row.user_id, row.purchase_date, row.category_name);
       // Keep the file if a live expense still shares it.
       const stillUsed = await otherExpensesUsingReceipt(
         dbPool,
-        { id: row.user_id, email: row.user_email },
+        { id: row.user_id },
         row.receipt_path,
         dir,
         row.id
@@ -242,12 +241,10 @@ router.get(
   asyncHandler(async (req, res) => {
     const visibleUserIds = await getVisibleUserIds(req.user);
     const [rows] = await pool.execute(
-      `SELECT e.id, e.item_name, e.amount, e.currency, e.purchase_date, e.receipt_path,
+      `SELECT e.id, e.user_id, e.item_name, e.amount, e.currency, e.purchase_date, e.receipt_path,
               e.is_recurring, e.frequency, e.notes, e.created_at, e.auto_generated,
-              u.email AS owner_email,
               c.id AS category_id, c.name AS category_name, c.color AS category_color, c.icon AS category_icon
        FROM expenses e
-       JOIN users u ON u.id = e.user_id
        LEFT JOIN categories c ON c.id = e.category_id
        WHERE e.user_id IN (${visibleUserIds.map(() => '?').join(',')}) AND e.deleted_at IS NULL
        ORDER BY e.purchase_date DESC, e.id DESC`,
@@ -266,14 +263,14 @@ router.get(
       // Where the file actually sits: relative for the inbox breadcrumbs, and
       // the full directory so an expense can be opened straight from Explorer.
       receiptPath: r.receipt_path
-        ? `${receiptRelDirFor(r.owner_email, r.purchase_date, r.category_name || 'Uncategorised')}/${r.receipt_path}`
+        ? `${receiptRelDirFor(r.user_id, r.purchase_date, r.category_name || 'Uncategorised')}/${r.receipt_path}`
         : null,
       receiptDir: r.receipt_path
-        ? receiptDirFor(uploadsDir, r.owner_email, r.purchase_date, r.category_name || 'Uncategorised')
+        ? receiptDirFor(uploadsDir, r.user_id, r.purchase_date, r.category_name || 'Uncategorised')
         : null,
       receiptFullPath: r.receipt_path
         ? path.join(
-            receiptDirFor(uploadsDir, r.owner_email, r.purchase_date, r.category_name || 'Uncategorised'),
+            receiptDirFor(uploadsDir, r.user_id, r.purchase_date, r.category_name || 'Uncategorised'),
             r.receipt_path
           )
         : null,
@@ -421,14 +418,14 @@ router.post(
           cleanupUpload();
           return res.status(400).json({ error: 'Invalid receipt file' });
         }
-        const dir = dirFor(req.user.email, purchaseDate, newCategoryName);
+        const dir = dirFor(req.user.id, purchaseDate, newCategoryName);
         if (receiptSource === 'inbox') {
           const folder = safeFolderParam(receiptFolder);
           if (folder === undefined) {
             cleanupUpload();
             return res.status(400).json({ error: 'Invalid receipt folder' });
           }
-          const moved = placeFromInbox(req.user.email, receiptFilename, dir, folder);
+          const moved = placeFromInbox(req.user.id, receiptFilename, dir, folder);
           if (!moved) {
             cleanupUpload();
             return res.status(400).json({ error: 'Receipt file not found' });
@@ -539,8 +536,8 @@ router.patch(
       }
 
       const oldCategoryName = await categoryNameFor(req.user.id, existing.category_id);
-      const oldDir = dirFor(req.user.email, existing.purchase_date, oldCategoryName);
-      const newDir = dirFor(req.user.email, purchaseDate, newCategoryName);
+      const oldDir = dirFor(req.user.id, existing.purchase_date, oldCategoryName);
+      const newDir = dirFor(req.user.id, purchaseDate, newCategoryName);
 
       let receiptPath = existing.receipt_path;
       let deleteOldAbsPath = null;
@@ -565,7 +562,7 @@ router.patch(
             cleanupUpload();
             return res.status(400).json({ error: 'Invalid receipt folder' });
           }
-          const moved = placeFromInbox(req.user.email, receiptFilename, newDir, folder);
+          const moved = placeFromInbox(req.user.id, receiptFilename, newDir, folder);
           if (!moved) {
             cleanupUpload();
             return res.status(400).json({ error: 'Receipt file not found' });
@@ -657,7 +654,7 @@ router.get(
     );
     const row = rows[0];
     if (!row || !row.receipt_path) return res.status(404).json({ error: 'Receipt not found' });
-    const dir = dirFor(req.user.email, row.purchase_date, row.category_name || 'Uncategorised');
+    const dir = dirFor(req.user.id, row.purchase_date, row.category_name || 'Uncategorised');
     const filePath = assertWithin(uploadsDir, path.join(dir, row.receipt_path));
     if (req.query.download) {
       const ext = path.extname(row.receipt_path);
@@ -684,7 +681,7 @@ router.get(
       categoryName = rows[0].name;
     }
 
-    const dir = dirFor(req.user.email, purchaseDate, categoryName);
+    const dir = dirFor(req.user.id, purchaseDate, categoryName);
     let entries = [];
     try {
       entries = fs.readdirSync(dir, { withFileTypes: true });
@@ -749,7 +746,7 @@ router.get(
       categoryName = rows[0].name;
     }
 
-    const dir = dirFor(req.user.email, purchaseDate, categoryName);
+    const dir = dirFor(req.user.id, purchaseDate, categoryName);
     let filePath;
     try {
       filePath = assertWithin(uploadsDir, path.join(dir, filename));
@@ -788,8 +785,8 @@ router.post(
     if (!expense) return res.status(404).json({ error: 'Expense not found' });
 
     const categoryName = expense.category_name || 'Uncategorised';
-    const dir = dirFor(req.user.email, expense.purchase_date, categoryName);
-    const stored = placeFromInbox(req.user.email, filename, dir, folder, { keep: keep === true });
+    const dir = dirFor(req.user.id, expense.purchase_date, categoryName);
+    const stored = placeFromInbox(req.user.id, filename, dir, folder, { keep: keep === true });
     if (!stored) return res.status(404).json({ error: 'Receipt file not found' });
 
     // Drop the receipt being replaced, unless another expense still uses it.
@@ -809,7 +806,7 @@ router.post(
       filename: stored,
       keptInInbox: keep === true,
       replaced: expense.receipt_path || null,
-      receiptPath: `${receiptRelDirFor(req.user.email, expense.purchase_date, categoryName)}/${stored}`,
+      receiptPath: `${receiptRelDirFor(req.user.id, expense.purchase_date, categoryName)}/${stored}`,
       receiptDir: dir,
       receiptFullPath: path.join(dir, stored),
     });
@@ -831,7 +828,7 @@ router.post(
 router.get(
   '/receipts/inbox',
   asyncHandler(async (req, res) => {
-    const root = inboxFor(req.user.email);
+    const root = inboxFor(req.user.id);
 
     function readDir(dir, folder) {
       let entries = [];
@@ -890,7 +887,7 @@ router.get(
 
     let filePath;
     try {
-      filePath = assertWithin(uploadsDir, path.join(inboxFor(req.user.email, folder), filename));
+      filePath = assertWithin(uploadsDir, path.join(inboxFor(req.user.id, folder), filename));
     } catch {
       return res.status(400).json({ error: 'Invalid file path' });
     }
@@ -909,13 +906,13 @@ router.delete(
 
     let filePath;
     try {
-      filePath = assertWithin(uploadsDir, path.join(inboxFor(req.user.email, folder), filename));
+      filePath = assertWithin(uploadsDir, path.join(inboxFor(req.user.id, folder), filename));
     } catch {
       return res.status(400).json({ error: 'Invalid file path' });
     }
     if (!fs.existsSync(filePath)) return res.status(404).json({ error: 'File not found' });
     fs.unlinkSync(filePath);
-    pruneEmptyInboxFolder(req.user.email, folder);
+    pruneEmptyInboxFolder(req.user.id, folder);
     res.json({ ok: true });
   })
 );
@@ -968,7 +965,7 @@ router.delete(
 
     await pool.execute('DELETE FROM expenses WHERE id = ? AND user_id = ?', [req.params.id, req.user.id]);
     if (row.receipt_path) {
-      const dir = dirFor(req.user.email, row.purchase_date, row.category_name || 'Uncategorised');
+      const dir = dirFor(req.user.id, row.purchase_date, row.category_name || 'Uncategorised');
       const stillUsed = await otherExpensesUsingReceipt(pool, req.user, row.receipt_path, dir, req.params.id);
       if (stillUsed === 0) fs.unlink(path.join(dir, row.receipt_path), () => {});
     }
