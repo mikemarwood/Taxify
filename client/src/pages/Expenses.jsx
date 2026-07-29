@@ -5,16 +5,19 @@ import { SkeletonList, SkeletonStat } from '../components/Skeletons.jsx';
 import CategoryBadge from '../components/CategoryBadge.jsx';
 import ExpenseModal from '../components/ExpenseModal.jsx';
 import ReceiptLightbox from '../components/ReceiptLightbox.jsx';
-import ReceiptInbox from '../components/ReceiptInbox.jsx';
 import { defaultFinancialYear } from '../lib/financialYear.js';
 import Icon from '../components/Icon.jsx';
+import { formatMoney } from '../lib/money.js';
 
 // Lets the one search box take an amount as well as text. A bare number
 // matches by prefix, so "47" finds $47.91 and $47.00 — typing the exact cents
 // isn't required to find a receipt you half-remember. Comparisons and ranges
 // are there because "everything over $500" is the other way people look for a
 // specific expense.
-function matchesAmount(amount, query) {
+function matchesAmount(amount, rawQuery) {
+  // Amounts display grouped ("$1,000.00"), so a typed "1,000" has to find one —
+  // the separators come straight back out of the search box.
+  const query = rawQuery.replace(/,/g, '');
   const comparison = /^([<>]=?)\s*\$?(\d+(?:\.\d+)?)$/.exec(query);
   if (comparison) {
     const n = Number(comparison[2]);
@@ -39,8 +42,6 @@ export default function Expenses() {
   const [categoryFilter, setCategoryFilter] = useState('all');
   const [selectedExpense, setSelectedExpense] = useState(null);
   const [lightboxUrl, setLightboxUrl] = useState(null);
-  const [inboxOpen, setInboxOpen] = useState(false);
-  const [inboxCount, setInboxCount] = useState(0);
 
   function load() {
     api.get('/expenses').then((res) => {
@@ -49,15 +50,7 @@ export default function Expenses() {
     });
   }
 
-  function loadInboxCount() {
-    api
-      .get('/expenses/receipts/inbox')
-      .then((res) => setInboxCount(res.data.files.length))
-      .catch(() => setInboxCount(0));
-  }
-
   useEffect(load, []);
-  useEffect(loadInboxCount, []);
 
   const years = useMemo(() => {
     if (!expenses) return [];
@@ -121,25 +114,6 @@ export default function Expenses() {
           <h1 style={{ margin: 0, fontSize: 26 }}>Expenses</h1>
           <p style={{ color: 'var(--text-muted)', margin: '4px 0 0' }}>Every expense, grouped by category.</p>
         </div>
-        <button className="btn btn-ghost" onClick={() => setInboxOpen(true)} style={{ fontSize: 13, display: 'inline-flex', alignItems: 'center', gap: 7 }}>
-          <Icon name="receipt" size={15} />
-          Receipt inbox
-          {inboxCount > 0 && (
-            <span
-              style={{
-                marginLeft: 8,
-                fontSize: 11.5,
-                fontWeight: 700,
-                background: 'var(--violet)',
-                color: '#fff',
-                borderRadius: 999,
-                padding: '1px 8px',
-              }}
-            >
-              {inboxCount}
-            </span>
-          )}
-        </button>
       </div>
 
       {loading ? (
@@ -151,7 +125,7 @@ export default function Expenses() {
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 16, marginBottom: 24 }}>
           <motion.div className="card" style={{ padding: 20 }} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}>
             <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>Total</div>
-            <div style={{ fontSize: 26, fontWeight: 800, marginTop: 6 }}>${total.toFixed(2)}</div>
+            <div style={{ fontSize: 26, fontWeight: 800, marginTop: 6 }}>{formatMoney(total)}</div>
           </motion.div>
           <motion.div className="card" style={{ padding: 20 }} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }}>
             <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>Entries</div>
@@ -223,7 +197,7 @@ export default function Expenses() {
                 <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>
                   {g.items.length} {g.items.length === 1 ? 'entry' : 'entries'}
                 </span>
-                <span style={{ marginLeft: 'auto', fontWeight: 700 }}>${g.total.toFixed(2)}</span>
+                <span style={{ marginLeft: 'auto', fontWeight: 700 }}>{formatMoney(g.total)}</span>
               </div>
               <div className="card scrollbar-slim" style={{ overflow: 'hidden' }}>
                 <AnimatePresence initial={false}>
@@ -276,7 +250,7 @@ export default function Expenses() {
                           <Icon name="receipt" size={15} />
                         </button>
                       )}
-                      <span style={{ width: 80, textAlign: 'right', fontWeight: 700 }}>${e.amount.toFixed(2)}</span>
+                      <span style={{ width: 80, textAlign: 'right', fontWeight: 700 }}>{formatMoney(e.amount)}</span>
                     </motion.div>
                   ))}
                 </AnimatePresence>
@@ -293,27 +267,11 @@ export default function Expenses() {
           onSaved={() => {
             setSelectedExpense(null);
             load();
-            loadInboxCount();
           }}
           onDeleted={() => {
             setSelectedExpense(null);
             load();
           }}
-        />
-      )}
-
-      {/* Assigning in the inbox attaches receipts to expenses on this page, so
-          the list has to be re-read on the way out — refreshing only the inbox
-          badge left every expense behind the dialog still claiming it had no
-          receipt. Reloaded on close rather than per assign, since a bulk
-          session would otherwise refetch the whole list once per receipt. */}
-      {inboxOpen && (
-        <ReceiptInbox
-          onClose={() => {
-            setInboxOpen(false);
-            load();
-          }}
-          onChanged={loadInboxCount}
         />
       )}
 

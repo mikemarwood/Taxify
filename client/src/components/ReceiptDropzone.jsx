@@ -8,12 +8,18 @@ import { playSuccess, playError } from '../lib/sounds.js';
 const RADIUS = 26;
 const CIRCUMFERENCE = 2 * Math.PI * RADIUS;
 const MAX_FILE_BYTES = 10 * 1024 * 1024;
-const RECEIPT_EXT = /\.(jpe?g|png|webp|gif|heic|heif|avif|bmp|tiff?|svg|jfif|pdf)$/i;
+const RECEIPT_EXT = /\.(jpe?g|png|webp|gif|heic|heif|avif|bmp|tiff?|svg|jfif|pdf|docx?)$/i;
+const DOC_MIME = new Set([
+  'application/pdf',
+  'application/msword',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+]);
 
-// Any image plus PDF. The extension is the fallback because a HEIC off an
-// iPhone often arrives with no usable MIME type at all.
+// Any image, plus PDF and Word. The extension is the fallback because a HEIC
+// off an iPhone — or a .doc off a network share — often arrives with no usable
+// MIME type at all.
 function isReceiptFile(file) {
-  if (file.type === 'application/pdf') return true;
+  if (DOC_MIME.has(file.type)) return true;
   if (file.type?.startsWith('image/')) return true;
   return RECEIPT_EXT.test(file.name || '');
 }
@@ -41,7 +47,7 @@ export default function ReceiptDropzone({ file, onFileChange, uploadProgress, st
       const picked = files && files[0];
       if (!picked) return;
       if (!isReceiptFile(picked)) {
-        toast('Only images and PDFs can be attached.', 'error');
+        toast('Only images, PDFs and Word documents can be attached.', 'error');
         return;
       }
       if (picked.size > MAX_FILE_BYTES) {
@@ -84,7 +90,7 @@ export default function ReceiptDropzone({ file, onFileChange, uploadProgress, st
       <input
         ref={inputRef}
         type="file"
-        accept="image/*,.heic,.heif,application/pdf"
+        accept="image/*,.heic,.heif,.pdf,.doc,.docx"
         hidden
         onChange={(e) => handleFiles(e.target.files)}
       />
@@ -173,7 +179,7 @@ export default function ReceiptDropzone({ file, onFileChange, uploadProgress, st
             {isMobile ? (
               <>
                 <p style={{ marginTop: 8, fontWeight: 600 }}>Add a receipt</p>
-                <p style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 14 }}>images or PDF, up to 10MB</p>
+                <p style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 14 }}>images, PDF or Word, up to 10MB</p>
                 <div style={{ display: 'flex', gap: 10, justifyContent: 'center' }}>
                   <button
                     type="button"
@@ -204,7 +210,7 @@ export default function ReceiptDropzone({ file, onFileChange, uploadProgress, st
             ) : (
               <>
                 <p style={{ marginTop: 8, fontWeight: 600 }}>Drop a receipt here</p>
-                <p style={{ fontSize: 13, color: 'var(--text-muted)' }}>or click to browse — images or PDF, up to 10MB</p>
+                <p style={{ fontSize: 13, color: 'var(--text-muted)' }}>or click to browse — images, PDF or Word, up to 10MB</p>
               </>
             )}
           </motion.div>

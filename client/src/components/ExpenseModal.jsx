@@ -4,11 +4,11 @@ import { api } from '../lib/api.js';
 import { useToast } from './Toast.jsx';
 import CategoryBadge from './CategoryBadge.jsx';
 import ReceiptDropzone from './ReceiptDropzone.jsx';
-import ReceiptGallery from './ReceiptGallery.jsx';
 import Toggle from './Toggle.jsx';
 import ReceiptLightbox from './ReceiptLightbox.jsx';
 import ReceiptPreview from './ReceiptPreview.jsx';
 import Icon from './Icon.jsx';
+import { formatAmount } from '../lib/money.js';
 import { onDigitKeyDown, playOpen, playClose } from '../lib/sounds.js';
 import { useAuth } from '../lib/AuthContext.jsx';
 
@@ -130,9 +130,6 @@ export default function ExpenseModal({ expense, onClose, onSaved, onDeleted }) {
   const [frequency, setFrequency] = useState(expense.frequency || 'monthly');
   const [notes, setNotes] = useState(expense.notes || '');
   const [file, setFile] = useState(null);
-  const [pickedFilename, setPickedFilename] = useState(null);
-  const [pickedSource, setPickedSource] = useState(null); // 'inbox' | 'folder'
-  const [pickedFolder, setPickedFolder] = useState(''); // inbox subfolder, '' = root
   const [removeReceipt, setRemoveReceipt] = useState(false);
   const [progress, setProgress] = useState(0);
   const [receiptStatus, setReceiptStatus] = useState('idle');
@@ -153,20 +150,6 @@ export default function ExpenseModal({ expense, onClose, onSaved, onDeleted }) {
 
   function onFileChange(next) {
     setFile(next);
-    if (next) {
-      setPickedFilename(null);
-      setPickedSource(null);
-    }
-    setRemoveReceipt(false);
-    setReceiptStatus('idle');
-    setReceiptError('');
-  }
-
-  function onPickReceipt(filename, source, folder) {
-    setPickedFilename(filename);
-    setPickedSource(source || 'folder');
-    setPickedFolder(folder || '');
-    setFile(null);
     setRemoveReceipt(false);
     setReceiptStatus('idle');
     setReceiptError('');
@@ -192,11 +175,6 @@ export default function ExpenseModal({ expense, onClose, onSaved, onDeleted }) {
     form.append('frequency', isRecurring ? frequency : '');
     form.append('notes', notes);
     if (file) form.append('receipt', file);
-    else if (pickedFilename) {
-      form.append('receiptFilename', pickedFilename);
-      form.append('receiptSource', pickedSource || 'folder');
-      if (pickedFolder) form.append('receiptFolder', pickedFolder);
-    }
     if (removeReceipt) form.append('removeReceipt', 'true');
 
     try {
@@ -339,7 +317,7 @@ export default function ExpenseModal({ expense, onClose, onSaved, onDeleted }) {
               </div>
               <div>
                 <label className="label">Receipt</label>
-                {expense.receiptUrl && !file && !pickedFilename && !removeReceipt ? (
+                {expense.receiptUrl && !file && !removeReceipt ? (
                   <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                     <button type="button" className="btn btn-ghost" style={{ fontSize: 13, display: 'inline-flex', alignItems: 'center', gap: 7 }} onClick={() => setLightboxOpen(true)}>
                       <Icon name="receipt" size={15} />
@@ -347,36 +325,6 @@ export default function ExpenseModal({ expense, onClose, onSaved, onDeleted }) {
                     </button>
                     <button type="button" className="btn btn-ghost" style={{ fontSize: 13 }} onClick={() => setRemoveReceipt(true)}>
                       Remove
-                    </button>
-                  </div>
-                ) : pickedFilename ? (
-                  <div
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'space-between',
-                      gap: 10,
-                      padding: '10px 14px',
-                      border: '1px solid var(--border)',
-                      borderRadius: 12,
-                      background: 'var(--bg-elevated)',
-                      fontSize: 13,
-                    }}
-                  >
-                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 7, minWidth: 0 }}>
-                      <Icon name="receipt" size={15} />
-                      {pickedSource === 'inbox' ? 'Moving from inbox' : 'Using existing receipt'}: {pickedFilename}
-                    </span>
-                    <button
-                      type="button"
-                      className="btn btn-ghost"
-                      style={{ fontSize: 12, padding: '4px 10px' }}
-                      onClick={() => {
-                        setPickedFilename(null);
-                        setPickedSource(null);
-                      }}
-                    >
-                      Clear
                     </button>
                   </div>
                 ) : (
@@ -388,13 +336,6 @@ export default function ExpenseModal({ expense, onClose, onSaved, onDeleted }) {
                     errorMessage={receiptError}
                   />
                 )}
-                <ReceiptGallery
-                  categoryId={categoryId}
-                  categoryName={selectedCategory?.name || expense.category?.name}
-                  purchaseDate={purchaseDate}
-                  currentFilename={expense.receiptFilename}
-                  onPick={onPickReceipt}
-                />
               </div>
               <div style={{ display: 'flex', gap: 10, marginTop: 4 }}>
                 <button className="btn btn-primary" type="submit" disabled={busy || !formComplete} style={{ flex: 1 }}>
@@ -428,7 +369,7 @@ export default function ExpenseModal({ expense, onClose, onSaved, onDeleted }) {
                   </div>
                 </div>
                 <div style={{ textAlign: 'right', flexShrink: 0 }}>
-                  <div style={{ fontSize: 24, fontWeight: 800, whiteSpace: 'nowrap' }}>{expense.amount.toFixed(2)}</div>
+                  <div style={{ fontSize: 24, fontWeight: 800, whiteSpace: 'nowrap' }}>{formatAmount(expense.amount)}</div>
                   <div style={{ fontSize: 12.5, color: 'var(--text-muted)', fontWeight: 600 }}>{expense.currency || 'AUD'}</div>
                 </div>
               </div>

@@ -7,8 +7,8 @@ const ZOOM_STEP = 0.0015; // per unit of wheel delta
 
 // PDFs need an <iframe> — an <img> can't render them, and browsers display a
 // same-origin PDF inline with their own viewer (which brings its own zoom).
-// Images stay in an <img> so they scale cleanly. HEIC falls through to the
-// img error path, since Chrome and Firefox can't decode it either way.
+// Images stay in an <img> so they scale cleanly. HEIC is converted to JPEG by
+// the server before it gets here, so it renders like any other image.
 function isPdf(filename, url) {
   if (filename) return /\.pdf$/i.test(filename);
   return /\.pdf(\?|$)/i.test(url || '');
@@ -103,7 +103,10 @@ export default function ZoomableReceipt({ url, filename, style, showHint = true 
     );
   }
 
-  if (imgError) {
+  // Word documents can be attached, but nothing in a browser renders one — say
+  // so up front rather than letting an <img> fail and calling it an error.
+  const office = /\.docx?$/i.test(filename || '');
+  if (office || imgError) {
     return (
       <div
         style={{
@@ -118,9 +121,11 @@ export default function ZoomableReceipt({ url, filename, style, showHint = true 
         }}
       >
         <Icon name="file-text" size={32} />
-        <p style={{ margin: 0, fontSize: 13 }}>This file can’t be shown in the browser.</p>
-        <a href={url} target="_blank" rel="noreferrer" className="btn btn-ghost" style={{ fontSize: 13 }}>
-          Open it directly
+        <p style={{ margin: 0, fontSize: 13 }}>
+          {office ? 'Word documents open outside the browser.' : 'This file can’t be shown in the browser.'}
+        </p>
+        <a href={`${url}?download=1`} download className="btn btn-ghost" style={{ fontSize: 13 }}>
+          {office ? 'Download to open' : 'Open it directly'}
         </a>
       </div>
     );

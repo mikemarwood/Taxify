@@ -6,9 +6,6 @@ function isPdf(filename, url) {
   return /\.pdf(\?|$)/i.test(url || '');
 }
 
-function isHeic(filename) {
-  return /\.(heic|heif)$/i.test(filename || '');
-}
 
 // An inline thumbnail of the actual receipt rather than a "view receipt"
 // button — you can see what's attached without opening anything. PDFs render
@@ -18,7 +15,10 @@ function isHeic(filename) {
 export default function ReceiptPreview({ url, filename, onOpen, height = 190 }) {
   const [imgError, setImgError] = useState(false);
   const pdf = isPdf(filename, url);
-  const unrenderable = (!pdf && imgError) || isHeic(filename);
+  // HEIC no longer lands here — the server converts it to JPEG for display —
+  // so this is a Word document, or a file that genuinely failed to load.
+  const office = /\.docx?$/i.test(filename || '');
+  const unrenderable = office || (!pdf && imgError);
 
   return (
     <button
@@ -51,7 +51,7 @@ export default function ReceiptPreview({ url, filename, onOpen, height = 190 }) 
           }}
         >
           <Icon name="file-text" size={30} />
-          <span style={{ fontSize: 12 }}>{isHeic(filename) ? 'HEIC — open to view' : 'Preview unavailable'}</span>
+          <span style={{ fontSize: 12 }}>{office ? 'Word document — open to view' : 'Preview unavailable'}</span>
         </div>
       ) : pdf ? (
         <iframe

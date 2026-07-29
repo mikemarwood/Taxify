@@ -3,7 +3,6 @@ import { useNavigate } from 'react-router-dom';
 import { api } from '../lib/api.js';
 import { useToast } from '../components/Toast.jsx';
 import ReceiptDropzone from '../components/ReceiptDropzone.jsx';
-import ReceiptGallery from '../components/ReceiptGallery.jsx';
 import CategoryBadge from '../components/CategoryBadge.jsx';
 import Toggle from '../components/Toggle.jsx';
 import Icon from '../components/Icon.jsx';
@@ -36,9 +35,6 @@ export default function AddExpense() {
   const [frequency, setFrequency] = useState('monthly');
   const [notes, setNotes] = useState('');
   const [file, setFile] = useState(null);
-  const [pickedFilename, setPickedFilename] = useState(null);
-  const [pickedSource, setPickedSource] = useState(null); // 'inbox' | 'folder'
-  const [pickedFolder, setPickedFolder] = useState(''); // inbox subfolder, '' = root
   const [submitting, setSubmitting] = useState(false);
   const [progress, setProgress] = useState(0);
   const [submitted, setSubmitted] = useState(false);
@@ -47,19 +43,6 @@ export default function AddExpense() {
 
   function onFileChange(next) {
     setFile(next);
-    if (next) {
-      setPickedFilename(null);
-      setPickedSource(null);
-    }
-    setReceiptStatus('idle');
-    setReceiptError('');
-  }
-
-  function onPickReceipt(filename, source, folder) {
-    setPickedFilename(filename);
-    setPickedSource(source || 'folder');
-    setPickedFolder(folder || '');
-    setFile(null);
     setReceiptStatus('idle');
     setReceiptError('');
   }
@@ -105,11 +88,6 @@ export default function AddExpense() {
     form.append('frequency', isRecurring ? frequency : '');
     form.append('notes', notes);
     if (file) form.append('receipt', file);
-    else if (pickedFilename) {
-      form.append('receiptFilename', pickedFilename);
-      form.append('receiptSource', pickedSource || 'folder');
-      if (pickedFolder) form.append('receiptFolder', pickedFolder);
-    }
 
     try {
       await api.post('/expenses', form, {
@@ -246,51 +224,12 @@ export default function AddExpense() {
 
         <div>
           <label className="label">Receipt (optional)</label>
-          {pickedFilename ? (
-            <div
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                gap: 10,
-                padding: '10px 14px',
-                border: '1px solid var(--border)',
-                borderRadius: 12,
-                background: 'var(--bg-elevated)',
-                fontSize: 13,
-              }}
-            >
-              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 7, minWidth: 0 }}>
-                <Icon name="receipt" size={15} />
-                {pickedSource === 'inbox' ? 'Moving from inbox' : 'Using existing receipt'}: {pickedFilename}
-              </span>
-              <button
-                type="button"
-                className="btn btn-ghost"
-                style={{ fontSize: 12, padding: '4px 10px' }}
-                onClick={() => {
-                  setPickedFilename(null);
-                  setPickedSource(null);
-                }}
-              >
-                Clear
-              </button>
-            </div>
-          ) : (
-            <ReceiptDropzone
-              file={file}
-              onFileChange={onFileChange}
-              uploadProgress={progress}
-              status={receiptStatus}
-              errorMessage={receiptError}
-            />
-          )}
-          <ReceiptGallery
-            categoryId={categoryId}
-            categoryName={categories.find((c) => String(c.id) === categoryId)?.name}
-            purchaseDate={purchaseDate}
-            currentFilename={pickedFilename}
-            onPick={onPickReceipt}
+          <ReceiptDropzone
+            file={file}
+            onFileChange={onFileChange}
+            uploadProgress={progress}
+            status={receiptStatus}
+            errorMessage={receiptError}
           />
         </div>
 
