@@ -238,7 +238,20 @@ export default function Expenses() {
         />
       )}
 
-      {inboxOpen && <ReceiptInbox onClose={() => setInboxOpen(false)} onChanged={loadInboxCount} />}
+      {/* Assigning in the inbox attaches receipts to expenses on this page, so
+          the list has to be re-read on the way out — refreshing only the inbox
+          badge left every expense behind the dialog still claiming it had no
+          receipt. Reloaded on close rather than per assign, since a bulk
+          session would otherwise refetch the whole list once per receipt. */}
+      {inboxOpen && (
+        <ReceiptInbox
+          onClose={() => {
+            setInboxOpen(false);
+            load();
+          }}
+          onChanged={loadInboxCount}
+        />
+      )}
 
       {lightboxUrl && (
         <ReceiptLightbox url={lightboxUrl.url} filename={lightboxUrl.filename} onClose={() => setLightboxUrl(null)} />
