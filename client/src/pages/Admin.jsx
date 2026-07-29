@@ -7,6 +7,17 @@ import { SkeletonList } from '../components/Skeletons.jsx';
 
 const SWATCHES = ['#8b5cf6', '#06b6d4', '#f59e0b', '#ec4899', '#10b981', '#3b82f6', '#ef4444', '#eab308', '#14b8a6', '#a1a1aa'];
 
+// Storage figures are for a human deciding whether someone is using a lot, so
+// one decimal at MB and above is plenty — the exact byte count would be noise.
+function formatBytes(bytes) {
+  const n = Number(bytes) || 0;
+  if (n === 0) return '—';
+  if (n < 1024) return `${n} B`;
+  if (n < 1024 * 1024) return `${Math.round(n / 1024)} KB`;
+  if (n < 1024 * 1024 * 1024) return `${(n / (1024 * 1024)).toFixed(1)} MB`;
+  return `${(n / (1024 * 1024 * 1024)).toFixed(2)} GB`;
+}
+
 export default function Admin() {
   const [tab, setTab] = useState('users');
 
@@ -212,6 +223,15 @@ function UsersTab() {
                 {u.email} · {u.expenseCount} expense{u.expenseCount === 1 ? '' : 's'} · joined{' '}
                 {new Date(u.createdAt).toLocaleDateString()}
               </div>
+            </div>
+            <div
+              title="Total size of this user's uploaded receipts and property documents"
+              style={{ textAlign: 'right', flexShrink: 0 }}
+            >
+              <div style={{ fontWeight: 700, fontSize: 13.5, fontVariantNumeric: 'tabular-nums' }}>
+                {formatBytes(u.storageBytes)}
+              </div>
+              <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>storage</div>
             </div>
             {!u.active && (
               <span

@@ -1,5 +1,9 @@
 import { Router } from 'express';
 import crypto from 'crypto';
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
+import { userRootDir } from '../lib/receiptStorage.js';
 import pool, { getSetting, setSetting, getMfaMode } from '../db.js';
 import { requireAuth, requireAdmin } from '../auth/middleware.js';
 import { asyncHandler } from '../lib/asyncHandler.js';
@@ -10,6 +14,35 @@ import { hashPassword } from '../auth/password.js';
 import { generateActivationToken } from '../auth/activationToken.js';
 import { seedDefaultCategories } from '../seed/defaultCategories.js';
 import Stripe from 'stripe';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const uploadsDir = path.join(__dirname, '..', '..', 'uploads');
+
+// Walked rather than cached: the user list is an admin screen loaded now and
+// then, not a hot path, and a stored total would drift every time a receipt
+// was added or deleted. Returns 0 for a user who has never uploaded anything.
+function directorySize(dir) {
+  let total = 0;
+  let entries;
+  try {
+    entries = fs.readdirSync(dir, { withFileTypes: true });
+  } catch {
+    return 0;
+  }
+  for (const entry of entries) {
+    const full = path.join(dir, entry.name);
+    if (entry.isDirectory()) {
+      total += directorySize(full);
+      continue;
+    }
+    try {
+      total += fs.statSync(full).size;
+    } catch {
+      // vanished mid-walk — skip it
+    }
+  }
+  return total;
+}
 
 const router = Router();
 router.use(requireAuth, requireAdmin);
@@ -35,6 +68,9 @@ router.get(
         createdAt: u.created_at,
         active: !!u.activated_at,
         expenseCount: u.expense_count,
+        // Everything this user has uploaded — receipts and property documents
+        // both live under <uploads>/<id>.
+        storageBytes: directorySize(userRootDir(uploadsDir, u.id)),
       })),
     });
   })
