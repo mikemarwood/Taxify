@@ -4,6 +4,7 @@ import { api } from '../lib/api.js';
 import { useToast } from '../components/Toast.jsx';
 import { SkeletonList } from '../components/Skeletons.jsx';
 import CategoryBadge from '../components/CategoryBadge.jsx';
+import { formatMoney } from '../lib/money.js';
 
 export default function RecycleBin() {
   const toast = useToast();
@@ -97,7 +98,7 @@ export default function RecycleBin() {
                   {e.itemName}
                 </span>
                 <CategoryBadge category={e.category} />
-                <span style={{ width: 80, textAlign: 'right', fontWeight: 700 }}>${e.amount.toFixed(2)}</span>
+                <span style={{ width: 80, textAlign: 'right', fontWeight: 700 }}>{formatMoney(e.amount)}</span>
                 <span
                   title={`Permanently deleted ${e.daysRemaining} day${e.daysRemaining === 1 ? '' : 's'} from now`}
                   style={{

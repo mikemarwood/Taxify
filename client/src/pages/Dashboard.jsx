@@ -10,6 +10,7 @@ import ReceiptLightbox from '../components/ReceiptLightbox.jsx';
 import ExportMenu from '../components/ExportMenu.jsx';
 import { defaultFinancialYear } from '../lib/financialYear.js';
 import Icon from '../components/Icon.jsx';
+import { formatMoney } from '../lib/money.js';
 import { useAuth } from '../lib/AuthContext.jsx';
 
 const COLLAPSED_ROW_COUNT = 8;
@@ -194,7 +195,7 @@ export default function Dashboard() {
                     <span style={{ width: 8, height: 8, borderRadius: '50%', background: c.color, flexShrink: 0 }} />
                     <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.name}</span>
                   </div>
-                  <div style={{ fontSize: 16, fontWeight: 700, marginTop: 4 }}>${c.total.toFixed(2)}</div>
+                  <div style={{ fontSize: 16, fontWeight: 700, marginTop: 4 }}>{formatMoney(c.total)}</div>
                 </motion.div>
               );
             })}
@@ -328,7 +329,7 @@ export default function Dashboard() {
                       <Icon name="receipt" size={15} />
                     </button>
                   )}
-                  <span style={{ width: 80, textAlign: 'right', fontWeight: 700 }}>${e.amount.toFixed(2)}</span>
+                  <span style={{ width: 80, textAlign: 'right', fontWeight: 700 }}>{formatMoney(e.amount)}</span>
                 </motion.div>
               ))}
             </AnimatePresence>

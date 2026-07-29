@@ -3,6 +3,7 @@ import { motion } from 'framer-motion';
 import { api } from '../lib/api.js';
 import { SkeletonList, SkeletonStat } from '../components/Skeletons.jsx';
 import Icon from '../components/Icon.jsx';
+import { formatMoney } from '../lib/money.js';
 import CategoryBadge from '../components/CategoryBadge.jsx';
 import ExpenseModal from '../components/ExpenseModal.jsx';
 import ExportMenu from '../components/ExportMenu.jsx';
@@ -221,7 +222,7 @@ export default function Reports() {
                         {e.itemName}
                       </span>
                       <CategoryBadge category={e.category} />
-                      <span style={{ width: 80, textAlign: 'right', fontWeight: 700 }}>${e.amount.toFixed(2)}</span>
+                      <span style={{ width: 80, textAlign: 'right', fontWeight: 700 }}>{formatMoney(e.amount)}</span>
                     </div>
                   ))}
                 </div>

@@ -8,6 +8,7 @@ import Avatar from './Avatar.jsx';
 import Icon from './Icon.jsx';
 import OtpOnboardingModal from './OtpOnboardingModal.jsx';
 import { playClick } from '../lib/sounds.js';
+import { formatMoney } from '../lib/money.js';
 
 const navItems = [
   { to: '/', label: 'Dashboard', icon: 'dashboard' },
@@ -39,7 +40,7 @@ export default function Layout({ children }) {
       .then((res) => {
         const list = res.data.expenses;
         if (list.length === 1) {
-          toast(`Auto-added recurring expense: ${list[0].itemName} ($${list[0].amount.toFixed(2)})`, 'info');
+          toast(`Auto-added recurring expense: ${list[0].itemName} (${formatMoney(list[0].amount)})`, 'info');
         } else if (list.length > 1) {
           toast(`${list.length} recurring expenses were added automatically`, 'info');
         }
