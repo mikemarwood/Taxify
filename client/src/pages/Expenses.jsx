@@ -5,6 +5,7 @@ import { SkeletonList, SkeletonStat } from '../components/Skeletons.jsx';
 import CategoryBadge from '../components/CategoryBadge.jsx';
 import ExpenseModal from '../components/ExpenseModal.jsx';
 import ReceiptLightbox from '../components/ReceiptLightbox.jsx';
+import ReceiptInbox from '../components/ReceiptInbox.jsx';
 import { currentFinancialYear } from '../lib/financialYear.js';
 import { iconEmoji } from '../lib/categoryIcons.js';
 
@@ -14,6 +15,8 @@ export default function Expenses() {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedExpense, setSelectedExpense] = useState(null);
   const [lightboxUrl, setLightboxUrl] = useState(null);
+  const [inboxOpen, setInboxOpen] = useState(false);
+  const [inboxCount, setInboxCount] = useState(0);
 
   function load() {
     api.get('/expenses').then((res) => {
@@ -22,7 +25,15 @@ export default function Expenses() {
     });
   }
 
+  function loadInboxCount() {
+    api
+      .get('/expenses/receipts/inbox')
+      .then((res) => setInboxCount(res.data.files.length))
+      .catch(() => setInboxCount(0));
+  }
+
   useEffect(load, []);
+  useEffect(loadInboxCount, []);
 
   const years = useMemo(() => {
     if (!expenses) return [];
@@ -73,6 +84,24 @@ export default function Expenses() {
           <h1 style={{ margin: 0, fontSize: 26 }}>Expenses</h1>
           <p style={{ color: 'var(--text-muted)', margin: '4px 0 0' }}>Every expense, grouped by category.</p>
         </div>
+        <button className="btn btn-ghost" onClick={() => setInboxOpen(true)} style={{ fontSize: 13 }}>
+          🧾 Receipt inbox
+          {inboxCount > 0 && (
+            <span
+              style={{
+                marginLeft: 8,
+                fontSize: 11.5,
+                fontWeight: 700,
+                background: 'var(--violet)',
+                color: '#fff',
+                borderRadius: 999,
+                padding: '1px 8px',
+              }}
+            >
+              {inboxCount}
+            </span>
+          )}
+        </button>
       </div>
 
       {loading ? (
@@ -199,6 +228,7 @@ export default function Expenses() {
           onSaved={() => {
             setSelectedExpense(null);
             load();
+            loadInboxCount();
           }}
           onDeleted={() => {
             setSelectedExpense(null);
@@ -206,6 +236,8 @@ export default function Expenses() {
           }}
         />
       )}
+
+      {inboxOpen && <ReceiptInbox onClose={() => setInboxOpen(false)} onChanged={loadInboxCount} />}
 
       {lightboxUrl && <ReceiptLightbox url={lightboxUrl} onClose={() => setLightboxUrl(null)} />}
     </div>

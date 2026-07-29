@@ -36,6 +36,7 @@ export default function AddExpense() {
   const [notes, setNotes] = useState('');
   const [file, setFile] = useState(null);
   const [pickedFilename, setPickedFilename] = useState(null);
+  const [pickedSource, setPickedSource] = useState(null); // 'inbox' | 'folder'
   const [submitting, setSubmitting] = useState(false);
   const [progress, setProgress] = useState(0);
   const [submitted, setSubmitted] = useState(false);
@@ -44,13 +45,17 @@ export default function AddExpense() {
 
   function onFileChange(next) {
     setFile(next);
-    if (next) setPickedFilename(null);
+    if (next) {
+      setPickedFilename(null);
+      setPickedSource(null);
+    }
     setReceiptStatus('idle');
     setReceiptError('');
   }
 
-  function onPickReceipt(filename) {
+  function onPickReceipt(filename, source) {
     setPickedFilename(filename);
+    setPickedSource(source || 'folder');
     setFile(null);
     setReceiptStatus('idle');
     setReceiptError('');
@@ -97,7 +102,10 @@ export default function AddExpense() {
     form.append('frequency', isRecurring ? frequency : '');
     form.append('notes', notes);
     if (file) form.append('receipt', file);
-    else if (pickedFilename) form.append('receiptFilename', pickedFilename);
+    else if (pickedFilename) {
+      form.append('receiptFilename', pickedFilename);
+      form.append('receiptSource', pickedSource || 'folder');
+    }
 
     try {
       await api.post('/expenses', form, {
@@ -248,8 +256,18 @@ export default function AddExpense() {
                 fontSize: 13,
               }}
             >
-              <span>🧾 Using existing receipt: {pickedFilename}</span>
-              <button type="button" className="btn btn-ghost" style={{ fontSize: 12, padding: '4px 10px' }} onClick={() => setPickedFilename(null)}>
+              <span>
+                🧾 {pickedSource === 'inbox' ? 'Moving from inbox' : 'Using existing receipt'}: {pickedFilename}
+              </span>
+              <button
+                type="button"
+                className="btn btn-ghost"
+                style={{ fontSize: 12, padding: '4px 10px' }}
+                onClick={() => {
+                  setPickedFilename(null);
+                  setPickedSource(null);
+                }}
+              >
                 Clear
               </button>
             </div>

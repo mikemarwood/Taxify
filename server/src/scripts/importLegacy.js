@@ -4,12 +4,16 @@
 // bundles anyone's real transaction data into the committed source.
 //
 // Usage:
-//   node server/src/scripts/importLegacy.js <path-to-xlsx-dir> <email> [name] [password]
+//   node server/src/scripts/importLegacy.js <xlsx-file-or-dir> <email> [name] [password]
+//   node server/src/scripts/importLegacy.js <xlsx-file-or-dir> <email> --dry-run
 //
-// Looks for files matching "Tax *.xlsx" in the given directory. Each sheet
-// (other than "Outcome", which is an income summary) becomes expenses under
-// a matching category: General/Training/Tooling/Electronics/Home Rental map
-// directly; any other sheet name (a business name) maps to "Business".
+// Accepts either a single .xlsx or a directory of them. Each sheet (other than
+// "Outcome", an income summary) becomes expenses under a matching category;
+// unmapped sheet names fall back to "Business".
+//
+// Safe to re-run. Every row is written with a deterministic import_key
+// ("legacy:<financial-year>:<sheet>:<row>") behind a unique index, so a second
+// run inserts nothing rather than duplicating the import.
 
 import 'dotenv/config';
 import fs from 'fs';
@@ -18,89 +22,14 @@ import xlsx from 'xlsx';
 import pool, { ensureSchema } from '../db.js';
 import { hashPassword } from '../auth/password.js';
 import { seedDefaultCategories } from '../seed/defaultCategories.js';
-
-const CATEGORY_MAP = {
-  General: 'General',
-  Training: 'Training',
-  Tooling: 'Tooling',
-  Electronics: 'Electronics',
-  'Home Rental': 'Home Rental',
-};
-const FALLBACK_CATEGORY = 'Business';
-const SKIP_SHEETS = new Set(['Outcome']);
-
-function excelSerialToIso(serial) {
-  const ms = Math.round((serial - 25569) * 86400 * 1000);
-  return new Date(ms).toISOString().slice(0, 10);
-}
-
-function financialYearStartFromFilename(filename) {
-  const match = filename.match(/(\d{4})\s*-\s*(\d{4})/);
-  if (!match) return new Date().toISOString().slice(0, 10);
-  return `${match[1]}-07-01`;
-}
-
-function readSheetRows(workbook, sheetName) {
-  const ws = workbook.Sheets[sheetName];
-  const ref = ws['!ref'];
-  if (!ref) return [];
-  const range = xlsx.utils.decode_range(ref);
-  const rows = [];
-  for (let r = range.s.r; r <= range.e.r; r++) {
-    const row = [];
-    for (let c = range.s.c; c <= range.e.c; c++) {
-      const cell = ws[xlsx.utils.encode_cell({ r, c })];
-      row.push(cell && cell.v !== undefined ? cell.v : '');
-    }
-    rows.push(row);
-  }
-  return rows;
-}
-
-function parseSheetExpenses(rows, fallbackDate) {
-  const recurring = [];
-  const single = [];
-  let mode = null; // 'recurring' | 'single'
-
-  // Section marker text ("Recurring Payments" / "Single Payments") is
-  // inconsistent across sheets (one sheet uses a stray "." instead), so
-  // detect the actual column-header rows by shape instead — they're
-  // consistent everywhere.
-  for (const row of rows) {
-    const col0 = typeof row[0] === 'string' ? row[0].trim() : row[0];
-    const col1 = typeof row[1] === 'string' ? row[1].trim() : row[1];
-    const col3 = typeof row[3] === 'string' ? row[3].trim() : row[3];
-
-    if (col1 === 'Item Name' && col3 === 'Frequency') {
-      mode = 'recurring';
-      continue;
-    }
-    if (col0 === 'Date' && col1 === 'Item Name' && col3 === 'Currency') {
-      mode = 'single';
-      continue;
-    }
-
-    if (mode === 'recurring') {
-      const itemName = row[1];
-      const frequency = row[3];
-      const amount = row[4];
-      if (itemName && typeof amount === 'number' && amount > 0) {
-        recurring.push({ itemName: String(itemName).trim(), frequency: frequency ? String(frequency) : null, amount });
-      }
-    } else if (mode === 'single') {
-      const dateSerial = row[0];
-      const itemName = row[1];
-      const currency = row[3];
-      const amount = row[4];
-      if (itemName && typeof amount === 'number' && amount > 0) {
-        const date = typeof dateSerial === 'number' ? excelSerialToIso(dateSerial) : fallbackDate;
-        single.push({ itemName: String(itemName).trim(), currency: currency ? String(currency) : 'AUD', amount, date });
-      }
-    }
-  }
-
-  return { recurring, single };
-}
+import {
+  SKIP_SHEETS,
+  categoryForSheet,
+  financialYearStartFromFilename,
+  financialYearLabelFromFilename,
+  readSheetRows,
+  parseSheetExpenses,
+} from '../lib/legacySheet.js';
 
 async function resolveUser(email, name, password) {
   const normalizedEmail = String(email).trim().toLowerCase();
@@ -122,10 +51,26 @@ async function resolveUser(email, name, password) {
   return rows[0];
 }
 
+function resolveWorkbookPaths(target) {
+  const stat = fs.statSync(target);
+  if (stat.isFile()) return [target];
+  return fs
+    .readdirSync(target)
+    .filter((f) => /\.xlsx$/i.test(f) && !f.startsWith('~$'))
+    .map((f) => path.join(target, f));
+}
+
 async function main() {
-  const [, , dir, email, name, password] = process.argv;
-  if (!dir || !email) {
-    console.error('Usage: node importLegacy.js <path-to-xlsx-dir> <email> [name] [password]');
+  const argv = process.argv.slice(2);
+  const dryRun = argv.includes('--dry-run');
+  const [target, email, name, password] = argv.filter((a) => a !== '--dry-run');
+
+  if (!target || !email) {
+    console.error('Usage: node importLegacy.js <xlsx-file-or-dir> <email> [name] [password] [--dry-run]');
+    process.exit(1);
+  }
+  if (!fs.existsSync(target)) {
+    console.error(`No such file or directory: ${target}`);
     process.exit(1);
   }
 
@@ -137,6 +82,7 @@ async function main() {
   async function ensureCategory(categoryName) {
     const existing = categories.find((c) => c.name === categoryName);
     if (existing) return existing.id;
+    if (dryRun) return null;
     const [result] = await pool.execute(
       'INSERT INTO categories (user_id, name, color, icon) VALUES (?, ?, ?, ?)',
       [user.id, categoryName, '#3b82f6', 'briefcase']
@@ -148,49 +94,55 @@ async function main() {
   const [defaultTemplates] = await pool.execute('SELECT name FROM default_categories');
   for (const c of defaultTemplates) await ensureCategory(c.name);
 
-  const files = fs
-    .readdirSync(dir)
-    .filter((f) => /^Tax .*\.xlsx$/i.test(f));
-
+  const files = resolveWorkbookPaths(target);
   if (files.length === 0) {
-    console.error(`No "Tax *.xlsx" files found in ${dir}`);
+    console.error(`No .xlsx files found in ${target}`);
     process.exit(1);
   }
 
-  let totalImported = 0;
+  let inserted = 0;
+  let skipped = 0;
+  let totalAmount = 0;
 
-  for (const file of files) {
-    const fullPath = path.join(dir, file);
-    console.log(`Reading ${file}...`);
+  for (const fullPath of files) {
+    const file = path.basename(fullPath);
+    console.log(`\nReading ${file}...`);
     const workbook = xlsx.readFile(fullPath);
     const fallbackDate = financialYearStartFromFilename(file);
+    const fyLabel = financialYearLabelFromFilename(file);
 
     for (const sheetName of workbook.SheetNames) {
       if (SKIP_SHEETS.has(sheetName)) continue;
 
-      const categoryName = CATEGORY_MAP[sheetName] || FALLBACK_CATEGORY;
+      const categoryName = categoryForSheet(sheetName);
       const categoryId = await ensureCategory(categoryName);
       const rows = readSheetRows(workbook, sheetName);
-      const { recurring, single } = parseSheetExpenses(rows, fallbackDate);
+      const entries = parseSheetExpenses(rows, fallbackDate);
+      if (entries.length === 0) continue;
+
+      const sheetTotal = entries.reduce((sum, e) => sum + e.amount, 0);
+      totalAmount += sheetTotal;
+
+      if (dryRun) {
+        console.log(`  ${sheetName} -> ${categoryName}: ${entries.length} entries, $${sheetTotal.toFixed(2)}`);
+        skipped += entries.length;
+        continue;
+      }
 
       const connection = await pool.getConnection();
       try {
         await connection.beginTransaction();
-        for (const item of recurring) {
-          await connection.execute(
-            `INSERT INTO expenses (user_id, category_id, item_name, amount, currency, purchase_date, is_recurring, frequency)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-            [user.id, categoryId, item.itemName, item.amount, 'AUD', fallbackDate, 1, item.frequency]
+        for (const entry of entries) {
+          const importKey = `legacy:${fyLabel}:${sheetName}:${entry.rowNumber}`;
+          const [result] = await connection.execute(
+            `INSERT INTO expenses
+               (user_id, category_id, item_name, amount, currency, purchase_date, is_recurring, frequency, notes, import_key)
+             VALUES (?, ?, ?, ?, ?, ?, 0, NULL, ?, ?)
+             ON DUPLICATE KEY UPDATE id = id`,
+            [user.id, categoryId, entry.itemName, entry.amount, entry.currency, entry.date, entry.note, importKey]
           );
-          totalImported++;
-        }
-        for (const item of single) {
-          await connection.execute(
-            `INSERT INTO expenses (user_id, category_id, item_name, amount, currency, purchase_date, is_recurring, frequency)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-            [user.id, categoryId, item.itemName, item.amount, item.currency, item.date, 0, null]
-          );
-          totalImported++;
+          if (result.affectedRows > 0) inserted++;
+          else skipped++;
         }
         await connection.commit();
       } catch (err) {
@@ -200,13 +152,15 @@ async function main() {
         connection.release();
       }
 
-      if (recurring.length || single.length) {
-        console.log(`  ${sheetName} -> ${categoryName}: ${recurring.length} recurring, ${single.length} single`);
-      }
+      console.log(`  ${sheetName} -> ${categoryName}: ${entries.length} entries, $${sheetTotal.toFixed(2)}`);
     }
   }
 
-  console.log(`\nDone. Imported ${totalImported} expense entries for ${user.email}.`);
+  if (dryRun) {
+    console.log(`\nDry run — nothing written. ${skipped} entries parsed, $${totalAmount.toFixed(2)} total.`);
+  } else {
+    console.log(`\nDone. ${inserted} inserted, ${skipped} already present, $${totalAmount.toFixed(2)} parsed total for ${user.email}.`);
+  }
   await pool.end();
 }
 

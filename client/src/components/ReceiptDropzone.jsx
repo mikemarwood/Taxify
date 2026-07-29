@@ -61,7 +61,7 @@ export default function ReceiptDropzone({ file, onFileChange, uploadProgress, st
       <input
         ref={inputRef}
         type="file"
-        accept="image/*,application/pdf"
+        accept="image/*,.heic,.heif,application/pdf"
         hidden
         onChange={(e) => handleFiles(e.target.files)}
       />

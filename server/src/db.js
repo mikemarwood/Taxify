@@ -67,6 +67,13 @@ export async function ensureSchema() {
   await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS stripe_subscription_id VARCHAR(255) NULL`);
   await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS subscription_current_period_end DATETIME NULL`);
 
+  // Sign-up form extras: country/business name are user-editable later,
+  // referral_source and terms_accepted_at are one-time capture at signup.
+  await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS country VARCHAR(80) NULL`);
+  await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS business_name VARCHAR(255) NULL`);
+  await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS referral_source VARCHAR(100) NULL`);
+  await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS terms_accepted_at DATETIME NULL`);
+
   await pool.query(`
     CREATE TABLE IF NOT EXISTS categories (
       id INT PRIMARY KEY AUTO_INCREMENT,
@@ -116,6 +123,15 @@ export async function ensureSchema() {
   `);
   await pool.query(`
     ALTER TABLE expenses ADD COLUMN IF NOT EXISTS notified_at DATETIME NULL
+  `);
+  // Idempotency key for one-off spreadsheet imports (see scripts/importLegacy.js).
+  // NULL for everything created through the app, and MariaDB allows repeated
+  // NULLs in a unique index, so only imported rows are constrained.
+  await pool.query(`
+    ALTER TABLE expenses ADD COLUMN IF NOT EXISTS import_key VARCHAR(190) NULL
+  `);
+  await pool.query(`
+    ALTER TABLE expenses ADD UNIQUE INDEX IF NOT EXISTS uq_expenses_import (user_id, import_key)
   `);
 
   await pool.query(`

@@ -22,8 +22,10 @@ export function emailToFolderSegment(email) {
   return sanitizeSegment(`${local}-${domain}`, 'user');
 }
 
+// Category display names stay Title Case (see toTitleCase in categories
+// routes), but the on-disk folder is always lowercase.
 export function categoryToFolderSegment(name) {
-  return sanitizeSegment(name, 'Uncategorised');
+  return sanitizeSegment(name, 'Uncategorised').toLowerCase();
 }
 
 export { financialYearOf };
@@ -37,6 +39,15 @@ export function receiptDirFor(uploadsRoot, email, purchaseDate, categoryName) {
 
 export function userRootDir(uploadsRoot, email) {
   return path.join(uploadsRoot, emailToFolderSegment(email));
+}
+
+// Staging area for receipts uploaded in bulk before they're linked to an
+// expense. Sits beside the financial-year folders under the user's root; the
+// leading underscore keeps it from ever colliding with a "2024-2025" segment.
+export const INBOX_SEGMENT = '_inbox';
+
+export function inboxDirFor(uploadsRoot, email) {
+  return path.join(userRootDir(uploadsRoot, email), INBOX_SEGMENT);
 }
 
 // Defense-in-depth: confirms `target` resolves to inside `root` before any

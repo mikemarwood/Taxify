@@ -10,14 +10,32 @@ import { getVisibleUserIds } from '../auth/access.js';
 import { asyncHandler } from '../lib/asyncHandler.js';
 import { financialYearOf } from '../lib/financialYear.js';
 import { advanceDate } from '../lib/recurrence.js';
-import { receiptDirFor, assertWithin, isSafeFilename } from '../lib/receiptStorage.js';
+import { receiptDirFor, inboxDirFor, assertWithin, isSafeFilename } from '../lib/receiptStorage.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const uploadsDir = path.join(__dirname, '..', '..', 'uploads');
 if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir, { recursive: true });
 
-const ALLOWED_MIME = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'application/pdf']);
-const ALLOWED_RECEIPT_EXT = new Set(['.jpg', '.jpeg', '.png', '.webp', '.gif', '.pdf']);
+const ALLOWED_MIME = new Set([
+  'image/jpeg',
+  'image/png',
+  'image/webp',
+  'image/gif',
+  'image/heic',
+  'image/heif',
+  'image/heic-sequence',
+  'image/heif-sequence',
+  'application/pdf',
+]);
+const ALLOWED_RECEIPT_EXT = new Set(['.jpg', '.jpeg', '.png', '.webp', '.gif', '.heic', '.heif', '.pdf']);
+
+// iPhone photos often arrive with no useful MIME type — Windows and some
+// browsers report .heic as application/octet-stream or an empty string — so
+// fall back to the extension when the reported type isn't recognised.
+function isAllowedUpload(file) {
+  if (ALLOWED_MIME.has(file.mimetype)) return true;
+  return ALLOWED_RECEIPT_EXT.has(path.extname(file.originalname).toLowerCase());
+}
 
 function dirFor(email, purchaseDate, categoryName) {
   return receiptDirFor(uploadsDir, email, purchaseDate, categoryName);
@@ -51,10 +69,79 @@ const upload = multer({
   storage,
   limits: { fileSize: 5 * 1024 * 1024 },
   fileFilter: (req, file, cb) => {
-    if (!ALLOWED_MIME.has(file.mimetype)) return cb(new Error('Unsupported file type'));
+    if (!isAllowedUpload(file)) return cb(new Error('Unsupported file type'));
     cb(null, true);
   },
 });
+
+// ---------------------------------------------------------------------------
+// Receipt inbox: a per-user staging folder for receipts uploaded in bulk before
+// they're linked to an expense. Assigning one moves it out of the inbox and
+// into the owning expense's <user>/<financial-year>/<category> folder.
+// ---------------------------------------------------------------------------
+
+function inboxFor(email) {
+  return inboxDirFor(uploadsDir, email);
+}
+
+// Keeps the original name recognisable in the picker while satisfying
+// isSafeFilename(), and appends entropy so two "invoice.pdf" uploads coexist.
+function stagedFilename(originalName) {
+  const ext = path.extname(originalName).toLowerCase();
+  const base = path
+    .basename(originalName, path.extname(originalName))
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 60);
+  return `${base || 'receipt'}-${crypto.randomBytes(3).toString('hex')}${ext}`;
+}
+
+const inboxUpload = multer({
+  storage: multer.diskStorage({
+    destination: (req, file, cb) => {
+      try {
+        const dir = inboxFor(req.user.email);
+        fs.mkdirSync(dir, { recursive: true });
+        cb(null, dir);
+      } catch (err) {
+        cb(err);
+      }
+    },
+    filename: (req, file, cb) => cb(null, stagedFilename(file.originalname)),
+  }),
+  limits: { fileSize: 5 * 1024 * 1024, files: 50 },
+  fileFilter: (req, file, cb) => {
+    if (!isAllowedUpload(file)) return cb(new Error('Unsupported file type'));
+    cb(null, true);
+  },
+});
+
+// Moves a staged file into its destination folder, renaming on collision.
+// Returns the filename actually stored, which is what goes in receipt_path.
+function moveFromInbox(email, filename, destDir) {
+  const source = assertWithin(uploadsDir, path.join(inboxFor(email), filename));
+  if (!fs.existsSync(source)) return null;
+
+  fs.mkdirSync(destDir, { recursive: true });
+  let finalName = filename;
+  let target = assertWithin(uploadsDir, path.join(destDir, finalName));
+  if (fs.existsSync(target)) {
+    const ext = path.extname(filename);
+    finalName = `${path.basename(filename, ext)}-${crypto.randomBytes(3).toString('hex')}${ext}`;
+    target = assertWithin(uploadsDir, path.join(destDir, finalName));
+  }
+
+  try {
+    fs.renameSync(source, target);
+  } catch (err) {
+    // Different filesystems under uploads/ (e.g. a bind mount) make rename fail.
+    if (err.code !== 'EXDEV') throw err;
+    fs.copyFileSync(source, target);
+    fs.unlinkSync(source);
+  }
+  return finalName;
+}
 
 const TRASH_RETENTION_DAYS = 30;
 
@@ -204,7 +291,7 @@ router.post(
     };
 
     try {
-      const { itemName, amount, currency, purchaseDate, categoryId, notes, isRecurring, frequency, receiptFilename } = req.body || {};
+      const { itemName, amount, currency, purchaseDate, categoryId, notes, isRecurring, frequency, receiptFilename, receiptSource } = req.body || {};
 
       if (!itemName || !String(itemName).trim()) {
         cleanupUpload();
@@ -252,18 +339,27 @@ router.post(
           return res.status(400).json({ error: 'Invalid receipt file' });
         }
         const dir = dirFor(req.user.email, purchaseDate, newCategoryName);
-        let candidate;
-        try {
-          candidate = assertWithin(uploadsDir, path.join(dir, receiptFilename));
-        } catch {
-          cleanupUpload();
-          return res.status(400).json({ error: 'Invalid receipt file' });
+        if (receiptSource === 'inbox') {
+          const moved = moveFromInbox(req.user.email, receiptFilename, dir);
+          if (!moved) {
+            cleanupUpload();
+            return res.status(400).json({ error: 'Receipt file not found' });
+          }
+          receiptPath = moved;
+        } else {
+          let candidate;
+          try {
+            candidate = assertWithin(uploadsDir, path.join(dir, receiptFilename));
+          } catch {
+            cleanupUpload();
+            return res.status(400).json({ error: 'Invalid receipt file' });
+          }
+          if (!fs.existsSync(candidate)) {
+            cleanupUpload();
+            return res.status(400).json({ error: 'Receipt file not found' });
+          }
+          receiptPath = receiptFilename;
         }
-        if (!fs.existsSync(candidate)) {
-          cleanupUpload();
-          return res.status(400).json({ error: 'Receipt file not found' });
-        }
-        receiptPath = receiptFilename;
       }
       const recurring = isRecurring === 'true' || isRecurring === true;
       const nextDueDate = recurring ? advanceDate(purchaseDate, frequency) : null;
@@ -313,7 +409,7 @@ router.patch(
         return res.status(404).json({ error: 'Expense not found' });
       }
 
-      const { itemName, amount, currency, purchaseDate, categoryId, notes, isRecurring, frequency, removeReceipt, receiptFilename } = req.body || {};
+      const { itemName, amount, currency, purchaseDate, categoryId, notes, isRecurring, frequency, removeReceipt, receiptFilename, receiptSource } = req.body || {};
 
       if (!itemName || !String(itemName).trim()) {
         cleanupUpload();
@@ -374,21 +470,32 @@ router.patch(
           cleanupUpload();
           return res.status(400).json({ error: 'Invalid receipt file' });
         }
-        let candidate;
-        try {
-          candidate = assertWithin(uploadsDir, path.join(newDir, receiptFilename));
-        } catch {
-          cleanupUpload();
-          return res.status(400).json({ error: 'Invalid receipt file' });
+        let resolvedName;
+        if (receiptSource === 'inbox') {
+          const moved = moveFromInbox(req.user.email, receiptFilename, newDir);
+          if (!moved) {
+            cleanupUpload();
+            return res.status(400).json({ error: 'Receipt file not found' });
+          }
+          resolvedName = moved;
+        } else {
+          let candidate;
+          try {
+            candidate = assertWithin(uploadsDir, path.join(newDir, receiptFilename));
+          } catch {
+            cleanupUpload();
+            return res.status(400).json({ error: 'Invalid receipt file' });
+          }
+          if (!fs.existsSync(candidate)) {
+            cleanupUpload();
+            return res.status(400).json({ error: 'Receipt file not found' });
+          }
+          resolvedName = receiptFilename;
         }
-        if (!fs.existsSync(candidate)) {
-          cleanupUpload();
-          return res.status(400).json({ error: 'Receipt file not found' });
-        }
-        if (existing.receipt_path && !(existing.receipt_path === receiptFilename && oldDir === newDir)) {
+        if (existing.receipt_path && !(existing.receipt_path === resolvedName && oldDir === newDir)) {
           deleteOldAbsPath = path.join(oldDir, existing.receipt_path);
         }
-        receiptPath = receiptFilename;
+        receiptPath = resolvedName;
       } else if (existing.receipt_path && oldDir !== newDir) {
         moveFrom = path.join(oldDir, existing.receipt_path);
         moveTo = path.join(newDir, existing.receipt_path);
@@ -540,6 +647,86 @@ router.get(
     }
     if (!fs.existsSync(filePath)) return res.status(404).json({ error: 'File not found' });
     res.sendFile(filePath);
+  })
+);
+
+// --- Receipt inbox -------------------------------------------------------
+
+router.post(
+  '/receipts/inbox',
+  inboxUpload.array('receipts', 50),
+  asyncHandler(async (req, res) => {
+    const files = (req.files || []).map((f) => f.filename);
+    if (files.length === 0) return res.status(400).json({ error: 'No files uploaded' });
+    res.status(201).json({ uploaded: files.length, files });
+  })
+);
+
+router.get(
+  '/receipts/inbox',
+  asyncHandler(async (req, res) => {
+    const dir = inboxFor(req.user.email);
+    let entries = [];
+    try {
+      entries = fs.readdirSync(dir, { withFileTypes: true });
+    } catch {
+      entries = [];
+    }
+
+    const files = entries
+      .filter((e) => e.isFile() && ALLOWED_RECEIPT_EXT.has(path.extname(e.name).toLowerCase()))
+      .map((e) => {
+        let stat = null;
+        try {
+          stat = fs.statSync(path.join(dir, e.name));
+        } catch {
+          stat = null;
+        }
+        return {
+          filename: e.name,
+          sizeBytes: stat ? stat.size : null,
+          modifiedAt: stat ? stat.mtime : null,
+        };
+      })
+      .sort((a, b) => new Date(b.modifiedAt || 0) - new Date(a.modifiedAt || 0));
+
+    res.json({ files });
+  })
+);
+
+router.get(
+  '/receipts/inbox/file',
+  asyncHandler(async (req, res) => {
+    const { filename } = req.query;
+    if (!filename) return res.status(400).json({ error: 'filename is required' });
+    if (!isSafeFilename(filename)) return res.status(400).json({ error: 'Invalid filename' });
+
+    let filePath;
+    try {
+      filePath = assertWithin(uploadsDir, path.join(inboxFor(req.user.email), filename));
+    } catch {
+      return res.status(400).json({ error: 'Invalid file path' });
+    }
+    if (!fs.existsSync(filePath)) return res.status(404).json({ error: 'File not found' });
+    res.sendFile(filePath);
+  })
+);
+
+router.delete(
+  '/receipts/inbox/:filename',
+  asyncHandler(async (req, res) => {
+    const { filename } = req.params;
+    if (!isSafeFilename(filename)) return res.status(400).json({ error: 'Invalid filename' });
+
+    let filePath;
+    try {
+      filePath = assertWithin(uploadsDir, path.join(inboxFor(req.user.email), filename));
+    } catch {
+      return res.status(400).json({ error: 'Invalid file path' });
+    }
+    if (!fs.existsSync(filePath)) return res.status(404).json({ error: 'File not found' });
+    fs.unlinkSync(filePath);
+    res.json({ ok: true });
   })
 );
 
