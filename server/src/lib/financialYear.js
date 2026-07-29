@@ -7,3 +7,14 @@ export function financialYearOf(dateStr) {
   const startYear = month >= 6 ? year : year - 1;
   return `${startYear}-${startYear + 1}`;
 }
+
+// The inverse, for turning a "2024-2025" folder name back into the dates it
+// covers — needed when a rename has to find the expenses filed under it.
+// Returns null for anything that isn't one of our year folders.
+export function financialYearRange(label) {
+  const match = /^(\d{4})-(\d{4})$/.exec(String(label || ''));
+  if (!match) return null;
+  const startYear = Number(match[1]);
+  if (Number(match[2]) !== startYear + 1) return null;
+  return { start: `${startYear}-07-01`, end: `${startYear + 1}-06-30` };
+}

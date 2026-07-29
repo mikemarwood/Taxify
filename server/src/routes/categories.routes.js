@@ -6,7 +6,8 @@ import pool from '../db.js';
 import { requireAuth, requireActiveAccess } from '../auth/middleware.js';
 import { asyncHandler } from '../lib/asyncHandler.js';
 import { toTitleCase } from '../lib/text.js';
-import { receiptsRootDir, categoryToFolderSegment, INBOX_SEGMENT } from '../lib/receiptStorage.js';
+import { receiptsRootDir, categoryToFolderSegment, uniqueFilenameIn, INBOX_SEGMENT } from '../lib/receiptStorage.js';
+import { financialYearRange } from '../lib/financialYear.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const uploadsDir = path.join(__dirname, '..', '..', 'uploads');
@@ -32,6 +33,20 @@ function categoryFoldersFor(userId, categorySegment) {
   return yearDirs
     .map((year) => path.join(root, year, categorySegment))
     .filter((dir) => fs.existsSync(dir));
+}
+
+// Points an expense's receipt_path at the name a file actually ended up with
+// after a collision. Scoped to the financial year the folder represents, since
+// the same filename can legitimately exist in this category in another year.
+async function repointReceipt(userId, categoryId, yearLabel, oldName, newName) {
+  const range = financialYearRange(yearLabel);
+  if (!range) return;
+  await pool.execute(
+    `UPDATE expenses SET receipt_path = ?
+     WHERE user_id = ? AND category_id = ? AND receipt_path = ?
+       AND purchase_date >= ? AND purchase_date <= ?`,
+    [newName, userId, categoryId, oldName, range.start, range.end]
+  );
 }
 
 function dirHasFiles(dir) {
@@ -121,20 +136,33 @@ router.patch(
       ]);
       const [rows] = await pool.execute('SELECT id, name, color, icon FROM categories WHERE id = ?', [req.params.id]);
 
+      // Receipt folders are named after the category, so a rename has to take
+      // the files with it or every receipt in that category goes missing.
       if (finalName !== existing.name) {
         const oldSeg = categoryToFolderSegment(existing.name);
         const newSeg = categoryToFolderSegment(finalName);
         for (const oldDir of categoryFoldersFor(req.user.id, oldSeg)) {
           const newDir = path.join(path.dirname(oldDir), newSeg);
           try {
-            if (fs.existsSync(newDir)) {
-              for (const file of fs.readdirSync(oldDir)) {
-                fs.renameSync(path.join(oldDir, file), path.join(newDir, file));
-              }
-              fs.rmSync(oldDir, { recursive: true, force: true });
-            } else {
+            if (!fs.existsSync(newDir)) {
               fs.renameSync(oldDir, newDir);
+              continue;
             }
+
+            // Two category names can sanitise to the same folder, so the
+            // destination may already hold a file of the same name. Rename the
+            // incoming one rather than overwriting, and correct the database
+            // row that points at it — receipt_path is a bare filename, so a
+            // silent rename here would orphan the receipt.
+            const year = path.basename(path.dirname(oldDir));
+            for (const file of fs.readdirSync(oldDir)) {
+              const stored = uniqueFilenameIn(newDir, file);
+              fs.renameSync(path.join(oldDir, file), path.join(newDir, stored));
+              if (stored !== file) {
+                await repointReceipt(req.user.id, req.params.id, year, file, stored);
+              }
+            }
+            fs.rmSync(oldDir, { recursive: true, force: true });
           } catch (err) {
             console.error('Failed to rename category receipt folder', err);
           }

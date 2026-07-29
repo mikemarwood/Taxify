@@ -116,6 +116,9 @@ export default function ExpenseModal({ expense, onClose, onSaved, onDeleted }) {
   const [categories, setCategories] = useState([]);
   const [busy, setBusy] = useState(false);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
+  // Default on: deleting an expense and leaving its receipt behind is how
+  // orphaned files accumulate. Opt out if you want it kept for a restore.
+  const [alsoDeleteReceipt, setAlsoDeleteReceipt] = useState(true);
   const [lightboxOpen, setLightboxOpen] = useState(false);
 
   const [itemName, setItemName] = useState(expense.itemName);
@@ -221,8 +224,10 @@ export default function ExpenseModal({ expense, onClose, onSaved, onDeleted }) {
   async function onDelete() {
     setBusy(true);
     try {
-      await api.delete(`/expenses/${expense.id}`);
-      toast('Moved to Recycle Bin', 'success');
+      const res = await api.delete(`/expenses/${expense.id}`, {
+        params: alsoDeleteReceipt ? { deleteReceipt: 'true' } : undefined,
+      });
+      toast(res.data?.receiptDeleted ? 'Moved to Recycle Bin, receipt deleted' : 'Moved to Recycle Bin', 'success');
       onDeleted();
     } catch (err) {
       toast(err.message, 'error');
@@ -488,6 +493,38 @@ export default function ExpenseModal({ expense, onClose, onSaved, onDeleted }) {
                     Move this expense to the Recycle Bin? You can restore it any time within 30 days, after which it's
                     deleted permanently.
                   </span>
+
+                  {expense.receiptUrl && (
+                    <label
+                      style={{
+                        display: 'flex',
+                        alignItems: 'flex-start',
+                        gap: 9,
+                        fontSize: 13,
+                        padding: '10px 12px',
+                        borderRadius: 'var(--radius-sm)',
+                        border: '1px solid var(--border)',
+                        background: 'var(--bg-elevated)',
+                        cursor: 'pointer',
+                      }}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={alsoDeleteReceipt}
+                        onChange={(e) => setAlsoDeleteReceipt(e.target.checked)}
+                        style={{ marginTop: 2 }}
+                      />
+                      <span>
+                        <span style={{ fontWeight: 600 }}>Delete the receipt file too</span>
+                        <span style={{ display: 'block', color: 'var(--text-muted)', marginTop: 2 }}>
+                          {alsoDeleteReceipt
+                            ? `“${expense.receiptFilename}” is removed from disk now — restoring this expense won't bring it back. Kept if another expense still uses it.`
+                            : 'The file stays on disk until the expense is purged from the Recycle Bin in 30 days.'}
+                        </span>
+                      </span>
+                    </label>
+                  )}
+
                   <div style={{ display: 'flex', gap: 10 }}>
                     <button className="btn btn-primary" style={{ background: 'var(--red)', fontSize: 13, flex: 1 }} disabled={busy} onClick={onDelete}>
                       {busy && <span className="spinner" />}

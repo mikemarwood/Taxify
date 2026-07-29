@@ -18,6 +18,7 @@ import {
   isSafeFilename,
   isSafeFolderName,
   stagedFilename,
+  uniqueFilenameIn,
   toFolderSlug,
 } from '../lib/receiptStorage.js';
 
@@ -25,24 +26,34 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const uploadsDir = path.join(__dirname, '..', '..', 'uploads');
 if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir, { recursive: true });
 
-const ALLOWED_MIME = new Set([
-  'image/jpeg',
-  'image/png',
-  'image/webp',
-  'image/gif',
-  'image/heic',
-  'image/heif',
-  'image/heic-sequence',
-  'image/heif-sequence',
-  'application/pdf',
+// Receipts are photographs or PDFs, so any image type is fair game — new
+// formats keep appearing (avif, jxl) and there's no reason to reject one just
+// because this list predates it. Everything else is refused.
+const ALLOWED_RECEIPT_EXT = new Set([
+  '.jpg',
+  '.jpeg',
+  '.png',
+  '.webp',
+  '.gif',
+  '.heic',
+  '.heif',
+  '.avif',
+  '.bmp',
+  '.tif',
+  '.tiff',
+  '.svg',
+  '.jfif',
+  '.pdf',
 ]);
-const ALLOWED_RECEIPT_EXT = new Set(['.jpg', '.jpeg', '.png', '.webp', '.gif', '.heic', '.heif', '.pdf']);
+
+export const MAX_RECEIPT_BYTES = 10 * 1024 * 1024;
 
 // iPhone photos often arrive with no useful MIME type — Windows and some
 // browsers report .heic as application/octet-stream or an empty string — so
-// fall back to the extension when the reported type isn't recognised.
+// the extension is the fallback when the reported type says nothing useful.
 function isAllowedUpload(file) {
-  if (ALLOWED_MIME.has(file.mimetype)) return true;
+  if (file.mimetype === 'application/pdf') return true;
+  if (typeof file.mimetype === 'string' && file.mimetype.startsWith('image/')) return true;
   return ALLOWED_RECEIPT_EXT.has(path.extname(file.originalname).toLowerCase());
 }
 
@@ -63,22 +74,27 @@ const storage = multer.diskStorage({
       const purchaseDate = req.body?.purchaseDate || new Date().toISOString();
       const dir = dirFor(req.user.id, purchaseDate, categoryName);
       fs.mkdirSync(dir, { recursive: true });
+      req._uploadDir = dir;
       cb(null, dir);
     } catch (err) {
       cb(err);
     }
   },
+  // The file keeps the name it arrived with, cleaned up to something the
+  // safe-filename guard accepts, and is only ever suffixed when that name is
+  // already taken — a receipt called "bunnings-invoice.pdf" is worth more at
+  // a glance than "1739246...-a1b2c3.pdf".
   filename: (req, file, cb) => {
-    const ext = path.extname(file.originalname).toLowerCase();
-    cb(null, `${Date.now()}-${crypto.randomBytes(6).toString('hex')}${ext}`);
+    req._takenNames = req._takenNames || new Set();
+    cb(null, uniqueFilenameIn(req._uploadDir, file.originalname, req._takenNames));
   },
 });
 
 const upload = multer({
   storage,
-  limits: { fileSize: 5 * 1024 * 1024 },
+  limits: { fileSize: MAX_RECEIPT_BYTES },
   fileFilter: (req, file, cb) => {
-    if (!isAllowedUpload(file)) return cb(new Error('Unsupported file type'));
+    if (!isAllowedUpload(file)) return cb(new Error('Only images and PDFs can be attached'));
     cb(null, true);
   },
 });
@@ -122,17 +138,28 @@ const inboxUpload = multer({
       try {
         const dir = inboxFor(req.user.id, uploadFolderFor(req, file));
         fs.mkdirSync(dir, { recursive: true });
-        cb(null, assertWithin(uploadsDir, dir));
+        req._uploadDir = assertWithin(uploadsDir, dir);
+        cb(null, req._uploadDir);
       } catch (err) {
         cb(err);
       }
     },
-    filename: (req, file, cb) =>
-      cb(null, stagedFilename(path.basename(file.originalname), crypto.randomBytes(3).toString('hex'))),
+    // Staged files keep their original name too, so the inbox grid reads like
+    // the folder they came from. Two files genuinely called "invoice.pdf" end
+    // up as "invoice.pdf" and "invoice-2.pdf" rather than one clobbering the
+    // other. `taken` is keyed by folder because a batch can span several.
+    filename: (req, file, cb) => {
+      req._takenNames = req._takenNames || new Map();
+      if (!req._takenNames.has(req._uploadDir)) req._takenNames.set(req._uploadDir, new Set());
+      cb(
+        null,
+        uniqueFilenameIn(req._uploadDir, path.basename(file.originalname), req._takenNames.get(req._uploadDir))
+      );
+    },
   }),
-  limits: { fileSize: 5 * 1024 * 1024, files: 200 },
+  limits: { fileSize: MAX_RECEIPT_BYTES, files: 200 },
   fileFilter: (req, file, cb) => {
-    if (!isAllowedUpload(file)) return cb(new Error('Unsupported file type'));
+    if (!isAllowedUpload(file)) return cb(new Error('Only images and PDFs can be attached'));
     cb(null, true);
   },
 });
@@ -161,13 +188,10 @@ function placeFromInbox(userId, filename, destDir, folder, { keep = false } = {}
   if (!fs.existsSync(source)) return null;
 
   fs.mkdirSync(destDir, { recursive: true });
-  let finalName = filename;
-  let target = assertWithin(uploadsDir, path.join(destDir, finalName));
-  if (fs.existsSync(target)) {
-    const ext = path.extname(filename);
-    finalName = `${path.basename(filename, ext)}-${crypto.randomBytes(3).toString('hex')}${ext}`;
-    target = assertWithin(uploadsDir, path.join(destDir, finalName));
-  }
+  // Same rule as an upload: keep the name, suffix it only if that name is
+  // already in this folder, never overwrite.
+  const finalName = uniqueFilenameIn(destDir, filename);
+  const target = assertWithin(uploadsDir, path.join(destDir, finalName));
 
   if (keep) {
     fs.copyFileSync(source, target);
@@ -587,8 +611,15 @@ router.patch(
         }
         receiptPath = resolvedName;
       } else if (existing.receipt_path && oldDir !== newDir) {
+        // Changing the category or the date changes which folder the receipt
+        // belongs in, so it moves with the expense. The destination name is
+        // resolved before the row is written, so the database records the name
+        // the file actually ends up with rather than the one it had.
+        fs.mkdirSync(newDir, { recursive: true });
+        const storedName = uniqueFilenameIn(newDir, existing.receipt_path);
         moveFrom = path.join(oldDir, existing.receipt_path);
-        moveTo = path.join(newDir, existing.receipt_path);
+        moveTo = path.join(newDir, storedName);
+        receiptPath = storedName;
       }
 
       const recurring = isRecurring === 'true' || isRecurring === true;
@@ -917,20 +948,45 @@ router.delete(
   })
 );
 
+// Soft delete. `deleteReceipt` additionally removes the receipt file straight
+// away rather than leaving it for the 30-day purge — the caller has to ask for
+// it, because restoring from the recycle bin can't bring the file back.
 router.delete(
   '/:id',
   asyncHandler(async (req, res) => {
     const [rows] = await pool.execute(
-      'SELECT id FROM expenses WHERE id = ? AND user_id = ? AND deleted_at IS NULL',
+      `SELECT e.id, e.receipt_path, e.purchase_date, c.name AS category_name
+       FROM expenses e LEFT JOIN categories c ON c.id = e.category_id
+       WHERE e.id = ? AND e.user_id = ? AND e.deleted_at IS NULL`,
       [req.params.id, req.user.id]
     );
-    if (!rows[0]) return res.status(404).json({ error: 'Expense not found' });
+    const expense = rows[0];
+    if (!expense) return res.status(404).json({ error: 'Expense not found' });
 
-    await pool.execute('UPDATE expenses SET deleted_at = NOW() WHERE id = ? AND user_id = ?', [
-      req.params.id,
-      req.user.id,
-    ]);
-    res.json({ ok: true });
+    const wanted = req.query.deleteReceipt === 'true' || req.body?.deleteReceipt === true;
+    let receiptDeleted = false;
+
+    if (wanted && expense.receipt_path) {
+      const dir = dirFor(req.user.id, expense.purchase_date, expense.category_name || 'Uncategorised');
+      // One docket can cover several expenses, so the file only goes if this
+      // was the last expense pointing at it.
+      const stillUsed = await otherExpensesUsingReceipt(pool, req.user, expense.receipt_path, dir, expense.id);
+      if (stillUsed === 0) {
+        try {
+          fs.unlinkSync(path.join(dir, expense.receipt_path));
+          receiptDeleted = true;
+        } catch {
+          // already gone — the row still needs clearing below
+          receiptDeleted = true;
+        }
+      }
+    }
+
+    await pool.execute(
+      `UPDATE expenses SET deleted_at = NOW()${receiptDeleted ? ', receipt_path = NULL' : ''} WHERE id = ? AND user_id = ?`,
+      [req.params.id, req.user.id]
+    );
+    res.json({ ok: true, receiptDeleted });
   })
 );
 
