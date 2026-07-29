@@ -2,13 +2,24 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { api } from '../lib/api.js';
 import { useToast } from './Toast.jsx';
-import ReceiptLightbox from './ReceiptLightbox.jsx';
+import ZoomableReceipt from './ZoomableReceipt.jsx';
 import CategoryBadge from './CategoryBadge.jsx';
 import Icon from './Icon.jsx';
+import ProgressBar from './ProgressBar.jsx';
 import { playOpen, playClose, playClick } from '../lib/sounds.js';
 import { inboxFileUrl } from './ReceiptGallery.jsx';
 
-const MAX_FILE_BYTES = 5 * 1024 * 1024;
+const MAX_FILE_BYTES = 10 * 1024 * 1024;
+
+// Any image plus PDF. The extension is the fallback because a HEIC off an
+// iPhone often arrives with no usable MIME type at all.
+const RECEIPT_EXT = /\.(jpe?g|png|webp|gif|heic|heif|avif|bmp|tiff?|svg|jfif|pdf)$/i;
+
+function isReceiptFile(file) {
+  if (file.type === 'application/pdf') return true;
+  if (file.type?.startsWith('image/')) return true;
+  return RECEIPT_EXT.test(file.name || '');
+}
 
 function isImageFilename(name) {
   return /\.(jpe?g|png|webp|gif)$/i.test(name);
@@ -89,7 +100,8 @@ export default function ReceiptInbox({ onClose, onChanged }) {
   const [dragOverZone, setDragOverZone] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [progress, setProgress] = useState(0);
-  const [preview, setPreview] = useState(null);
+  const [uploadCount, setUploadCount] = useState(0);
+  const [viewing, setViewing] = useState(null); // { url, filename, receipt? } shown in the left column
 
   const [picked, setPicked] = useState(null); // receipt chosen by click (touch-friendly)
   const draggingRef = useRef(null); // receipt being dragged
@@ -130,10 +142,15 @@ export default function ReceiptInbox({ onClose, onChanged }) {
     return playClose;
   }, []);
 
+  // Escape unwinds one layer at a time — out of the viewer, then the
+  // selection, then the dialog — so it never closes more than you meant.
   useEffect(() => {
     function onKeyDown(e) {
       if (e.key !== 'Escape') return;
-      if (preview) return;
+      if (viewing) {
+        setViewing(null);
+        return;
+      }
       if (picked) {
         setPicked(null);
         return;
@@ -142,15 +159,33 @@ export default function ReceiptInbox({ onClose, onChanged }) {
     }
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, [onClose, preview, picked]);
+  }, [onClose, viewing, picked]);
+
+  // Previewing a staged receipt selects it too: you open it to decide whether
+  // it's the one, and if it is, the expense list on the right is already a
+  // single click away.
+  function openViewer(url, filename, receipt) {
+    playClick();
+    if (receipt) setPicked(receipt);
+    setViewing({ url, filename, receipt: receipt || null });
+  }
 
   async function handleFiles(fileList) {
     const all = Array.from(fileList || []);
     if (all.length === 0) return;
 
-    const tooBig = all.filter((f) => f.size > MAX_FILE_BYTES);
-    const ok = all.filter((f) => f.size <= MAX_FILE_BYTES);
-    if (tooBig.length > 0) toast(`${tooBig.length} file(s) skipped — receipts must be 5MB or smaller.`, 'error');
+    // Picking a folder hands over everything in it, so the filtering happens
+    // here rather than letting the server reject a spreadsheet with an error
+    // that reads like the whole batch failed.
+    const wrongType = all.filter((f) => !isReceiptFile(f));
+    const rightType = all.filter(isReceiptFile);
+    if (wrongType.length > 0) {
+      toast(`${wrongType.length} file(s) skipped — only images and PDFs can be attached.`, 'error');
+    }
+
+    const tooBig = rightType.filter((f) => f.size > MAX_FILE_BYTES);
+    const ok = rightType.filter((f) => f.size <= MAX_FILE_BYTES);
+    if (tooBig.length > 0) toast(`${tooBig.length} file(s) skipped — receipts must be 10MB or smaller.`, 'error');
     if (ok.length === 0) return;
 
     const form = new FormData();
@@ -164,12 +199,15 @@ export default function ReceiptInbox({ onClose, onChanged }) {
     }
 
     setUploading(true);
+    setUploadCount(ok.length);
     setProgress(0);
     try {
       const res = await api.post('/expenses/receipts/inbox', form, {
         headers: { 'Content-Type': 'multipart/form-data' },
         onUploadProgress: (evt) => setProgress(evt.total ? Math.round((evt.loaded / evt.total) * 100) : 0),
       });
+      // Both toasts play their own sound, so success and failure are
+      // distinguishable without watching the screen during a long upload.
       toast(`${res.data.uploaded} receipt${res.data.uploaded === 1 ? '' : 's'} added`, 'success');
       loadInbox();
       onChanged?.();
@@ -392,7 +430,63 @@ export default function ReceiptInbox({ onClose, onChanged }) {
               gap: 18,
             }}
           >
-            {/* ---------------- left: staged receipts ---------------- */}
+            {/* ---------------- left: staged receipts, or the viewer ----------------
+                Previewing takes over this column rather than opening a modal
+                over everything: reading the docket and picking the expense it
+                belongs to is one task, so the expense list stays visible and
+                clickable the whole time. */}
+            {viewing ? (
+              <div style={{ display: 'flex', flexDirection: 'column', minHeight: 0, gap: 10 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
+                  <button
+                    type="button"
+                    className="btn btn-ghost"
+                    style={{ fontSize: 12.5, padding: '5px 12px', display: 'inline-flex', alignItems: 'center', gap: 6 }}
+                    onClick={() => {
+                      playClick();
+                      setViewing(null);
+                    }}
+                  >
+                    <Icon name="arrow-left" size={14} />
+                    Back
+                  </button>
+                  <span
+                    title={viewing.filename}
+                    style={{
+                      flex: 1,
+                      minWidth: 0,
+                      fontSize: 12.5,
+                      fontWeight: 600,
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                      whiteSpace: 'nowrap',
+                    }}
+                  >
+                    {viewing.filename}
+                  </span>
+                  <a
+                    href={viewing.url}
+                    target="_blank"
+                    rel="noreferrer"
+                    title="Open in a new tab"
+                    className="btn btn-ghost"
+                    style={{ fontSize: 12.5, padding: '5px 10px' }}
+                  >
+                    <Icon name="external-link" size={14} />
+                  </a>
+                </div>
+
+                <div style={{ flex: 1, minHeight: 0 }}>
+                  <ZoomableReceipt url={viewing.url} filename={viewing.filename} />
+                </div>
+
+                {viewing.receipt && (
+                  <div style={{ fontSize: 12, color: 'var(--text-muted)', flexShrink: 0 }}>
+                    Still selected — click an expense on the right to file it, or Back to pick a different receipt.
+                  </div>
+                )}
+              </div>
+            ) : (
             <div style={{ display: 'flex', flexDirection: 'column', minHeight: 0 }}>
               <div
                 onDragOver={(e) => {
@@ -436,7 +530,7 @@ export default function ReceiptInbox({ onClose, onChanged }) {
                   onChange={(e) => handleFiles(e.target.files)}
                 />
                 {uploading ? (
-                  <div style={{ fontSize: 13, fontWeight: 600 }}>Uploading… {progress}%</div>
+                  <ProgressBar value={progress} label={`Uploading ${uploadCount} receipt${uploadCount === 1 ? '' : 's'}`} />
                 ) : (
                   <div style={{ display: 'flex', gap: 8, justifyContent: 'center', flexWrap: 'wrap' }}>
                     <button
@@ -573,7 +667,7 @@ export default function ReceiptInbox({ onClose, onChanged }) {
                             type="button"
                             title="Preview"
                             aria-label={`Preview ${f.filename}`}
-                            onClick={() => setPreview({ url: inboxFileUrl(f.filename, f.folder), filename: f.filename })}
+                            onClick={() => openViewer(inboxFileUrl(f.filename, f.folder), f.filename, f)}
                             style={iconBtn({ left: 4 })}
                           >
                             <Icon name="zoom-in" size={12} />
@@ -625,6 +719,7 @@ export default function ReceiptInbox({ onClose, onChanged }) {
                 )}
               </div>
             </div>
+            )}
 
             {/* ---------------- right: expenses ---------------- */}
             <div style={{ display: 'flex', flexDirection: 'column', minHeight: 0 }}>
@@ -765,7 +860,7 @@ export default function ReceiptInbox({ onClose, onChanged }) {
                         {isOpen && (
                           <ExpenseDetails
                             expense={e}
-                            onPreview={() => setPreview({ url: e.receiptUrl, filename: e.receiptFilename || 'receipt' })}
+                            onPreview={() => openViewer(e.receiptUrl, e.receiptFilename || 'receipt', null)}
                             onCopyPath={async () => {
                               try {
                                 await navigator.clipboard.writeText(e.receiptPath);
@@ -795,12 +890,9 @@ export default function ReceiptInbox({ onClose, onChanged }) {
             {
               icon: 'zoom-in',
               label: 'Preview',
-              hint: 'opens full size — scroll to zoom in and read it',
+              hint: 'opens here — scroll to zoom in and read it',
               onSelect: () =>
-                setPreview({
-                  url: inboxFileUrl(menu.receipt.filename, menu.receipt.folder),
-                  filename: menu.receipt.filename,
-                }),
+                openViewer(inboxFileUrl(menu.receipt.filename, menu.receipt.folder), menu.receipt.filename, menu.receipt),
             },
             {
               icon: picked && picked.filename === menu.receipt.filename ? 'check' : 'pointer',
@@ -841,9 +933,6 @@ export default function ReceiptInbox({ onClose, onChanged }) {
         />
       )}
 
-      {preview && (
-        <ReceiptLightbox url={preview.url} filename={preview.filename} onClose={() => setPreview(null)} />
-      )}
     </AnimatePresence>
   );
 }

@@ -236,6 +236,12 @@ const PATHS = {
       <path d="M13.5 6.5 20 12l-6.5 5.5" />
     </>
   ),
+  'arrow-left': (
+    <>
+      <path d="M20 12H5" />
+      <path d="M10.5 6.5 4 12l6.5 5.5" />
+    </>
+  ),
   'external-link': (
     <>
       <path d="M14 3.5h6.5V10" />
