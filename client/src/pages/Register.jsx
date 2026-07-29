@@ -9,6 +9,17 @@ const PLANS = [
   { value: 'family', name: 'Family', price: '$79/yr', text: 'Account holder + 1 extra user' },
 ];
 
+const COUNTRIES = ['Australia', 'New Zealand', 'United Kingdom', 'United States', 'Canada', 'Other'];
+
+const REFERRAL_SOURCES = [
+  { value: '', label: 'Prefer not to say' },
+  { value: 'search', label: 'Search engine' },
+  { value: 'social', label: 'Social media' },
+  { value: 'friend', label: 'Friend or colleague' },
+  { value: 'accountant', label: 'Accountant / bookkeeper' },
+  { value: 'other', label: 'Other' },
+];
+
 export default function Register() {
   const { register } = useAuth();
   const toast = useToast();
@@ -16,14 +27,28 @@ export default function Register() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [planType, setPlanType] = useState('individual');
+  const [businessName, setBusinessName] = useState('');
+  const [country, setCountry] = useState('Australia');
+  const [referralSource, setReferralSource] = useState('');
+  const [termsAccepted, setTermsAccepted] = useState(false);
   const [busy, setBusy] = useState(false);
   const [pendingEmail, setPendingEmail] = useState(null);
 
   async function onSubmit(e) {
     e.preventDefault();
+    if (!termsAccepted) return;
     setBusy(true);
     try {
-      const result = await register(name, email, password, planType);
+      const result = await register({
+        name,
+        email,
+        password,
+        planType,
+        country,
+        businessName: businessName.trim() || undefined,
+        referralSource: referralSource || undefined,
+        termsAccepted,
+      });
       setPendingEmail(result.email);
     } catch (err) {
       toast(err.message, 'error');
@@ -91,7 +116,52 @@ export default function Register() {
             })}
           </div>
         </div>
-        <button className="btn btn-primary" disabled={busy} type="submit" style={{ marginTop: 8 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+          <div>
+            <label className="label">Business name (optional)</label>
+            <input className="input" value={businessName} onChange={(e) => setBusinessName(e.target.value)} />
+          </div>
+          <div>
+            <label className="label">Country</label>
+            <select className="input" value={country} onChange={(e) => setCountry(e.target.value)}>
+              {COUNTRIES.map((c) => (
+                <option key={c} value={c}>
+                  {c}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+        <div>
+          <label className="label">How did you hear about us? (optional)</label>
+          <select className="input" value={referralSource} onChange={(e) => setReferralSource(e.target.value)}>
+            {REFERRAL_SOURCES.map((r) => (
+              <option key={r.value} value={r.value}>
+                {r.label}
+              </option>
+            ))}
+          </select>
+        </div>
+        <label style={{ display: 'flex', alignItems: 'flex-start', gap: 8, fontSize: 13, color: 'var(--text-muted)', cursor: 'pointer' }}>
+          <input
+            type="checkbox"
+            required
+            checked={termsAccepted}
+            onChange={(e) => setTermsAccepted(e.target.checked)}
+            style={{ marginTop: 2 }}
+          />
+          <span>
+            I agree to the{' '}
+            <Link to="/terms" target="_blank" rel="noreferrer" style={{ color: 'var(--blue)', fontWeight: 600 }}>
+              Terms of Service
+            </Link>{' '}
+            and{' '}
+            <Link to="/privacy" target="_blank" rel="noreferrer" style={{ color: 'var(--blue)', fontWeight: 600 }}>
+              Privacy Policy
+            </Link>
+          </span>
+        </label>
+        <button className="btn btn-primary" disabled={busy || !termsAccepted} type="submit" style={{ marginTop: 8 }}>
           {busy && <span className="spinner" />}
           Start free trial
         </button>

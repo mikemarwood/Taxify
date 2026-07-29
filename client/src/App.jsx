@@ -4,6 +4,8 @@ import Layout from './components/Layout.jsx';
 import Landing from './pages/Landing.jsx';
 import Login from './pages/Login.jsx';
 import Register from './pages/Register.jsx';
+import Terms from './pages/Terms.jsx';
+import Privacy from './pages/Privacy.jsx';
 import Activate from './pages/Activate.jsx';
 import AcceptInvite from './pages/AcceptInvite.jsx';
 import Dashboard from './pages/Dashboard.jsx';
@@ -54,6 +56,8 @@ export default function App() {
       <Route path="/landing" element={<Landing />} />
       <Route path="/login" element={<PublicOnly><Login /></PublicOnly>} />
       <Route path="/register" element={<PublicOnly><Register /></PublicOnly>} />
+      <Route path="/terms" element={<Terms />} />
+      <Route path="/privacy" element={<Privacy />} />
       <Route path="/activate" element={<Activate />} />
       <Route path="/accept-invite" element={<AcceptInvite />} />
       <Route path="/" element={<Protected><Dashboard /></Protected>} />

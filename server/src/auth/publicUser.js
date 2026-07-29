@@ -14,6 +14,8 @@ export function toPublicUser(user, mfaMode) {
     role: user.role || 'owner',
     accountHolderId: user.account_holder_id || null,
     planType: user.plan_type || null,
+    country: user.country || null,
+    businessName: user.business_name || null,
     subscriptionStatus: user.subscription_status || 'trialing',
     trialEndsAt: user.trial_ends_at || null,
     subscriptionCurrentPeriodEnd: user.subscription_current_period_end || null,

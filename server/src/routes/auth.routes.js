@@ -14,16 +14,9 @@ import { generateOtp, hashOtp, OTP_TTL_MINUTES, OTP_MAX_ATTEMPTS, OTP_LOCKOUT_MI
 import { toPublicUser } from '../auth/publicUser.js';
 import { computeAccessLocked } from '../auth/access.js';
 import { sendOtpEmail, sendActivationEmail, sendInviteEmail } from '../lib/mailer.js';
+import { ACTIVATION_TOKEN_DAYS, generateActivationToken } from '../auth/activationToken.js';
 
-const ACTIVATION_TOKEN_DAYS = 5;
 const TRIAL_DAYS = 14;
-
-function generateActivationToken() {
-  const token = crypto.randomBytes(32).toString('hex');
-  const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
-  const expiresAt = new Date(Date.now() + ACTIVATION_TOKEN_DAYS * 24 * 60 * 60 * 1000);
-  return { token, tokenHash, expiresAt };
-}
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const avatarsDir = path.join(__dirname, '..', '..', 'uploads', 'avatars');
@@ -55,7 +48,7 @@ router.post(
       return res.status(403).json({ error: 'Registrations are currently closed' });
     }
 
-    const { email, password, name, planType } = req.body || {};
+    const { email, password, name, planType, country, businessName, referralSource, termsAccepted } = req.body || {};
 
     if (!email || !password || !name) {
       return res.status(400).json({ error: 'Name, email and password are required' });
@@ -65,7 +58,14 @@ router.post(
         error: 'Password must be at least 8 characters and include an uppercase letter, a lowercase letter, and a number',
       });
     }
+    if (termsAccepted !== true) {
+      return res.status(400).json({ error: 'You must accept the Terms of Service and Privacy Policy to continue' });
+    }
     const finalPlanType = planType === 'family' ? 'family' : 'individual';
+
+    const trimmedCountry = country ? String(country).trim().slice(0, 80) : null;
+    const trimmedBusinessName = businessName ? String(businessName).trim().slice(0, 255) : null;
+    const trimmedReferralSource = referralSource ? String(referralSource).trim().slice(0, 100) : null;
 
     const normalizedEmail = String(email).trim().toLowerCase();
     const passwordHash = hashPassword(password);
@@ -76,9 +76,20 @@ router.post(
     let userId;
     try {
       const [result] = await pool.execute(
-        `INSERT INTO users (email, password_hash, name, otp_enabled, otp_prompted, role, plan_type, activation_token_hash, activation_token_expires_at)
-         VALUES (?, ?, ?, ?, 0, 'owner', ?, ?, ?)`,
-        [normalizedEmail, passwordHash, String(name).trim(), otpEnabledAtSignup, finalPlanType, tokenHash, expiresAt]
+        `INSERT INTO users (email, password_hash, name, otp_enabled, otp_prompted, role, plan_type, country, business_name, referral_source, terms_accepted_at, activation_token_hash, activation_token_expires_at)
+         VALUES (?, ?, ?, ?, 0, 'owner', ?, ?, ?, ?, NOW(), ?, ?)`,
+        [
+          normalizedEmail,
+          passwordHash,
+          String(name).trim(),
+          otpEnabledAtSignup,
+          finalPlanType,
+          trimmedCountry,
+          trimmedBusinessName,
+          trimmedReferralSource,
+          tokenHash,
+          expiresAt,
+        ]
       );
       userId = result.insertId;
     } catch (err) {
@@ -251,11 +262,24 @@ router.post(
       return res.status(400).json({ error: 'This invitation link is invalid or has expired.' });
     }
 
+    // Invited sub_user/accountant rows ride on their account holder's
+    // subscription (see computeAccessLocked), so they don't need their own
+    // trial. A standalone owner row created by an admin does need one,
+    // same as a self-registered owner gets on activation.
+    const needsOwnTrial = user.role === 'owner';
+    const trialEndsAt = needsOwnTrial ? new Date(Date.now() + TRIAL_DAYS * 24 * 60 * 60 * 1000) : null;
+
     await pool.execute(
       `UPDATE users SET password_hash = ?, activated_at = NOW(), activation_token_hash = NULL, activation_token_expires_at = NULL
+       ${needsOwnTrial ? ", trial_ends_at = ?, subscription_status = 'trialing'" : ''}
        WHERE id = ?`,
-      [hashPassword(password), user.id]
+      needsOwnTrial ? [hashPassword(password), trialEndsAt, user.id] : [hashPassword(password), user.id]
     );
+
+    if (needsOwnTrial) {
+      user.trial_ends_at = trialEndsAt;
+      user.subscription_status = 'trialing';
+    }
 
     const jwt = signToken(user);
     res.cookie(COOKIE_NAME, jwt, cookieOptions());
@@ -442,15 +466,23 @@ router.patch(
   '/profile',
   requireAuth,
   asyncHandler(async (req, res) => {
-    const { name, email } = req.body || {};
+    const { name, email, country, businessName } = req.body || {};
     if (!name || !String(name).trim()) return res.status(400).json({ error: 'Name is required' });
     if (!email || !String(email).trim()) return res.status(400).json({ error: 'Email is required' });
 
     const normalizedEmail = String(email).trim().toLowerCase();
     const trimmedName = String(name).trim();
+    const trimmedCountry = country ? String(country).trim().slice(0, 80) : null;
+    const trimmedBusinessName = businessName ? String(businessName).trim().slice(0, 255) : null;
 
     try {
-      await pool.execute('UPDATE users SET name = ?, email = ? WHERE id = ?', [trimmedName, normalizedEmail, req.user.id]);
+      await pool.execute('UPDATE users SET name = ?, email = ?, country = ?, business_name = ? WHERE id = ?', [
+        trimmedName,
+        normalizedEmail,
+        trimmedCountry,
+        trimmedBusinessName,
+        req.user.id,
+      ]);
     } catch (err) {
       if (err.code === 'ER_DUP_ENTRY') {
         return res.status(409).json({ error: 'An account with that email already exists' });
@@ -458,7 +490,9 @@ router.patch(
       throw err;
     }
 
-    res.json({ user: { ...req.user, name: trimmedName, email: normalizedEmail } });
+    res.json({
+      user: { ...req.user, name: trimmedName, email: normalizedEmail, country: trimmedCountry, businessName: trimmedBusinessName },
+    });
   })
 );
 

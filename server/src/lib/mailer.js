@@ -170,6 +170,29 @@ export async function sendInviteEmail(to, name, role, acceptUrl, inviterName) {
   });
 }
 
+export async function sendAdminCreatedAccountEmail(to, name, acceptUrl) {
+  await sendMail({
+    to,
+    subject: 'An account has been created for you on Taxify',
+    title: 'Account Created',
+    heading: `Hi ${name},`,
+    bodyHtml: `
+      <p style="font-size:14px;color:#4b5563;margin:0 0 20px;line-height:1.5;">
+        An administrator has created a Taxify account for you. Set a password to finish setting it up and
+        start your 14-day free trial with full access to every feature.
+      </p>
+      <div style="text-align:center;margin:0 0 20px;">
+        <a href="${acceptUrl}" style="display:inline-block;background:#1e3a8a;color:#ffffff;font-weight:700;font-size:14px;text-decoration:none;padding:14px 28px;border-radius:8px;">
+          Set my password
+        </a>
+      </div>
+      <p style="font-size:13px;color:#4b5563;margin:0;line-height:1.5;">
+        This link expires in 5 days.
+      </p>
+    `,
+  });
+}
+
 export async function sendTrialEndingEmail(to, name, daysLeft, trialEndsAt) {
   const when = new Date(trialEndsAt).toLocaleDateString(undefined, { day: '2-digit', month: 'long', year: 'numeric' });
   await sendMail({

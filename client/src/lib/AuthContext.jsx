@@ -30,8 +30,17 @@ export function AuthProvider({ children }) {
     return res.data.user;
   }, []);
 
-  const register = useCallback(async (name, email, password, planType) => {
-    const res = await api.post('/auth/register', { name, email: email.trim().toLowerCase(), password, planType });
+  const register = useCallback(async ({ name, email, password, planType, country, businessName, referralSource, termsAccepted }) => {
+    const res = await api.post('/auth/register', {
+      name,
+      email: email.trim().toLowerCase(),
+      password,
+      planType,
+      country,
+      businessName,
+      referralSource,
+      termsAccepted,
+    });
     return res.data;
   }, []);
 
@@ -56,8 +65,8 @@ export function AuthProvider({ children }) {
     setUser(null);
   }, []);
 
-  const updateProfile = useCallback(async (name, email) => {
-    const res = await api.patch('/auth/profile', { name, email: email.trim().toLowerCase() });
+  const updateProfile = useCallback(async (name, email, country, businessName) => {
+    const res = await api.patch('/auth/profile', { name, email: email.trim().toLowerCase(), country, businessName });
     setUser(res.data.user);
   }, []);
 

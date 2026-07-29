@@ -1,10 +1,14 @@
 import { Router } from 'express';
+import crypto from 'crypto';
 import pool, { getSetting, setSetting, getMfaMode } from '../db.js';
 import { requireAuth, requireAdmin } from '../auth/middleware.js';
 import { asyncHandler } from '../lib/asyncHandler.js';
 import { toTitleCase } from '../lib/text.js';
-import { getSmtpConfig, saveSmtpConfig, sendTestEmail } from '../lib/mailer.js';
+import { getSmtpConfig, saveSmtpConfig, sendTestEmail, sendAdminCreatedAccountEmail } from '../lib/mailer.js';
 import { getStripeAdminSettings, saveStripeAdminSettings, getStripeSecretKeyForMode } from '../lib/stripe.js';
+import { hashPassword } from '../auth/password.js';
+import { generateActivationToken } from '../auth/activationToken.js';
+import { seedDefaultCategories } from '../seed/defaultCategories.js';
 import Stripe from 'stripe';
 
 const router = Router();
@@ -16,7 +20,7 @@ router.get(
   '/users',
   asyncHandler(async (req, res) => {
     const [users] = await pool.execute(
-      `SELECT u.id, u.name, u.email, u.is_admin, u.avatar_path, u.created_at,
+      `SELECT u.id, u.name, u.email, u.is_admin, u.avatar_path, u.created_at, u.activated_at,
               (SELECT COUNT(*) FROM expenses e WHERE e.user_id = u.id) AS expense_count
        FROM users u
        ORDER BY u.created_at`
@@ -29,8 +33,55 @@ router.get(
         isAdmin: !!u.is_admin,
         avatarUrl: u.avatar_path ? `/api/auth/avatar/${u.id}` : null,
         createdAt: u.created_at,
+        active: !!u.activated_at,
         expenseCount: u.expense_count,
       })),
+    });
+  })
+);
+
+router.post(
+  '/users',
+  asyncHandler(async (req, res) => {
+    const { name, email, planType } = req.body || {};
+    if (!name || !String(name).trim()) return res.status(400).json({ error: 'Name is required' });
+    if (!email || !String(email).trim()) return res.status(400).json({ error: 'Email is required' });
+    if (planType !== undefined && planType !== 'individual' && planType !== 'family') {
+      return res.status(400).json({ error: "planType must be 'individual' or 'family'" });
+    }
+
+    const normalizedEmail = String(email).trim().toLowerCase();
+    const finalPlanType = planType === 'family' ? 'family' : 'individual';
+    const placeholderHash = hashPassword(crypto.randomBytes(32).toString('hex'));
+    const { token, tokenHash, expiresAt } = generateActivationToken();
+
+    let userId;
+    try {
+      const [result] = await pool.execute(
+        `INSERT INTO users (email, password_hash, name, role, plan_type, activation_token_hash, activation_token_expires_at)
+         VALUES (?, ?, ?, 'owner', ?, ?, ?)`,
+        [normalizedEmail, placeholderHash, String(name).trim(), finalPlanType, tokenHash, expiresAt]
+      );
+      userId = result.insertId;
+    } catch (err) {
+      if (err.code === 'ER_DUP_ENTRY') {
+        return res.status(409).json({ error: 'An account with that email already exists' });
+      }
+      throw err;
+    }
+
+    await seedDefaultCategories(pool, userId);
+
+    const acceptUrl = `${process.env.CLIENT_ORIGIN || 'http://localhost:5173'}/accept-invite?token=${token}`;
+    try {
+      await sendAdminCreatedAccountEmail(normalizedEmail, String(name).trim(), acceptUrl);
+    } catch (err) {
+      console.error('Failed to send admin-created-account email', err);
+    }
+
+    res.status(201).json({
+      user: { id: userId, name: String(name).trim(), email: normalizedEmail, planType: finalPlanType, active: false },
+      acceptUrl,
     });
   })
 );

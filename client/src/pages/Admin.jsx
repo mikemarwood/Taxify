@@ -42,6 +42,116 @@ export default function Admin() {
   );
 }
 
+function CreateUserForm({ onCreated }) {
+  const toast = useToast();
+  const [open, setOpen] = useState(false);
+  const [name, setName] = useState('');
+  const [email, setEmail] = useState('');
+  const [planType, setPlanType] = useState('individual');
+  const [busy, setBusy] = useState(false);
+  const [acceptUrl, setAcceptUrl] = useState(null);
+
+  function reset() {
+    setName('');
+    setEmail('');
+    setPlanType('individual');
+    setOpen(false);
+  }
+
+  async function onSubmit(e) {
+    e.preventDefault();
+    setBusy(true);
+    try {
+      const res = await api.post('/admin/users', { name: name.trim(), email: email.trim(), planType });
+      toast('User created — invite link sent', 'success');
+      setAcceptUrl(res.data.acceptUrl);
+      reset();
+      onCreated();
+    } catch (err) {
+      toast(err.message, 'error');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function copyLink() {
+    try {
+      await navigator.clipboard.writeText(acceptUrl);
+      toast('Link copied', 'success');
+    } catch {
+      toast('Could not copy — select and copy the link manually', 'error');
+    }
+  }
+
+  if (!open && !acceptUrl) {
+    return (
+      <button className="btn btn-primary" style={{ marginBottom: 16 }} onClick={() => setOpen(true)}>
+        Create user
+      </button>
+    );
+  }
+
+  return (
+    <div style={{ marginBottom: 20, display: 'flex', flexDirection: 'column', gap: 12 }}>
+      {open && (
+        <form onSubmit={onSubmit} className="card" style={{ padding: 20, display: 'flex', flexDirection: 'column', gap: 14 }}>
+          <div style={{ fontWeight: 700 }}>Create user</div>
+          <div style={{ display: 'flex', gap: 12 }}>
+            <input
+              className="input"
+              required
+              placeholder="Name"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              style={{ flex: 1 }}
+            />
+            <input
+              className="input"
+              required
+              type="email"
+              placeholder="Email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value.toLowerCase())}
+              style={{ flex: 1 }}
+            />
+          </div>
+          <select className="input" value={planType} onChange={(e) => setPlanType(e.target.value)} style={{ width: 200 }}>
+            <option value="individual">Individual plan</option>
+            <option value="family">Family plan</option>
+          </select>
+          <p style={{ fontSize: 12, color: 'var(--text-muted)', margin: 0 }}>
+            They'll get an email with a link to set their own password and start their 14-day trial.
+          </p>
+          <div style={{ display: 'flex', gap: 10 }}>
+            <button className="btn btn-primary" type="submit" disabled={busy || !name.trim() || !email.trim()}>
+              {busy && <span className="spinner" />}
+              Create &amp; send invite
+            </button>
+            <button type="button" className="btn btn-ghost" onClick={reset} disabled={busy}>
+              Cancel
+            </button>
+          </div>
+        </form>
+      )}
+
+      {acceptUrl && (
+        <div className="card" style={{ padding: 16, display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+          <span style={{ fontSize: 13, flex: 1, minWidth: 200 }}>
+            Invite link (in case the email doesn't arrive):{' '}
+            <span style={{ color: 'var(--text-muted)', wordBreak: 'break-all' }}>{acceptUrl}</span>
+          </span>
+          <button type="button" className="btn btn-ghost" style={{ fontSize: 12, padding: '6px 12px' }} onClick={copyLink}>
+            Copy link
+          </button>
+          <button type="button" className="btn btn-ghost" style={{ fontSize: 12, padding: '6px 12px' }} onClick={() => setAcceptUrl(null)}>
+            Dismiss
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function UsersTab() {
   const { user: me } = useAuth();
   const toast = useToast();
@@ -72,10 +182,13 @@ function UsersTab() {
     }
   }
 
-  if (users === null) return <SkeletonList rows={4} />;
-
   return (
-    <div className="card" style={{ overflow: 'hidden' }}>
+    <div>
+      <CreateUserForm onCreated={load} />
+      {users === null ? (
+        <SkeletonList rows={4} />
+      ) : (
+        <div className="card" style={{ overflow: 'hidden' }}>
       <AnimatePresence initial={false}>
         {users.map((u, i) => (
           <motion.div
@@ -100,6 +213,20 @@ function UsersTab() {
                 {new Date(u.createdAt).toLocaleDateString()}
               </div>
             </div>
+            {!u.active && (
+              <span
+                style={{
+                  fontSize: 12,
+                  fontWeight: 600,
+                  padding: '4px 10px',
+                  borderRadius: 999,
+                  color: 'var(--amber)',
+                  background: 'rgba(245, 158, 11, 0.15)',
+                }}
+              >
+                Invite pending
+              </span>
+            )}
             {u.isAdmin && (
               <span
                 style={{
@@ -135,6 +262,8 @@ function UsersTab() {
           </motion.div>
         ))}
       </AnimatePresence>
+        </div>
+      )}
     </div>
   );
 }

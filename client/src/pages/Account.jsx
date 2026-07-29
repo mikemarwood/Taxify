@@ -333,6 +333,8 @@ export default function Account() {
 
   const [name, setName] = useState(user.name);
   const [email, setEmail] = useState(user.email);
+  const [country, setCountry] = useState(user.country || '');
+  const [businessName, setBusinessName] = useState(user.businessName || '');
   const [profileBusy, setProfileBusy] = useState(false);
 
   const [currentPassword, setCurrentPassword] = useState('');
@@ -354,13 +356,17 @@ export default function Account() {
     }
   }
 
-  const profileChanged = name.trim() !== user.name || email.trim().toLowerCase() !== user.email;
+  const profileChanged =
+    name.trim() !== user.name ||
+    email.trim().toLowerCase() !== user.email ||
+    country.trim() !== (user.country || '') ||
+    businessName.trim() !== (user.businessName || '');
 
   async function onSaveProfile(e) {
     e.preventDefault();
     setProfileBusy(true);
     try {
-      await updateProfile(name.trim(), email.trim());
+      await updateProfile(name.trim(), email.trim(), country.trim(), businessName.trim());
       toast('Account details updated', 'success');
     } catch (err) {
       toast(err.message, 'error');
@@ -410,6 +416,23 @@ export default function Account() {
         <div>
           <label className="label">Email</label>
           <input className="input" required type="email" value={email} onChange={(e) => setEmail(e.target.value.toLowerCase())} />
+        </div>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+          <div>
+            <label className="label">Business name (optional)</label>
+            <input className="input" value={businessName} onChange={(e) => setBusinessName(e.target.value)} />
+          </div>
+          <div>
+            <label className="label">Country</label>
+            <select className="input" value={country} onChange={(e) => setCountry(e.target.value)}>
+              <option value="">—</option>
+              {['Australia', 'New Zealand', 'United Kingdom', 'United States', 'Canada', 'Other'].map((c) => (
+                <option key={c} value={c}>
+                  {c}
+                </option>
+              ))}
+            </select>
+          </div>
         </div>
         <button className="btn btn-primary" type="submit" disabled={profileBusy || !profileChanged} style={{ alignSelf: 'flex-start' }}>
           {profileBusy && <span className="spinner" />}
