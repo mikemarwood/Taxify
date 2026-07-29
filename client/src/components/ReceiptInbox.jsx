@@ -81,7 +81,6 @@ export default function ReceiptInbox({ onClose, onChanged }) {
   const [search, setSearch] = useState('');
   const [categoryId, setCategoryId] = useState('all');
   const [year, setYear] = useState('all');
-  const [onlyMissing, setOnlyMissing] = useState(true);
   const [expenseSort, setExpenseSort] = useState('date-desc');
   const [fileSort, setFileSort] = useState('newest');
 
@@ -91,11 +90,15 @@ export default function ReceiptInbox({ onClose, onChanged }) {
   const [preview, setPreview] = useState(null);
 
   const [picked, setPicked] = useState(null); // receipt chosen by click (touch-friendly)
-  const [keepInInbox, setKeepInInbox] = useState(false); // copy instead of move
   const draggingRef = useRef(null); // receipt being dragged
   const [dropTarget, setDropTarget] = useState(null); // expense id under the pointer
   const [assigning, setAssigning] = useState(null);
   const [expanded, setExpanded] = useState(null); // expense id showing its details
+  const [menu, setMenu] = useState(null); // right-click / drop menu: { x, y, kind, ... }
+  // Expenses filed during this session. They'd otherwise vanish the moment
+  // they're given a receipt, taking the confirmation and the filed-under path
+  // with them, so they stay put until the dialog closes.
+  const [justFiled, setJustFiled] = useState(() => new Set());
 
   const loadInbox = useCallback(() => {
     api
@@ -173,7 +176,10 @@ export default function ReceiptInbox({ onClose, onChanged }) {
     }
   }
 
-  async function assign(receipt, expense) {
+  // `keep` is the copy-vs-move choice: copying leaves the original staged so
+  // the same docket can cover the next expense too. Either way the file lands
+  // in that expense's own year/category folder.
+  async function assign(receipt, expense, keep) {
     if (!receipt || !expense) return;
     setDropTarget(null);
     // Attaching over an existing receipt deletes the old file when nothing
@@ -191,16 +197,18 @@ export default function ReceiptInbox({ onClose, onChanged }) {
       const res = await api.post(`/expenses/${expense.id}/receipt/from-inbox`, {
         filename: receipt.filename,
         folder: receipt.folder || undefined,
-        keep: keepInInbox || undefined,
+        keep: keep || undefined,
       });
-      // In keep mode the original stays staged and stays selected, so the next
-      // expense is one click away.
-      if (!res.data.keptInInbox) {
+      if (res.data.keptInInbox) {
+        // Stays staged and stays selected, so the next expense is one click away.
+        setPicked(receipt);
+      } else {
         setFiles((prev) =>
           prev.filter((f) => !(f.filename === receipt.filename && (f.folder || '') === (receipt.folder || '')))
         );
         setPicked(null);
       }
+      setJustFiled((prev) => new Set(prev).add(expense.id));
       setExpenses((prev) =>
         prev.map((e) =>
           e.id === expense.id
@@ -216,7 +224,7 @@ export default function ReceiptInbox({ onClose, onChanged }) {
       toast(
         res.data.keptInInbox
           ? `Copied to “${expense.itemName}” — still in the inbox`
-          : `Attached to “${expense.itemName}”`,
+          : `Moved to “${expense.itemName}”`,
         'success'
       );
       onChanged?.();
@@ -225,6 +233,17 @@ export default function ReceiptInbox({ onClose, onChanged }) {
     } finally {
       setAssigning(null);
     }
+  }
+
+  // A drop or a click on an expense asks whether to move or copy, unless a
+  // modifier already said which — Ctrl copies, Shift moves, matching the
+  // usual desktop drag conventions.
+  function requestAssign(receipt, expense, evt) {
+    if (!receipt || !expense) return;
+    setDropTarget(null);
+    if (evt?.ctrlKey || evt?.metaKey) return assign(receipt, expense, true);
+    if (evt?.shiftKey) return assign(receipt, expense, false);
+    setMenu({ kind: 'assign', x: evt.clientX, y: evt.clientY, receipt, expense });
   }
 
   async function discard(receipt) {
@@ -260,8 +279,10 @@ export default function ReceiptInbox({ onClose, onChanged }) {
   );
 
   const matchingExpenses = useMemo(() => {
-    let list = expenses || [];
-    if (onlyMissing) list = list.filter((e) => !e.receiptUrl);
+    // The list exists to find homes for staged receipts, so an expense that
+    // already has one is noise — except the ones filed just now, which stay so
+    // you can see where they landed.
+    let list = (expenses || []).filter((e) => !e.receiptUrl || justFiled.has(e.id));
     if (categoryId !== 'all') list = list.filter((e) => String(e.category?.id) === categoryId);
     if (year !== 'all') list = list.filter((e) => e.financialYear === year);
     const q = search.trim().toLowerCase();
@@ -275,7 +296,7 @@ export default function ReceiptInbox({ onClose, onChanged }) {
       );
     }
     return [...list].sort(EXPENSE_SORTS[expenseSort].compare);
-  }, [expenses, onlyMissing, categoryId, year, search, expenseSort]);
+  }, [expenses, justFiled, categoryId, year, search, expenseSort]);
 
   // Rendering thousands of rows makes the drag laggy, so the list is capped —
   // visibly, with the total alongside, so a missing expense reads as "narrow
@@ -345,11 +366,11 @@ export default function ReceiptInbox({ onClose, onChanged }) {
             <p style={{ color: 'var(--text-muted)', margin: '5px 0 14px', fontSize: 13 }}>
               {picked ? (
                 <>
-                  <strong style={{ color: 'var(--violet)' }}>“{picked.filename}”</strong> selected — click an expense to{' '}
-                  {keepInInbox ? 'copy it there' : 'attach it'}.
+                  <strong style={{ color: 'var(--violet)' }}>“{picked.filename}”</strong> selected — click an expense and
+                  choose move or copy.
                 </>
               ) : (
-                'Drag a receipt onto an expense to attach it, or click the receipt then the expense. Click ⓘ on a row to see where its receipt is filed.'
+                'Drag a receipt onto an expense (or click the receipt, then the expense) and choose move or copy. Hold Shift to move or Ctrl to copy without being asked. Right-click a receipt to preview it.'
               )}
             </p>
           </div>
@@ -455,27 +476,6 @@ export default function ReceiptInbox({ onClose, onChanged }) {
                 </select>
               </div>
 
-              <label
-                title="Attach the same receipt to more than one expense — each gets its own copy in its own year/category folder."
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 7,
-                  fontSize: 12.5,
-                  marginTop: 8,
-                  padding: '6px 9px',
-                  borderRadius: 8,
-                  flexShrink: 0,
-                  cursor: 'pointer',
-                  color: keepInInbox ? 'var(--violet)' : 'var(--text-muted)',
-                  border: `1px solid ${keepInInbox ? 'var(--violet)' : 'var(--border)'}`,
-                  background: keepInInbox ? 'rgba(139, 92, 246, 0.10)' : 'transparent',
-                }}
-              >
-                <input type="checkbox" checked={keepInInbox} onChange={(e) => setKeepInInbox(e.target.checked)} />
-                Keep a copy in the inbox (attach to several expenses)
-              </label>
-
               {folders.length > 0 && (
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, margin: '10px 0 4px', flexShrink: 0 }}>
                   {folderTabs.map((t) => (
@@ -513,7 +513,14 @@ export default function ReceiptInbox({ onClose, onChanged }) {
                       const key = `${f.folder || ''}/${f.filename}`;
                       const isPicked = picked && picked.filename === f.filename && (picked.folder || '') === (f.folder || '');
                       return (
-                        <div key={key} style={{ position: 'relative' }}>
+                        <div
+                          key={key}
+                          style={{ position: 'relative' }}
+                          onContextMenu={(e) => {
+                            e.preventDefault();
+                            setMenu({ kind: 'receipt', x: e.clientX, y: e.clientY, receipt: f });
+                          }}
+                        >
                           <div
                             draggable
                             onDragStart={(e) => {
@@ -526,7 +533,7 @@ export default function ReceiptInbox({ onClose, onChanged }) {
                               setDropTarget(null);
                             }}
                             onClick={() => setPicked(isPicked ? null : f)}
-                            title={`${f.folder ? `${f.folder}/` : ''}${f.filename}`}
+                            title={`${f.folder ? `${f.folder}/` : ''}${f.filename} — right-click for options`}
                             style={{
                               height: 88,
                               borderRadius: 10,
@@ -653,12 +660,9 @@ export default function ReceiptInbox({ onClose, onChanged }) {
                   ))}
                 </select>
               </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8, flexShrink: 0 }}>
-                <label style={{ display: 'flex', alignItems: 'center', gap: 7, fontSize: 12.5, color: 'var(--text-muted)', cursor: 'pointer' }}>
-                  <input type="checkbox" checked={onlyMissing} onChange={(e) => setOnlyMissing(e.target.checked)} />
-                  Only expenses without a receipt ({missingCount})
-                </label>
-                <span style={{ marginLeft: 'auto', fontSize: 12, color: 'var(--text-muted)' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8, flexShrink: 0, fontSize: 12, color: 'var(--text-muted)' }}>
+                <span>{missingCount} still need a receipt</span>
+                <span style={{ marginLeft: 'auto' }}>
                   {matchingExpenses.length > MAX_ROWS
                     ? `showing ${MAX_ROWS} of ${matchingExpenses.length} — narrow the search`
                     : `${matchingExpenses.length} shown`}
@@ -679,7 +683,7 @@ export default function ReceiptInbox({ onClose, onChanged }) {
                         <div
                           onDragOver={(evt) => {
                             evt.preventDefault();
-                            evt.dataTransfer.dropEffect = keepInInbox ? 'copy' : 'move';
+                            evt.dataTransfer.dropEffect = evt.ctrlKey || evt.metaKey ? 'copy' : 'move';
                             if (dropTarget !== e.id) setDropTarget(e.id);
                           }}
                           onDragLeave={() => setDropTarget((cur) => (cur === e.id ? null : cur))}
@@ -687,9 +691,9 @@ export default function ReceiptInbox({ onClose, onChanged }) {
                             evt.preventDefault();
                             const receipt = draggingRef.current;
                             draggingRef.current = null;
-                            assign(receipt, e);
+                            requestAssign(receipt, e, evt);
                           }}
-                          onClick={() => (picked ? assign(picked, e) : setExpanded(isOpen ? null : e.id))}
+                          onClick={(evt) => (picked ? requestAssign(picked, e, evt) : setExpanded(isOpen ? null : e.id))}
                           style={{
                             display: 'flex',
                             alignItems: 'center',
@@ -708,8 +712,11 @@ export default function ReceiptInbox({ onClose, onChanged }) {
                             {e.itemName}
                           </span>
                           <CategoryBadge category={e.category} />
-                          <span style={{ width: 16, textAlign: 'center' }} title={e.receiptUrl ? 'Has a receipt' : 'No receipt yet'}>
-                            {e.receiptUrl ? '🧾' : '—'}
+                          <span
+                            style={{ width: 16, textAlign: 'center' }}
+                            title={justFiled.has(e.id) ? 'Filed just now — open ⓘ to see where' : 'No receipt yet'}
+                          >
+                            {justFiled.has(e.id) ? '✅' : '—'}
                           </span>
                           <span style={{ width: 64, textAlign: 'right', fontWeight: 700 }}>${e.amount.toFixed(2)}</span>
                           <button
@@ -761,10 +768,160 @@ export default function ReceiptInbox({ onClose, onChanged }) {
           </div>
         </motion.div>
       </motion.div>
+      {menu?.kind === 'receipt' && (
+        <PopMenu
+          x={menu.x}
+          y={menu.y}
+          title={menu.receipt.filename}
+          onClose={() => setMenu(null)}
+          items={[
+            {
+              label: '🔍 Preview (scroll to zoom)',
+              onSelect: () =>
+                setPreview({
+                  url: inboxFileUrl(menu.receipt.filename, menu.receipt.folder),
+                  filename: menu.receipt.filename,
+                }),
+            },
+            {
+              label: picked && picked.filename === menu.receipt.filename ? '✓ Selected' : '👆 Select for assigning',
+              onSelect: () => setPicked(menu.receipt),
+            },
+            {
+              label: '↗ Open in a new tab',
+              onSelect: () =>
+                window.open(inboxFileUrl(menu.receipt.filename, menu.receipt.folder), '_blank', 'noopener'),
+            },
+            { label: '🗑 Discard', danger: true, onSelect: () => discard(menu.receipt) },
+          ]}
+        />
+      )}
+
+      {menu?.kind === 'assign' && (
+        <PopMenu
+          x={menu.x}
+          y={menu.y}
+          title={`“${menu.receipt.filename}” → ${menu.expense.itemName}`}
+          onClose={() => setMenu(null)}
+          items={[
+            {
+              label: '📁 Move here',
+              hint: 'files it under this expense and clears it from the inbox',
+              onSelect: () => assign(menu.receipt, menu.expense, false),
+            },
+            {
+              label: '📋 Copy here',
+              hint: 'files a copy and keeps the original staged for other expenses',
+              onSelect: () => assign(menu.receipt, menu.expense, true),
+            },
+          ]}
+        />
+      )}
+
       {preview && (
         <ReceiptLightbox url={preview.url} filename={preview.filename} onClose={() => setPreview(null)} />
       )}
     </AnimatePresence>
+  );
+}
+
+// Small menu anchored at the pointer, for the right-click options on a receipt
+// and the move/copy choice on a drop. Nudged back on-screen when it would run
+// off the right or bottom edge.
+function PopMenu({ x, y, title, items, onClose }) {
+  const ref = useRef(null);
+  const [pos, setPos] = useState({ left: x, top: y });
+
+  useEffect(() => {
+    const node = ref.current;
+    if (!node) return;
+    const { width, height } = node.getBoundingClientRect();
+    setPos({
+      left: Math.max(8, Math.min(x, window.innerWidth - width - 8)),
+      top: Math.max(8, Math.min(y, window.innerHeight - height - 8)),
+    });
+  }, [x, y]);
+
+  useEffect(() => {
+    function onKeyDown(e) {
+      if (e.key === 'Escape') {
+        // Same node as the dialog's own Escape handler, so plain
+        // stopPropagation wouldn't keep the dialog from closing too.
+        e.stopImmediatePropagation();
+        onClose();
+      }
+    }
+    window.addEventListener('keydown', onKeyDown, true);
+    return () => window.removeEventListener('keydown', onKeyDown, true);
+  }, [onClose]);
+
+  return (
+    <div onClick={onClose} onContextMenu={(e) => e.preventDefault()} style={{ position: 'fixed', inset: 0, zIndex: 1400 }}>
+      <div
+        ref={ref}
+        className="card"
+        onClick={(e) => e.stopPropagation()}
+        style={{
+          position: 'absolute',
+          left: pos.left,
+          top: pos.top,
+          minWidth: 210,
+          maxWidth: 300,
+          padding: 5,
+          boxShadow: '0 12px 32px rgba(0, 0, 0, 0.45)',
+        }}
+      >
+        {title && (
+          <div
+            style={{
+              fontSize: 11,
+              color: 'var(--text-muted)',
+              padding: '5px 9px 7px',
+              borderBottom: '1px solid var(--border)',
+              marginBottom: 4,
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap',
+            }}
+          >
+            {title}
+          </div>
+        )}
+        {items.map((item) => (
+          <button
+            key={item.label}
+            type="button"
+            onClick={() => {
+              onClose();
+              item.onSelect();
+            }}
+            style={{
+              display: 'block',
+              width: '100%',
+              textAlign: 'left',
+              padding: '7px 9px',
+              borderRadius: 7,
+              border: 'none',
+              background: 'transparent',
+              color: item.danger ? 'var(--red, #ef4444)' : 'var(--text)',
+              fontSize: 12.5,
+              cursor: 'pointer',
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.background = 'var(--bg-elevated)';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.background = 'transparent';
+            }}
+          >
+            <span style={{ fontWeight: 600 }}>{item.label}</span>
+            {item.hint && (
+              <span style={{ display: 'block', fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>{item.hint}</span>
+            )}
+          </button>
+        ))}
+      </div>
+    </div>
   );
 }
 
@@ -794,28 +951,39 @@ function ExpenseDetails({ expense, onPreview, onCopyPath }) {
       </div>
       {expense.notes && <div style={{ color: 'var(--text-muted)', whiteSpace: 'pre-wrap' }}>{expense.notes}</div>}
 
-      {expense.receiptPath ? (
+      {/* Keyed off the receipt itself, not the path: an older server build
+          returns no receiptPath, and "no receipt yet" would be a lie. */}
+      {expense.receiptUrl ? (
         <>
           <div style={{ fontWeight: 600, color: 'var(--text-muted)', fontSize: 11, textTransform: 'uppercase', letterSpacing: 0.4 }}>
             Receipt location
           </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 4, flexWrap: 'wrap', fontFamily: 'monospace', fontSize: 11.5 }}>
-            <span style={{ color: 'var(--text-muted)' }}>uploads</span>
-            {segments.map((seg, i) => (
-              <span key={i} style={{ color: 'var(--text-muted)' }}>
-                / {seg}
-              </span>
-            ))}
-            <span>/ </span>
-            <span style={{ fontWeight: 700, wordBreak: 'break-all' }}>{filename}</span>
-          </div>
+          {expense.receiptPath ? (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 4, flexWrap: 'wrap', fontFamily: 'monospace', fontSize: 11.5 }}>
+              <span style={{ color: 'var(--text-muted)' }}>uploads</span>
+              {segments.map((seg, i) => (
+                <span key={i} style={{ color: 'var(--text-muted)' }}>
+                  / {seg}
+                </span>
+              ))}
+              <span>/ </span>
+              <span style={{ fontWeight: 700, wordBreak: 'break-all' }}>{filename}</span>
+            </div>
+          ) : (
+            <div style={{ fontFamily: 'monospace', fontSize: 11.5, wordBreak: 'break-all' }}>
+              {expense.receiptFilename || 'Receipt attached'}
+              <span style={{ fontFamily: 'inherit', color: 'var(--text-muted)' }}> — restart the server to see its full path</span>
+            </div>
+          )}
           <div style={{ display: 'flex', gap: 8 }}>
             <button type="button" className="btn btn-ghost" style={{ fontSize: 11.5, padding: '4px 10px' }} onClick={onPreview}>
               🔍 Preview
             </button>
-            <button type="button" className="btn btn-ghost" style={{ fontSize: 11.5, padding: '4px 10px' }} onClick={onCopyPath}>
-              Copy path
-            </button>
+            {expense.receiptPath && (
+              <button type="button" className="btn btn-ghost" style={{ fontSize: 11.5, padding: '4px 10px' }} onClick={onCopyPath}>
+                Copy path
+              </button>
+            )}
           </div>
         </>
       ) : (
