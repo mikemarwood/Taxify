@@ -10,6 +10,7 @@ export const CATEGORY_MAP = {
   Electronics: 'Electronics',
   'Home Rental': 'Home Rental',
   'Two Rocks Electrical': 'Two Rocks Electrical',
+  'Mikes App Hub': 'Mikes App Hub',
 };
 export const FALLBACK_CATEGORY = 'Business';
 export const SKIP_SHEETS = new Set(['Outcome']);
