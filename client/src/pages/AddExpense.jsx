@@ -37,6 +37,7 @@ export default function AddExpense() {
   const [file, setFile] = useState(null);
   const [pickedFilename, setPickedFilename] = useState(null);
   const [pickedSource, setPickedSource] = useState(null); // 'inbox' | 'folder'
+  const [pickedFolder, setPickedFolder] = useState(''); // inbox subfolder, '' = root
   const [submitting, setSubmitting] = useState(false);
   const [progress, setProgress] = useState(0);
   const [submitted, setSubmitted] = useState(false);
@@ -53,9 +54,10 @@ export default function AddExpense() {
     setReceiptError('');
   }
 
-  function onPickReceipt(filename, source) {
+  function onPickReceipt(filename, source, folder) {
     setPickedFilename(filename);
     setPickedSource(source || 'folder');
+    setPickedFolder(folder || '');
     setFile(null);
     setReceiptStatus('idle');
     setReceiptError('');
@@ -105,6 +107,7 @@ export default function AddExpense() {
     else if (pickedFilename) {
       form.append('receiptFilename', pickedFilename);
       form.append('receiptSource', pickedSource || 'folder');
+      if (pickedFolder) form.append('receiptFolder', pickedFolder);
     }
 
     try {
@@ -282,6 +285,7 @@ export default function AddExpense() {
           )}
           <ReceiptGallery
             categoryId={categoryId}
+            categoryName={categories.find((c) => String(c.id) === categoryId)?.name}
             purchaseDate={purchaseDate}
             currentFilename={pickedFilename}
             onPick={onPickReceipt}

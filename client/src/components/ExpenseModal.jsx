@@ -52,6 +52,7 @@ export default function ExpenseModal({ expense, onClose, onSaved, onDeleted }) {
   const [file, setFile] = useState(null);
   const [pickedFilename, setPickedFilename] = useState(null);
   const [pickedSource, setPickedSource] = useState(null); // 'inbox' | 'folder'
+  const [pickedFolder, setPickedFolder] = useState(''); // inbox subfolder, '' = root
   const [removeReceipt, setRemoveReceipt] = useState(false);
   const [progress, setProgress] = useState(0);
   const [receiptStatus, setReceiptStatus] = useState('idle');
@@ -74,9 +75,10 @@ export default function ExpenseModal({ expense, onClose, onSaved, onDeleted }) {
     setReceiptError('');
   }
 
-  function onPickReceipt(filename, source) {
+  function onPickReceipt(filename, source, folder) {
     setPickedFilename(filename);
     setPickedSource(source || 'folder');
+    setPickedFolder(folder || '');
     setFile(null);
     setRemoveReceipt(false);
     setReceiptStatus('idle');
@@ -106,6 +108,7 @@ export default function ExpenseModal({ expense, onClose, onSaved, onDeleted }) {
     else if (pickedFilename) {
       form.append('receiptFilename', pickedFilename);
       form.append('receiptSource', pickedSource || 'folder');
+      if (pickedFolder) form.append('receiptFolder', pickedFolder);
     }
     if (removeReceipt) form.append('removeReceipt', 'true');
 
@@ -295,6 +298,7 @@ export default function ExpenseModal({ expense, onClose, onSaved, onDeleted }) {
                 )}
                 <ReceiptGallery
                   categoryId={categoryId}
+                  categoryName={selectedCategory?.name || expense.category?.name}
                   purchaseDate={purchaseDate}
                   currentFilename={expense.receiptFilename}
                   onPick={onPickReceipt}

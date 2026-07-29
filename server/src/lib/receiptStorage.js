@@ -46,8 +46,29 @@ export function userRootDir(uploadsRoot, email) {
 // leading underscore keeps it from ever colliding with a "2024-2025" segment.
 export const INBOX_SEGMENT = '_inbox';
 
-export function inboxDirFor(uploadsRoot, email) {
-  return path.join(userRootDir(uploadsRoot, email), INBOX_SEGMENT);
+export function inboxDirFor(uploadsRoot, email, folder) {
+  const base = path.join(userRootDir(uploadsRoot, email), INBOX_SEGMENT);
+  return folder ? path.join(base, folder) : base;
+}
+
+// The inbox may hold one level of subfolders, so an upload can keep the shape
+// it already had on disk ("Home Rental", "Tooling") and be browsed that way
+// when assigning. Same character rules as a filename — anything else is
+// rejected rather than sanitised, since these arrive from the client.
+const SAFE_FOLDER = /^[A-Za-z0-9][A-Za-z0-9._-]{0,60}$/;
+
+export function isSafeFolderName(name) {
+  return typeof name === 'string' && SAFE_FOLDER.test(name) && !name.includes('..');
+}
+
+// "Home Rental" -> "home-rental". Mirrors categoryToFolderSegment so a staged
+// folder lines up with the category it belongs to.
+export function toFolderSlug(raw) {
+  return String(raw || '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 60);
 }
 
 // Defense-in-depth: confirms `target` resolves to inside `root` before any

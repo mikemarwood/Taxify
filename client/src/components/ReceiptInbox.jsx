@@ -17,6 +17,29 @@ function placeholderFor(name) {
   return /\.(heic|heif)$/i.test(name) ? '🖼' : '📄';
 }
 
+function folderLabel(name) {
+  return name
+    .split('-')
+    .filter(Boolean)
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+    .join(' ');
+}
+
+// [folder, files][] with the unsorted root last, so named folders read first.
+function groupByFolder(files) {
+  const groups = new Map();
+  for (const f of files) {
+    const key = f.folder || '';
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key).push(f);
+  }
+  return Array.from(groups.entries()).sort(([a], [b]) => {
+    if (a === '') return 1;
+    if (b === '') return -1;
+    return a.localeCompare(b);
+  });
+}
+
 function formatSize(bytes) {
   if (!bytes) return '';
   if (bytes < 1024) return `${bytes} B`;
@@ -29,6 +52,7 @@ function formatSize(bytes) {
 export default function ReceiptInbox({ onClose, onChanged }) {
   const toast = useToast();
   const inputRef = useRef(null);
+  const folderInputRef = useRef(null);
   const [files, setFiles] = useState(null);
   const [dragOver, setDragOver] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -67,7 +91,14 @@ export default function ReceiptInbox({ onClose, onChanged }) {
     if (ok.length === 0) return;
 
     const form = new FormData();
-    for (const f of ok) form.append('receipts', f);
+    for (const f of ok) {
+      // A folder pick carries webkitRelativePath ("Receipts/Tooling/img.png").
+      // Sending it as the field filename lets the server stage the file under
+      // its folder; a plain file pick has no path and lands at the root.
+      const rel = f.webkitRelativePath;
+      if (rel && rel.includes('/')) form.append('receipts', f, rel);
+      else form.append('receipts', f);
+    }
 
     setUploading(true);
     setProgress(0);
@@ -88,10 +119,12 @@ export default function ReceiptInbox({ onClose, onChanged }) {
     }
   }
 
-  async function discard(filename) {
+  async function discard(filename, folder) {
     try {
-      await api.delete(`/expenses/receipts/inbox/${encodeURIComponent(filename)}`);
-      setFiles((prev) => prev.filter((f) => f.filename !== filename));
+      await api.delete(`/expenses/receipts/inbox/${encodeURIComponent(filename)}`, {
+        params: folder ? { folder } : undefined,
+      });
+      setFiles((prev) => prev.filter((f) => !(f.filename === filename && (f.folder || '') === (folder || ''))));
       onChanged?.();
     } catch (err) {
       toast(err.message, 'error');
@@ -185,6 +218,15 @@ export default function ReceiptInbox({ onClose, onChanged }) {
               hidden
               onChange={(e) => handleFiles(e.target.files)}
             />
+            <input
+              ref={folderInputRef}
+              type="file"
+              webkitdirectory=""
+              directory=""
+              multiple
+              hidden
+              onChange={(e) => handleFiles(e.target.files)}
+            />
             {uploading ? (
               <>
                 <div style={{ fontSize: 28 }}>⏳</div>
@@ -194,8 +236,35 @@ export default function ReceiptInbox({ onClose, onChanged }) {
               <>
                 <div style={{ fontSize: 30 }}>🧾</div>
                 <p style={{ marginTop: 8, fontWeight: 600 }}>Drop receipts here</p>
-                <p style={{ fontSize: 13, color: 'var(--text-muted)' }}>
-                  or click to browse — select as many as you like, images or PDF, 5MB each
+                <p style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 12 }}>
+                  images or PDF, 5MB each
+                </p>
+                <div style={{ display: 'flex', gap: 10, justifyContent: 'center' }}>
+                  <button
+                    type="button"
+                    className="btn btn-ghost"
+                    style={{ padding: '7px 14px', fontSize: 12.5 }}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      inputRef.current?.click();
+                    }}
+                  >
+                    📄 Choose files
+                  </button>
+                  <button
+                    type="button"
+                    className="btn btn-ghost"
+                    style={{ padding: '7px 14px', fontSize: 12.5 }}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      folderInputRef.current?.click();
+                    }}
+                  >
+                    📁 Choose a folder
+                  </button>
+                </div>
+                <p style={{ fontSize: 11.5, color: 'var(--text-muted)', marginTop: 10, marginBottom: 0 }}>
+                  Picking a folder keeps its subfolders, so you can browse by category when assigning.
                 </p>
               </>
             )}
@@ -211,79 +280,87 @@ export default function ReceiptInbox({ onClose, onChanged }) {
                 The inbox is empty. Anything you upload will appear here until you attach it to an expense.
               </p>
             ) : (
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(104px, 1fr))', gap: 12 }}>
-                {(files || []).map((f) => (
-                  <div key={f.filename} style={{ position: 'relative' }}>
-                    <button
-                      type="button"
-                      title={`${f.filename} — click to preview`}
-                      onClick={() => setPreview(inboxFileUrl(f.filename))}
-                      style={{
-                        width: '100%',
-                        height: 96,
-                        padding: 0,
-                        border: '1px solid var(--border)',
-                        borderRadius: 10,
-                        overflow: 'hidden',
-                        background: 'var(--bg-elevated)',
-                        cursor: 'pointer',
-                        display: 'block',
-                      }}
-                    >
-                      {isImageFilename(f.filename) ? (
-                        <img
-                          src={inboxFileUrl(f.filename)}
-                          alt=""
-                          style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
-                        />
-                      ) : (
-                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', fontSize: 28 }}>
-                          {placeholderFor(f.filename)}
-                        </div>
-                      )}
-                    </button>
-                    <button
-                      type="button"
-                      title="Discard"
-                      aria-label={`Discard ${f.filename}`}
-                      onClick={() => discard(f.filename)}
-                      style={{
-                        position: 'absolute',
-                        top: 4,
-                        right: 4,
-                        width: 22,
-                        height: 22,
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        borderRadius: 6,
-                        border: 'none',
-                        background: 'rgba(5, 6, 10, 0.66)',
-                        color: '#fff',
-                        fontSize: 13,
-                        lineHeight: 1,
-                        cursor: 'pointer',
-                      }}
-                    >
-                      ×
-                    </button>
-                    <div
-                      style={{
-                        fontSize: 10.5,
-                        color: 'var(--text-muted)',
-                        marginTop: 4,
-                        overflow: 'hidden',
-                        textOverflow: 'ellipsis',
-                        whiteSpace: 'nowrap',
-                      }}
-                      title={f.filename}
-                    >
-                      {f.filename}
-                    </div>
-                    <div style={{ fontSize: 10, color: 'var(--text-muted)' }}>{formatSize(f.sizeBytes)}</div>
+              groupByFolder(files || []).map(([folder, group]) => (
+                <div key={folder || '__root__'} style={{ marginBottom: 18 }}>
+                  <div style={{ fontSize: 12.5, fontWeight: 700, marginBottom: 8, color: 'var(--text)' }}>
+                    {folder ? `📁 ${folderLabel(folder)}` : '📄 Unsorted'}{' '}
+                    <span style={{ color: 'var(--text-muted)', fontWeight: 500 }}>· {group.length}</span>
                   </div>
-                ))}
-              </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(104px, 1fr))', gap: 12 }}>
+                    {group.map((f) => (
+                      <div key={`${f.folder || ''}/${f.filename}`} style={{ position: 'relative' }}>
+                        <button
+                          type="button"
+                          title={`${f.filename} — click to preview`}
+                          onClick={() => setPreview(inboxFileUrl(f.filename, f.folder))}
+                          style={{
+                            width: '100%',
+                            height: 96,
+                            padding: 0,
+                            border: '1px solid var(--border)',
+                            borderRadius: 10,
+                            overflow: 'hidden',
+                            background: 'var(--bg-elevated)',
+                            cursor: 'pointer',
+                            display: 'block',
+                          }}
+                        >
+                          {isImageFilename(f.filename) ? (
+                            <img
+                              src={inboxFileUrl(f.filename, f.folder)}
+                              alt=""
+                              style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+                            />
+                          ) : (
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', fontSize: 28 }}>
+                              {placeholderFor(f.filename)}
+                            </div>
+                          )}
+                        </button>
+                        <button
+                          type="button"
+                          title="Discard"
+                          aria-label={`Discard ${f.filename}`}
+                          onClick={() => discard(f.filename, f.folder)}
+                          style={{
+                            position: 'absolute',
+                            top: 4,
+                            right: 4,
+                            width: 22,
+                            height: 22,
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            borderRadius: 6,
+                            border: 'none',
+                            background: 'rgba(5, 6, 10, 0.66)',
+                            color: '#fff',
+                            fontSize: 13,
+                            lineHeight: 1,
+                            cursor: 'pointer',
+                          }}
+                        >
+                          ×
+                        </button>
+                        <div
+                          style={{
+                            fontSize: 10.5,
+                            color: 'var(--text-muted)',
+                            marginTop: 4,
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                            whiteSpace: 'nowrap',
+                          }}
+                          title={f.filename}
+                        >
+                          {f.filename}
+                        </div>
+                        <div style={{ fontSize: 10, color: 'var(--text-muted)' }}>{formatSize(f.sizeBytes)}</div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))
             )}
           </div>
 

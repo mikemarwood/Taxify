@@ -10,7 +10,15 @@ import { getVisibleUserIds } from '../auth/access.js';
 import { asyncHandler } from '../lib/asyncHandler.js';
 import { financialYearOf } from '../lib/financialYear.js';
 import { advanceDate } from '../lib/recurrence.js';
-import { receiptDirFor, inboxDirFor, assertWithin, isSafeFilename, stagedFilename } from '../lib/receiptStorage.js';
+import {
+  receiptDirFor,
+  inboxDirFor,
+  assertWithin,
+  isSafeFilename,
+  isSafeFolderName,
+  stagedFilename,
+  toFolderSlug,
+} from '../lib/receiptStorage.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const uploadsDir = path.join(__dirname, '..', '..', 'uploads');
@@ -80,34 +88,70 @@ const upload = multer({
 // into the owning expense's <user>/<financial-year>/<category> folder.
 // ---------------------------------------------------------------------------
 
-function inboxFor(email) {
-  return inboxDirFor(uploadsDir, email);
+function inboxFor(email, folder) {
+  return inboxDirFor(uploadsDir, email, folder);
+}
+
+// Rejects anything that isn't a valid single-level folder, so a caller can't
+// steer reads or writes outside the inbox. Returns null for "inbox root".
+function safeFolderParam(raw) {
+  if (raw === undefined || raw === null || raw === '') return null;
+  return isSafeFolderName(raw) ? raw : undefined; // undefined signals invalid
+}
+
+// A folder-mode upload sends each file's path relative to the chosen folder
+// (webkitRelativePath), so "Receipts/Tooling/img.png" is staged under
+// "tooling". Deeper nesting collapses to its first segment — the inbox is one
+// level deep by design.
+function uploadFolderFor(req, file) {
+  const explicit = req.body?.folder;
+  if (explicit) return isSafeFolderName(explicit) ? explicit : null;
+
+  const relative = file.originalname.includes('/') ? file.originalname : req.body?.relativePath;
+  if (!relative) return null;
+  const parts = String(relative).split('/').filter(Boolean);
+  if (parts.length < 2) return null;
+  const slug = toFolderSlug(parts[parts.length - 2]);
+  return isSafeFolderName(slug) ? slug : null;
 }
 
 const inboxUpload = multer({
   storage: multer.diskStorage({
     destination: (req, file, cb) => {
       try {
-        const dir = inboxFor(req.user.email);
+        const dir = inboxFor(req.user.email, uploadFolderFor(req, file));
         fs.mkdirSync(dir, { recursive: true });
-        cb(null, dir);
+        cb(null, assertWithin(uploadsDir, dir));
       } catch (err) {
         cb(err);
       }
     },
-    filename: (req, file, cb) => cb(null, stagedFilename(file.originalname, crypto.randomBytes(3).toString('hex'))),
+    filename: (req, file, cb) =>
+      cb(null, stagedFilename(path.basename(file.originalname), crypto.randomBytes(3).toString('hex'))),
   }),
-  limits: { fileSize: 5 * 1024 * 1024, files: 50 },
+  limits: { fileSize: 5 * 1024 * 1024, files: 200 },
   fileFilter: (req, file, cb) => {
     if (!isAllowedUpload(file)) return cb(new Error('Unsupported file type'));
     cb(null, true);
   },
 });
 
+// Once the last receipt leaves a staged folder, drop the folder too so the
+// picker stops offering an empty group.
+function pruneEmptyInboxFolder(email, folder) {
+  if (!folder) return;
+  try {
+    const dir = assertWithin(uploadsDir, inboxFor(email, folder));
+    if (fs.readdirSync(dir).length === 0) fs.rmdirSync(dir);
+  } catch {
+    // best effort — a non-empty or already-removed folder is fine
+  }
+}
+
 // Moves a staged file into its destination folder, renaming on collision.
 // Returns the filename actually stored, which is what goes in receipt_path.
-function moveFromInbox(email, filename, destDir) {
-  const source = assertWithin(uploadsDir, path.join(inboxFor(email), filename));
+function moveFromInbox(email, filename, destDir, folder) {
+  const source = assertWithin(uploadsDir, path.join(inboxFor(email, folder), filename));
   if (!fs.existsSync(source)) return null;
 
   fs.mkdirSync(destDir, { recursive: true });
@@ -127,6 +171,7 @@ function moveFromInbox(email, filename, destDir) {
     fs.copyFileSync(source, target);
     fs.unlinkSync(source);
   }
+  pruneEmptyInboxFolder(email, folder);
   return finalName;
 }
 
@@ -278,7 +323,7 @@ router.post(
     };
 
     try {
-      const { itemName, amount, currency, purchaseDate, categoryId, notes, isRecurring, frequency, receiptFilename, receiptSource } = req.body || {};
+      const { itemName, amount, currency, purchaseDate, categoryId, notes, isRecurring, frequency, receiptFilename, receiptSource, receiptFolder } = req.body || {};
 
       if (!itemName || !String(itemName).trim()) {
         cleanupUpload();
@@ -327,7 +372,12 @@ router.post(
         }
         const dir = dirFor(req.user.email, purchaseDate, newCategoryName);
         if (receiptSource === 'inbox') {
-          const moved = moveFromInbox(req.user.email, receiptFilename, dir);
+          const folder = safeFolderParam(receiptFolder);
+          if (folder === undefined) {
+            cleanupUpload();
+            return res.status(400).json({ error: 'Invalid receipt folder' });
+          }
+          const moved = moveFromInbox(req.user.email, receiptFilename, dir, folder);
           if (!moved) {
             cleanupUpload();
             return res.status(400).json({ error: 'Receipt file not found' });
@@ -396,7 +446,7 @@ router.patch(
         return res.status(404).json({ error: 'Expense not found' });
       }
 
-      const { itemName, amount, currency, purchaseDate, categoryId, notes, isRecurring, frequency, removeReceipt, receiptFilename, receiptSource } = req.body || {};
+      const { itemName, amount, currency, purchaseDate, categoryId, notes, isRecurring, frequency, removeReceipt, receiptFilename, receiptSource, receiptFolder } = req.body || {};
 
       if (!itemName || !String(itemName).trim()) {
         cleanupUpload();
@@ -459,7 +509,12 @@ router.patch(
         }
         let resolvedName;
         if (receiptSource === 'inbox') {
-          const moved = moveFromInbox(req.user.email, receiptFilename, newDir);
+          const folder = safeFolderParam(receiptFolder);
+          if (folder === undefined) {
+            cleanupUpload();
+            return res.status(400).json({ error: 'Invalid receipt folder' });
+          }
+          const moved = moveFromInbox(req.user.email, receiptFilename, newDir, folder);
           if (!moved) {
             cleanupUpload();
             return res.status(400).json({ error: 'Receipt file not found' });
@@ -641,7 +696,7 @@ router.get(
 
 router.post(
   '/receipts/inbox',
-  inboxUpload.array('receipts', 50),
+  inboxUpload.array('receipts', 200),
   asyncHandler(async (req, res) => {
     const files = (req.files || []).map((f) => f.filename);
     if (files.length === 0) return res.status(400).json({ error: 'No files uploaded' });
@@ -649,35 +704,56 @@ router.post(
   })
 );
 
+// Lists the inbox root plus one level of subfolders. Each file carries the
+// folder it lives in (null at the root) so the picker can group by it.
 router.get(
   '/receipts/inbox',
   asyncHandler(async (req, res) => {
-    const dir = inboxFor(req.user.email);
-    let entries = [];
-    try {
-      entries = fs.readdirSync(dir, { withFileTypes: true });
-    } catch {
-      entries = [];
+    const root = inboxFor(req.user.email);
+
+    function readDir(dir, folder) {
+      let entries = [];
+      try {
+        entries = fs.readdirSync(dir, { withFileTypes: true });
+      } catch {
+        return { files: [], subdirs: [] };
+      }
+      const files = entries
+        .filter(
+          (e) =>
+            e.isFile() &&
+            ALLOWED_RECEIPT_EXT.has(path.extname(e.name).toLowerCase()) &&
+            isSafeFilename(e.name)
+        )
+        .map((e) => {
+          let stat = null;
+          try {
+            stat = fs.statSync(path.join(dir, e.name));
+          } catch {
+            stat = null;
+          }
+          return {
+            filename: e.name,
+            folder,
+            sizeBytes: stat ? stat.size : null,
+            modifiedAt: stat ? stat.mtime : null,
+          };
+        });
+      const subdirs = entries.filter((e) => e.isDirectory() && isSafeFolderName(e.name)).map((e) => e.name);
+      return { files, subdirs };
     }
 
-    const files = entries
-      .filter((e) => e.isFile() && ALLOWED_RECEIPT_EXT.has(path.extname(e.name).toLowerCase()))
-      .map((e) => {
-        let stat = null;
-        try {
-          stat = fs.statSync(path.join(dir, e.name));
-        } catch {
-          stat = null;
-        }
-        return {
-          filename: e.name,
-          sizeBytes: stat ? stat.size : null,
-          modifiedAt: stat ? stat.mtime : null,
-        };
-      })
-      .sort((a, b) => new Date(b.modifiedAt || 0) - new Date(a.modifiedAt || 0));
+    const { files: rootFiles, subdirs } = readDir(root, null);
+    const all = [...rootFiles];
+    const folders = [];
+    for (const name of subdirs.sort()) {
+      const { files } = readDir(path.join(root, name), name);
+      if (files.length > 0) folders.push({ name, count: files.length });
+      all.push(...files);
+    }
 
-    res.json({ files });
+    all.sort((a, b) => new Date(b.modifiedAt || 0) - new Date(a.modifiedAt || 0));
+    res.json({ files: all, folders, rootCount: rootFiles.length });
   })
 );
 
@@ -687,10 +763,12 @@ router.get(
     const { filename } = req.query;
     if (!filename) return res.status(400).json({ error: 'filename is required' });
     if (!isSafeFilename(filename)) return res.status(400).json({ error: 'Invalid filename' });
+    const folder = safeFolderParam(req.query.folder);
+    if (folder === undefined) return res.status(400).json({ error: 'Invalid folder' });
 
     let filePath;
     try {
-      filePath = assertWithin(uploadsDir, path.join(inboxFor(req.user.email), filename));
+      filePath = assertWithin(uploadsDir, path.join(inboxFor(req.user.email, folder), filename));
     } catch {
       return res.status(400).json({ error: 'Invalid file path' });
     }
@@ -704,15 +782,18 @@ router.delete(
   asyncHandler(async (req, res) => {
     const { filename } = req.params;
     if (!isSafeFilename(filename)) return res.status(400).json({ error: 'Invalid filename' });
+    const folder = safeFolderParam(req.query.folder);
+    if (folder === undefined) return res.status(400).json({ error: 'Invalid folder' });
 
     let filePath;
     try {
-      filePath = assertWithin(uploadsDir, path.join(inboxFor(req.user.email), filename));
+      filePath = assertWithin(uploadsDir, path.join(inboxFor(req.user.email, folder), filename));
     } catch {
       return res.status(400).json({ error: 'Invalid file path' });
     }
     if (!fs.existsSync(filePath)) return res.status(404).json({ error: 'File not found' });
     fs.unlinkSync(filePath);
+    pruneEmptyInboxFolder(req.user.email, folder);
     res.json({ ok: true });
   })
 );

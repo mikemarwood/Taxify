@@ -29,8 +29,27 @@ export function folderFileUrl(categoryId, purchaseDate, filename) {
   return `/api/expenses/receipts/file?${params.toString()}`;
 }
 
-export function inboxFileUrl(filename) {
-  return `/api/expenses/receipts/inbox/file?${new URLSearchParams({ filename }).toString()}`;
+export function inboxFileUrl(filename, folder) {
+  const params = new URLSearchParams({ filename });
+  if (folder) params.set('folder', folder);
+  return `/api/expenses/receipts/inbox/file?${params.toString()}`;
+}
+
+// Staged folders are slugified category names ("Home Rental" -> "home-rental"),
+// so an expense's category can pick out its own folder automatically.
+export function folderSlug(name) {
+  return String(name || '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+}
+
+function folderLabel(name) {
+  return name
+    .split('-')
+    .filter(Boolean)
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+    .join(' ');
 }
 
 function SectionLabel({ children, right }) {
@@ -125,10 +144,12 @@ function Thumb({ url, filename, selected, dimmed, badge, onSelect, onPreview, ti
   );
 }
 
-export default function ReceiptGallery({ categoryId, purchaseDate, currentFilename, onPick, refreshToken }) {
+export default function ReceiptGallery({ categoryId, categoryName, purchaseDate, currentFilename, onPick, refreshToken }) {
   const toast = useToast();
   const [files, setFiles] = useState(null);
   const [inbox, setInbox] = useState([]);
+  const [inboxFolders, setInboxFolders] = useState([]);
+  const [activeFolder, setActiveFolder] = useState(undefined); // undefined = not chosen yet
   const [filter, setFilter] = useState('all');
   const [error, setError] = useState('');
   const [preview, setPreview] = useState(null);
@@ -138,15 +159,28 @@ export default function ReceiptGallery({ categoryId, purchaseDate, currentFilena
     api
       .get('/expenses/receipts/inbox')
       .then((res) => {
-        if (!cancelled) setInbox(res.data.files);
+        if (cancelled) return;
+        setInbox(res.data.files);
+        setInboxFolders(res.data.folders || []);
       })
       .catch(() => {
-        if (!cancelled) setInbox([]);
+        if (!cancelled) {
+          setInbox([]);
+          setInboxFolders([]);
+        }
       });
     return () => {
       cancelled = true;
     };
   }, [refreshToken]);
+
+  // Land on the folder matching this expense's category when there is one, so
+  // a Tooling expense opens straight onto the Tooling receipts.
+  useEffect(() => {
+    if (activeFolder !== undefined || inboxFolders.length === 0) return;
+    const wanted = folderSlug(categoryName);
+    setActiveFolder(wanted && inboxFolders.some((f) => f.name === wanted) ? wanted : '__all__');
+  }, [categoryName, inboxFolders, activeFolder]);
 
   useEffect(() => {
     if (!purchaseDate) {
@@ -184,25 +218,69 @@ export default function ReceiptGallery({ categoryId, purchaseDate, currentFilena
   const hasFolder = files !== null && files.length > 0;
   if (!hasInbox && !hasFolder && files !== null && !error) return null;
 
+  const rootCount = inbox.filter((f) => !f.folder).length;
+  const visibleInbox =
+    activeFolder === undefined || activeFolder === '__all__'
+      ? inbox
+      : inbox.filter((f) => (f.folder || '') === activeFolder);
+
+  const folderTabs = [
+    { key: '__all__', label: `All (${inbox.length})` },
+    ...inboxFolders.map((f) => ({ key: f.name, label: `${folderLabel(f.name)} (${f.count})` })),
+    ...(rootCount > 0 && inboxFolders.length > 0 ? [{ key: '', label: `Unsorted (${rootCount})` }] : []),
+  ];
+
   return (
     <div style={{ marginTop: 12 }}>
       {hasInbox && (
         <div style={{ marginBottom: hasFolder ? 16 : 0 }}>
           <SectionLabel>Receipt inbox · {inbox.length} waiting</SectionLabel>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(84px, 1fr))', gap: 10 }}>
-            {inbox.map((f) => (
-              <Thumb
-                key={f.filename}
-                url={inboxFileUrl(f.filename)}
-                filename={f.filename}
-                selected={f.filename === currentFilename}
-                badge="Inbox"
-                title={`${f.filename} — moves into this expense's folder when you save`}
-                onSelect={() => onPick(f.filename, 'inbox')}
-                onPreview={() => setPreview(inboxFileUrl(f.filename))}
-              />
-            ))}
-          </div>
+
+          {inboxFolders.length > 0 && (
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, marginBottom: 10 }}>
+              {folderTabs.map((t) => (
+                <button
+                  key={t.key}
+                  type="button"
+                  onClick={() => setActiveFolder(t.key)}
+                  style={{
+                    fontSize: 11.5,
+                    fontWeight: 600,
+                    padding: '4px 10px',
+                    borderRadius: 999,
+                    cursor: 'pointer',
+                    border: '1px solid var(--border)',
+                    background: activeFolder === t.key ? 'var(--violet)' : 'var(--bg-elevated)',
+                    color: activeFolder === t.key ? '#fff' : 'var(--text-muted)',
+                  }}
+                >
+                  {t.label}
+                </button>
+              ))}
+            </div>
+          )}
+
+          {visibleInbox.length === 0 ? (
+            <div style={{ fontSize: 12.5, color: 'var(--text-muted)', padding: '8px 0' }}>
+              Nothing staged in this folder.
+            </div>
+          ) : (
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(84px, 1fr))', gap: 10 }}>
+              {visibleInbox.map((f) => (
+                <Thumb
+                  key={`${f.folder || ''}/${f.filename}`}
+                  url={inboxFileUrl(f.filename, f.folder)}
+                  filename={f.filename}
+                  selected={f.filename === currentFilename}
+                  badge={f.folder ? folderLabel(f.folder) : 'Inbox'}
+                  title={`${f.folder ? `${f.folder}/` : ''}${f.filename} — moves into this expense's folder when you save`}
+                  onSelect={() => onPick(f.filename, 'inbox', f.folder || '')}
+                  onPreview={() => setPreview(inboxFileUrl(f.filename, f.folder))}
+                />
+              ))}
+            </div>
+          )}
+
           <div style={{ fontSize: 11.5, color: 'var(--text-muted)', marginTop: 6 }}>
             Picking one moves it out of the inbox and into this expense's folder when you save.
           </div>
@@ -265,7 +343,7 @@ export default function ReceiptGallery({ categoryId, purchaseDate, currentFilena
                           toast(`Already linked to "${f.assignedTo.itemName}"`, 'info');
                           return;
                         }
-                        onPick(f.filename, 'folder');
+                        onPick(f.filename, 'folder', '');
                       }}
                       onPreview={() => setPreview(folderFileUrl(categoryId, purchaseDate, f.filename))}
                     />
