@@ -8,7 +8,7 @@ import CategoryBadge from '../components/CategoryBadge.jsx';
 import ExpenseModal from '../components/ExpenseModal.jsx';
 import ReceiptLightbox from '../components/ReceiptLightbox.jsx';
 import ExportMenu from '../components/ExportMenu.jsx';
-import { currentFinancialYear } from '../lib/financialYear.js';
+import { defaultFinancialYear } from '../lib/financialYear.js';
 import { iconEmoji } from '../lib/categoryIcons.js';
 import { useAuth } from '../lib/AuthContext.jsx';
 
@@ -31,7 +31,7 @@ export default function Dashboard() {
   function load() {
     api.get('/expenses').then((res) => {
       setExpenses(res.data.expenses);
-      setYear((y) => y || currentFinancialYear());
+      setYear((y) => y || defaultFinancialYear(res.data.expenses));
     });
   }
 
