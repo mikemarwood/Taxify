@@ -263,10 +263,19 @@ router.get(
       financialYear: financialYearOf(r.purchase_date),
       receiptUrl: r.receipt_path ? `/api/expenses/${r.id}/receipt` : null,
       receiptFilename: r.receipt_path || null,
-      // Where the file actually sits under uploads/, so the assigner can show
-      // which year/category folder a receipt was filed into.
+      // Where the file actually sits: relative for the inbox breadcrumbs, and
+      // the full directory so an expense can be opened straight from Explorer.
       receiptPath: r.receipt_path
         ? `${receiptRelDirFor(r.owner_email, r.purchase_date, r.category_name || 'Uncategorised')}/${r.receipt_path}`
+        : null,
+      receiptDir: r.receipt_path
+        ? receiptDirFor(uploadsDir, r.owner_email, r.purchase_date, r.category_name || 'Uncategorised')
+        : null,
+      receiptFullPath: r.receipt_path
+        ? path.join(
+            receiptDirFor(uploadsDir, r.owner_email, r.purchase_date, r.category_name || 'Uncategorised'),
+            r.receipt_path
+          )
         : null,
       isRecurring: !!r.is_recurring,
       frequency: r.frequency,
@@ -801,6 +810,8 @@ router.post(
       keptInInbox: keep === true,
       replaced: expense.receipt_path || null,
       receiptPath: `${receiptRelDirFor(req.user.email, expense.purchase_date, categoryName)}/${stored}`,
+      receiptDir: dir,
+      receiptFullPath: path.join(dir, stored),
     });
   })
 );
