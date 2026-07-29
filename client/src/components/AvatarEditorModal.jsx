@@ -1,13 +1,14 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Icon from './Icon.jsx';
+import ProgressBar from './ProgressBar.jsx';
 
 const VIEWPORT = 260;
 const OUTPUT_SIZE = 480;
 const MIN_ZOOM = 1;
 const MAX_ZOOM = 3;
 
-export default function AvatarEditorModal({ imageSrc, busy, onCancel, onSave }) {
+export default function AvatarEditorModal({ imageSrc, busy, progress = 0, onCancel, onSave }) {
   const imgRef = useRef(null);
   const dragRef = useRef(null);
   const [ready, setReady] = useState(false);
@@ -176,7 +177,13 @@ export default function AvatarEditorModal({ imageSrc, busy, onCancel, onSave }) 
               style={{ flex: 1 }}
             />
           </div>
-          <p style={{ margin: 0, fontSize: 12, color: 'var(--text-muted)' }}>Drag to reposition, use the slider to zoom.</p>
+          {busy ? (
+            <div style={{ width: '100%' }}>
+              <ProgressBar value={progress} label="Uploading avatar" />
+            </div>
+          ) : (
+            <p style={{ margin: 0, fontSize: 12, color: 'var(--text-muted)' }}>Drag to reposition, use the slider to zoom.</p>
+          )}
 
           <div style={{ display: 'flex', gap: 10, width: '100%' }}>
             <button type="button" className="btn btn-primary" style={{ flex: 1 }} disabled={!ready || busy} onClick={handleSave}>

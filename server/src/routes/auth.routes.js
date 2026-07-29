@@ -22,7 +22,11 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const avatarsDir = path.join(__dirname, '..', '..', 'uploads', 'avatars');
 if (!fs.existsSync(avatarsDir)) fs.mkdirSync(avatarsDir, { recursive: true });
 
-const ALLOWED_AVATAR_MIME = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/gif']);
+// Any image — the client crops to a PNG before upload anyway, so the only
+// question is whether the browser could decode what was picked.
+function isAllowedAvatar(file) {
+  return typeof file.mimetype === 'string' && file.mimetype.startsWith('image/');
+}
 const avatarUpload = multer({
   storage: multer.diskStorage({
     destination: (req, file, cb) => cb(null, avatarsDir),
@@ -31,9 +35,9 @@ const avatarUpload = multer({
       cb(null, `${req.user.id}-${Date.now()}${ext}`);
     },
   }),
-  limits: { fileSize: 5 * 1024 * 1024 },
+  limits: { fileSize: 10 * 1024 * 1024 },
   fileFilter: (req, file, cb) => {
-    if (!ALLOWED_AVATAR_MIME.has(file.mimetype)) return cb(new Error('Unsupported file type'));
+    if (!isAllowedAvatar(file)) return cb(new Error('Only image files can be used as an avatar'));
     cb(null, true);
   },
 });

@@ -24,7 +24,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const uploadsDir = path.join(__dirname, '..', '..', 'uploads');
 
 const ALLOWED_EXT = new Set(['.jpg', '.jpeg', '.png', '.webp', '.gif', '.heic', '.heif', '.pdf']);
-const MAX_BYTES = 5 * 1024 * 1024;
+const MAX_BYTES = 10 * 1024 * 1024;
 
 function walk(dir, out = []) {
   for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
@@ -90,7 +90,7 @@ async function main() {
     }
     const { size } = fs.statSync(full);
     if (size > MAX_BYTES) {
-      skipped.push(`${original} — ${(size / 1024 / 1024).toFixed(1)}MB exceeds the 5MB limit`);
+      skipped.push(`${original} — ${(size / 1024 / 1024).toFixed(1)}MB exceeds the 10MB limit`);
       continue;
     }
 

@@ -8,7 +8,7 @@ import Avatar from '../components/Avatar.jsx';
 import AvatarEditorModal from '../components/AvatarEditorModal.jsx';
 import { isSoundEnabled, setSoundEnabled } from '../lib/sounds.js';
 
-const MAX_AVATAR_BYTES = 5 * 1024 * 1024;
+const MAX_AVATAR_BYTES = 10 * 1024 * 1024;
 
 function AvatarSection({ user, setUser }) {
   const toast = useToast();
@@ -16,6 +16,7 @@ function AvatarSection({ user, setUser }) {
   const [editorSrc, setEditorSrc] = useState(null);
   const [editorIsBlobUrl, setEditorIsBlobUrl] = useState(false);
   const [avatarBusy, setAvatarBusy] = useState(false);
+  const [avatarProgress, setAvatarProgress] = useState(0);
   const [removeConfirming, setRemoveConfirming] = useState(false);
 
   function closeEditor() {
@@ -29,7 +30,7 @@ function AvatarSection({ user, setUser }) {
     e.target.value = '';
     if (!file) return;
     if (file.size > MAX_AVATAR_BYTES) {
-      toast('That image is too large — avatars must be 5MB or smaller.', 'error');
+      toast('That image is too large — avatars must be 10MB or smaller.', 'error');
       return;
     }
     setEditorSrc(URL.createObjectURL(file));
@@ -44,11 +45,13 @@ function AvatarSection({ user, setUser }) {
 
   async function onSaveCrop(blob) {
     setAvatarBusy(true);
+    setAvatarProgress(0);
     const form = new FormData();
     form.append('avatar', blob, 'avatar.png');
     try {
       const res = await api.post('/auth/avatar', form, {
         headers: { 'Content-Type': 'multipart/form-data' },
+        onUploadProgress: (evt) => setAvatarProgress(evt.total ? Math.round((evt.loaded / evt.total) * 100) : 0),
       });
       setUser((u) => (u ? { ...u, avatarUrl: `${res.data.avatarUrl}?t=${Date.now()}` } : u));
       toast('Avatar updated', 'success');
@@ -57,6 +60,7 @@ function AvatarSection({ user, setUser }) {
       toast(err.message, 'error');
     } finally {
       setAvatarBusy(false);
+      setAvatarProgress(0);
     }
   }
 
@@ -132,11 +136,19 @@ function AvatarSection({ user, setUser }) {
             </div>
           )}
           <input ref={fileInputRef} type="file" accept="image/*" hidden onChange={onSelectFile} />
-          <span style={{ fontSize: 11.5, color: 'var(--text-muted)' }}>JPG, PNG, WEBP or GIF, up to 5MB.</span>
+          <span style={{ fontSize: 11.5, color: 'var(--text-muted)' }}>Any image, up to 10MB.</span>
         </div>
       </div>
 
-      {editorSrc && <AvatarEditorModal imageSrc={editorSrc} busy={avatarBusy} onCancel={closeEditor} onSave={onSaveCrop} />}
+      {editorSrc && (
+        <AvatarEditorModal
+          imageSrc={editorSrc}
+          busy={avatarBusy}
+          progress={avatarProgress}
+          onCancel={closeEditor}
+          onSave={onSaveCrop}
+        />
+      )}
     </div>
   );
 }

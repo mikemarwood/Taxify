@@ -1,3 +1,4 @@
+import fs from 'fs';
 import path from 'path';
 import { financialYearOf } from './financialYear.js';
 
@@ -124,16 +125,51 @@ export function isSafeFilename(name) {
 }
 
 // Turns an arbitrary upload name into one isSafeFilename() accepts, keeping it
-// recognisable in the picker. The random suffix means two files both called
-// "invoice.pdf" can sit in the inbox together. `rand` is injected so callers
-// decide the entropy source.
-export function stagedFilename(originalName, rand) {
-  const ext = path.extname(originalName).toLowerCase();
+// as close to what the user called it as the character rules allow —
+// "Bunnings Invoice (1).PDF" becomes "bunnings-invoice-1.pdf". Uniqueness is
+// not this function's job; see uniqueFilenameIn.
+export function safeFilenameFrom(originalName) {
+  const ext = path.extname(originalName).toLowerCase().replace(/[^a-z0-9.]/g, '');
   const base = path
     .basename(originalName, path.extname(originalName))
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-+|-+$/g, '')
     .slice(0, 60);
-  return `${base || 'receipt'}-${rand}${ext}`;
+  return `${base || 'receipt'}${ext}`;
+}
+
+// Keeps the name the upload came in with and only disambiguates when it has
+// to: "invoice.pdf", then "invoice-2.pdf", then "invoice-3.pdf". Nothing on
+// disk is ever overwritten.
+//
+// `taken` covers the gap fs.existsSync can't: several files in one request
+// land in the same folder before any of them has finished writing, so names
+// already handed out during this request are reserved in memory too.
+export function uniqueFilenameIn(dir, desiredName, taken) {
+  const safe = safeFilenameFrom(desiredName);
+  const ext = path.extname(safe);
+  const base = path.basename(safe, ext);
+
+  const isFree = (name) => !(taken && taken.has(name)) && !fs.existsSync(path.join(dir, name));
+
+  let candidate = safe;
+  for (let n = 2; !isFree(candidate); n++) {
+    candidate = `${base}-${n}${ext}`;
+    // Absurd only if something is very wrong; better than looping forever.
+    if (n > 9999) {
+      candidate = `${base}-${Date.now()}${ext}`;
+      break;
+    }
+  }
+  taken?.add(candidate);
+  return candidate;
+}
+
+// Kept for the staging CLI, which wants a name that can't collide without
+// having to look at the destination folder first.
+export function stagedFilename(originalName, rand) {
+  const safe = safeFilenameFrom(originalName);
+  const ext = path.extname(safe);
+  return `${path.basename(safe, ext)}-${rand}${ext}`;
 }

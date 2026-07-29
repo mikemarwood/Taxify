@@ -1,11 +1,22 @@
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useToast } from './Toast.jsx';
 import Icon from './Icon.jsx';
+import ProgressBar from './ProgressBar.jsx';
+import { playSuccess, playError } from '../lib/sounds.js';
 
 const RADIUS = 26;
 const CIRCUMFERENCE = 2 * Math.PI * RADIUS;
-const MAX_FILE_BYTES = 5 * 1024 * 1024;
+const MAX_FILE_BYTES = 10 * 1024 * 1024;
+const RECEIPT_EXT = /\.(jpe?g|png|webp|gif|heic|heif|avif|bmp|tiff?|svg|jfif|pdf)$/i;
+
+// Any image plus PDF. The extension is the fallback because a HEIC off an
+// iPhone often arrives with no usable MIME type at all.
+function isReceiptFile(file) {
+  if (file.type === 'application/pdf') return true;
+  if (file.type?.startsWith('image/')) return true;
+  return RECEIPT_EXT.test(file.name || '');
+}
 
 export default function ReceiptDropzone({ file, onFileChange, uploadProgress, status = 'idle', errorMessage }) {
   const [dragOver, setDragOver] = useState(false);
@@ -18,12 +29,23 @@ export default function ReceiptDropzone({ file, onFileChange, uploadProgress, st
     []
   );
 
+  // The parent owns the upload, so the outcome is only visible here as a
+  // status change — which is the moment to make a sound.
+  useEffect(() => {
+    if (status === 'success') playSuccess();
+    else if (status === 'error') playError();
+  }, [status]);
+
   const handleFiles = useCallback(
     (files) => {
       const picked = files && files[0];
       if (!picked) return;
+      if (!isReceiptFile(picked)) {
+        toast('Only images and PDFs can be attached.', 'error');
+        return;
+      }
       if (picked.size > MAX_FILE_BYTES) {
-        toast('That file is too large — receipts must be 5MB or smaller.', 'error');
+        toast('That file is too large — receipts must be 10MB or smaller.', 'error');
         return;
       }
       onFileChange(picked);
@@ -93,15 +115,18 @@ export default function ReceiptDropzone({ file, onFileChange, uploadProgress, st
               />
               <defs>
                 <linearGradient id="grad" x1="0%" y1="0%" x2="100%" y2="100%">
-                  <stop offset="0%" stopColor="#2563eb" />
-                  <stop offset="100%" stopColor="#06b6d4" />
+                  <stop offset="0%" stopColor="#1a66cf" />
+                  <stop offset="100%" stopColor="#0b6d84" />
                 </linearGradient>
               </defs>
               <text x="32" y="37" textAnchor="middle" fontSize="13" fontWeight="700" fill="var(--text)">
                 {uploadProgress}%
               </text>
             </svg>
-            <p style={{ marginTop: 12, color: 'var(--text-muted)', fontSize: 13 }}>Uploading receipt…</p>
+            <p style={{ margin: '12px 0 10px', color: 'var(--text-muted)', fontSize: 13 }}>Uploading receipt…</p>
+            <div style={{ maxWidth: 260, margin: '0 auto' }}>
+              <ProgressBar value={uploadProgress} />
+            </div>
           </motion.div>
         ) : status === 'success' ? (
           <motion.div key="success" initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0 }}>
@@ -148,7 +173,7 @@ export default function ReceiptDropzone({ file, onFileChange, uploadProgress, st
             {isMobile ? (
               <>
                 <p style={{ marginTop: 8, fontWeight: 600 }}>Add a receipt</p>
-                <p style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 14 }}>images or PDF, up to 5MB</p>
+                <p style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 14 }}>images or PDF, up to 10MB</p>
                 <div style={{ display: 'flex', gap: 10, justifyContent: 'center' }}>
                   <button
                     type="button"
@@ -179,7 +204,7 @@ export default function ReceiptDropzone({ file, onFileChange, uploadProgress, st
             ) : (
               <>
                 <p style={{ marginTop: 8, fontWeight: 600 }}>Drop a receipt here</p>
-                <p style={{ fontSize: 13, color: 'var(--text-muted)' }}>or click to browse — images or PDF, up to 5MB</p>
+                <p style={{ fontSize: 13, color: 'var(--text-muted)' }}>or click to browse — images or PDF, up to 10MB</p>
               </>
             )}
           </motion.div>
