@@ -10,6 +10,7 @@ import { getVisibleUserIds } from '../auth/access.js';
 import { asyncHandler } from '../lib/asyncHandler.js';
 import { financialYearOf } from '../lib/financialYear.js';
 import { viewableCopy } from '../lib/heicPreview.js';
+import { MAX_UPLOAD_BYTES, isAllowedUpload, UPLOAD_REJECTED_MESSAGE } from '../lib/uploadRules.js';
 import { advanceDate } from '../lib/recurrence.js';
 import { receiptDirFor, receiptRelDirFor, assertWithin, uniqueFilenameIn } from '../lib/receiptStorage.js';
 
@@ -17,45 +18,8 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const uploadsDir = path.join(__dirname, '..', '..', 'uploads');
 if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir, { recursive: true });
 
-// Receipts are photographs, PDFs or Word documents — any image type is fair
-// game, since new formats keep appearing (avif, jxl) and there's no reason to
-// reject one just because this list predates it. Everything else is refused.
-const ALLOWED_RECEIPT_EXT = new Set([
-  '.jpg',
-  '.jpeg',
-  '.png',
-  '.webp',
-  '.gif',
-  '.heic',
-  '.heif',
-  '.avif',
-  '.bmp',
-  '.tif',
-  '.tiff',
-  '.svg',
-  '.jfif',
-  '.pdf',
-  '.doc',
-  '.docx',
-]);
-
-const ALLOWED_DOC_MIME = new Set([
-  'application/pdf',
-  'application/msword',
-  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-]);
-
-export const MAX_RECEIPT_BYTES = 10 * 1024 * 1024;
-
-// iPhone photos often arrive with no useful MIME type — Windows and some
-// browsers report .heic as application/octet-stream or an empty string, and a
-// .doc off a network share often arrives as octet-stream too — so the
-// extension is the fallback when the reported type says nothing useful.
-function isAllowedUpload(file) {
-  if (ALLOWED_DOC_MIME.has(file.mimetype)) return true;
-  if (typeof file.mimetype === 'string' && file.mimetype.startsWith('image/')) return true;
-  return ALLOWED_RECEIPT_EXT.has(path.extname(file.originalname).toLowerCase());
-}
+// Receipt uploads follow the shared rules in lib/uploadRules.js, so what an
+// expense accepts and what a category document accepts can't drift apart.
 
 function dirFor(userId, purchaseDate, categoryName) {
   return receiptDirFor(uploadsDir, userId, purchaseDate, categoryName);
@@ -92,9 +56,9 @@ const storage = multer.diskStorage({
 
 const upload = multer({
   storage,
-  limits: { fileSize: MAX_RECEIPT_BYTES },
+  limits: { fileSize: MAX_UPLOAD_BYTES },
   fileFilter: (req, file, cb) => {
-    if (!isAllowedUpload(file)) return cb(new Error('Only images, PDFs and Word documents can be attached'));
+    if (!isAllowedUpload(file)) return cb(new Error(UPLOAD_REJECTED_MESSAGE));
     cb(null, true);
   },
 });
