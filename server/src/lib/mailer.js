@@ -60,28 +60,78 @@ async function getTransporter() {
   return transporter;
 }
 
+const BRAND = 'Taxify';
+const BRAND_TAGLINE = 'Expense &amp; Receipt Tracking';
+const NAVY = '#1e3a8a';
+
+// Full-width bands rather than a floating rounded card: tables and solid
+// blocks are what render consistently across Outlook, Gmail and the phone
+// clients, where border-radius and box-shadow are routinely dropped.
 function renderEmail({ title, heading, bodyHtml }) {
-  return `
-  <div style="background:#eef1f6;padding:32px 16px;font-family:'Segoe UI',Roboto,Helvetica,Arial,sans-serif;">
-    <div style="max-width:520px;margin:0 auto;background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 2px 10px rgba(15,23,60,0.08);">
-      <div style="padding:28px 32px;background:#1e3a8a;">
-        <div style="font-size:24px;font-weight:800;color:#ffffff;letter-spacing:-0.5px;margin-bottom:14px;">Mikes App Hub</div>
-        <div style="font-size:11px;font-weight:700;color:#93c5fd;letter-spacing:1.5px;text-transform:uppercase;margin-bottom:4px;">Customer Portal</div>
-        <div style="font-size:15px;font-weight:700;color:#ffffff;">${title}</div>
-      </div>
-      <div style="padding:32px;color:#1f2937;">
-        <h1 style="font-size:19px;margin:0 0 16px;color:#1e3a8a;">${heading}</h1>
+  return `<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="color-scheme" content="light only">
+<title>${title}</title>
+</head>
+<body style="margin:0;padding:0;background:#ffffff;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#ffffff;font-family:'Segoe UI',Roboto,Helvetica,Arial,sans-serif;">
+  <tr><td align="center">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width:960px;">
+
+      <tr><td style="background:${NAVY};padding:14px 20px;">
+        <span style="font-size:30px;font-weight:800;color:#ffffff;letter-spacing:-0.5px;">${BRAND}</span>
+      </td></tr>
+
+      <tr><td style="background:${NAVY};border-top:1px solid #2b4ba0;padding:6px 20px;">
+        <span style="font-size:11px;font-weight:700;color:#ffffff;letter-spacing:1.2px;text-transform:uppercase;">${BRAND_TAGLINE}</span>
+      </td></tr>
+
+      <tr><td style="background:${NAVY};border-top:1px solid #2b4ba0;padding:8px 20px;">
+        <span style="font-size:15px;font-weight:700;color:#ffffff;">${title}</span>
+      </td></tr>
+
+      <tr><td style="padding:14px 20px 20px;color:#1f2937;font-size:14px;line-height:1.5;">
+        <p style="margin:0 0 12px;font-size:14px;color:#1f2937;">${heading}</p>
         ${bodyHtml}
-      </div>
-      <div style="padding:20px 32px;background:#eef1f6;text-align:center;">
-        <div style="font-weight:700;color:#1f2937;font-size:13px;margin-bottom:6px;">Mikes App Hub</div>
+      </td></tr>
+
+      <tr><td style="background:#eef1f6;padding:16px 20px;text-align:center;">
+        <div style="font-weight:700;color:#1f2937;font-size:13px;margin-bottom:4px;">${BRAND}</div>
         <div style="font-size:12px;color:#6b7280;margin-bottom:4px;">
-          &copy; ${new Date().getFullYear()} Mikes App Hub &middot; <a href="https://mikesapphub.com" style="color:#1e3a8a;text-decoration:none;">Mikes App Hub</a>
+          &copy; ${new Date().getFullYear()} ${BRAND} &middot;
+          <a href="https://mikesapphub.com" style="color:${NAVY};text-decoration:none;">Mikes App Hub</a>
         </div>
         <div style="font-size:11px;color:#9ca3af;">This is an automated message, please do not reply directly.</div>
-      </div>
-    </div>
-  </div>`;
+      </td></tr>
+
+    </table>
+  </td></tr>
+</table>
+</body>
+</html>`;
+}
+
+// A rough plain-text rendering of the same content. HTML with no text
+// alternative is one of the cheaper things a spam filter marks against you,
+// and it's what shows in a client with HTML disabled.
+function htmlToText(heading, bodyHtml) {
+  const body = String(bodyHtml)
+    .replace(/<a [^>]*href="([^"]+)"[^>]*>([\s\S]*?)<\/a>/gi, '$2 ($1)')
+    .replace(/<\/(p|div|tr|h[1-6])>/gi, '\n\n')
+    .replace(/<br\s*\/?>/gi, '\n')
+    .replace(/<[^>]+>/g, '')
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&amp;/g, '&')
+    .replace(/&middot;/g, '·')
+    .replace(/&mdash;/g, '—')
+    .replace(/&copy;/g, '©')
+    .replace(/[ \t]+/g, ' ')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+  return `${heading}\n\n${body}\n\n--\n${BRAND}\nThis is an automated message, please do not reply directly.`;
 }
 
 export async function sendMail({ to, subject, title, heading, bodyHtml }) {
@@ -92,31 +142,36 @@ export async function sendMail({ to, subject, title, heading, bodyHtml }) {
     to,
     subject,
     html,
+    text: htmlToText(heading, bodyHtml),
+    // Transactional mail the recipient triggered by signing in. Auto-Submitted
+    // stops other mail systems auto-replying to it, and the suppression header
+    // keeps it out of out-of-office loops — both are things receivers look at.
+    headers: {
+      'Auto-Submitted': 'auto-generated',
+      'X-Auto-Response-Suppress': 'All',
+    },
   });
 }
 
 export async function sendOtpEmail(to, name, code, expiresMinutes) {
+  const firstName = String(name || '').trim().split(/\s+/)[0];
   await sendMail({
     to,
-    subject: `${code} is your Mikes App Hub verification code`,
-    title: 'Two-Step Verification',
-    heading: 'Hi there,',
+    // The code first, so it's readable from the notification without opening
+    // anything. "Verification code" rather than anything urgent-sounding —
+    // pressure words are exactly what filters score against.
+    subject: `${code} is your ${BRAND} login code`,
+    title: 'One-time login code',
+    heading: `Hi${firstName ? ` ${firstName}` : ''}, use this code to finish signing in. It expires in ${expiresMinutes} minutes and can only be used once.`,
     bodyHtml: `
-      <p style="font-size:14px;color:#4b5563;margin:0 0 20px;line-height:1.5;">
-        Someone (hopefully you) just entered your password. Use the two-step verification code below to finish signing in.
-      </p>
-      <div style="border:1px solid #e5e7eb;border-radius:10px;overflow:hidden;margin:0 0 20px;">
-        <div style="font-size:36px;font-weight:800;letter-spacing:12px;text-align:center;color:#1e3a8a;background:#f8fafc;padding:22px 0 14px;">
-          ${code}
-        </div>
-        <div style="text-align:center;font-size:11px;font-weight:700;letter-spacing:0.5px;text-transform:uppercase;color:#6b7280;background:#f1f5f9;padding:8px 0;">
-          Verification code &middot; expires in ${expiresMinutes} minutes
-        </div>
-      </div>
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 14px;">
+        <tr><td align="center" style="background:#eef4fd;border:1px solid #d7e3f7;padding:26px 12px;">
+          <span style="font-family:Consolas,'Courier New',monospace;font-size:40px;font-weight:700;letter-spacing:10px;color:#1d4ed8;">${code}</span>
+        </td></tr>
+      </table>
       <p style="font-size:13px;color:#4b5563;margin:0;line-height:1.5;">
-        Didn't try to sign in? Someone may know your password &mdash;
-        <strong style="color:#1e3a8a;">change it straight away</strong> from your account settings. This code on its own
-        can't sign anyone in without your password.
+        If you didn't try to sign in, ignore this email and change your password. This code on its own can't sign
+        anyone in without your password.
       </p>
     `,
   });
