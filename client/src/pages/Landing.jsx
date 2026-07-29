@@ -91,8 +91,8 @@ function FeatureCard({ icon, title, text, index }) {
           justifyContent: 'center',
           borderRadius: 10,
           color: 'var(--violet)',
-          background: 'rgba(139, 92, 246, 0.12)',
-          border: '1px solid rgba(139, 92, 246, 0.28)',
+          background: 'var(--accent-soft)',
+          border: '1px solid var(--accent-ring)',
         }}
       >
         <Icon name={icon} size={20} />

@@ -7,6 +7,7 @@ import { api } from '../lib/api.js';
 import Avatar from './Avatar.jsx';
 import Icon from './Icon.jsx';
 import OtpOnboardingModal from './OtpOnboardingModal.jsx';
+import { playClick } from '../lib/sounds.js';
 
 const navItems = [
   { to: '/', label: 'Dashboard', icon: 'dashboard' },
@@ -51,12 +52,16 @@ export default function Layout({ children }) {
       <aside
         className="scrollbar-slim"
         style={{
-          width: 220,
+          width: 232,
+          flexShrink: 0,
+          // The rail sits on its own surface, the way a Fluent navigation
+          // pane does — the page content is what should read as "the paper".
+          background: 'var(--bg-subtle)',
           borderRight: '1px solid var(--border)',
-          padding: '24px 16px',
+          padding: '20px 12px',
           display: 'flex',
           flexDirection: 'column',
-          gap: 24,
+          gap: 22,
           position: 'sticky',
           top: 0,
           height: '100vh',
@@ -76,21 +81,47 @@ export default function Layout({ children }) {
               key={item.to}
               to={item.to}
               end={item.to === '/'}
+              onClick={playClick}
+              className="nav-item"
               style={({ isActive }) => ({
+                position: 'relative',
                 display: 'flex',
                 alignItems: 'center',
-                gap: 10,
-                padding: '10px 12px',
-                borderRadius: 10,
+                gap: 12,
+                padding: '9px 12px',
+                borderRadius: 'var(--radius-sm)',
                 fontSize: 14,
-                fontWeight: 600,
+                fontWeight: isActive ? 600 : 500,
                 textDecoration: 'none',
-                color: isActive ? 'white' : 'var(--text-muted)',
-                background: isActive ? 'var(--gradient-brand)' : 'transparent',
+                color: isActive ? 'var(--text)' : 'var(--text-muted)',
+                background: isActive ? 'var(--bg-card)' : 'transparent',
+                boxShadow: isActive ? 'var(--shadow-sm)' : 'none',
               })}
             >
-              <Icon name={item.icon} size={17} />
-              {item.label}
+              {({ isActive }) => (
+                <>
+                  {/* Fluent marks the selected item with an accent pill on the
+                      leading edge rather than filling the whole row. */}
+                  {isActive && (
+                    <motion.span
+                      layoutId="nav-indicator"
+                      transition={{ type: 'spring', stiffness: 420, damping: 34 }}
+                      style={{
+                        position: 'absolute',
+                        left: 0,
+                        top: '50%',
+                        translateY: '-50%',
+                        width: 3,
+                        height: 16,
+                        borderRadius: 999,
+                        background: 'var(--accent)',
+                      }}
+                    />
+                  )}
+                  <Icon name={item.icon} size={17} style={{ color: isActive ? 'var(--accent)' : 'inherit' }} />
+                  {item.label}
+                </>
+              )}
             </NavLink>
           ))}
         </nav>
@@ -138,41 +169,49 @@ export default function Layout({ children }) {
         </div>
       </aside>
 
+      {/* Keyed on the router's location, not window's, so the entrance
+          actually replays on every navigation. Fluent page transitions come
+          in from below and settle quickly — long enough to read as motion,
+          short enough not to sit between you and the data. */}
       <motion.main
-        key={typeof window !== 'undefined' ? window.location.pathname : 'main'}
-        initial={{ opacity: 0, y: 8 }}
+        key={location.pathname}
+        initial={{ opacity: 0, y: 12 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.25 }}
-        style={{ flex: 1, padding: '32px 40px', maxWidth: 1100 }}
+        transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
+        style={{ flex: 1, padding: '32px 40px', maxWidth: 1180 }}
       >
         {children}
       </motion.main>
 
       {location.pathname !== '/add' && user?.role !== 'accountant' && (
-        <Link
-          to="/add"
-          title="Add expense"
-          style={{
-            position: 'fixed',
-            right: 32,
-            bottom: 32,
-            width: 56,
-            height: 56,
-            borderRadius: '50%',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            background: 'var(--gradient-brand)',
-            color: 'white',
-            fontSize: 26,
-            fontWeight: 700,
-            textDecoration: 'none',
-            boxShadow: '0 8px 24px rgba(37, 99, 235, 0.45)',
-            zIndex: 900,
-          }}
+        <motion.div
+          initial={{ opacity: 0, scale: 0.8 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ type: 'spring', stiffness: 380, damping: 22, delay: 0.15 }}
+          whileHover={{ scale: 1.06 }}
+          whileTap={{ scale: 0.94 }}
+          style={{ position: 'fixed', right: 32, bottom: 32, zIndex: 900 }}
         >
-          +
-        </Link>
+          <Link
+            to="/add"
+            title="Add expense"
+            onClick={playClick}
+            style={{
+              width: 52,
+              height: 52,
+              borderRadius: '50%',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              background: 'var(--accent)',
+              color: 'white',
+              textDecoration: 'none',
+              boxShadow: '0 4px 10px rgba(16, 24, 40, 0.14), 0 12px 28px rgba(0, 103, 192, 0.22)',
+            }}
+          >
+            <Icon name="plus" size={24} strokeWidth={2.2} />
+          </Link>
+        </motion.div>
       )}
 
       {showMfaPrompt && <OtpOnboardingModal onClose={() => setShowMfaPrompt(false)} />}

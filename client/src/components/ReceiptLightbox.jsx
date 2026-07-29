@@ -99,7 +99,8 @@ export default function ReceiptLightbox({ url, filename, onClose }) {
         style={{
           position: 'fixed',
           inset: 0,
-          background: 'rgba(5, 6, 10, 0.8)',
+          background: 'rgba(16, 24, 40, 0.55)',
+          backdropFilter: 'blur(4px)',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',

@@ -1,22 +1,60 @@
+/* Fluent-inspired light theme.
+ *
+ * Deliberately not white: the page sits on a soft grey and cards lift off it
+ * a shade lighter, the way Windows 11 layers Mica under its surfaces. Large
+ * areas of #fff at full brightness are what make a light UI tiring to read
+ * all day, and this is an app people keep open while doing their books.
+ *
+ * Text is near-black rather than black, borders are low-contrast, and depth
+ * comes from a small shadow rather than a heavy one. Accent is the Windows
+ * system blue, dark enough to pass contrast on these surfaces.
+ */
 :root {
-  --bg: #0a0f18;
-  --bg-elevated: #0f1826;
-  --bg-card: #101a2b;
-  --border: #1e2c3f;
-  --text: #e8eef7;
-  --text-muted: #8fa2ba;
+  --bg: #e8eaee;
+  --bg-subtle: #eef0f3;
+  --bg-elevated: #f1f3f6;
+  --bg-card: #fafbfc;
+  --bg-inset: #e3e6eb;
 
-  --violet: #2563eb;
-  --cyan: #06b6d4;
-  --amber: #f59e0b;
-  --pink: #ec4899;
-  --emerald: #10b981;
-  --blue: #3b82f6;
-  --red: #ef4444;
+  --border: #d5d9e0;
+  --border-strong: #c2c8d2;
 
-  --gradient-brand: linear-gradient(135deg, var(--blue), var(--violet) 55%, var(--cyan));
-  --shadow-glow: 0 0 0 1px rgba(59, 130, 246, 0.25), 0 8px 30px rgba(37, 99, 235, 0.15);
-  --radius: 16px;
+  --text: #1a1c20;
+  --text-muted: #5b6270;
+  --text-subtle: #7c8494;
+
+  /* Names kept from the dark theme so components don't all need editing —
+     the values are retuned for a light background. */
+  --violet: #0f6cbd;
+  --cyan: #0b7285;
+  --amber: #a16207;
+  --pink: #be185d;
+  --emerald: #0e7a45;
+  --blue: #0067c0;
+  --red: #c42b1c;
+  --green: #0e7a45;
+
+  --accent: #0067c0;
+  --accent-hover: #005fb8;
+  --accent-pressed: #0055a3;
+  --accent-soft: rgba(0, 103, 192, 0.1);
+  --accent-ring: rgba(0, 103, 192, 0.28);
+
+  --gradient-brand: linear-gradient(135deg, #0f6cbd, #0067c0 60%, #0b5fa8);
+
+  /* Fluent-style elevation: a hairline plus a short, soft drop. */
+  --shadow-sm: 0 1px 2px rgba(16, 24, 40, 0.06);
+  --shadow-card: 0 1px 2px rgba(16, 24, 40, 0.05), 0 2px 8px rgba(16, 24, 40, 0.05);
+  --shadow-raised: 0 2px 4px rgba(16, 24, 40, 0.06), 0 8px 24px rgba(16, 24, 40, 0.09);
+  --shadow-overlay: 0 8px 16px rgba(16, 24, 40, 0.1), 0 24px 56px rgba(16, 24, 40, 0.16);
+  --shadow-glow: var(--shadow-card);
+
+  --radius: 8px;
+  --radius-lg: 12px;
+  --radius-sm: 5px;
+
+  --ease-fluent: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-standard: cubic-bezier(0.33, 0, 0.67, 1);
 }
 
 * { box-sizing: border-box; }
@@ -27,13 +65,17 @@ html, body, #root {
 
 body {
   margin: 0;
-  font-family: 'Inter', system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+  font-family: 'Segoe UI Variable Text', 'Segoe UI', Inter, system-ui, -apple-system, Roboto, sans-serif;
+  /* A whisper of colour in the corners so the grey doesn't read as flat card
+     stock. Kept under 5% so it never becomes a gradient you notice. */
   background:
-    radial-gradient(circle at 15% 0%, rgba(59, 130, 246, 0.16), transparent 40%),
-    radial-gradient(circle at 85% 20%, rgba(6, 182, 212, 0.14), transparent 40%),
+    radial-gradient(1200px circle at 12% -5%, rgba(0, 103, 192, 0.05), transparent 45%),
+    radial-gradient(900px circle at 92% 8%, rgba(11, 114, 133, 0.04), transparent 45%),
     var(--bg);
+  background-attachment: fixed;
   color: var(--text);
   -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
 }
 
 a { color: inherit; }
@@ -43,11 +85,31 @@ button, input, select, textarea {
   color: inherit;
 }
 
+::selection {
+  background: var(--accent-soft);
+  color: var(--text);
+}
+
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
 .card {
   background: var(--bg-card);
   border: 1px solid var(--border);
   border-radius: var(--radius);
-  box-shadow: var(--shadow-glow);
+  box-shadow: var(--shadow-card);
+}
+
+/* Opt-in hover lift for cards that are themselves clickable. */
+.card-interactive {
+  transition: transform 0.2s var(--ease-fluent), box-shadow 0.2s var(--ease-fluent), border-color 0.2s var(--ease-fluent);
+}
+.card-interactive:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-raised);
+  border-color: var(--border-strong);
 }
 
 .btn {
@@ -55,46 +117,68 @@ button, input, select, textarea {
   align-items: center;
   justify-content: center;
   gap: 8px;
-  padding: 11px 20px;
-  border-radius: 12px;
-  border: none;
+  padding: 9px 18px;
+  border-radius: var(--radius-sm);
+  border: 1px solid transparent;
   font-weight: 600;
   font-size: 14px;
+  line-height: 1.2;
   cursor: pointer;
   text-decoration: none;
-  transition: transform 0.15s ease, box-shadow 0.15s ease, filter 0.15s ease;
+  transition: background 0.12s var(--ease-standard), border-color 0.12s var(--ease-standard),
+    box-shadow 0.12s var(--ease-standard), transform 0.08s var(--ease-standard), color 0.12s var(--ease-standard);
 }
-.btn:active { transform: scale(0.97); }
-.btn:disabled { opacity: 0.55; cursor: not-allowed; }
+/* Windows 11 buttons depress rather than shrink. */
+.btn:active:not(:disabled) { transform: translateY(1px); }
+.btn:disabled { opacity: 0.45; cursor: not-allowed; }
 
 .btn-primary {
-  background: var(--gradient-brand);
-  color: white;
-  box-shadow: 0 4px 20px rgba(37, 99, 235, 0.35);
+  background: var(--accent);
+  border-color: rgba(0, 0, 0, 0.06);
+  color: #fff;
+  box-shadow: var(--shadow-sm);
 }
-.btn-primary:hover:not(:disabled) { filter: brightness(1.08); }
+.btn-primary:hover:not(:disabled) { background: var(--accent-hover); }
+.btn-primary:active:not(:disabled) { background: var(--accent-pressed); }
 
 .btn-ghost {
-  background: transparent;
-  border: 1px solid var(--border);
+  background: var(--bg-card);
+  border-color: var(--border);
   color: var(--text);
+  box-shadow: var(--shadow-sm);
 }
-.btn-ghost:hover { background: rgba(255, 255, 255, 0.04); }
+.btn-ghost:hover:not(:disabled) { background: var(--bg-elevated); border-color: var(--border-strong); }
+.btn-ghost:active:not(:disabled) { background: var(--bg-inset); }
 
 .input {
   width: 100%;
-  padding: 11px 14px;
-  border-radius: 12px;
+  padding: 9px 12px;
+  border-radius: var(--radius-sm);
   border: 1px solid var(--border);
-  background: var(--bg-elevated);
+  /* Fluent underlines the focused edge of a field; this is that, drawn with
+     a bottom border that thickens and takes the accent on focus. */
+  border-bottom-color: var(--border-strong);
+  background: #fff;
   color: var(--text);
   font-size: 14px;
   outline: none;
-  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  transition: border-color 0.15s var(--ease-standard), box-shadow 0.15s var(--ease-standard), background 0.15s var(--ease-standard);
 }
+.input:hover:not(:focus):not(:disabled) { border-color: var(--border-strong); }
 .input:focus {
-  border-color: var(--violet);
-  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.2);
+  border-color: var(--border-strong);
+  border-bottom: 2px solid var(--accent);
+  padding-bottom: 8px;
+  background: #fff;
+}
+.input:disabled { background: var(--bg-elevated); color: var(--text-subtle); cursor: not-allowed; }
+
+select.input {
+  appearance: none;
+  background-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%235b6270' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9.5 12 15.5l6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 9px center;
+  padding-right: 30px;
 }
 
 .switch {
@@ -111,56 +195,56 @@ button, input, select, textarea {
 }
 .switch-track {
   position: relative;
-  width: 42px;
-  height: 24px;
+  width: 40px;
+  height: 20px;
   flex-shrink: 0;
   border-radius: 999px;
-  background: var(--bg-elevated);
-  border: 1px solid var(--border);
-  transition: background 0.2s ease, border-color 0.2s ease;
+  background: var(--bg-inset);
+  border: 1px solid var(--text-muted);
+  transition: background 0.2s var(--ease-fluent), border-color 0.2s var(--ease-fluent);
 }
 .switch-track::after {
   content: '';
   position: absolute;
-  top: 2px;
-  left: 2px;
-  width: 18px;
-  height: 18px;
+  top: 3px;
+  left: 3px;
+  width: 12px;
+  height: 12px;
   border-radius: 50%;
   background: var(--text-muted);
-  transition: transform 0.2s ease, background 0.2s ease;
+  transition: transform 0.2s var(--ease-fluent), background 0.2s var(--ease-fluent), width 0.2s var(--ease-fluent);
 }
+.switch:hover .switch-track::after { width: 14px; }
 .switch input:checked + .switch-track {
-  background: var(--gradient-brand);
-  border-color: transparent;
+  background: var(--accent);
+  border-color: var(--accent);
 }
 .switch input:checked + .switch-track::after {
-  transform: translateX(18px);
-  background: white;
+  transform: translateX(20px);
+  background: #fff;
 }
 .switch input:focus-visible + .switch-track {
-  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.35);
+  box-shadow: 0 0 0 3px var(--accent-ring);
 }
 .switch-label {
   font-size: 13px;
   color: var(--text-muted);
 }
 
-/* Keep browser autofill (e.g. saved passwords) from forcing a light background */
 .input:-webkit-autofill,
 .input:-webkit-autofill:hover,
 .input:-webkit-autofill:focus {
   -webkit-text-fill-color: var(--text);
-  -webkit-box-shadow: 0 0 0 1000px var(--bg-elevated) inset;
+  -webkit-box-shadow: 0 0 0 1000px #fff inset;
   caret-color: var(--text);
   transition: background-color 9999s ease-in-out 0s;
 }
 
-/* Invert the date picker indicator so it's visible on a dark background */
 input[type="date"].input::-webkit-calendar-picker-indicator {
-  filter: invert(1) brightness(1.3);
   cursor: pointer;
+  opacity: 0.55;
 }
+input[type="date"].input::-webkit-calendar-picker-indicator:hover { opacity: 1; }
 
 .label {
   font-size: 13px;
@@ -170,30 +254,34 @@ input[type="date"].input::-webkit-calendar-picker-indicator {
   display: block;
 }
 
-/* ---------- Loading / preloading animations ---------- */
+/* ---------- Motion ---------- */
 
 @keyframes spin { to { transform: rotate(360deg); } }
-@keyframes pulseGlow {
-  0%, 100% { opacity: 0.6; }
-  50% { opacity: 1; }
-}
 @keyframes shimmer {
   0% { background-position: -200% 0; }
   100% { background-position: 200% 0; }
 }
+@keyframes riseIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: none; }
+}
+
+.rise-in { animation: riseIn 0.35s var(--ease-fluent) both; }
 
 .spinner {
-  width: 20px;
-  height: 20px;
+  width: 16px;
+  height: 16px;
   border-radius: 50%;
-  border: 2.5px solid rgba(255, 255, 255, 0.25);
-  border-top-color: white;
+  /* currentColor so it reads on both a filled accent button and a ghost one. */
+  border: 2px solid currentColor;
+  border-top-color: transparent;
+  opacity: 0.85;
   animation: spin 0.7s linear infinite;
 }
 
 .skeleton {
-  border-radius: 10px;
-  background: linear-gradient(90deg, var(--bg-elevated) 25%, #1e2230 37%, var(--bg-elevated) 63%);
+  border-radius: var(--radius-sm);
+  background: linear-gradient(90deg, var(--bg-elevated) 25%, var(--bg-inset) 37%, var(--bg-elevated) 63%);
   background-size: 400% 100%;
   animation: shimmer 1.4s ease infinite;
 }
@@ -205,14 +293,43 @@ input[type="date"].input::-webkit-calendar-picker-indicator {
   transition: stroke-dashoffset 0.2s ease;
 }
 
-.scrollbar-slim::-webkit-scrollbar { width: 8px; height: 8px; }
-.scrollbar-slim::-webkit-scrollbar-thumb { background: var(--border); border-radius: 8px; }
+.scrollbar-slim::-webkit-scrollbar { width: 10px; height: 10px; }
+.scrollbar-slim::-webkit-scrollbar-track { background: transparent; }
+.scrollbar-slim::-webkit-scrollbar-thumb {
+  background: var(--border-strong);
+  border-radius: 999px;
+  border: 3px solid transparent;
+  background-clip: content-box;
+}
+.scrollbar-slim::-webkit-scrollbar-thumb:hover { background-clip: content-box; background-color: var(--text-subtle); }
 
-.reports-row { transition: background-color 0.15s ease; }
+*::-webkit-scrollbar { width: 12px; height: 12px; }
+*::-webkit-scrollbar-track { background: transparent; }
+*::-webkit-scrollbar-thumb {
+  background-color: var(--border-strong);
+  border-radius: 999px;
+  border: 3px solid transparent;
+  background-clip: content-box;
+}
+*::-webkit-scrollbar-thumb:hover { background-color: var(--text-subtle); }
+
+.reports-row { transition: background-color 0.12s var(--ease-standard); }
 .reports-row:hover { background-color: var(--bg-elevated); }
 
-.expense-row { transition: background-color 0.15s ease; }
+.expense-row { transition: background-color 0.12s var(--ease-standard); }
 .expense-row:hover { background-color: var(--bg-elevated); }
 
-.export-menu-item { transition: background-color 0.15s ease; }
+.export-menu-item { transition: background-color 0.12s var(--ease-standard); }
 .export-menu-item:hover { background-color: var(--bg-elevated); }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* Fluent's navigation rows reveal a subtle fill on hover rather than a border. */
+.nav-item { transition: background 0.12s var(--ease-standard), color 0.12s var(--ease-standard); }
+.nav-item:hover { background: var(--bg-elevated) !important; color: var(--text) !important; }

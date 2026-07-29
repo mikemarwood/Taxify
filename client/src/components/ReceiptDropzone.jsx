@@ -54,7 +54,7 @@ export default function ReceiptDropzone({ file, onFileChange, uploadProgress, st
         padding: 28,
         textAlign: 'center',
         cursor: busy ? 'default' : 'pointer',
-        background: status === 'error' ? 'rgba(239, 68, 68, 0.06)' : dragOver ? 'rgba(139, 92, 246, 0.08)' : 'var(--bg-elevated)',
+        background: status === 'error' ? 'rgba(239, 68, 68, 0.06)' : dragOver ? 'var(--accent-soft)' : 'var(--bg-elevated)',
         transition: 'border-color 0.2s ease, background 0.2s ease',
         position: 'relative',
       }}

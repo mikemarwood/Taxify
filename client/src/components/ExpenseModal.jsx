@@ -9,7 +9,7 @@ import Toggle from './Toggle.jsx';
 import ReceiptLightbox from './ReceiptLightbox.jsx';
 import ReceiptPreview from './ReceiptPreview.jsx';
 import Icon from './Icon.jsx';
-import { onDigitKeyDown } from '../lib/sounds.js';
+import { onDigitKeyDown, playOpen, playClose } from '../lib/sounds.js';
 import { useAuth } from '../lib/AuthContext.jsx';
 
 const CURRENCIES = ['AUD', 'USD', 'NZD', 'GBP', 'EUR'];
@@ -135,6 +135,13 @@ export default function ExpenseModal({ expense, onClose, onSaved, onDeleted }) {
   const [receiptStatus, setReceiptStatus] = useState('idle');
   const [receiptError, setReceiptError] = useState('');
 
+  // Paired with the open/close animation so the sound and the movement land
+  // together; unmounting is when the dialog is actually going away.
+  useEffect(() => {
+    playOpen();
+    return playClose;
+  }, []);
+
   useEffect(() => {
     if (editing && categories.length === 0) {
       api.get('/categories').then((res) => setCategories(res.data.categories));
@@ -234,7 +241,8 @@ export default function ExpenseModal({ expense, onClose, onSaved, onDeleted }) {
         style={{
           position: 'fixed',
           inset: 0,
-          background: 'rgba(5, 6, 10, 0.65)',
+          background: 'rgba(16, 24, 40, 0.32)',
+          backdropFilter: 'blur(4px)',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',

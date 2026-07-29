@@ -35,7 +35,8 @@ export default function OtpOnboardingModal({ onClose }) {
         style={{
           position: 'fixed',
           inset: 0,
-          background: 'rgba(5, 6, 10, 0.65)',
+          background: 'rgba(16, 24, 40, 0.32)',
+          backdropFilter: 'blur(4px)',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',

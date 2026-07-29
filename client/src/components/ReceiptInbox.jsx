@@ -5,6 +5,7 @@ import { useToast } from './Toast.jsx';
 import ReceiptLightbox from './ReceiptLightbox.jsx';
 import CategoryBadge from './CategoryBadge.jsx';
 import Icon from './Icon.jsx';
+import { playOpen, playClose, playClick } from '../lib/sounds.js';
 import { inboxFileUrl } from './ReceiptGallery.jsx';
 
 const MAX_FILE_BYTES = 5 * 1024 * 1024;
@@ -123,6 +124,11 @@ export default function ReceiptInbox({ onClose, onChanged }) {
 
   useEffect(loadInbox, [loadInbox]);
   useEffect(loadExpenses, [loadExpenses]);
+
+  useEffect(() => {
+    playOpen();
+    return playClose;
+  }, []);
 
   useEffect(() => {
     function onKeyDown(e) {
@@ -319,7 +325,8 @@ export default function ReceiptInbox({ onClose, onChanged }) {
         style={{
           position: 'fixed',
           inset: 0,
-          background: 'rgba(5, 6, 10, 0.65)',
+          background: 'rgba(16, 24, 40, 0.32)',
+          backdropFilter: 'blur(4px)',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
@@ -407,7 +414,7 @@ export default function ReceiptInbox({ onClose, onChanged }) {
                   padding: 12,
                   textAlign: 'center',
                   cursor: uploading ? 'default' : 'pointer',
-                  background: dragOverZone ? 'rgba(139, 92, 246, 0.08)' : 'var(--bg-elevated)',
+                  background: dragOverZone ? 'var(--accent-soft)' : 'var(--bg-elevated)',
                   flexShrink: 0,
                 }}
               >
@@ -535,7 +542,10 @@ export default function ReceiptInbox({ onClose, onChanged }) {
                               draggingRef.current = null;
                               setDropTarget(null);
                             }}
-                            onClick={() => setPicked(isPicked ? null : f)}
+                            onClick={() => {
+                              playClick();
+                              setPicked(isPicked ? null : f);
+                            }}
                             title={`${f.folder ? `${f.folder}/` : ''}${f.filename} — right-click for options`}
                             style={{
                               height: 88,
@@ -708,7 +718,7 @@ export default function ReceiptInbox({ onClose, onChanged }) {
                             borderRadius: isOpen ? '9px 9px 0 0' : 9,
                             fontSize: 12.5,
                             border: `1px solid ${isTarget ? 'var(--violet)' : 'transparent'}`,
-                            background: isTarget ? 'rgba(139, 92, 246, 0.14)' : 'var(--bg-elevated)',
+                            background: isTarget ? 'var(--accent-soft)' : 'var(--bg-elevated)',
                             cursor: 'pointer',
                             opacity: assigning === e.id ? 0.5 : 1,
                           }}

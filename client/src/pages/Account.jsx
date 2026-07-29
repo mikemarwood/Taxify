@@ -6,6 +6,7 @@ import OtpBenefits from '../components/OtpBenefits.jsx';
 import Toggle from '../components/Toggle.jsx';
 import Avatar from '../components/Avatar.jsx';
 import AvatarEditorModal from '../components/AvatarEditorModal.jsx';
+import { isSoundEnabled, setSoundEnabled } from '../lib/sounds.js';
 
 const MAX_AVATAR_BYTES = 5 * 1024 * 1024;
 
@@ -344,6 +345,14 @@ export default function Account() {
 
   const [mfaBusy, setMfaBusy] = useState(false);
 
+  // Device-local, so it isn't sent to the server or shared between machines.
+  const [soundOn, setSoundOn] = useState(isSoundEnabled);
+
+  function onToggleSound(next) {
+    setSoundEnabled(next);
+    setSoundOn(next);
+  }
+
   async function toggleMfa(enabled) {
     setMfaBusy(true);
     try {
@@ -499,6 +508,18 @@ export default function Account() {
           )}
         </div>
         <OtpBenefits />
+      </div>
+
+      <div className="card" style={{ padding: 20 }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16 }}>
+          <div>
+            <div style={{ fontWeight: 700 }}>Interface sounds</div>
+            <div style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 2 }}>
+              Short tones on saving, errors, and opening a dialog. Stored on this device.
+            </div>
+          </div>
+          <Toggle checked={soundOn} onChange={onToggleSound} />
+        </div>
       </div>
     </div>
   );
