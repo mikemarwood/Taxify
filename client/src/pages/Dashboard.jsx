@@ -322,7 +322,7 @@ export default function Dashboard() {
                       style={{ lineHeight: 0, background: 'none', border: 'none', padding: 0, cursor: 'pointer' }}
                       onClick={(evt) => {
                         evt.stopPropagation();
-                        setLightboxUrl(e.receiptUrl);
+                        setLightboxUrl({ url: e.receiptUrl, filename: e.receiptFilename });
                       }}
                     >
                       🧾
@@ -369,7 +369,9 @@ export default function Dashboard() {
         />
       )}
 
-      {lightboxUrl && <ReceiptLightbox url={lightboxUrl} onClose={() => setLightboxUrl(null)} />}
+      {lightboxUrl && (
+        <ReceiptLightbox url={lightboxUrl.url} filename={lightboxUrl.filename} onClose={() => setLightboxUrl(null)} />
+      )}
     </div>
   );
 }

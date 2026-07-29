@@ -292,7 +292,7 @@ export default function ReceiptInbox({ onClose, onChanged }) {
                         <button
                           type="button"
                           title={`${f.filename} — click to preview`}
-                          onClick={() => setPreview(inboxFileUrl(f.filename, f.folder))}
+                          onClick={() => setPreview({ url: inboxFileUrl(f.filename, f.folder), filename: f.filename })}
                           style={{
                             width: '100%',
                             height: 96,
@@ -371,7 +371,9 @@ export default function ReceiptInbox({ onClose, onChanged }) {
           </div>
         </motion.div>
       </motion.div>
-      {preview && <ReceiptLightbox url={preview} onClose={() => setPreview(null)} />}
+      {preview && (
+        <ReceiptLightbox url={preview.url} filename={preview.filename} onClose={() => setPreview(null)} />
+      )}
     </AnimatePresence>
   );
 }

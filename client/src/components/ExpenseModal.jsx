@@ -428,7 +428,11 @@ export default function ExpenseModal({ expense, onClose, onSaved, onDeleted }) {
         </motion.div>
       </motion.div>
       {lightboxOpen && expense.receiptUrl && (
-        <ReceiptLightbox url={expense.receiptUrl} onClose={() => setLightboxOpen(false)} />
+        <ReceiptLightbox
+          url={expense.receiptUrl}
+          filename={expense.receiptFilename}
+          onClose={() => setLightboxOpen(false)}
+        />
       )}
     </AnimatePresence>
   );

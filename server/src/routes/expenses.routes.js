@@ -175,11 +175,27 @@ function moveFromInbox(email, filename, destDir, folder) {
   return finalName;
 }
 
+// One receipt can cover several expenses — a single shop docket spanning three
+// line items, say — so receipt_path is not unique. A file must therefore only
+// be deleted or relocated once nothing else points at it. The same filename in
+// a different folder is a different file, so the derived directory is compared
+// too, not just the name.
+async function otherExpensesUsingReceipt(dbPool, user, receiptPath, dir, excludeExpenseId) {
+  if (!receiptPath) return 0;
+  const [rows] = await dbPool.execute(
+    `SELECT e.id, e.purchase_date, c.name AS category_name
+     FROM expenses e LEFT JOIN categories c ON c.id = e.category_id
+     WHERE e.user_id = ? AND e.receipt_path = ? AND e.deleted_at IS NULL AND e.id <> ?`,
+    [user.id, receiptPath, excludeExpenseId || 0]
+  );
+  return rows.filter((r) => dirFor(user.email, r.purchase_date, r.category_name || 'Uncategorised') === dir).length;
+}
+
 const TRASH_RETENTION_DAYS = 30;
 
 export async function purgeExpiredTrash(dbPool) {
   const [rows] = await dbPool.execute(
-    `SELECT e.id, e.receipt_path, e.purchase_date, u.email AS user_email, c.name AS category_name
+    `SELECT e.id, e.user_id, e.receipt_path, e.purchase_date, u.email AS user_email, c.name AS category_name
      FROM expenses e
      JOIN users u ON u.id = e.user_id
      LEFT JOIN categories c ON c.id = e.category_id
@@ -190,7 +206,15 @@ export async function purgeExpiredTrash(dbPool) {
   for (const row of rows) {
     if (row.receipt_path) {
       const dir = receiptDirFor(uploadsDir, row.user_email, row.purchase_date, row.category_name);
-      fs.unlink(path.join(dir, row.receipt_path), () => {});
+      // Keep the file if a live expense still shares it.
+      const stillUsed = await otherExpensesUsingReceipt(
+        dbPool,
+        { id: row.user_id, email: row.user_email },
+        row.receipt_path,
+        dir,
+        row.id
+      );
+      if (stillUsed === 0) fs.unlink(path.join(dir, row.receipt_path), () => {});
     }
   }
   await dbPool.query(
@@ -566,13 +590,25 @@ router.patch(
       );
 
       if (deleteOldAbsPath) {
-        fs.unlink(deleteOldAbsPath, () => {});
+        const stillUsed = await otherExpensesUsingReceipt(pool, req.user, existing.receipt_path, oldDir, req.params.id);
+        if (stillUsed === 0) fs.unlink(deleteOldAbsPath, () => {});
       }
       if (moveFrom && moveTo) {
         fs.mkdirSync(newDir, { recursive: true });
-        fs.rename(moveFrom, moveTo, (err) => {
-          if (err) console.error('Failed to relocate receipt file', err);
-        });
+        // Another expense still points at the old location, so leave a copy
+        // behind rather than moving the file out from under it.
+        const stillUsed = await otherExpensesUsingReceipt(pool, req.user, existing.receipt_path, oldDir, req.params.id);
+        if (stillUsed > 0) {
+          try {
+            fs.copyFileSync(moveFrom, moveTo);
+          } catch (err) {
+            console.error('Failed to copy shared receipt file', err);
+          }
+        } else {
+          fs.rename(moveFrom, moveTo, (err) => {
+            if (err) console.error('Failed to relocate receipt file', err);
+          });
+        }
       }
 
       res.json({ ok: true });
@@ -632,6 +668,8 @@ router.get(
       .filter((e) => e.isFile() && ALLOWED_RECEIPT_EXT.has(path.extname(e.name).toLowerCase()))
       .map((e) => e.name);
 
+    // A receipt may legitimately cover several expenses, so collect every user
+    // of each file rather than the first one found.
     const assignedMap = new Map();
     if (filenames.length > 0) {
       const [rows] = await pool.execute(
@@ -639,7 +677,10 @@ router.get(
          WHERE user_id = ? AND deleted_at IS NULL AND receipt_path IN (${filenames.map(() => '?').join(',')})`,
         [req.user.id, ...filenames]
       );
-      for (const r of rows) assignedMap.set(r.receipt_path, { id: r.id, itemName: r.item_name });
+      for (const r of rows) {
+        if (!assignedMap.has(r.receipt_path)) assignedMap.set(r.receipt_path, []);
+        assignedMap.get(r.receipt_path).push({ id: r.id, itemName: r.item_name });
+      }
     }
 
     const files = filenames.map((name) => {
@@ -649,13 +690,14 @@ router.get(
       } catch {
         stat = null;
       }
-      const assignedTo = assignedMap.get(name) || null;
+      const usedBy = assignedMap.get(name) || [];
       return {
         filename: name,
         sizeBytes: stat ? stat.size : null,
         modifiedAt: stat ? stat.mtime : null,
-        assigned: !!assignedTo,
-        assignedTo,
+        assigned: usedBy.length > 0,
+        usedBy,
+        assignedTo: usedBy[0] || null,
       };
     });
 
@@ -847,7 +889,8 @@ router.delete(
     await pool.execute('DELETE FROM expenses WHERE id = ? AND user_id = ?', [req.params.id, req.user.id]);
     if (row.receipt_path) {
       const dir = dirFor(req.user.email, row.purchase_date, row.category_name || 'Uncategorised');
-      fs.unlink(path.join(dir, row.receipt_path), () => {});
+      const stillUsed = await otherExpensesUsingReceipt(pool, req.user, row.receipt_path, dir, req.params.id);
+      if (stillUsed === 0) fs.unlink(path.join(dir, row.receipt_path), () => {});
     }
     res.json({ ok: true });
   })

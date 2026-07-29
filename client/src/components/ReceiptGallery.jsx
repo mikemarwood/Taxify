@@ -1,12 +1,11 @@
 import { useEffect, useState } from 'react';
 import { api } from '../lib/api.js';
-import { useToast } from './Toast.jsx';
 import ReceiptLightbox from './ReceiptLightbox.jsx';
 
 const FILTERS = [
   { key: 'all', label: 'All' },
-  { key: 'unassigned', label: 'Not assigned' },
-  { key: 'assigned', label: 'Assigned' },
+  { key: 'unassigned', label: 'Unused' },
+  { key: 'assigned', label: 'In use' },
 ];
 
 function isImageFilename(name) {
@@ -145,7 +144,6 @@ function Thumb({ url, filename, selected, dimmed, badge, onSelect, onPreview, ti
 }
 
 export default function ReceiptGallery({ categoryId, categoryName, purchaseDate, currentFilename, onPick, refreshToken }) {
-  const toast = useToast();
   const [files, setFiles] = useState(null);
   const [inbox, setInbox] = useState([]);
   const [inboxFolders, setInboxFolders] = useState([]);
@@ -275,7 +273,7 @@ export default function ReceiptGallery({ categoryId, categoryName, purchaseDate,
                   badge={f.folder ? folderLabel(f.folder) : 'Inbox'}
                   title={`${f.folder ? `${f.folder}/` : ''}${f.filename} — moves into this expense's folder when you save`}
                   onSelect={() => onPick(f.filename, 'inbox', f.folder || '')}
-                  onPreview={() => setPreview(inboxFileUrl(f.filename, f.folder))}
+                  onPreview={() => setPreview({ url: inboxFileUrl(f.filename, f.folder), filename: f.filename })}
                 />
               ))}
             </div>
@@ -328,24 +326,27 @@ export default function ReceiptGallery({ categoryId, categoryName, purchaseDate,
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(84px, 1fr))', gap: 10 }}>
                 {visible.map((f) => {
                   const isCurrent = f.filename === currentFilename;
-                  const locked = f.assigned && !isCurrent;
+                  const usedBy = f.usedBy || (f.assignedTo ? [f.assignedTo] : []);
+                  // Others already use this receipt. That's allowed — one
+                  // docket often covers several line items — so it stays
+                  // selectable and just says who else is on it.
+                  const sharedWith = usedBy.filter((u) => u.itemName !== undefined && !isCurrent);
                   return (
                     <Thumb
                       key={f.filename}
                       url={folderFileUrl(categoryId, purchaseDate, f.filename)}
                       filename={f.filename}
                       selected={isCurrent}
-                      dimmed={locked}
-                      badge={locked ? 'Assigned' : isCurrent ? 'Current' : null}
-                      title={locked ? `Linked to "${f.assignedTo.itemName}"` : f.filename}
-                      onSelect={() => {
-                        if (locked) {
-                          toast(`Already linked to "${f.assignedTo.itemName}"`, 'info');
-                          return;
-                        }
-                        onPick(f.filename, 'folder', '');
-                      }}
-                      onPreview={() => setPreview(folderFileUrl(categoryId, purchaseDate, f.filename))}
+                      badge={isCurrent ? 'Current' : sharedWith.length > 0 ? `Used ×${sharedWith.length}` : null}
+                      title={
+                        sharedWith.length > 0
+                          ? `${f.filename}\nAlso on: ${sharedWith.map((u) => u.itemName).join(', ')}`
+                          : f.filename
+                      }
+                      onSelect={() => onPick(f.filename, 'folder', '')}
+                      onPreview={() =>
+                        setPreview({ url: folderFileUrl(categoryId, purchaseDate, f.filename), filename: f.filename })
+                      }
                     />
                   );
                 })}
@@ -355,7 +356,9 @@ export default function ReceiptGallery({ categoryId, categoryName, purchaseDate,
         )
       )}
 
-      {preview && <ReceiptLightbox url={preview} onClose={() => setPreview(null)} />}
+      {preview && (
+        <ReceiptLightbox url={preview.url} filename={preview.filename} onClose={() => setPreview(null)} />
+      )}
     </div>
   );
 }
