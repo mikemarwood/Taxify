@@ -5,6 +5,7 @@ import { useToast } from '../components/Toast.jsx';
 import { SkeletonList } from '../components/Skeletons.jsx';
 import { ICON_OPTIONS } from '../lib/categoryIcons.js';
 import Icon from '../components/Icon.jsx';
+import CategoryDocuments from '../components/CategoryDocuments.jsx';
 
 const SWATCHES = ['#8b5cf6', '#06b6d4', '#f59e0b', '#ec4899', '#10b981', '#3b82f6', '#ef4444', '#eab308', '#14b8a6', '#a1a1aa'];
 
@@ -52,6 +53,7 @@ export default function Categories() {
   const [editName, setEditName] = useState('');
   const [editIcon, setEditIcon] = useState('tag');
   const [editColor, setEditColor] = useState('');
+  const [editRental, setEditRental] = useState(false);
   const [editBusy, setEditBusy] = useState(false);
 
   function load() {
@@ -81,6 +83,7 @@ export default function Categories() {
     setEditName(c.name);
     setEditColor(c.color);
     setEditIcon(c.icon || 'tag');
+    setEditRental(!!c.isPropertyRental);
     setConfirmingId(null);
   }
 
@@ -92,7 +95,12 @@ export default function Categories() {
     if (!editName.trim()) return;
     setEditBusy(true);
     try {
-      await api.patch(`/categories/${id}`, { name: editName, color: editColor, icon: editIcon });
+      await api.patch(`/categories/${id}`, {
+        name: editName,
+        color: editColor,
+        icon: editIcon,
+        isPropertyRental: editRental,
+      });
       toast('Category updated', 'success');
       setEditingId(null);
       load();
@@ -227,12 +235,41 @@ export default function Categories() {
                       </button>
                     </div>
                     <IconPicker value={editIcon} onChange={setEditIcon} />
+                    <label
+                      title="Property rentals collect paperwork of their own — statements, schedules, end-of-year summaries."
+                      style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12.5, cursor: 'pointer', color: 'var(--text-muted)' }}
+                    >
+                      <input type="checkbox" checked={editRental} onChange={(e) => setEditRental(e.target.checked)} />
+                      This is a property rental
+                    </label>
                   </div>
                 ) : (
                   <>
                     <Icon name={c.icon} size={17} style={{ color: c.color }} />
                     <div style={{ width: 12, height: 12, borderRadius: '50%', background: c.color }} />
-                    <div style={{ flex: 1, fontWeight: 600 }}>{c.name}</div>
+                    <div style={{ fontWeight: 600 }}>{c.name}</div>
+                    {c.isPropertyRental && (
+                      <span
+                        title="Property rental — keeps its own documents"
+                        style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: 5,
+                          fontSize: 11,
+                          fontWeight: 700,
+                          padding: '2px 8px',
+                          borderRadius: 999,
+                          color: 'var(--accent)',
+                          background: 'var(--accent-soft)',
+                          border: '1px solid var(--accent-ring)',
+                        }}
+                      >
+                        <Icon name="home" size={11} />
+                        Rental
+                        {c.documentCount > 0 && <span style={{ fontWeight: 600 }}>· {c.documentCount}</span>}
+                      </span>
+                    )}
+                    <div style={{ flex: 1 }} />
 
                     {confirmingId === c.id ? (
                       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -265,6 +302,14 @@ export default function Categories() {
                           Delete
                         </button>
                       </>
+                    )}
+
+                    {/* Full-width because the row wraps — the document panel
+                        belongs under the category, not beside it. */}
+                    {c.isPropertyRental && (
+                      <div style={{ width: '100%' }}>
+                        <CategoryDocuments category={c} />
+                      </div>
                     )}
                   </>
                 )}

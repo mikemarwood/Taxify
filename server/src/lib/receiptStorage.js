@@ -83,6 +83,25 @@ export function receiptRelDirFor(userId, purchaseDate, categoryName) {
 // folders so it never gets mistaken for one.
 export const INBOX_SEGMENT = '_inbox';
 
+// Paperwork belonging to a category rather than to any single expense — a
+// rental's agent statements and end-of-year summaries. Kept out of the
+// receipts tree entirely so it's never picked up by anything scanning for
+// financial-year folders.
+export const DOCUMENTS_SEGMENT = 'documents';
+
+// <uploads>/<userId>/documents/<category>
+export function categoryDocumentDir(uploadsRoot, userId, categoryName) {
+  return path.join(
+    userRootDir(uploadsRoot, userId),
+    DOCUMENTS_SEGMENT,
+    categoryToFolderSegment(categoryName)
+  );
+}
+
+export function categoryDocumentRelDir(userId, categoryName) {
+  return [sanitizeSegment(userId, 'user'), DOCUMENTS_SEGMENT, categoryToFolderSegment(categoryName)].join('/');
+}
+
 // Defense-in-depth: confirms `target` resolves to inside `root` before any
 // fs operation touches it, on top of the filename/segment sanitization above.
 export function assertWithin(root, target) {

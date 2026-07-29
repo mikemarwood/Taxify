@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import multer from 'multer';
 import path from 'path';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
@@ -6,8 +7,17 @@ import pool from '../db.js';
 import { requireAuth, requireActiveAccess } from '../auth/middleware.js';
 import { asyncHandler } from '../lib/asyncHandler.js';
 import { toTitleCase } from '../lib/text.js';
-import { receiptsRootDir, categoryToFolderSegment, uniqueFilenameIn, INBOX_SEGMENT } from '../lib/receiptStorage.js';
+import {
+  receiptsRootDir,
+  categoryToFolderSegment,
+  categoryDocumentDir,
+  uniqueFilenameIn,
+  assertWithin,
+  INBOX_SEGMENT,
+} from '../lib/receiptStorage.js';
 import { financialYearRange } from '../lib/financialYear.js';
+import { viewableCopy } from '../lib/heicPreview.js';
+import { MAX_UPLOAD_BYTES, isAllowedUpload, UPLOAD_REJECTED_MESSAGE } from '../lib/uploadRules.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const uploadsDir = path.join(__dirname, '..', '..', 'uploads');
@@ -74,10 +84,21 @@ router.get(
   '/',
   asyncHandler(async (req, res) => {
     const [categories] = await pool.execute(
-      'SELECT id, name, color, icon FROM categories WHERE user_id = ? ORDER BY name',
+      `SELECT c.id, c.name, c.color, c.icon, c.is_property_rental,
+              (SELECT COUNT(*) FROM category_documents d WHERE d.category_id = c.id) AS document_count
+       FROM categories c WHERE c.user_id = ? ORDER BY c.name`,
       [req.user.id]
     );
-    res.json({ categories });
+    res.json({
+      categories: categories.map((c) => ({
+        id: c.id,
+        name: c.name,
+        color: c.color,
+        icon: c.icon,
+        isPropertyRental: !!c.is_property_rental,
+        documentCount: Number(c.document_count) || 0,
+      })),
+    });
   })
 );
 
@@ -108,12 +129,12 @@ router.post(
 router.patch(
   '/:id',
   asyncHandler(async (req, res) => {
-    const { name, color, icon } = req.body || {};
+    const { name, color, icon, isPropertyRental } = req.body || {};
 
-    const [existingRows] = await pool.execute('SELECT id, name, color, icon FROM categories WHERE id = ? AND user_id = ?', [
-      req.params.id,
-      req.user.id,
-    ]);
+    const [existingRows] = await pool.execute(
+      'SELECT id, name, color, icon, is_property_rental FROM categories WHERE id = ? AND user_id = ?',
+      [req.params.id, req.user.id]
+    );
     const existing = existingRows[0];
     if (!existing) return res.status(404).json({ error: 'Category not found' });
 
@@ -125,16 +146,17 @@ router.patch(
     }
     const finalColor = color || existing.color;
     const finalIcon = icon || existing.icon;
+    const finalRental = isPropertyRental === undefined ? existing.is_property_rental : isPropertyRental ? 1 : 0;
 
     try {
-      await pool.execute('UPDATE categories SET name = ?, color = ?, icon = ? WHERE id = ? AND user_id = ?', [
-        finalName,
-        finalColor,
-        finalIcon,
-        req.params.id,
-        req.user.id,
-      ]);
-      const [rows] = await pool.execute('SELECT id, name, color, icon FROM categories WHERE id = ?', [req.params.id]);
+      await pool.execute(
+        'UPDATE categories SET name = ?, color = ?, icon = ?, is_property_rental = ? WHERE id = ? AND user_id = ?',
+        [finalName, finalColor, finalIcon, finalRental, req.params.id, req.user.id]
+      );
+      const [rows] = await pool.execute(
+        'SELECT id, name, color, icon, is_property_rental FROM categories WHERE id = ?',
+        [req.params.id]
+      );
 
       // Receipt folders are named after the category, so a rename has to take
       // the files with it or every receipt in that category goes missing.
@@ -169,7 +191,32 @@ router.patch(
         }
       }
 
-      res.json({ category: rows[0] });
+      // Documents are filed under the category name too, so they move with a
+      // rename for the same reason receipts do.
+      if (finalName !== existing.name) {
+        const from = categoryDocumentDir(uploadsDir, req.user.id, existing.name);
+        const to = categoryDocumentDir(uploadsDir, req.user.id, finalName);
+        if (fs.existsSync(from) && from !== to) {
+          try {
+            fs.mkdirSync(path.dirname(to), { recursive: true });
+            if (!fs.existsSync(to)) fs.renameSync(from, to);
+            else for (const f of fs.readdirSync(from)) fs.renameSync(path.join(from, f), path.join(to, f));
+          } catch (err) {
+            console.error('Failed to move category documents', err);
+          }
+        }
+      }
+
+      const row = rows[0];
+      res.json({
+        category: {
+          id: row.id,
+          name: row.name,
+          color: row.color,
+          icon: row.icon,
+          isPropertyRental: !!row.is_property_rental,
+        },
+      });
     } catch (err) {
       if (err.code === 'ER_DUP_ENTRY') {
         return res.status(409).json({ error: 'A category with that name already exists' });
@@ -217,6 +264,161 @@ router.delete(
       }
     }
 
+    res.json({ ok: true });
+  })
+);
+
+// --- Category documents --------------------------------------------------
+//
+// Paperwork that belongs to the category rather than to a single expense: a
+// rental's agent statements, depreciation schedule, end-of-financial-year
+// summary. Only property-rental categories offer it, since that's where the
+// per-property paperwork actually accumulates.
+
+async function loadRentalCategory(req, res) {
+  const [rows] = await pool.execute(
+    'SELECT id, name, is_property_rental FROM categories WHERE id = ? AND user_id = ?',
+    [req.params.id, req.user.id]
+  );
+  const category = rows[0];
+  if (!category) {
+    res.status(404).json({ error: 'Category not found' });
+    return null;
+  }
+  if (!category.is_property_rental) {
+    res.status(400).json({ error: 'Documents are only available on property rental categories' });
+    return null;
+  }
+  return category;
+}
+
+const documentUpload = multer({
+  storage: multer.diskStorage({
+    destination: async (req, file, cb) => {
+      try {
+        const [rows] = await pool.execute('SELECT name FROM categories WHERE id = ? AND user_id = ?', [
+          req.params.id,
+          req.user.id,
+        ]);
+        if (!rows[0]) return cb(new Error('Category not found'));
+        const dir = categoryDocumentDir(uploadsDir, req.user.id, rows[0].name);
+        fs.mkdirSync(dir, { recursive: true });
+        req._uploadDir = assertWithin(uploadsDir, dir);
+        cb(null, req._uploadDir);
+      } catch (err) {
+        cb(err);
+      }
+    },
+    // Same rule as a receipt: keep the name it arrived with, suffix only on a
+    // collision, never overwrite. An end-of-year statement is worth far more
+    // when it's still called what the agent called it.
+    filename: (req, file, cb) => {
+      req._takenNames = req._takenNames || new Set();
+      cb(null, uniqueFilenameIn(req._uploadDir, path.basename(file.originalname), req._takenNames));
+    },
+  }),
+  limits: { fileSize: MAX_UPLOAD_BYTES, files: 50 },
+  fileFilter: (req, file, cb) => {
+    if (!isAllowedUpload(file)) return cb(new Error(UPLOAD_REJECTED_MESSAGE));
+    cb(null, true);
+  },
+});
+
+router.get(
+  '/:id/documents',
+  asyncHandler(async (req, res) => {
+    const category = await loadRentalCategory(req, res);
+    if (!category) return;
+
+    const [rows] = await pool.execute(
+      `SELECT id, filename, original_name, financial_year, size_bytes, uploaded_at
+       FROM category_documents WHERE category_id = ? AND user_id = ?
+       ORDER BY uploaded_at DESC, id DESC`,
+      [category.id, req.user.id]
+    );
+    res.json({
+      documents: rows.map((d) => ({
+        id: d.id,
+        filename: d.filename,
+        originalName: d.original_name,
+        financialYear: d.financial_year,
+        sizeBytes: d.size_bytes,
+        uploadedAt: d.uploaded_at,
+        url: `/api/categories/${category.id}/documents/${encodeURIComponent(d.filename)}`,
+      })),
+      directory: categoryDocumentDir(uploadsDir, req.user.id, category.name),
+    });
+  })
+);
+
+router.post(
+  '/:id/documents',
+  documentUpload.array('documents', 50),
+  asyncHandler(async (req, res) => {
+    const category = await loadRentalCategory(req, res);
+    if (!category) return;
+
+    const files = req.files || [];
+    if (files.length === 0) return res.status(400).json({ error: 'No files uploaded' });
+
+    const financialYear = req.body?.financialYear ? String(req.body.financialYear).slice(0, 9) : null;
+    for (const file of files) {
+      await pool.execute(
+        `INSERT INTO category_documents (user_id, category_id, filename, original_name, financial_year, size_bytes)
+         VALUES (?, ?, ?, ?, ?, ?)`,
+        [req.user.id, category.id, file.filename, path.basename(file.originalname), financialYear, file.size]
+      );
+    }
+    res.status(201).json({ uploaded: files.length });
+  })
+);
+
+router.get(
+  '/:id/documents/:filename',
+  asyncHandler(async (req, res) => {
+    const category = await loadRentalCategory(req, res);
+    if (!category) return;
+
+    // The row is the authority on what belongs to this category — a filename
+    // straight off the URL never reaches the filesystem unverified.
+    const [rows] = await pool.execute(
+      'SELECT filename, original_name FROM category_documents WHERE category_id = ? AND user_id = ? AND filename = ?',
+      [category.id, req.user.id, req.params.filename]
+    );
+    if (!rows[0]) return res.status(404).json({ error: 'Document not found' });
+
+    const dir = categoryDocumentDir(uploadsDir, req.user.id, category.name);
+    let filePath;
+    try {
+      filePath = assertWithin(uploadsDir, path.join(dir, rows[0].filename));
+    } catch {
+      return res.status(400).json({ error: 'Invalid file path' });
+    }
+    if (!fs.existsSync(filePath)) return res.status(404).json({ error: 'File not found' });
+
+    if (req.query.download) return res.download(filePath, rows[0].original_name || rows[0].filename);
+    res.sendFile((await viewableCopy(uploadsDir, filePath)) || filePath);
+  })
+);
+
+router.delete(
+  '/:id/documents/:filename',
+  asyncHandler(async (req, res) => {
+    const category = await loadRentalCategory(req, res);
+    if (!category) return;
+
+    const [rows] = await pool.execute(
+      'SELECT id, filename FROM category_documents WHERE category_id = ? AND user_id = ? AND filename = ?',
+      [category.id, req.user.id, req.params.filename]
+    );
+    if (!rows[0]) return res.status(404).json({ error: 'Document not found' });
+
+    await pool.execute('DELETE FROM category_documents WHERE id = ?', [rows[0].id]);
+    try {
+      fs.unlinkSync(path.join(categoryDocumentDir(uploadsDir, req.user.id, category.name), rows[0].filename));
+    } catch {
+      // already gone from disk — the row is what mattered
+    }
     res.json({ ok: true });
   })
 );
