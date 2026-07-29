@@ -13,6 +13,7 @@ import {
   categoryDocumentDir,
   uniqueFilenameIn,
   assertWithin,
+  isFinancialYearLabel,
   INBOX_SEGMENT,
 } from '../lib/receiptStorage.js';
 import { financialYearRange } from '../lib/financialYear.js';
@@ -296,12 +297,17 @@ const documentUpload = multer({
   storage: multer.diskStorage({
     destination: async (req, file, cb) => {
       try {
+        // multer streams files as it parses, so a text field only exists here
+        // if it was sent before the files — the client appends it first.
+        const year = req.body?.financialYear;
+        if (!isFinancialYearLabel(year)) return cb(new Error('A financial year is required'));
+
         const [rows] = await pool.execute('SELECT name FROM categories WHERE id = ? AND user_id = ?', [
           req.params.id,
           req.user.id,
         ]);
         if (!rows[0]) return cb(new Error('Category not found'));
-        const dir = categoryDocumentDir(uploadsDir, req.user.id, rows[0].name);
+        const dir = categoryDocumentDir(uploadsDir, req.user.id, rows[0].name, year);
         fs.mkdirSync(dir, { recursive: true });
         req._uploadDir = assertWithin(uploadsDir, dir);
         cb(null, req._uploadDir);
@@ -331,21 +337,34 @@ router.get(
     if (!category) return;
 
     const [rows] = await pool.execute(
-      `SELECT id, filename, original_name, financial_year, size_bytes, uploaded_at
+      `SELECT id, filename, original_name, document_name, financial_year, size_bytes, uploaded_at
        FROM category_documents WHERE category_id = ? AND user_id = ?
-       ORDER BY uploaded_at DESC, id DESC`,
+       ORDER BY financial_year DESC, uploaded_at DESC, id DESC`,
       [category.id, req.user.id]
     );
-    res.json({
-      documents: rows.map((d) => ({
+
+    // Grouped server-side because the financial year is the organising idea
+    // here, not a filter — at tax time you want one year's paperwork together.
+    const byYear = new Map();
+    for (const d of rows) {
+      const year = d.financial_year || 'Unfiled';
+      if (!byYear.has(year)) byYear.set(year, []);
+      byYear.get(year).push({
         id: d.id,
         filename: d.filename,
         originalName: d.original_name,
+        documentName: d.document_name || d.original_name,
         financialYear: d.financial_year,
         sizeBytes: d.size_bytes,
         uploadedAt: d.uploaded_at,
-        url: `/api/categories/${category.id}/documents/${encodeURIComponent(d.filename)}`,
-      })),
+        url: `/api/categories/${category.id}/documents/${encodeURIComponent(d.filename)}?year=${encodeURIComponent(
+          d.financial_year || ''
+        )}`,
+      });
+    }
+
+    res.json({
+      years: Array.from(byYear.entries()).map(([year, documents]) => ({ year, documents })),
       directory: categoryDocumentDir(uploadsDir, req.user.id, category.name),
     });
   })
@@ -361,15 +380,35 @@ router.post(
     const files = req.files || [];
     if (files.length === 0) return res.status(400).json({ error: 'No files uploaded' });
 
-    const financialYear = req.body?.financialYear ? String(req.body.financialYear).slice(0, 9) : null;
+    const financialYear = req.body?.financialYear;
+    if (!isFinancialYearLabel(financialYear)) {
+      return res.status(400).json({ error: 'A financial year is required' });
+    }
+
+    // Title Case, so a list of statements reads consistently however each one
+    // was typed. Applied per upload: naming a single document names it, while
+    // a batch shares the name with the original filename kept underneath.
+    const rawName = req.body?.documentName ? String(req.body.documentName).trim().slice(0, 200) : '';
+    const documentName = rawName ? toTitleCase(rawName) : null;
+
     for (const file of files) {
+      const original = path.basename(file.originalname);
       await pool.execute(
-        `INSERT INTO category_documents (user_id, category_id, filename, original_name, financial_year, size_bytes)
-         VALUES (?, ?, ?, ?, ?, ?)`,
-        [req.user.id, category.id, file.filename, path.basename(file.originalname), financialYear, file.size]
+        `INSERT INTO category_documents
+           (user_id, category_id, filename, original_name, document_name, financial_year, size_bytes)
+         VALUES (?, ?, ?, ?, ?, ?, ?)`,
+        [
+          req.user.id,
+          category.id,
+          file.filename,
+          original,
+          documentName || toTitleCase(original.replace(/\.[^.]+$/, '').replace(/[-_]+/g, ' ')),
+          financialYear,
+          file.size,
+        ]
       );
     }
-    res.status(201).json({ uploaded: files.length });
+    res.status(201).json({ uploaded: files.length, financialYear });
   })
 );
 
@@ -379,15 +418,16 @@ router.get(
     const category = await loadRentalCategory(req, res);
     if (!category) return;
 
-    // The row is the authority on what belongs to this category — a filename
-    // straight off the URL never reaches the filesystem unverified.
+    // The row is the authority on what belongs to this category, and on which
+    // year folder it sits in — neither the filename nor the year off the URL
+    // reaches the filesystem unverified.
     const [rows] = await pool.execute(
-      'SELECT filename, original_name FROM category_documents WHERE category_id = ? AND user_id = ? AND filename = ?',
+      'SELECT filename, original_name, financial_year FROM category_documents WHERE category_id = ? AND user_id = ? AND filename = ?',
       [category.id, req.user.id, req.params.filename]
     );
     if (!rows[0]) return res.status(404).json({ error: 'Document not found' });
 
-    const dir = categoryDocumentDir(uploadsDir, req.user.id, category.name);
+    const dir = categoryDocumentDir(uploadsDir, req.user.id, category.name, rows[0].financial_year);
     let filePath;
     try {
       filePath = assertWithin(uploadsDir, path.join(dir, rows[0].filename));
@@ -408,14 +448,15 @@ router.delete(
     if (!category) return;
 
     const [rows] = await pool.execute(
-      'SELECT id, filename FROM category_documents WHERE category_id = ? AND user_id = ? AND filename = ?',
+      'SELECT id, filename, financial_year FROM category_documents WHERE category_id = ? AND user_id = ? AND filename = ?',
       [category.id, req.user.id, req.params.filename]
     );
     if (!rows[0]) return res.status(404).json({ error: 'Document not found' });
 
     await pool.execute('DELETE FROM category_documents WHERE id = ?', [rows[0].id]);
     try {
-      fs.unlinkSync(path.join(categoryDocumentDir(uploadsDir, req.user.id, category.name), rows[0].filename));
+      const dir = categoryDocumentDir(uploadsDir, req.user.id, category.name, rows[0].financial_year);
+      fs.unlinkSync(path.join(dir, rows[0].filename));
     } catch {
       // already gone from disk — the row is what mattered
     }

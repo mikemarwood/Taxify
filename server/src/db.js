@@ -100,10 +100,11 @@ export async function ensureSchema() {
       category_id INT NOT NULL,
       filename VARCHAR(255) NOT NULL,
       original_name VARCHAR(255) NOT NULL,
+      document_name VARCHAR(255) NULL,
       financial_year VARCHAR(9) NULL,
       size_bytes INT NULL,
       uploaded_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-      UNIQUE KEY uniq_category_document (category_id, filename),
+      UNIQUE KEY uniq_category_document (category_id, financial_year, filename),
       KEY idx_category_documents_user (user_id),
       FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
       FOREIGN KEY (category_id) REFERENCES categories(id) ON DELETE CASCADE

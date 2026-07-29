@@ -1,4 +1,5 @@
 import nodemailer from 'nodemailer';
+import crypto from 'crypto';
 import { getSetting, setSetting } from '../db.js';
 
 const SMTP_SETTING_KEYS = {
@@ -134,15 +135,35 @@ function htmlToText(heading, bodyHtml) {
   return `${heading}\n\n${body}\n\n--\n${BRAND}\nThis is an automated message, please do not reply directly.`;
 }
 
+// "Taxify <no-reply@example.com>" -> "no-reply@example.com". The envelope and
+// Message-ID need the bare address; the From header keeps the display name.
+function senderAddress(from) {
+  const match = /<([^>]+)>/.exec(String(from || ''));
+  return (match ? match[1] : String(from || '')).trim();
+}
+
 export async function sendMail({ to, subject, title, heading, bodyHtml }) {
   const html = renderEmail({ title: title || 'Notification', heading, bodyHtml });
   const config = await getSmtpConfig();
+  const address = senderAddress(config.from);
+
   await (await getTransporter()).sendMail({
     from: config.from,
     to,
     subject,
     html,
     text: htmlToText(heading, bodyHtml),
+    // The envelope sender is what the receiving server checks SPF against, and
+    // what ends up in Return-Path. Left unset, some relays send a null or
+    // daemon return-path, which shows up as MAILER-DAEMON at the far end and
+    // gives the recipient nothing to verify — a near-guaranteed trip to junk.
+    // Pinning it to the same address as the From header is also what DMARC
+    // alignment requires.
+    envelope: { from: address, to },
+    sender: address,
+    // Generated from the sending domain rather than the machine's hostname,
+    // which is usually something internal that matches nothing in DNS.
+    messageId: `<${crypto.randomUUID()}@${address.split('@')[1] || 'localhost'}>`,
     // Transactional mail the recipient triggered by signing in. Auto-Submitted
     // stops other mail systems auto-replying to it, and the suppression header
     // keeps it out of out-of-office loops — both are things receivers look at.

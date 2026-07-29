@@ -36,14 +36,33 @@ function iconForName(name) {
   return 'image';
 }
 
+// Australian financial year runs 1 Jul – 30 Jun, so "this year" through the
+// second half of the calendar year is the one that just started.
+function defaultFinancialYear() {
+  const now = new Date();
+  const start = now.getMonth() >= 6 ? now.getFullYear() : now.getFullYear() - 1;
+  return `${start}-${start + 1}`;
+}
+
+// A handful back and one forward — paperwork arrives after the year closes,
+// and occasionally in advance of it.
+function yearOptions() {
+  const current = Number(defaultFinancialYear().slice(0, 4));
+  const list = [];
+  for (let start = current + 1; start >= current - 6; start--) list.push(`${start}-${start + 1}`);
+  return list;
+}
+
 // The paperwork that belongs to a rental property rather than to any single
 // expense — agent statements, depreciation schedules, the end-of-year summary.
 // Several arrive at once, so this takes a whole selection in one go.
 export default function CategoryDocuments({ category }) {
   const toast = useToast();
   const inputRef = useRef(null);
-  const [documents, setDocuments] = useState(null);
+  const [years, setYears] = useState(null);
   const [directory, setDirectory] = useState('');
+  const [year, setYear] = useState(() => defaultFinancialYear());
+  const [docName, setDocName] = useState('');
   const [uploading, setUploading] = useState(false);
   const [uploadCount, setUploadCount] = useState(0);
   const [progress, setProgress] = useState(0);
@@ -54,13 +73,15 @@ export default function CategoryDocuments({ category }) {
     api
       .get(`/categories/${category.id}/documents`)
       .then((res) => {
-        setDocuments(res.data.documents);
+        setYears(res.data.years || []);
         setDirectory(res.data.directory || '');
       })
-      .catch(() => setDocuments([]));
+      .catch(() => setYears([]));
   }, [category.id]);
 
   useEffect(load, [load]);
+
+  const totalCount = (years || []).reduce((sum, g) => sum + g.documents.length, 0);
 
   async function upload(fileList) {
     const all = Array.from(fileList || []);
@@ -77,6 +98,10 @@ export default function CategoryDocuments({ category }) {
     if (ok.length === 0) return;
 
     const form = new FormData();
+    // Both text fields go in before the files: multer parses the stream in
+    // order, and the destination needs the year while the files are arriving.
+    form.append('financialYear', year);
+    if (docName.trim()) form.append('documentName', docName.trim());
     for (const f of ok) form.append('documents', f);
 
     setUploading(true);
@@ -88,7 +113,8 @@ export default function CategoryDocuments({ category }) {
         onUploadProgress: (evt) => setProgress(evt.total ? Math.round((evt.loaded / evt.total) * 100) : 0),
       });
       playSuccess();
-      toast(`${res.data.uploaded} document${res.data.uploaded === 1 ? '' : 's'} uploaded`, 'success');
+      toast(`${res.data.uploaded} document${res.data.uploaded === 1 ? '' : 's'} added to ${year}`, 'success');
+      setDocName('');
       load();
     } catch (err) {
       playError();
@@ -101,11 +127,11 @@ export default function CategoryDocuments({ category }) {
   }
 
   async function remove(doc) {
-    if (!window.confirm(`Delete “${doc.originalName}”? This removes the file from disk.`)) return;
+    if (!window.confirm(`Delete “${doc.documentName}”? This removes the file from disk.`)) return;
     try {
       await api.delete(`/categories/${category.id}/documents/${encodeURIComponent(doc.filename)}`);
-      setDocuments((prev) => prev.filter((d) => d.filename !== doc.filename));
       toast('Document deleted', 'success');
+      load();
     } catch (err) {
       toast(err.message, 'error');
     }
@@ -117,8 +143,34 @@ export default function CategoryDocuments({ category }) {
         <Icon name="folder" size={14} style={{ color: 'var(--text-muted)' }} />
         <span style={{ fontSize: 12.5, fontWeight: 700 }}>Property documents</span>
         <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>
-          {documents === null ? 'loading…' : `${documents.length} file${documents.length === 1 ? '' : 's'}`}
+          {years === null ? 'loading…' : `${totalCount} file${totalCount === 1 ? '' : 's'}`}
         </span>
+      </div>
+
+      {/* The year is chosen before the files, not after: it decides which
+          folder they land in, so it can't be an afterthought. */}
+      <div style={{ display: 'flex', gap: 8, marginBottom: 8, flexWrap: 'wrap' }}>
+        <select
+          className="input"
+          aria-label="Financial year"
+          value={year}
+          onChange={(e) => setYear(e.target.value)}
+          style={{ width: 132, fontSize: 12.5, padding: '6px 8px' }}
+        >
+          {yearOptions().map((y) => (
+            <option key={y} value={y}>
+              FY {y}
+            </option>
+          ))}
+        </select>
+        <input
+          className="input"
+          value={docName}
+          onChange={(e) => setDocName(e.target.value)}
+          placeholder="Document name (optional) — e.g. Annual Rental Statement"
+          maxLength={200}
+          style={{ flex: 1, minWidth: 200, fontSize: 12.5, padding: '6px 10px' }}
+        />
       </div>
 
       <div
@@ -160,65 +212,89 @@ export default function CategoryDocuments({ category }) {
         )}
       </div>
 
-      {documents !== null && documents.length > 0 && (
-        <div style={{ marginTop: 10, display: 'flex', flexDirection: 'column', gap: 4 }}>
-          {documents.map((d) => (
+      {years !== null &&
+        years.map((group) => (
+          <div key={group.year} style={{ marginTop: 12 }}>
             <div
-              key={d.filename}
               style={{
                 display: 'flex',
                 alignItems: 'center',
-                gap: 9,
-                padding: '7px 10px',
-                borderRadius: 'var(--radius-sm)',
-                background: 'var(--bg-elevated)',
-                fontSize: 12.5,
+                gap: 8,
+                marginBottom: 5,
+                fontSize: 11,
+                fontWeight: 700,
+                letterSpacing: 0.5,
+                textTransform: 'uppercase',
+                color: 'var(--text-muted)',
               }}
             >
-              <Icon name={iconForName(d.originalName)} size={14} style={{ color: 'var(--text-muted)' }} />
-              <button
-                type="button"
-                title="Preview"
-                onClick={() => setPreview({ url: d.url, filename: d.originalName })}
-                style={{
-                  flex: 1,
-                  minWidth: 0,
-                  textAlign: 'left',
-                  background: 'none',
-                  border: 'none',
-                  padding: 0,
-                  cursor: 'pointer',
-                  color: 'var(--text)',
-                  font: 'inherit',
-                  overflow: 'hidden',
-                  textOverflow: 'ellipsis',
-                  whiteSpace: 'nowrap',
-                }}
-              >
-                {d.originalName}
-              </button>
-              <span style={{ color: 'var(--text-muted)', fontSize: 11.5 }}>{formatSize(d.sizeBytes)}</span>
-              <a
-                href={`${d.url}?download=1`}
-                download
-                title="Download"
-                style={{ display: 'flex', color: 'var(--text-muted)' }}
-                onClick={(e) => e.stopPropagation()}
-              >
-                <Icon name="download" size={14} />
-              </a>
-              <button
-                type="button"
-                title="Delete"
-                onClick={() => remove(d)}
-                style={{ display: 'flex', background: 'none', border: 'none', padding: 0, cursor: 'pointer', color: 'var(--red)' }}
-              >
-                <Icon name="trash" size={14} />
-              </button>
+              <span>{group.year === 'Unfiled' ? 'Unfiled' : `FY ${group.year}`}</span>
+              <span style={{ fontWeight: 600, letterSpacing: 0 }}>
+                {group.documents.length} file{group.documents.length === 1 ? '' : 's'}
+              </span>
+              <span style={{ flex: 1, height: 1, background: 'var(--border)' }} />
             </div>
-          ))}
-        </div>
-      )}
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+              {group.documents.map((d) => (
+                <div
+                  key={d.filename}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 9,
+                    padding: '7px 10px',
+                    borderRadius: 'var(--radius-sm)',
+                    background: 'var(--bg-elevated)',
+                    fontSize: 12.5,
+                  }}
+                >
+                  <Icon name={iconForName(d.originalName)} size={14} style={{ color: 'var(--text-muted)' }} />
+                  <button
+                    type="button"
+                    title={`${d.originalName} — click to preview`}
+                    onClick={() => setPreview({ url: d.url, filename: d.originalName })}
+                    style={{
+                      flex: 1,
+                      minWidth: 0,
+                      textAlign: 'left',
+                      background: 'none',
+                      border: 'none',
+                      padding: 0,
+                      cursor: 'pointer',
+                      color: 'var(--text)',
+                      font: 'inherit',
+                      fontWeight: 600,
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                      whiteSpace: 'nowrap',
+                    }}
+                  >
+                    {d.documentName}
+                  </button>
+                  <span style={{ color: 'var(--text-muted)', fontSize: 11.5 }}>{formatSize(d.sizeBytes)}</span>
+                  <a
+                    href={`${d.url}${d.url.includes('?') ? '&' : '?'}download=1`}
+                    download
+                    title="Download"
+                    style={{ display: 'flex', color: 'var(--text-muted)' }}
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <Icon name="download" size={14} />
+                  </a>
+                  <button
+                    type="button"
+                    title="Delete"
+                    onClick={() => remove(d)}
+                    style={{ display: 'flex', background: 'none', border: 'none', padding: 0, cursor: 'pointer', color: 'var(--red)' }}
+                  >
+                    <Icon name="trash" size={14} />
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        ))}
 
       {directory && (
         <div style={{ marginTop: 8, fontSize: 11, color: 'var(--text-subtle)', fontFamily: 'monospace', wordBreak: 'break-all' }}>

@@ -89,17 +89,30 @@ export const INBOX_SEGMENT = '_inbox';
 // financial-year folders.
 export const DOCUMENTS_SEGMENT = 'documents';
 
-// <uploads>/<userId>/documents/<category>
-export function categoryDocumentDir(uploadsRoot, userId, categoryName) {
-  return path.join(
-    userRootDir(uploadsRoot, userId),
-    DOCUMENTS_SEGMENT,
-    categoryToFolderSegment(categoryName)
-  );
+// <uploads>/<userId>/documents/<category>/<financial-year>
+//
+// Rental paperwork is filed by year the same way receipts are — an agent
+// statement or a depreciation schedule only means anything against the year it
+// covers, and at tax time you want one year's documents together.
+export function categoryDocumentDir(uploadsRoot, userId, categoryName, financialYear) {
+  const base = path.join(userRootDir(uploadsRoot, userId), DOCUMENTS_SEGMENT, categoryToFolderSegment(categoryName));
+  return financialYear ? path.join(base, financialYear) : base;
 }
 
-export function categoryDocumentRelDir(userId, categoryName) {
-  return [sanitizeSegment(userId, 'user'), DOCUMENTS_SEGMENT, categoryToFolderSegment(categoryName)].join('/');
+export function categoryDocumentRelDir(userId, categoryName, financialYear) {
+  const parts = [sanitizeSegment(userId, 'user'), DOCUMENTS_SEGMENT, categoryToFolderSegment(categoryName)];
+  if (financialYear) parts.push(financialYear);
+  return parts.join('/');
+}
+
+// "2024-2025". Anything else is refused rather than sanitised — these come
+// from the client and become a directory name.
+const FINANCIAL_YEAR = /^\d{4}-\d{4}$/;
+
+export function isFinancialYearLabel(label) {
+  if (typeof label !== 'string' || !FINANCIAL_YEAR.test(label)) return false;
+  const [start, end] = label.split('-').map(Number);
+  return end === start + 1;
 }
 
 // Defense-in-depth: confirms `target` resolves to inside `root` before any
