@@ -37,6 +37,13 @@ export function receiptDirFor(uploadsRoot, email, purchaseDate, categoryName) {
   return path.join(uploadsRoot, emailSeg, yearSeg, categorySeg);
 }
 
+// The same folders as receiptDirFor, but relative to the uploads root and
+// always forward-slashed — this is what gets shown to the user, so it must
+// read the same on Windows and Linux.
+export function receiptRelDirFor(email, purchaseDate, categoryName) {
+  return [emailToFolderSegment(email), financialYearOf(purchaseDate), categoryToFolderSegment(categoryName)].join('/');
+}
+
 export function userRootDir(uploadsRoot, email) {
   return path.join(uploadsRoot, emailToFolderSegment(email));
 }

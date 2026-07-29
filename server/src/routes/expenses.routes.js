@@ -12,6 +12,7 @@ import { financialYearOf } from '../lib/financialYear.js';
 import { advanceDate } from '../lib/recurrence.js';
 import {
   receiptDirFor,
+  receiptRelDirFor,
   inboxDirFor,
   assertWithin,
   isSafeFilename,
@@ -148,9 +149,14 @@ function pruneEmptyInboxFolder(email, folder) {
   }
 }
 
-// Moves a staged file into its destination folder, renaming on collision.
+// Puts a staged file into its destination folder, renaming on collision.
 // Returns the filename actually stored, which is what goes in receipt_path.
-function moveFromInbox(email, filename, destDir, folder) {
+//
+// `keep` leaves the original in the inbox instead of moving it, so one docket
+// can be attached to several expenses in a row. Each expense gets its own copy
+// because the destination folder is derived from that expense's year and
+// category — two expenses in different categories can't share a file on disk.
+function placeFromInbox(email, filename, destDir, folder, { keep = false } = {}) {
   const source = assertWithin(uploadsDir, path.join(inboxFor(email, folder), filename));
   if (!fs.existsSync(source)) return null;
 
@@ -161,6 +167,11 @@ function moveFromInbox(email, filename, destDir, folder) {
     const ext = path.extname(filename);
     finalName = `${path.basename(filename, ext)}-${crypto.randomBytes(3).toString('hex')}${ext}`;
     target = assertWithin(uploadsDir, path.join(destDir, finalName));
+  }
+
+  if (keep) {
+    fs.copyFileSync(source, target);
+    return finalName;
   }
 
   try {
@@ -233,8 +244,10 @@ router.get(
     const [rows] = await pool.execute(
       `SELECT e.id, e.item_name, e.amount, e.currency, e.purchase_date, e.receipt_path,
               e.is_recurring, e.frequency, e.notes, e.created_at, e.auto_generated,
+              u.email AS owner_email,
               c.id AS category_id, c.name AS category_name, c.color AS category_color, c.icon AS category_icon
        FROM expenses e
+       JOIN users u ON u.id = e.user_id
        LEFT JOIN categories c ON c.id = e.category_id
        WHERE e.user_id IN (${visibleUserIds.map(() => '?').join(',')}) AND e.deleted_at IS NULL
        ORDER BY e.purchase_date DESC, e.id DESC`,
@@ -250,6 +263,11 @@ router.get(
       financialYear: financialYearOf(r.purchase_date),
       receiptUrl: r.receipt_path ? `/api/expenses/${r.id}/receipt` : null,
       receiptFilename: r.receipt_path || null,
+      // Where the file actually sits under uploads/, so the assigner can show
+      // which year/category folder a receipt was filed into.
+      receiptPath: r.receipt_path
+        ? `${receiptRelDirFor(r.owner_email, r.purchase_date, r.category_name || 'Uncategorised')}/${r.receipt_path}`
+        : null,
       isRecurring: !!r.is_recurring,
       frequency: r.frequency,
       notes: r.notes,
@@ -401,7 +419,7 @@ router.post(
             cleanupUpload();
             return res.status(400).json({ error: 'Invalid receipt folder' });
           }
-          const moved = moveFromInbox(req.user.email, receiptFilename, dir, folder);
+          const moved = placeFromInbox(req.user.email, receiptFilename, dir, folder);
           if (!moved) {
             cleanupUpload();
             return res.status(400).json({ error: 'Receipt file not found' });
@@ -538,7 +556,7 @@ router.patch(
             cleanupUpload();
             return res.status(400).json({ error: 'Invalid receipt folder' });
           }
-          const moved = moveFromInbox(req.user.email, receiptFilename, newDir, folder);
+          const moved = placeFromInbox(req.user.email, receiptFilename, newDir, folder);
           if (!moved) {
             cleanupUpload();
             return res.status(400).json({ error: 'Receipt file not found' });
@@ -735,6 +753,57 @@ router.get(
 );
 
 // --- Receipt inbox -------------------------------------------------------
+
+// Attaches a staged receipt to an expense in one call, for the drag-and-drop
+// assigner. The full PATCH would mean resending every field of an expense the
+// caller only wants to add a receipt to.
+//
+// `keep: true` copies rather than moves, leaving the original staged so the
+// same docket can be attached to the next expense too.
+router.post(
+  '/:id/receipt/from-inbox',
+  asyncHandler(async (req, res) => {
+    const { filename, folder: rawFolder, keep } = req.body || {};
+    if (!filename) return res.status(400).json({ error: 'filename is required' });
+    if (!isSafeFilename(filename)) return res.status(400).json({ error: 'Invalid filename' });
+    const folder = safeFolderParam(rawFolder);
+    if (folder === undefined) return res.status(400).json({ error: 'Invalid folder' });
+
+    const [rows] = await pool.execute(
+      `SELECT e.id, e.receipt_path, e.purchase_date, e.category_id, c.name AS category_name
+       FROM expenses e LEFT JOIN categories c ON c.id = e.category_id
+       WHERE e.id = ? AND e.user_id = ? AND e.deleted_at IS NULL`,
+      [req.params.id, req.user.id]
+    );
+    const expense = rows[0];
+    if (!expense) return res.status(404).json({ error: 'Expense not found' });
+
+    const categoryName = expense.category_name || 'Uncategorised';
+    const dir = dirFor(req.user.email, expense.purchase_date, categoryName);
+    const stored = placeFromInbox(req.user.email, filename, dir, folder, { keep: keep === true });
+    if (!stored) return res.status(404).json({ error: 'Receipt file not found' });
+
+    // Drop the receipt being replaced, unless another expense still uses it.
+    if (expense.receipt_path && expense.receipt_path !== stored) {
+      const stillUsed = await otherExpensesUsingReceipt(pool, req.user, expense.receipt_path, dir, expense.id);
+      if (stillUsed === 0) fs.unlink(path.join(dir, expense.receipt_path), () => {});
+    }
+
+    await pool.execute('UPDATE expenses SET receipt_path = ? WHERE id = ? AND user_id = ?', [
+      stored,
+      expense.id,
+      req.user.id,
+    ]);
+
+    res.json({
+      ok: true,
+      filename: stored,
+      keptInInbox: keep === true,
+      replaced: expense.receipt_path || null,
+      receiptPath: `${receiptRelDirFor(req.user.email, expense.purchase_date, categoryName)}/${stored}`,
+    });
+  })
+);
 
 router.post(
   '/receipts/inbox',

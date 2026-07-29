@@ -1,8 +1,9 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { api } from '../lib/api.js';
 import { useToast } from './Toast.jsx';
 import ReceiptLightbox from './ReceiptLightbox.jsx';
+import CategoryBadge from './CategoryBadge.jsx';
 import { inboxFileUrl } from './ReceiptGallery.jsx';
 
 const MAX_FILE_BYTES = 5 * 1024 * 1024;
@@ -25,21 +26,6 @@ function folderLabel(name) {
     .join(' ');
 }
 
-// [folder, files][] with the unsorted root last, so named folders read first.
-function groupByFolder(files) {
-  const groups = new Map();
-  for (const f of files) {
-    const key = f.folder || '';
-    if (!groups.has(key)) groups.set(key, []);
-    groups.get(key).push(f);
-  }
-  return Array.from(groups.entries()).sort(([a], [b]) => {
-    if (a === '') return 1;
-    if (b === '') return -1;
-    return a.localeCompare(b);
-  });
-}
-
 function formatSize(bytes) {
   if (!bytes) return '';
   if (bytes < 1024) return `${bytes} B`;
@@ -47,47 +33,114 @@ function formatSize(bytes) {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
-// Bulk staging area: drop everything in here, then attach each one from the
-// expense's own edit screen. Files live in <user>/_inbox until assigned.
+function shortDate(value) {
+  return new Date(value).toLocaleDateString(undefined, { day: '2-digit', month: 'short', year: '2-digit' });
+}
+
+function longDate(value) {
+  return new Date(value).toLocaleDateString(undefined, { day: '2-digit', month: 'long', year: 'numeric' });
+}
+
+const EXPENSE_SORTS = {
+  'date-desc': { label: 'Newest first', compare: (a, b) => new Date(b.purchaseDate) - new Date(a.purchaseDate) },
+  'date-asc': { label: 'Oldest first', compare: (a, b) => new Date(a.purchaseDate) - new Date(b.purchaseDate) },
+  'amount-desc': { label: 'Amount ↓', compare: (a, b) => b.amount - a.amount },
+  'amount-asc': { label: 'Amount ↑', compare: (a, b) => a.amount - b.amount },
+  name: { label: 'Name A–Z', compare: (a, b) => (a.itemName || '').localeCompare(b.itemName || '') },
+  category: {
+    label: 'Category A–Z',
+    compare: (a, b) =>
+      (a.category?.name || 'zzz').localeCompare(b.category?.name || 'zzz') ||
+      new Date(b.purchaseDate) - new Date(a.purchaseDate),
+  },
+};
+
+const FILE_SORTS = {
+  newest: { label: 'Newest first', compare: (a, b) => new Date(b.modifiedAt || 0) - new Date(a.modifiedAt || 0) },
+  oldest: { label: 'Oldest first', compare: (a, b) => new Date(a.modifiedAt || 0) - new Date(b.modifiedAt || 0) },
+  name: { label: 'Name A–Z', compare: (a, b) => a.filename.localeCompare(b.filename) },
+  largest: { label: 'Largest first', compare: (a, b) => (b.sizeBytes || 0) - (a.sizeBytes || 0) },
+};
+
+const MAX_ROWS = 300;
+
+// Bulk staging area and assigner: upload receipts here, then drag each one
+// onto the expense it belongs to. Dropping moves the file out of the inbox
+// and into that expense's year/category folder — unless "keep a copy" is on,
+// in which case it's copied so the same docket can cover several expenses.
 export default function ReceiptInbox({ onClose, onChanged }) {
   const toast = useToast();
   const inputRef = useRef(null);
   const folderInputRef = useRef(null);
+
   const [files, setFiles] = useState(null);
-  const [dragOver, setDragOver] = useState(false);
+  const [folders, setFolders] = useState([]);
+  const [activeFolder, setActiveFolder] = useState('__all__');
+  const [expenses, setExpenses] = useState(null);
+
+  const [search, setSearch] = useState('');
+  const [categoryId, setCategoryId] = useState('all');
+  const [year, setYear] = useState('all');
+  const [onlyMissing, setOnlyMissing] = useState(true);
+  const [expenseSort, setExpenseSort] = useState('date-desc');
+  const [fileSort, setFileSort] = useState('newest');
+
+  const [dragOverZone, setDragOverZone] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [progress, setProgress] = useState(0);
   const [preview, setPreview] = useState(null);
 
-  const load = useCallback(() => {
+  const [picked, setPicked] = useState(null); // receipt chosen by click (touch-friendly)
+  const [keepInInbox, setKeepInInbox] = useState(false); // copy instead of move
+  const draggingRef = useRef(null); // receipt being dragged
+  const [dropTarget, setDropTarget] = useState(null); // expense id under the pointer
+  const [assigning, setAssigning] = useState(null);
+  const [expanded, setExpanded] = useState(null); // expense id showing its details
+
+  const loadInbox = useCallback(() => {
     api
       .get('/expenses/receipts/inbox')
-      .then((res) => setFiles(res.data.files))
+      .then((res) => {
+        setFiles(res.data.files);
+        setFolders(res.data.folders || []);
+      })
       .catch((err) => {
         setFiles([]);
         toast(err.message, 'error');
       });
   }, [toast]);
 
-  useEffect(load, [load]);
+  const loadExpenses = useCallback(() => {
+    api
+      .get('/expenses')
+      .then((res) => setExpenses(res.data.expenses))
+      .catch(() => setExpenses([]));
+  }, []);
+
+  useEffect(loadInbox, [loadInbox]);
+  useEffect(loadExpenses, [loadExpenses]);
 
   useEffect(() => {
     function onKeyDown(e) {
-      if (e.key === 'Escape' && !preview) onClose();
+      if (e.key !== 'Escape') return;
+      if (preview) return;
+      if (picked) {
+        setPicked(null);
+        return;
+      }
+      onClose();
     }
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, [onClose, preview]);
+  }, [onClose, preview, picked]);
 
   async function handleFiles(fileList) {
-    const picked = Array.from(fileList || []);
-    if (picked.length === 0) return;
+    const all = Array.from(fileList || []);
+    if (all.length === 0) return;
 
-    const tooBig = picked.filter((f) => f.size > MAX_FILE_BYTES);
-    const ok = picked.filter((f) => f.size <= MAX_FILE_BYTES);
-    if (tooBig.length > 0) {
-      toast(`${tooBig.length} file(s) skipped — receipts must be 5MB or smaller.`, 'error');
-    }
+    const tooBig = all.filter((f) => f.size > MAX_FILE_BYTES);
+    const ok = all.filter((f) => f.size <= MAX_FILE_BYTES);
+    if (tooBig.length > 0) toast(`${tooBig.length} file(s) skipped — receipts must be 5MB or smaller.`, 'error');
     if (ok.length === 0) return;
 
     const form = new FormData();
@@ -107,8 +160,8 @@ export default function ReceiptInbox({ onClose, onChanged }) {
         headers: { 'Content-Type': 'multipart/form-data' },
         onUploadProgress: (evt) => setProgress(evt.total ? Math.round((evt.loaded / evt.total) * 100) : 0),
       });
-      toast(`${res.data.uploaded} receipt${res.data.uploaded === 1 ? '' : 's'} added to the inbox`, 'success');
-      load();
+      toast(`${res.data.uploaded} receipt${res.data.uploaded === 1 ? '' : 's'} added`, 'success');
+      loadInbox();
       onChanged?.();
     } catch (err) {
       toast(err.message, 'error');
@@ -116,20 +169,124 @@ export default function ReceiptInbox({ onClose, onChanged }) {
       setUploading(false);
       setProgress(0);
       if (inputRef.current) inputRef.current.value = '';
+      if (folderInputRef.current) folderInputRef.current.value = '';
     }
   }
 
-  async function discard(filename, folder) {
+  async function assign(receipt, expense) {
+    if (!receipt || !expense) return;
+    setDropTarget(null);
+    // Attaching over an existing receipt deletes the old file when nothing
+    // else points at it, so make that an explicit choice rather than a
+    // mis-drop.
+    if (
+      expense.receiptUrl &&
+      !window.confirm(`“${expense.itemName}” already has a receipt attached. Replace it with “${receipt.filename}”?`)
+    ) {
+      return;
+    }
+
+    setAssigning(expense.id);
     try {
-      await api.delete(`/expenses/receipts/inbox/${encodeURIComponent(filename)}`, {
-        params: folder ? { folder } : undefined,
+      const res = await api.post(`/expenses/${expense.id}/receipt/from-inbox`, {
+        filename: receipt.filename,
+        folder: receipt.folder || undefined,
+        keep: keepInInbox || undefined,
       });
-      setFiles((prev) => prev.filter((f) => !(f.filename === filename && (f.folder || '') === (folder || ''))));
+      // In keep mode the original stays staged and stays selected, so the next
+      // expense is one click away.
+      if (!res.data.keptInInbox) {
+        setFiles((prev) =>
+          prev.filter((f) => !(f.filename === receipt.filename && (f.folder || '') === (receipt.folder || '')))
+        );
+        setPicked(null);
+      }
+      setExpenses((prev) =>
+        prev.map((e) =>
+          e.id === expense.id
+            ? {
+                ...e,
+                receiptUrl: `/api/expenses/${e.id}/receipt`,
+                receiptFilename: res.data.filename,
+                receiptPath: res.data.receiptPath,
+              }
+            : e
+        )
+      );
+      toast(
+        res.data.keptInInbox
+          ? `Copied to “${expense.itemName}” — still in the inbox`
+          : `Attached to “${expense.itemName}”`,
+        'success'
+      );
+      onChanged?.();
+    } catch (err) {
+      toast(err.message, 'error');
+    } finally {
+      setAssigning(null);
+    }
+  }
+
+  async function discard(receipt) {
+    try {
+      await api.delete(`/expenses/receipts/inbox/${encodeURIComponent(receipt.filename)}`, {
+        params: receipt.folder ? { folder: receipt.folder } : undefined,
+      });
+      setFiles((prev) =>
+        prev.filter((f) => !(f.filename === receipt.filename && (f.folder || '') === (receipt.folder || '')))
+      );
+      if (picked && picked.filename === receipt.filename) setPicked(null);
       onChanged?.();
     } catch (err) {
       toast(err.message, 'error');
     }
   }
+
+  const visibleFiles = useMemo(() => {
+    if (!files) return [];
+    const list = activeFolder === '__all__' ? files : files.filter((f) => (f.folder || '') === activeFolder);
+    return [...list].sort(FILE_SORTS[fileSort].compare);
+  }, [files, activeFolder, fileSort]);
+
+  const categories = useMemo(() => {
+    const map = new Map();
+    for (const e of expenses || []) if (e.category) map.set(e.category.id, e.category);
+    return Array.from(map.values()).sort((a, b) => a.name.localeCompare(b.name));
+  }, [expenses]);
+
+  const years = useMemo(
+    () => Array.from(new Set((expenses || []).map((e) => e.financialYear))).sort().reverse(),
+    [expenses]
+  );
+
+  const matchingExpenses = useMemo(() => {
+    let list = expenses || [];
+    if (onlyMissing) list = list.filter((e) => !e.receiptUrl);
+    if (categoryId !== 'all') list = list.filter((e) => String(e.category?.id) === categoryId);
+    if (year !== 'all') list = list.filter((e) => e.financialYear === year);
+    const q = search.trim().toLowerCase();
+    if (q) {
+      list = list.filter(
+        (e) =>
+          e.itemName?.toLowerCase().includes(q) ||
+          e.notes?.toLowerCase().includes(q) ||
+          String(e.amount).includes(q) ||
+          (e.category?.name || '').toLowerCase().includes(q)
+      );
+    }
+    return [...list].sort(EXPENSE_SORTS[expenseSort].compare);
+  }, [expenses, onlyMissing, categoryId, year, search, expenseSort]);
+
+  // Rendering thousands of rows makes the drag laggy, so the list is capped —
+  // visibly, with the total alongside, so a missing expense reads as "narrow
+  // the search" rather than "it isn't there".
+  const visibleExpenses = matchingExpenses.slice(0, MAX_ROWS);
+  const missingCount = (expenses || []).filter((e) => !e.receiptUrl).length;
+
+  const folderTabs = [
+    { key: '__all__', label: `All (${files?.length || 0})` },
+    ...folders.map((f) => ({ key: f.name, label: `${folderLabel(f.name)} (${f.count})` })),
+  ];
 
   return (
     <AnimatePresence>
@@ -145,7 +302,7 @@ export default function ReceiptInbox({ onClose, onChanged }) {
           alignItems: 'center',
           justifyContent: 'center',
           zIndex: 1200,
-          padding: 20,
+          padding: 16,
         }}
       >
         <motion.div
@@ -154,7 +311,7 @@ export default function ReceiptInbox({ onClose, onChanged }) {
           exit={{ opacity: 0, y: 8, scale: 0.97 }}
           transition={{ duration: 0.2, ease: 'easeOut' }}
           className="card"
-          style={{ position: 'relative', width: '100%', maxWidth: 640, maxHeight: '90vh', overflowY: 'auto', padding: 28 }}
+          style={{ position: 'relative', width: '100%', maxWidth: 1080, height: '88vh', display: 'flex', flexDirection: 'column', padding: 22 }}
         >
           <button
             type="button"
@@ -177,197 +334,430 @@ export default function ReceiptInbox({ onClose, onChanged }) {
               fontSize: 18,
               lineHeight: 1,
               cursor: 'pointer',
+              zIndex: 2,
             }}
           >
             ×
           </button>
 
-          <h2 style={{ margin: 0, fontSize: 20 }}>Receipt inbox</h2>
-          <p style={{ color: 'var(--text-muted)', margin: '6px 0 18px', fontSize: 13.5 }}>
-            Upload receipts here in bulk, then open any expense and pick one. It moves into that expense's
-            year and category folder automatically.
-          </p>
+          <div style={{ flexShrink: 0, paddingRight: 40 }}>
+            <h2 style={{ margin: 0, fontSize: 19 }}>Receipt inbox</h2>
+            <p style={{ color: 'var(--text-muted)', margin: '5px 0 14px', fontSize: 13 }}>
+              {picked ? (
+                <>
+                  <strong style={{ color: 'var(--violet)' }}>“{picked.filename}”</strong> selected — click an expense to{' '}
+                  {keepInInbox ? 'copy it there' : 'attach it'}.
+                </>
+              ) : (
+                'Drag a receipt onto an expense to attach it, or click the receipt then the expense. Click ⓘ on a row to see where its receipt is filed.'
+              )}
+            </p>
+          </div>
 
           <div
-            onDragOver={(e) => {
-              e.preventDefault();
-              setDragOver(true);
-            }}
-            onDragLeave={() => setDragOver(false)}
-            onDrop={(e) => {
-              e.preventDefault();
-              setDragOver(false);
-              if (!uploading) handleFiles(e.dataTransfer.files);
-            }}
-            onClick={() => !uploading && inputRef.current?.click()}
             style={{
-              border: `2px dashed ${dragOver ? 'var(--violet)' : 'var(--border)'}`,
-              borderRadius: 16,
-              padding: 24,
-              textAlign: 'center',
-              cursor: uploading ? 'default' : 'pointer',
-              background: dragOver ? 'rgba(139, 92, 246, 0.08)' : 'var(--bg-elevated)',
-              transition: 'border-color 0.2s ease, background 0.2s ease',
+              flex: 1,
+              minHeight: 0,
+              display: 'grid',
+              gridTemplateColumns: 'minmax(280px, 4fr) minmax(320px, 5fr)',
+              gap: 18,
             }}
           >
-            <input
-              ref={inputRef}
-              type="file"
-              accept="image/*,.heic,.heif,application/pdf"
-              multiple
-              hidden
-              onChange={(e) => handleFiles(e.target.files)}
-            />
-            <input
-              ref={folderInputRef}
-              type="file"
-              webkitdirectory=""
-              directory=""
-              multiple
-              hidden
-              onChange={(e) => handleFiles(e.target.files)}
-            />
-            {uploading ? (
-              <>
-                <div style={{ fontSize: 28 }}>⏳</div>
-                <p style={{ marginTop: 8, fontWeight: 600 }}>Uploading… {progress}%</p>
-              </>
-            ) : (
-              <>
-                <div style={{ fontSize: 30 }}>🧾</div>
-                <p style={{ marginTop: 8, fontWeight: 600 }}>Drop receipts here</p>
-                <p style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 12 }}>
-                  images or PDF, 5MB each
-                </p>
-                <div style={{ display: 'flex', gap: 10, justifyContent: 'center' }}>
-                  <button
-                    type="button"
-                    className="btn btn-ghost"
-                    style={{ padding: '7px 14px', fontSize: 12.5 }}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      inputRef.current?.click();
-                    }}
-                  >
-                    📄 Choose files
-                  </button>
-                  <button
-                    type="button"
-                    className="btn btn-ghost"
-                    style={{ padding: '7px 14px', fontSize: 12.5 }}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      folderInputRef.current?.click();
-                    }}
-                  >
-                    📁 Choose a folder
-                  </button>
-                </div>
-                <p style={{ fontSize: 11.5, color: 'var(--text-muted)', marginTop: 10, marginBottom: 0 }}>
-                  Picking a folder keeps its subfolders, so you can browse by category when assigning.
-                </p>
-              </>
-            )}
-          </div>
+            {/* ---------------- left: staged receipts ---------------- */}
+            <div style={{ display: 'flex', flexDirection: 'column', minHeight: 0 }}>
+              <div
+                onDragOver={(e) => {
+                  e.preventDefault();
+                  setDragOverZone(true);
+                }}
+                onDragLeave={() => setDragOverZone(false)}
+                onDrop={(e) => {
+                  // Only treat this as an upload when files come from outside.
+                  if (draggingRef.current) return;
+                  e.preventDefault();
+                  setDragOverZone(false);
+                  if (!uploading) handleFiles(e.dataTransfer.files);
+                }}
+                onClick={() => !uploading && inputRef.current?.click()}
+                style={{
+                  border: `2px dashed ${dragOverZone ? 'var(--violet)' : 'var(--border)'}`,
+                  borderRadius: 12,
+                  padding: 12,
+                  textAlign: 'center',
+                  cursor: uploading ? 'default' : 'pointer',
+                  background: dragOverZone ? 'rgba(139, 92, 246, 0.08)' : 'var(--bg-elevated)',
+                  flexShrink: 0,
+                }}
+              >
+                <input
+                  ref={inputRef}
+                  type="file"
+                  accept="image/*,.heic,.heif,application/pdf"
+                  multiple
+                  hidden
+                  onChange={(e) => handleFiles(e.target.files)}
+                />
+                <input
+                  ref={folderInputRef}
+                  type="file"
+                  webkitdirectory=""
+                  directory=""
+                  multiple
+                  hidden
+                  onChange={(e) => handleFiles(e.target.files)}
+                />
+                {uploading ? (
+                  <div style={{ fontSize: 13, fontWeight: 600 }}>Uploading… {progress}%</div>
+                ) : (
+                  <div style={{ display: 'flex', gap: 8, justifyContent: 'center', flexWrap: 'wrap' }}>
+                    <button
+                      type="button"
+                      className="btn btn-ghost"
+                      style={{ padding: '5px 12px', fontSize: 12 }}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        inputRef.current?.click();
+                      }}
+                    >
+                      📄 Add files
+                    </button>
+                    <button
+                      type="button"
+                      className="btn btn-ghost"
+                      style={{ padding: '5px 12px', fontSize: 12 }}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        folderInputRef.current?.click();
+                      }}
+                    >
+                      📁 Add a folder
+                    </button>
+                  </div>
+                )}
+              </div>
 
-          <div style={{ marginTop: 20 }}>
-            <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 0.4, marginBottom: 10 }}>
-              {files === null ? 'Loading…' : `${files.length} waiting to be assigned`}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, margin: '10px 0 0', flexShrink: 0 }}>
+                <span style={{ fontSize: 12, color: 'var(--text-muted)', flex: 1 }}>
+                  {files === null ? 'Loading…' : `${visibleFiles.length} staged`}
+                </span>
+                <select
+                  className="input"
+                  aria-label="Sort receipts"
+                  value={fileSort}
+                  onChange={(e) => setFileSort(e.target.value)}
+                  style={{ fontSize: 12, padding: '5px 8px', width: 130 }}
+                >
+                  {Object.entries(FILE_SORTS).map(([key, s]) => (
+                    <option key={key} value={key}>
+                      {s.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <label
+                title="Attach the same receipt to more than one expense — each gets its own copy in its own year/category folder."
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 7,
+                  fontSize: 12.5,
+                  marginTop: 8,
+                  padding: '6px 9px',
+                  borderRadius: 8,
+                  flexShrink: 0,
+                  cursor: 'pointer',
+                  color: keepInInbox ? 'var(--violet)' : 'var(--text-muted)',
+                  border: `1px solid ${keepInInbox ? 'var(--violet)' : 'var(--border)'}`,
+                  background: keepInInbox ? 'rgba(139, 92, 246, 0.10)' : 'transparent',
+                }}
+              >
+                <input type="checkbox" checked={keepInInbox} onChange={(e) => setKeepInInbox(e.target.checked)} />
+                Keep a copy in the inbox (attach to several expenses)
+              </label>
+
+              {folders.length > 0 && (
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, margin: '10px 0 4px', flexShrink: 0 }}>
+                  {folderTabs.map((t) => (
+                    <button
+                      key={t.key}
+                      type="button"
+                      onClick={() => setActiveFolder(t.key)}
+                      style={{
+                        fontSize: 11,
+                        fontWeight: 600,
+                        padding: '3px 9px',
+                        borderRadius: 999,
+                        cursor: 'pointer',
+                        border: '1px solid var(--border)',
+                        background: activeFolder === t.key ? 'var(--violet)' : 'var(--bg-elevated)',
+                        color: activeFolder === t.key ? '#fff' : 'var(--text-muted)',
+                      }}
+                    >
+                      {t.label}
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', marginTop: 10, paddingRight: 4 }}>
+                {files === null ? (
+                  <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>Loading…</div>
+                ) : visibleFiles.length === 0 ? (
+                  <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>
+                    {files.length === 0 ? 'The inbox is empty.' : 'Nothing in this folder.'}
+                  </div>
+                ) : (
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(92px, 1fr))', gap: 10 }}>
+                    {visibleFiles.map((f) => {
+                      const key = `${f.folder || ''}/${f.filename}`;
+                      const isPicked = picked && picked.filename === f.filename && (picked.folder || '') === (f.folder || '');
+                      return (
+                        <div key={key} style={{ position: 'relative' }}>
+                          <div
+                            draggable
+                            onDragStart={(e) => {
+                              draggingRef.current = f;
+                              e.dataTransfer.effectAllowed = 'copyMove';
+                              e.dataTransfer.setData('text/plain', key);
+                            }}
+                            onDragEnd={() => {
+                              draggingRef.current = null;
+                              setDropTarget(null);
+                            }}
+                            onClick={() => setPicked(isPicked ? null : f)}
+                            title={`${f.folder ? `${f.folder}/` : ''}${f.filename}`}
+                            style={{
+                              height: 88,
+                              borderRadius: 10,
+                              overflow: 'hidden',
+                              border: isPicked ? '2px solid var(--violet)' : '1px solid var(--border)',
+                              background: 'var(--bg-elevated)',
+                              cursor: 'grab',
+                            }}
+                          >
+                            {isImageFilename(f.filename) ? (
+                              <img
+                                src={inboxFileUrl(f.filename, f.folder)}
+                                alt=""
+                                draggable={false}
+                                style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+                              />
+                            ) : (
+                              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', fontSize: 26 }}>
+                                {placeholderFor(f.filename)}
+                              </div>
+                            )}
+                          </div>
+                          <button
+                            type="button"
+                            title="Preview"
+                            aria-label={`Preview ${f.filename}`}
+                            onClick={() => setPreview({ url: inboxFileUrl(f.filename, f.folder), filename: f.filename })}
+                            style={iconBtn({ left: 4 })}
+                          >
+                            🔍
+                          </button>
+                          <button
+                            type="button"
+                            title="Discard"
+                            aria-label={`Discard ${f.filename}`}
+                            onClick={() => discard(f)}
+                            style={iconBtn({ right: 4 })}
+                          >
+                            ×
+                          </button>
+                          {activeFolder === '__all__' && f.folder && (
+                            <span
+                              style={{
+                                position: 'absolute',
+                                bottom: 32,
+                                left: 4,
+                                right: 4,
+                                fontSize: 9,
+                                fontWeight: 700,
+                                padding: '2px 5px',
+                                borderRadius: 5,
+                                background: 'rgba(5, 6, 10, 0.72)',
+                                color: '#fff',
+                                overflow: 'hidden',
+                                textOverflow: 'ellipsis',
+                                whiteSpace: 'nowrap',
+                              }}
+                            >
+                              📁 {folderLabel(f.folder)}
+                            </span>
+                          )}
+                          <div
+                            style={{ fontSize: 10, color: 'var(--text-muted)', marginTop: 3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+                            title={f.filename}
+                          >
+                            {f.filename}
+                          </div>
+                          <div style={{ fontSize: 9.5, color: 'var(--text-muted)' }}>{formatSize(f.sizeBytes)}</div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
             </div>
 
-            {files !== null && files.length === 0 ? (
-              <p style={{ fontSize: 13, color: 'var(--text-muted)', margin: 0 }}>
-                The inbox is empty. Anything you upload will appear here until you attach it to an expense.
-              </p>
-            ) : (
-              groupByFolder(files || []).map(([folder, group]) => (
-                <div key={folder || '__root__'} style={{ marginBottom: 18 }}>
-                  <div style={{ fontSize: 12.5, fontWeight: 700, marginBottom: 8, color: 'var(--text)' }}>
-                    {folder ? `📁 ${folderLabel(folder)}` : '📄 Unsorted'}{' '}
-                    <span style={{ color: 'var(--text-muted)', fontWeight: 500 }}>· {group.length}</span>
-                  </div>
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(104px, 1fr))', gap: 12 }}>
-                    {group.map((f) => (
-                      <div key={`${f.folder || ''}/${f.filename}`} style={{ position: 'relative' }}>
-                        <button
-                          type="button"
-                          title={`${f.filename} — click to preview`}
-                          onClick={() => setPreview({ url: inboxFileUrl(f.filename, f.folder), filename: f.filename })}
-                          style={{
-                            width: '100%',
-                            height: 96,
-                            padding: 0,
-                            border: '1px solid var(--border)',
-                            borderRadius: 10,
-                            overflow: 'hidden',
-                            background: 'var(--bg-elevated)',
-                            cursor: 'pointer',
-                            display: 'block',
+            {/* ---------------- right: expenses ---------------- */}
+            <div style={{ display: 'flex', flexDirection: 'column', minHeight: 0 }}>
+              <input
+                className="input"
+                placeholder="Search expenses…"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                style={{ fontSize: 13, padding: '8px 10px', flexShrink: 0 }}
+              />
+              <div style={{ display: 'flex', gap: 8, margin: '8px 0', flexShrink: 0, flexWrap: 'wrap' }}>
+                <select
+                  className="input"
+                  value={categoryId}
+                  onChange={(e) => setCategoryId(e.target.value)}
+                  style={{ fontSize: 12.5, padding: '6px 8px', flex: 1, minWidth: 120 }}
+                >
+                  <option value="all">All categories</option>
+                  {categories.map((c) => (
+                    <option key={c.id} value={String(c.id)}>
+                      {c.name}
+                    </option>
+                  ))}
+                </select>
+                <select
+                  className="input"
+                  value={year}
+                  onChange={(e) => setYear(e.target.value)}
+                  style={{ fontSize: 12.5, padding: '6px 8px', width: 110 }}
+                >
+                  <option value="all">All years</option>
+                  {years.map((y) => (
+                    <option key={y} value={y}>
+                      {y}
+                    </option>
+                  ))}
+                </select>
+                <select
+                  className="input"
+                  aria-label="Sort expenses"
+                  value={expenseSort}
+                  onChange={(e) => setExpenseSort(e.target.value)}
+                  style={{ fontSize: 12.5, padding: '6px 8px', width: 130 }}
+                >
+                  {Object.entries(EXPENSE_SORTS).map(([key, s]) => (
+                    <option key={key} value={key}>
+                      {s.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8, flexShrink: 0 }}>
+                <label style={{ display: 'flex', alignItems: 'center', gap: 7, fontSize: 12.5, color: 'var(--text-muted)', cursor: 'pointer' }}>
+                  <input type="checkbox" checked={onlyMissing} onChange={(e) => setOnlyMissing(e.target.checked)} />
+                  Only expenses without a receipt ({missingCount})
+                </label>
+                <span style={{ marginLeft: 'auto', fontSize: 12, color: 'var(--text-muted)' }}>
+                  {matchingExpenses.length > MAX_ROWS
+                    ? `showing ${MAX_ROWS} of ${matchingExpenses.length} — narrow the search`
+                    : `${matchingExpenses.length} shown`}
+                </span>
+              </div>
+
+              <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', paddingRight: 4 }}>
+                {expenses === null ? (
+                  <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>Loading…</div>
+                ) : visibleExpenses.length === 0 ? (
+                  <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>No expenses match this filter.</div>
+                ) : (
+                  visibleExpenses.map((e) => {
+                    const isTarget = dropTarget === e.id;
+                    const isOpen = expanded === e.id;
+                    return (
+                      <div key={e.id} style={{ marginBottom: 5 }}>
+                        <div
+                          onDragOver={(evt) => {
+                            evt.preventDefault();
+                            evt.dataTransfer.dropEffect = keepInInbox ? 'copy' : 'move';
+                            if (dropTarget !== e.id) setDropTarget(e.id);
                           }}
-                        >
-                          {isImageFilename(f.filename) ? (
-                            <img
-                              src={inboxFileUrl(f.filename, f.folder)}
-                              alt=""
-                              style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
-                            />
-                          ) : (
-                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', fontSize: 28 }}>
-                              {placeholderFor(f.filename)}
-                            </div>
-                          )}
-                        </button>
-                        <button
-                          type="button"
-                          title="Discard"
-                          aria-label={`Discard ${f.filename}`}
-                          onClick={() => discard(f.filename, f.folder)}
+                          onDragLeave={() => setDropTarget((cur) => (cur === e.id ? null : cur))}
+                          onDrop={(evt) => {
+                            evt.preventDefault();
+                            const receipt = draggingRef.current;
+                            draggingRef.current = null;
+                            assign(receipt, e);
+                          }}
+                          onClick={() => (picked ? assign(picked, e) : setExpanded(isOpen ? null : e.id))}
                           style={{
-                            position: 'absolute',
-                            top: 4,
-                            right: 4,
-                            width: 22,
-                            height: 22,
                             display: 'flex',
                             alignItems: 'center',
-                            justifyContent: 'center',
-                            borderRadius: 6,
-                            border: 'none',
-                            background: 'rgba(5, 6, 10, 0.66)',
-                            color: '#fff',
-                            fontSize: 13,
-                            lineHeight: 1,
+                            gap: 9,
+                            padding: '8px 10px',
+                            borderRadius: isOpen ? '9px 9px 0 0' : 9,
+                            fontSize: 12.5,
+                            border: `1px solid ${isTarget ? 'var(--violet)' : 'transparent'}`,
+                            background: isTarget ? 'rgba(139, 92, 246, 0.14)' : 'var(--bg-elevated)',
                             cursor: 'pointer',
+                            opacity: assigning === e.id ? 0.5 : 1,
                           }}
                         >
-                          ×
-                        </button>
-                        <div
-                          style={{
-                            fontSize: 10.5,
-                            color: 'var(--text-muted)',
-                            marginTop: 4,
-                            overflow: 'hidden',
-                            textOverflow: 'ellipsis',
-                            whiteSpace: 'nowrap',
-                          }}
-                          title={f.filename}
-                        >
-                          {f.filename}
+                          <span style={{ width: 62, flexShrink: 0, color: 'var(--text-muted)' }}>{shortDate(e.purchaseDate)}</span>
+                          <span style={{ flex: 1, minWidth: 0, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                            {e.itemName}
+                          </span>
+                          <CategoryBadge category={e.category} />
+                          <span style={{ width: 16, textAlign: 'center' }} title={e.receiptUrl ? 'Has a receipt' : 'No receipt yet'}>
+                            {e.receiptUrl ? '🧾' : '—'}
+                          </span>
+                          <span style={{ width: 64, textAlign: 'right', fontWeight: 700 }}>${e.amount.toFixed(2)}</span>
+                          <button
+                            type="button"
+                            title="Where is this receipt filed?"
+                            aria-label={`Details for ${e.itemName}`}
+                            aria-expanded={isOpen}
+                            onClick={(evt) => {
+                              evt.stopPropagation();
+                              setExpanded(isOpen ? null : e.id);
+                            }}
+                            style={{
+                              flexShrink: 0,
+                              width: 22,
+                              height: 22,
+                              borderRadius: 6,
+                              border: '1px solid var(--border)',
+                              background: 'transparent',
+                              color: isOpen ? 'var(--violet)' : 'var(--text-muted)',
+                              fontSize: 11,
+                              lineHeight: 1,
+                              cursor: 'pointer',
+                            }}
+                          >
+                            ⓘ
+                          </button>
                         </div>
-                        <div style={{ fontSize: 10, color: 'var(--text-muted)' }}>{formatSize(f.sizeBytes)}</div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              ))
-            )}
-          </div>
 
-          <div style={{ display: 'flex', gap: 10, marginTop: 22, paddingTop: 16, borderTop: '1px solid var(--border)' }}>
-            <button className="btn btn-ghost" onClick={onClose} style={{ flex: 1 }}>
-              Close
-            </button>
+                        {isOpen && (
+                          <ExpenseDetails
+                            expense={e}
+                            onPreview={() => setPreview({ url: e.receiptUrl, filename: e.receiptFilename || 'receipt' })}
+                            onCopyPath={async () => {
+                              try {
+                                await navigator.clipboard.writeText(e.receiptPath);
+                                toast('Path copied', 'success');
+                              } catch {
+                                toast('Could not copy — select the path and copy it manually', 'error');
+                              }
+                            }}
+                          />
+                        )}
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+            </div>
           </div>
         </motion.div>
       </motion.div>
@@ -376,4 +766,87 @@ export default function ReceiptInbox({ onClose, onChanged }) {
       )}
     </AnimatePresence>
   );
+}
+
+// Where an expense's receipt actually lives on disk. Receipts are filed under
+// <user>/<financial-year>/<category>, so the path is also the quickest way to
+// confirm an expense was categorised the way you expected.
+function ExpenseDetails({ expense, onPreview, onCopyPath }) {
+  const segments = expense.receiptPath ? expense.receiptPath.split('/') : [];
+  const filename = segments.pop();
+
+  return (
+    <div
+      style={{
+        padding: '10px 12px',
+        borderRadius: '0 0 9px 9px',
+        background: 'var(--bg)',
+        border: '1px solid var(--border)',
+        borderTop: 'none',
+        fontSize: 12,
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 8,
+      }}
+    >
+      <div style={{ color: 'var(--text-muted)' }}>
+        {longDate(expense.purchaseDate)} · {expense.category?.name || 'Uncategorised'} · {expense.financialYear}
+      </div>
+      {expense.notes && <div style={{ color: 'var(--text-muted)', whiteSpace: 'pre-wrap' }}>{expense.notes}</div>}
+
+      {expense.receiptPath ? (
+        <>
+          <div style={{ fontWeight: 600, color: 'var(--text-muted)', fontSize: 11, textTransform: 'uppercase', letterSpacing: 0.4 }}>
+            Receipt location
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 4, flexWrap: 'wrap', fontFamily: 'monospace', fontSize: 11.5 }}>
+            <span style={{ color: 'var(--text-muted)' }}>uploads</span>
+            {segments.map((seg, i) => (
+              <span key={i} style={{ color: 'var(--text-muted)' }}>
+                / {seg}
+              </span>
+            ))}
+            <span>/ </span>
+            <span style={{ fontWeight: 700, wordBreak: 'break-all' }}>{filename}</span>
+          </div>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button type="button" className="btn btn-ghost" style={{ fontSize: 11.5, padding: '4px 10px' }} onClick={onPreview}>
+              🔍 Preview
+            </button>
+            <button type="button" className="btn btn-ghost" style={{ fontSize: 11.5, padding: '4px 10px' }} onClick={onCopyPath}>
+              Copy path
+            </button>
+          </div>
+        </>
+      ) : (
+        <div style={{ color: 'var(--text-muted)' }}>
+          No receipt yet — it will be filed under{' '}
+          <span style={{ fontFamily: 'monospace' }}>
+            {expense.financialYear}/{(expense.category?.name || 'Uncategorised').toLowerCase()}
+          </span>
+          .
+        </div>
+      )}
+    </div>
+  );
+}
+
+function iconBtn(pos) {
+  return {
+    position: 'absolute',
+    top: 4,
+    width: 20,
+    height: 20,
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 5,
+    border: 'none',
+    background: 'rgba(5, 6, 10, 0.66)',
+    color: '#fff',
+    fontSize: 11,
+    lineHeight: 1,
+    cursor: 'pointer',
+    ...pos,
+  };
 }
