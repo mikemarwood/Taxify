@@ -1,7 +1,59 @@
-import { sendTrialEndingEmail, sendTrialExpiredEmail, sendSubscriptionRenewingEmail } from '../lib/mailer.js';
+import {
+  sendTrialEndingEmail,
+  sendTrialExpiredEmail,
+  sendSubscriptionRenewingEmail,
+  sendActivationReminderEmail,
+} from '../lib/mailer.js';
+import { generateActivationToken } from '../auth/activationToken.js';
 
+const UNACTIVATED_LIFETIME_DAYS = 5;
+
+// An account that was never activated is deleted after five days. Before that
+// happens the person gets a nudge, because the usual reason a sign-up stalls
+// is a first email that went to spam or got buried, not a change of mind.
+//
+// Reminders go out with days remaining, not days elapsed — "expires in 1 day"
+// is the part that matters to the reader.
 export async function purgeUnactivatedAccounts(pool) {
-  await pool.query(`DELETE FROM users WHERE activated_at IS NULL AND created_at < DATE_SUB(NOW(), INTERVAL 5 DAY)`);
+  for (const daysLeft of [2, 1]) {
+    const elapsed = UNACTIVATED_LIFETIME_DAYS - daysLeft;
+    const [rows] = await pool.execute(
+      `SELECT id, email, name, first_name FROM users
+       WHERE activated_at IS NULL
+         AND created_at BETWEEN DATE_SUB(NOW(), INTERVAL ${elapsed + 1} DAY) AND DATE_SUB(NOW(), INTERVAL ${elapsed} DAY)`
+    );
+
+    for (const user of rows) {
+      const key = `activation_${daysLeft}d`;
+      if (await alreadySent(pool, user.id, key)) continue;
+
+      // The stored token is a hash, so the original can't be recovered — the
+      // reminder carries a fresh one, which also gives a stalled sign-up a
+      // link that hasn't expired.
+      const { token, tokenHash, expiresAt } = generateActivationToken();
+      await pool.execute('UPDATE users SET activation_token_hash = ?, activation_token_expires_at = ? WHERE id = ?', [
+        tokenHash,
+        expiresAt,
+        user.id,
+      ]);
+
+      const url = `${process.env.CLIENT_ORIGIN || 'http://localhost:5173'}/activate?token=${token}`;
+      try {
+        await sendActivationReminderEmail(user.email, user.first_name || user.name, url, daysLeft);
+        await markSent(pool, user.id, key);
+      } catch (err) {
+        console.error(`Failed to send activation reminder to ${user.email}`, err.message);
+      }
+    }
+  }
+
+  const [result] = await pool.query(
+    `DELETE FROM users
+     WHERE activated_at IS NULL AND created_at < DATE_SUB(NOW(), INTERVAL ${UNACTIVATED_LIFETIME_DAYS} DAY)`
+  );
+  if (result.affectedRows > 0) {
+    console.log(`[cleanup] removed ${result.affectedRows} account(s) that were never activated`);
+  }
 }
 
 async function alreadySent(pool, userId, key) {

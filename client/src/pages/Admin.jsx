@@ -4,6 +4,7 @@ import { api } from '../lib/api.js';
 import { useAuth } from '../lib/AuthContext.jsx';
 import { useToast } from '../components/Toast.jsx';
 import { SkeletonList } from '../components/Skeletons.jsx';
+import PromoCodesTab from '../components/PromoCodesTab.jsx';
 
 const SWATCHES = ['#8b5cf6', '#06b6d4', '#f59e0b', '#ec4899', '#10b981', '#3b82f6', '#ef4444', '#eab308', '#14b8a6', '#a1a1aa'];
 
@@ -42,6 +43,9 @@ export default function Admin() {
         <button className={tab === 'stripe' ? 'btn btn-primary' : 'btn btn-ghost'} onClick={() => setTab('stripe')}>
           Stripe
         </button>
+        <button className={tab === 'promos' ? 'btn btn-primary' : 'btn btn-ghost'} onClick={() => setTab('promos')}>
+          Promo codes
+        </button>
       </div>
 
       {tab === 'users' && <UsersTab />}
@@ -49,6 +53,7 @@ export default function Admin() {
       {tab === 'settings' && <SettingsTab />}
       {tab === 'email' && <EmailSettingsTab />}
       {tab === 'stripe' && <StripeSettingsTab />}
+      {tab === 'promos' && <PromoCodesTab />}
     </div>
   );
 }
@@ -182,11 +187,30 @@ function UsersTab() {
     }
   }
 
+  // Two steps on purpose. This removes an account and every trace of it —
+  // expenses, categories, receipts, documents — with no undo, so typing the
+  // email is the check that the right row is being deleted.
   async function deleteUser(u) {
-    if (!window.confirm(`Delete ${u.name} (${u.email})? This permanently removes their categories and expenses.`)) return;
+    const first = window.confirm(
+      `Delete ${u.name} (${u.email})?\n\n` +
+        `This permanently removes their expenses, categories, receipts and documents ` +
+        `(${formatBytes(u.storageBytes)} of files). It cannot be undone.`
+    );
+    if (!first) return;
+
+    const typed = window.prompt(`Type the email address to confirm:\n${u.email}`);
+    if (typed === null) return;
+    if (typed.trim().toLowerCase() !== u.email.toLowerCase()) {
+      toast('That didn’t match — nothing was deleted', 'error');
+      return;
+    }
+
     try {
-      await api.delete(`/admin/users/${u.id}`);
-      toast('User deleted', 'success');
+      const res = await api.delete(`/admin/users/${u.id}`);
+      const extra = res.data?.deletedDependents
+        ? ` and ${res.data.deletedDependents} linked login${res.data.deletedDependents === 1 ? '' : 's'}`
+        : '';
+      toast(`Deleted ${u.email}${extra}`, 'success');
       load();
     } catch (err) {
       toast(err.message, 'error');
@@ -270,13 +294,18 @@ function UsersTab() {
                 >
                   {u.isAdmin ? 'Demote' : 'Promote'}
                 </button>
-                <button
-                  className="btn btn-ghost"
-                  style={{ fontSize: 12, padding: '6px 12px' }}
-                  onClick={() => deleteUser(u)}
-                >
-                  Delete
-                </button>
+                {/* Admins are never deletable here — losing the last one
+                    locks everyone out of this panel for good. */}
+                {!u.isAdmin && (
+                  <button
+                    className="btn btn-ghost"
+                    title="Permanently delete this account and everything in it"
+                    style={{ fontSize: 12, padding: '6px 12px', color: 'var(--red)' }}
+                    onClick={() => deleteUser(u)}
+                  >
+                    Delete
+                  </button>
+                )}
               </>
             )}
           </motion.div>

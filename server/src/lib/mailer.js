@@ -198,25 +198,127 @@ export async function sendOtpEmail(to, name, code, expiresMinutes) {
   });
 }
 
-export async function sendActivationEmail(to, name, activationUrl) {
+function button(href, label) {
+  return `
+    <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 16px;">
+      <tr><td style="background:${NAVY};border-radius:6px;">
+        <a href="${href}" style="display:inline-block;padding:13px 26px;color:#ffffff;font-size:14px;font-weight:700;text-decoration:none;">${label}</a>
+      </td></tr>
+    </table>`;
+}
+
+// The link is also given as text: some clients strip the button, and a link
+// you can copy is the difference between a stuck user and a working one.
+function linkFallback(url) {
+  return `
+    <p style="font-size:12.5px;color:#6b7280;margin:0 0 18px;line-height:1.5;word-break:break-all;">
+      If the button doesn't work, copy this into your browser:<br>
+      <a href="${url}" style="color:${NAVY};">${url}</a>
+    </p>`;
+}
+
+function bullet(text) {
+  return `<tr><td style="padding:3px 0;font-size:13.5px;color:#1f2937;line-height:1.5;">• ${text}</td></tr>`;
+}
+
+export async function sendActivationEmail(to, name, activationUrl, options = {}) {
+  const { planType = 'individual', trialDays = 14, expiryDays = 5 } = options;
+  const planLabel = planType === 'family' ? 'Family' : 'Individual';
+
   await sendMail({
     to,
     subject: 'Activate your Taxify account',
-    title: 'Account Activation',
-    heading: `Welcome, ${name}!`,
+    title: 'Activate your account',
+    heading: `Welcome${name ? `, ${name}` : ''} — one step to go.`,
     bodyHtml: `
-      <p style="font-size:14px;color:#4b5563;margin:0 0 20px;line-height:1.5;">
-        You're almost set up. Click the button below to activate your Taxify account and start your
-        14-day free trial with full access to every feature.
+      <p style="font-size:14px;color:#1f2937;margin:0 0 16px;line-height:1.55;">
+        Your Taxify account is created but not yet active. Opening the link below is where you choose your
+        password — we deliberately didn't ask for one at sign-up, so nobody can set a password on an address
+        they don't control.
       </p>
-      <div style="text-align:center;margin:0 0 20px;">
-        <a href="${activationUrl}" style="display:inline-block;background:#1e3a8a;color:#ffffff;font-weight:700;font-size:14px;text-decoration:none;padding:14px 28px;border-radius:8px;">
-          Activate my account
-        </a>
-      </div>
-      <p style="font-size:13px;color:#4b5563;margin:0;line-height:1.5;">
-        This link expires in 5 days. If it's not used by then, the account is automatically removed
-        and you're welcome to sign up again.
+      ${button(activationUrl, 'Set my password and activate')}
+      ${linkFallback(activationUrl)}
+
+      <p style="font-size:12px;font-weight:700;letter-spacing:0.6px;text-transform:uppercase;color:#6b7280;margin:0 0 6px;">
+        What you're activating
+      </p>
+      <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 18px;">
+        ${bullet(`<strong>${planLabel} plan</strong>, on a ${trialDays}-day free trial`)}
+        ${bullet('No card details needed — nothing is charged during the trial')}
+        ${bullet('Unlimited expenses and receipts, filed by financial year and category')}
+        ${bullet('Snap or drag receipts in from your phone or desktop')}
+        ${bullet('Year-over-year reports, and Excel or PDF export for your accountant')}
+      </table>
+
+      <p style="font-size:13px;color:#4b5563;margin:0 0 8px;line-height:1.55;">
+        <strong>This link expires in ${expiryDays} days.</strong> If it isn't used by then the account is removed
+        automatically and you're welcome to sign up again — we'll send a reminder before that happens.
+      </p>
+      <p style="font-size:13px;color:#4b5563;margin:0;line-height:1.55;">
+        If you didn't sign up for Taxify, ignore this email. Without the link above, the account stays
+        unusable and is deleted on its own.
+      </p>
+    `,
+  });
+}
+
+export async function sendActivationReminderEmail(to, name, activationUrl, daysLeft) {
+  await sendMail({
+    to,
+    subject: `Your Taxify account expires in ${daysLeft} day${daysLeft === 1 ? '' : 's'}`,
+    title: 'Reminder: activate your account',
+    heading: `Hi${name ? ` ${name}` : ''}, your Taxify account is still waiting on you.`,
+    bodyHtml: `
+      <p style="font-size:14px;color:#1f2937;margin:0 0 16px;line-height:1.55;">
+        You signed up but haven't set a password yet, so the account can't be used. It'll be removed in
+        <strong>${daysLeft} day${daysLeft === 1 ? '' : 's'}</strong> if it stays that way.
+      </p>
+      ${button(activationUrl, 'Set my password and activate')}
+      ${linkFallback(activationUrl)}
+      <p style="font-size:13px;color:#4b5563;margin:0;line-height:1.55;">
+        Didn't mean to sign up? Do nothing — the account deletes itself and no data is kept.
+      </p>
+    `,
+  });
+}
+
+export async function sendAccountActivatedEmail(to, name, options = {}) {
+  const { planType = 'individual', trialEndsAt = null } = options;
+  const planLabel = planType === 'family' ? 'Family' : 'Individual';
+  const loginUrl = `${process.env.CLIENT_ORIGIN || 'http://localhost:5173'}/login`;
+  const trialLine = trialEndsAt
+    ? new Date(trialEndsAt).toLocaleDateString('en-AU', { day: '2-digit', month: 'long', year: 'numeric' })
+    : null;
+
+  await sendMail({
+    to,
+    subject: 'Your Taxify account is active',
+    title: 'Account activated',
+    heading: `You're all set${name ? `, ${name}` : ''}.`,
+    bodyHtml: `
+      <p style="font-size:14px;color:#1f2937;margin:0 0 16px;line-height:1.55;">
+        Your password is set and the account is active. You can sign in with your email address and the
+        password you just chose.
+      </p>
+      ${button(loginUrl, 'Sign in to Taxify')}
+
+      <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 18px;">
+        ${bullet(`You're on the <strong>${planLabel} plan</strong>`)}
+        ${trialLine ? bullet(`Your free trial runs until <strong>${trialLine}</strong>`) : ''}
+        ${bullet('No card details are held — add them from Account when you\'re ready to continue')}
+      </table>
+
+      <p style="font-size:12px;font-weight:700;letter-spacing:0.6px;text-transform:uppercase;color:#6b7280;margin:0 0 6px;">
+        A good first step
+      </p>
+      <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 18px;">
+        ${bullet('Add an expense and drag its receipt in — that\'s the whole loop')}
+        ${bullet('Check Categories: a starter set is already there, and you can rename or add your own')}
+        ${bullet('Turn on two-factor login from Account if you\'d like the extra step')}
+      </table>
+
+      <p style="font-size:13px;color:#4b5563;margin:0;line-height:1.55;">
+        If you didn't just activate an account, change your password immediately and let us know.
       </p>
     `,
   });

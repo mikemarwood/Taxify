@@ -13,10 +13,18 @@ import { asyncHandler } from '../lib/asyncHandler.js';
 import { generateOtp, hashOtp, OTP_TTL_MINUTES, OTP_MAX_ATTEMPTS, OTP_LOCKOUT_MINUTES } from '../auth/otp.js';
 import { toPublicUser } from '../auth/publicUser.js';
 import { computeAccessLocked } from '../auth/access.js';
-import { sendOtpEmail, sendActivationEmail, sendInviteEmail } from '../lib/mailer.js';
+import { sendOtpEmail, sendActivationEmail, sendInviteEmail, sendAccountActivatedEmail } from '../lib/mailer.js';
 import { ACTIVATION_TOKEN_DAYS, generateActivationToken } from '../auth/activationToken.js';
+import { COUNTRIES, STATES, CURRENCIES, countryByName, countryByCode, isKnownCurrency, isValidState } from '../lib/geoData.js';
+import { createCaptcha, verifyCaptcha } from '../lib/captcha.js';
+import { getSignupPlans } from '../lib/stripe.js';
+import { evaluatePromoCode, recordPromoRedemption } from '../lib/promoCodes.js';
 
 const TRIAL_DAYS = 14;
+
+// How long before an unactivated sign-up can ask for another email. Long
+// enough to stop a stuck user hammering it, short enough not to feel punitive.
+export const RESEND_COOLDOWN_MS = 5 * 60 * 1000;
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const avatarsDir = path.join(__dirname, '..', '..', 'uploads', 'avatars');
@@ -44,6 +52,136 @@ const avatarUpload = multer({
 
 const router = Router();
 
+// --- Sign-up support -----------------------------------------------------
+
+// Everything the sign-up form needs to render itself, in one request: the
+// lists it populates dropdowns from, and a guess at the visitor's country so
+// the country and currency start on something sensible.
+router.get(
+  '/signup-options',
+  asyncHandler(async (req, res) => {
+    res.json({
+      countries: COUNTRIES,
+      states: STATES,
+      currencies: CURRENCIES,
+      referralSources: REFERRAL_SOURCES,
+      detectedCountry: detectCountry(req),
+      trialDays: TRIAL_DAYS,
+    });
+  })
+);
+
+// Proxies in front of the app usually attach the country they resolved. There
+// is no geo-IP database here, so when no proxy has done the work this falls
+// back to the app's home market rather than guessing from the address — a
+// wrong guess the visitor then has to notice and correct is worse than a
+// sensible default they'd probably pick anyway.
+function detectCountry(req) {
+  const header =
+    req.headers['cf-ipcountry'] ||
+    req.headers['x-vercel-ip-country'] ||
+    req.headers['x-geo-country'] ||
+    req.headers['x-country-code'];
+  const match = countryByCode(header);
+  return match ? match.name : 'Australia';
+}
+
+router.get(
+  '/captcha',
+  asyncHandler(async (req, res) => {
+    res.json(createCaptcha());
+  })
+);
+
+// Whether an email can be registered. This does tell an anonymous caller that
+// an address has an account, which is a real trade-off — but the form has to
+// answer it eventually, and finding out after filling in a dozen fields is a
+// worse experience than finding out as you type.
+router.get(
+  '/email-available',
+  asyncHandler(async (req, res) => {
+    const email = String(req.query.email || '').trim().toLowerCase();
+    if (!EMAIL_PATTERN.test(email)) {
+      return res.json({ valid: false, available: false, reason: 'That doesn’t look like an email address' });
+    }
+    const [rows] = await pool.execute('SELECT id FROM users WHERE email = ?', [email]);
+    res.json({
+      valid: true,
+      available: rows.length === 0,
+      reason: rows.length === 0 ? null : 'An account with that email already exists',
+    });
+  })
+);
+
+router.get(
+  '/plans',
+  asyncHandler(async (req, res) => {
+    res.json({ plans: await getSignupPlans(), trialDays: TRIAL_DAYS });
+  })
+);
+
+router.post(
+  '/promo/check',
+  asyncHandler(async (req, res) => {
+    const { code, planType } = req.body || {};
+    const plans = await getSignupPlans();
+    const plan = plans.find((p) => p.planType === planType) || plans[0];
+    const result = await evaluatePromoCode(code, plan?.planType, plan?.amountPerYear);
+    if (!result.ok) return res.status(400).json({ error: result.reason });
+    res.json({ promo: result.promo, amountPerYear: plan?.amountPerYear ?? null, discountedPerYear: result.discount });
+  })
+);
+
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
+
+export const REFERRAL_SOURCES = [
+  'Search engine',
+  'Friend or colleague',
+  'Social media',
+  'My accountant',
+  'Online advertisement',
+  'Trade or industry event',
+  'Mikes App Hub',
+  'Other',
+];
+
+// Field limits, kept here so the messages and the database agree. Chosen per
+// field rather than a blanket number: a surname has a different shape to a
+// business name.
+const LIMITS = {
+  firstName: { min: 1, max: 60 },
+  lastName: { min: 1, max: 60 },
+  phone: { min: 6, max: 20 },
+  email: { min: 5, max: 254 },
+  businessName: { min: 2, max: 120 },
+  state: { min: 2, max: 80 },
+};
+
+function lengthError(label, value, { min, max }) {
+  const length = String(value || '').trim().length;
+  if (length < min) return `${label} must be at least ${min} character${min === 1 ? '' : 's'}`;
+  if (length > max) return `${label} must be ${max} characters or fewer`;
+  return null;
+}
+
+// "mike o'BRIEN" -> "Mike O'Brien". Capital at the start of each word, the
+// rest lower case, with the separators people actually have in their names
+// left intact.
+export function toPersonName(raw) {
+  return String(raw || '')
+    .trim()
+    .replace(/\s+/g, ' ')
+    .toLowerCase()
+    .replace(/(^|[\s'’-])([a-z])/g, (_, sep, ch) => sep + ch.toUpperCase());
+}
+
+// Digits, and the +, spaces and brackets people write around them. Stored as
+// typed minus the noise, so an area code stays visible.
+function normalisePhone(raw) {
+  const cleaned = String(raw || '').trim().replace(/[^\d+\s()-]/g, '');
+  return cleaned.replace(/\s+/g, ' ').trim();
+}
+
 router.post(
   '/register',
   asyncHandler(async (req, res) => {
@@ -52,27 +190,111 @@ router.post(
       return res.status(403).json({ error: 'Registrations are currently closed' });
     }
 
-    const { email, password, name, planType, country, businessName, referralSource, termsAccepted } = req.body || {};
+    const {
+      firstName,
+      lastName,
+      dateOfBirth,
+      phone,
+      email,
+      confirmEmail,
+      currency,
+      country,
+      state,
+      planType,
+      promoCode,
+      businessName,
+      referralSource,
+      termsAccepted,
+      captchaToken,
+      captchaAnswer,
+    } = req.body || {};
 
-    if (!email || !password || !name) {
-      return res.status(400).json({ error: 'Name, email and password are required' });
+    if (!verifyCaptcha(captchaToken, captchaAnswer)) {
+      return res.status(400).json({ error: 'The verification answer was wrong — try the new sum' });
     }
-    if (!isStrongPassword(password)) {
-      return res.status(400).json({
-        error: 'Password must be at least 8 characters and include an uppercase letter, a lowercase letter, and a number',
-      });
+
+    for (const [field, label] of [
+      ['firstName', 'First name'],
+      ['lastName', 'Last name'],
+    ]) {
+      const error = lengthError(label, req.body?.[field], LIMITS[field]);
+      if (error) return res.status(400).json({ error });
+    }
+
+    const normalizedEmail = String(email || '').trim().toLowerCase();
+    if (!EMAIL_PATTERN.test(normalizedEmail)) {
+      return res.status(400).json({ error: 'Enter a valid email address' });
+    }
+    const emailLength = lengthError('Email', normalizedEmail, LIMITS.email);
+    if (emailLength) return res.status(400).json({ error: emailLength });
+    if (normalizedEmail !== String(confirmEmail || '').trim().toLowerCase()) {
+      return res.status(400).json({ error: 'The two email addresses don’t match' });
+    }
+
+    // Old enough to be running a business, and not a typo like 1899.
+    const dob = String(dateOfBirth || '').slice(0, 10);
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(dob)) {
+      return res.status(400).json({ error: 'Enter your date of birth' });
+    }
+    const dobDate = new Date(`${dob}T00:00:00Z`);
+    const years = (Date.now() - dobDate.getTime()) / (365.25 * 24 * 60 * 60 * 1000);
+    if (Number.isNaN(dobDate.getTime()) || years < 16) {
+      return res.status(400).json({ error: 'You must be at least 16 to open an account' });
+    }
+    if (years > 120) return res.status(400).json({ error: 'Check the date of birth — that year looks wrong' });
+
+    const matchedCountry = countryByName(country);
+    if (!matchedCountry) return res.status(400).json({ error: 'Choose your country' });
+    if (!isValidState(matchedCountry.name, state)) {
+      return res.status(400).json({ error: 'Choose your state or region' });
+    }
+    const stateError = lengthError('State', state, LIMITS.state);
+    if (stateError) return res.status(400).json({ error: stateError });
+
+    const finalCurrency = String(currency || '').toUpperCase();
+    if (!isKnownCurrency(finalCurrency)) return res.status(400).json({ error: 'Choose your preferred currency' });
+
+    const cleanedPhone = normalisePhone(phone);
+    if (cleanedPhone) {
+      const phoneError = lengthError('Phone number', cleanedPhone, LIMITS.phone);
+      if (phoneError) return res.status(400).json({ error: phoneError });
+      if ((cleanedPhone.match(/\d/g) || []).length < 6) {
+        return res.status(400).json({ error: 'Enter a valid phone number' });
+      }
+    }
+
+    if (businessName && String(businessName).trim()) {
+      const businessError = lengthError('Business name', businessName, LIMITS.businessName);
+      if (businessError) return res.status(400).json({ error: businessError });
+    }
+
+    if (!referralSource || !REFERRAL_SOURCES.includes(String(referralSource))) {
+      return res.status(400).json({ error: 'Let us know how you heard about us' });
     }
     if (termsAccepted !== true) {
       return res.status(400).json({ error: 'You must accept the Terms of Service and Privacy Policy to continue' });
     }
+
     const finalPlanType = planType === 'family' ? 'family' : 'individual';
 
-    const trimmedCountry = country ? String(country).trim().slice(0, 80) : null;
-    const trimmedBusinessName = businessName ? String(businessName).trim().slice(0, 255) : null;
-    const trimmedReferralSource = referralSource ? String(referralSource).trim().slice(0, 100) : null;
+    // Checked again here rather than trusted from the form — the price shown
+    // during sign-up came from an endpoint anyone can call.
+    let finalPromo = null;
+    if (promoCode && String(promoCode).trim()) {
+      const plans = await getSignupPlans();
+      const plan = plans.find((p) => p.planType === finalPlanType);
+      const result = await evaluatePromoCode(promoCode, finalPlanType, plan?.amountPerYear);
+      if (!result.ok) return res.status(400).json({ error: result.reason });
+      finalPromo = result.promo.code;
+    }
 
-    const normalizedEmail = String(email).trim().toLowerCase();
-    const passwordHash = hashPassword(password);
+    const first = toPersonName(firstName);
+    const last = toPersonName(lastName);
+    const fullName = `${first} ${last}`.trim();
+
+    // No password at sign-up: it's set when the activation link is opened,
+    // which proves the address works before an account can be used.
+    const placeholderHash = hashPassword(crypto.randomBytes(32).toString('hex'));
     const mfaMode = await getMfaMode();
     const otpEnabledAtSignup = mfaMode === 'required' ? 1 : 0;
     const { token, tokenHash, expiresAt } = generateActivationToken();
@@ -80,17 +302,27 @@ router.post(
     let userId;
     try {
       const [result] = await pool.execute(
-        `INSERT INTO users (email, password_hash, name, otp_enabled, otp_prompted, role, plan_type, country, business_name, referral_source, terms_accepted_at, activation_token_hash, activation_token_expires_at)
-         VALUES (?, ?, ?, ?, 0, 'owner', ?, ?, ?, ?, NOW(), ?, ?)`,
+        `INSERT INTO users
+           (email, password_hash, name, first_name, last_name, date_of_birth, phone, otp_enabled, otp_prompted,
+            role, plan_type, promo_code, currency, country, state, business_name, referral_source,
+            terms_accepted_at, activation_token_hash, activation_token_expires_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, 'owner', ?, ?, ?, ?, ?, ?, ?, NOW(), ?, ?)`,
         [
           normalizedEmail,
-          passwordHash,
-          String(name).trim(),
+          placeholderHash,
+          fullName,
+          first,
+          last,
+          dob,
+          cleanedPhone || null,
           otpEnabledAtSignup,
           finalPlanType,
-          trimmedCountry,
-          trimmedBusinessName,
-          trimmedReferralSource,
+          finalPromo,
+          finalCurrency,
+          matchedCountry.name,
+          String(state).trim(),
+          businessName ? String(businessName).trim().slice(0, 120) : null,
+          String(referralSource),
           tokenHash,
           expiresAt,
         ]
@@ -104,10 +336,15 @@ router.post(
     }
 
     await seedDefaultCategories(pool, userId);
+    if (finalPromo) await recordPromoRedemption(finalPromo);
 
     const activationUrl = `${process.env.CLIENT_ORIGIN || 'http://localhost:5173'}/activate?token=${token}`;
     try {
-      await sendActivationEmail(normalizedEmail, String(name).trim(), activationUrl);
+      await sendActivationEmail(normalizedEmail, first, activationUrl, {
+        planType: finalPlanType,
+        trialDays: TRIAL_DAYS,
+        expiryDays: ACTIVATION_TOKEN_DAYS,
+      });
     } catch (err) {
       console.error('Failed to send activation email', err);
     }
@@ -116,31 +353,64 @@ router.post(
   })
 );
 
+// Confirms a link is still good before showing the set-password form, so
+// somebody doesn't choose a password only to be told the link expired.
 router.get(
+  '/activate/check',
+  asyncHandler(async (req, res) => {
+    const user = await findActivationCandidate(req.query?.token);
+    if (!user) return res.status(400).json({ error: 'This activation link is invalid or has expired.' });
+    res.json({ ok: true, email: user.email, firstName: user.first_name || user.name });
+  })
+);
+
+async function findActivationCandidate(token) {
+  if (!token) return null;
+  const tokenHash = crypto.createHash('sha256').update(String(token)).digest('hex');
+  const [rows] = await pool.execute(
+    'SELECT * FROM users WHERE activation_token_hash = ? AND activated_at IS NULL',
+    [tokenHash]
+  );
+  const user = rows[0];
+  if (!user || new Date(user.activation_token_expires_at) < new Date()) return null;
+  return user;
+}
+
+// Activation is where the password is set — the account is created without
+// one, so opening this link is what proves the address belongs to whoever
+// signed up.
+router.post(
   '/activate',
   asyncHandler(async (req, res) => {
-    const { token } = req.query || {};
+    const { token, password } = req.body || {};
     if (!token) return res.status(400).json({ error: 'Activation token is required' });
-
-    const tokenHash = crypto.createHash('sha256').update(String(token)).digest('hex');
-    const [rows] = await pool.execute(
-      'SELECT * FROM users WHERE activation_token_hash = ? AND activated_at IS NULL',
-      [tokenHash]
-    );
-    const user = rows[0];
-    if (!user || new Date(user.activation_token_expires_at) < new Date()) {
-      return res.status(400).json({ error: 'This activation link is invalid or has expired.' });
+    if (!isStrongPassword(password)) {
+      return res.status(400).json({
+        error: 'Password must be at least 8 characters and include an uppercase letter, a lowercase letter, and a number',
+      });
     }
+
+    const user = await findActivationCandidate(token);
+    if (!user) return res.status(400).json({ error: 'This activation link is invalid or has expired.' });
 
     const trialEndsAt = new Date(Date.now() + TRIAL_DAYS * 24 * 60 * 60 * 1000);
     await pool.execute(
-      `UPDATE users SET activated_at = NOW(), activation_token_hash = NULL, activation_token_expires_at = NULL,
-       trial_ends_at = ?, subscription_status = 'trialing' WHERE id = ?`,
-      [trialEndsAt, user.id]
+      `UPDATE users SET password_hash = ?, activated_at = NOW(), activation_token_hash = NULL,
+       activation_token_expires_at = NULL, trial_ends_at = ?, subscription_status = 'trialing' WHERE id = ?`,
+      [hashPassword(password), trialEndsAt, user.id]
     );
 
-    const token2 = signToken(user);
-    res.cookie(COOKIE_NAME, token2, cookieOptions());
+    try {
+      await sendAccountActivatedEmail(user.email, user.first_name || user.name, {
+        planType: user.plan_type,
+        trialEndsAt,
+      });
+    } catch (err) {
+      console.error('Failed to send activation confirmation email', err);
+    }
+
+    const jwt = signToken(user);
+    res.cookie(COOKIE_NAME, jwt, cookieOptions());
     const mfaMode = await getMfaMode();
     user.trial_ends_at = trialEndsAt;
     user.subscription_status = 'trialing';
@@ -163,9 +433,14 @@ router.post(
     // endpoint can't be used to probe which emails are registered.
     if (!user) return res.json({ ok: true });
 
-    const issuedAt = new Date(new Date(user.activation_token_expires_at).getTime() - ACTIVATION_TOKEN_DAYS * 24 * 60 * 60 * 1000);
-    if (user.activation_token_expires_at && Date.now() - issuedAt.getTime() < 60 * 1000) {
-      return res.json({ ok: true });
+    // Five minutes between sends. Returned to the caller so the button can
+    // show a live countdown rather than silently doing nothing when pressed.
+    const issuedAt = new Date(
+      new Date(user.activation_token_expires_at).getTime() - ACTIVATION_TOKEN_DAYS * 24 * 60 * 60 * 1000
+    );
+    const sinceIssued = Date.now() - issuedAt.getTime();
+    if (user.activation_token_expires_at && sinceIssued < RESEND_COOLDOWN_MS) {
+      return res.json({ ok: true, retryAfterSeconds: Math.ceil((RESEND_COOLDOWN_MS - sinceIssued) / 1000) });
     }
 
     const { token, tokenHash, expiresAt } = generateActivationToken();
@@ -177,12 +452,16 @@ router.post(
 
     const activationUrl = `${process.env.CLIENT_ORIGIN || 'http://localhost:5173'}/activate?token=${token}`;
     try {
-      await sendActivationEmail(user.email, user.name, activationUrl);
+      await sendActivationEmail(user.email, user.first_name || user.name, activationUrl, {
+        planType: user.plan_type,
+        trialDays: TRIAL_DAYS,
+        expiryDays: ACTIVATION_TOKEN_DAYS,
+      });
     } catch (err) {
       console.error('Failed to send activation email', err);
     }
 
-    res.json({ ok: true });
+    res.json({ ok: true, retryAfterSeconds: Math.ceil(RESEND_COOLDOWN_MS / 1000) });
   })
 );
 
@@ -470,23 +749,60 @@ router.patch(
   '/profile',
   requireAuth,
   asyncHandler(async (req, res) => {
-    const { name, email, country, businessName } = req.body || {};
-    if (!name || !String(name).trim()) return res.status(400).json({ error: 'Name is required' });
-    if (!email || !String(email).trim()) return res.status(400).json({ error: 'Email is required' });
+    // Everything captured at sign-up can be corrected here except how they
+    // heard about us — that's a one-time answer about a moment that's passed,
+    // and letting it be edited later would only corrupt what it exists for.
+    const { firstName, lastName, dateOfBirth, phone, email, currency, country, state, businessName } = req.body || {};
 
-    const normalizedEmail = String(email).trim().toLowerCase();
-    const trimmedName = String(name).trim();
-    const trimmedCountry = country ? String(country).trim().slice(0, 80) : null;
-    const trimmedBusinessName = businessName ? String(businessName).trim().slice(0, 255) : null;
+    for (const [value, label, limits] of [
+      [firstName, 'First name', LIMITS.firstName],
+      [lastName, 'Last name', LIMITS.lastName],
+    ]) {
+      const error = lengthError(label, value, limits);
+      if (error) return res.status(400).json({ error });
+    }
+
+    const normalizedEmail = String(email || '').trim().toLowerCase();
+    if (!EMAIL_PATTERN.test(normalizedEmail)) return res.status(400).json({ error: 'Enter a valid email address' });
+
+    const dob = String(dateOfBirth || '').slice(0, 10);
+    if (dob && !/^\d{4}-\d{2}-\d{2}$/.test(dob)) return res.status(400).json({ error: 'Enter a valid date of birth' });
+
+    const matchedCountry = countryByName(country);
+    if (!matchedCountry) return res.status(400).json({ error: 'Choose your country' });
+    if (!isValidState(matchedCountry.name, state)) return res.status(400).json({ error: 'Choose your state or region' });
+
+    const finalCurrency = String(currency || '').toUpperCase();
+    if (!isKnownCurrency(finalCurrency)) return res.status(400).json({ error: 'Choose your preferred currency' });
+
+    const cleanedPhone = normalisePhone(phone);
+    if (cleanedPhone && (cleanedPhone.match(/\d/g) || []).length < 6) {
+      return res.status(400).json({ error: 'Enter a valid phone number' });
+    }
+
+    const first = toPersonName(firstName);
+    const last = toPersonName(lastName);
+    const fullName = `${first} ${last}`.trim();
+    const trimmedBusinessName = businessName ? String(businessName).trim().slice(0, 120) : null;
 
     try {
-      await pool.execute('UPDATE users SET name = ?, email = ?, country = ?, business_name = ? WHERE id = ?', [
-        trimmedName,
-        normalizedEmail,
-        trimmedCountry,
-        trimmedBusinessName,
-        req.user.id,
-      ]);
+      await pool.execute(
+        `UPDATE users SET name = ?, first_name = ?, last_name = ?, date_of_birth = ?, phone = ?, email = ?,
+         currency = ?, country = ?, state = ?, business_name = ? WHERE id = ?`,
+        [
+          fullName,
+          first,
+          last,
+          dob || null,
+          cleanedPhone || null,
+          normalizedEmail,
+          finalCurrency,
+          matchedCountry.name,
+          String(state).trim(),
+          trimmedBusinessName,
+          req.user.id,
+        ]
+      );
     } catch (err) {
       if (err.code === 'ER_DUP_ENTRY') {
         return res.status(409).json({ error: 'An account with that email already exists' });
@@ -495,7 +811,19 @@ router.patch(
     }
 
     res.json({
-      user: { ...req.user, name: trimmedName, email: normalizedEmail, country: trimmedCountry, businessName: trimmedBusinessName },
+      user: {
+        ...req.user,
+        name: fullName,
+        firstName: first,
+        lastName: last,
+        dateOfBirth: dob || null,
+        phone: cleanedPhone || null,
+        email: normalizedEmail,
+        currency: finalCurrency,
+        country: matchedCountry.name,
+        state: String(state).trim(),
+        businessName: trimmedBusinessName,
+      },
     });
   })
 );

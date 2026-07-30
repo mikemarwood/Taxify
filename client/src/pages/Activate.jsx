@@ -1,95 +1,257 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import AuthLayout from './AuthLayout.jsx';
+import Icon from '../components/Icon.jsx';
 import { useAuth } from '../lib/AuthContext.jsx';
+import { useToast } from '../components/Toast.jsx';
+import { playSuccess, playError } from '../lib/sounds.js';
+
+// Mirrors isStrongPassword on the server. Shown as a live checklist rather
+// than a single pass/fail, so it's obvious which rule is still unmet.
+const RULES = [
+  { label: 'At least 8 characters', test: (p) => p.length >= 8 },
+  { label: 'An uppercase letter', test: (p) => /[A-Z]/.test(p) },
+  { label: 'A lowercase letter', test: (p) => /[a-z]/.test(p) },
+  { label: 'A number', test: (p) => /\d/.test(p) },
+];
 
 export default function Activate() {
-  const { activate, resendActivation } = useAuth();
+  const { activate, checkActivationToken, resendActivation } = useAuth();
   const navigate = useNavigate();
+  const toast = useToast();
   const [searchParams] = useSearchParams();
   const token = searchParams.get('token');
 
-  const [status, setStatus] = useState('activating'); // activating | success | error
+  const [status, setStatus] = useState('checking'); // checking | ready | saving | success | error
   const [errorMessage, setErrorMessage] = useState('');
-  const [resendEmail, setResendEmail] = useState('');
-  const [resendSent, setResendSent] = useState(false);
-  const [resendBusy, setResendBusy] = useState(false);
+  const [account, setAccount] = useState(null);
 
+  const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+
+  // The link is checked before the form appears, so nobody chooses a password
+  // only to be told the link expired.
   useEffect(() => {
     if (!token) {
       setStatus('error');
       setErrorMessage('This activation link is missing its token.');
       return;
     }
-    activate(token)
-      .then(() => {
-        setStatus('success');
-        setTimeout(() => navigate('/'), 1200);
+    checkActivationToken(token)
+      .then((data) => {
+        setAccount(data);
+        setStatus('ready');
       })
       .catch((err) => {
         setStatus('error');
         setErrorMessage(err.message);
       });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [token]);
+  }, [token, checkActivationToken]);
 
-  async function onResend(e) {
-    e.preventDefault();
-    setResendBusy(true);
+  const rulesMet = RULES.every((r) => r.test(password));
+  const matches = password.length > 0 && password === confirmPassword;
+  const canSubmit = rulesMet && matches && status === 'ready';
+
+  async function onSubmit(event) {
+    event.preventDefault();
+    if (!canSubmit) return;
+
+    setStatus('saving');
     try {
-      await resendActivation(resendEmail);
-      setResendSent(true);
-    } finally {
-      setResendBusy(false);
+      await activate(token, password);
+      playSuccess();
+      setStatus('success');
+      setTimeout(() => navigate('/'), 1400);
+    } catch (err) {
+      playError();
+      setStatus('ready');
+      toast(err.message, 'error');
     }
   }
 
-  return (
-    <AuthLayout
-      title={status === 'success' ? 'Account activated' : 'Activating your account'}
-      subtitle={status === 'success' ? 'Redirecting you in…' : 'Just a moment.'}
-    >
-      {status === 'activating' && (
-        <div style={{ display: 'flex', justifyContent: 'center', padding: '20px 0' }}>
-          <span className="spinner" style={{ borderTopColor: 'var(--violet)', borderColor: 'rgba(37,99,235,0.2)' }} />
+  if (status === 'checking') {
+    return (
+      <AuthLayout title="Activating…" subtitle="Just checking your link.">
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, color: 'var(--text-muted)', fontSize: 14 }}>
+          <span className="spinner" />
+          Checking your activation link…
         </div>
-      )}
+      </AuthLayout>
+    );
+  }
 
-      {status === 'success' && (
-        <p style={{ fontSize: 14, color: 'var(--text-muted)', textAlign: 'center' }}>
-          Your 14-day free trial has started. Taking you to your dashboard…
-        </p>
-      )}
-
-      {status === 'error' && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-          <p style={{ fontSize: 14, color: 'var(--red)', margin: 0 }}>{errorMessage}</p>
-          {resendSent ? (
-            <p style={{ fontSize: 13, color: 'var(--text-muted)', margin: 0 }}>
-              If that email has a pending activation, a new link is on its way.
-            </p>
-          ) : (
-            <form onSubmit={onResend} style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-              <label className="label">Resend activation email</label>
-              <input
-                className="input"
-                type="email"
-                required
-                placeholder="you@example.com"
-                value={resendEmail}
-                onChange={(e) => setResendEmail(e.target.value.toLowerCase())}
-              />
-              <button className="btn btn-primary" type="submit" disabled={resendBusy}>
-                {resendBusy && <span className="spinner" />}
-                Resend activation email
-              </button>
-            </form>
-          )}
-          <p style={{ fontSize: 13, color: 'var(--text-muted)', textAlign: 'center', margin: 0 }}>
-            <Link to="/login" style={{ color: 'var(--blue)', fontWeight: 600 }}>Back to login</Link>
+  if (status === 'success') {
+    return (
+      <AuthLayout title="You're all set" subtitle="Taking you to your dashboard.">
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12, alignItems: 'center', textAlign: 'center' }}>
+          <Icon name="check-circle" size={38} style={{ color: 'var(--emerald)' }} />
+          <p style={{ margin: 0, fontSize: 14, lineHeight: 1.6 }}>
+            Your account is active and your 14-day trial has started. We've emailed you a confirmation.
           </p>
         </div>
-      )}
+      </AuthLayout>
+    );
+  }
+
+  if (status === 'error') {
+    return (
+      <AuthLayout title="That link didn't work" subtitle="Links expire after 5 days.">
+        <ExpiredLink message={errorMessage} onResend={resendActivation} />
+      </AuthLayout>
+    );
+  }
+
+  return (
+    <AuthLayout title="Choose your password" subtitle="The last step — then you're in.">
+      <form onSubmit={onSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+        {account?.email && (
+          <div
+            style={{
+              fontSize: 13,
+              padding: '9px 12px',
+              borderRadius: 'var(--radius-sm)',
+              background: 'var(--bg-elevated)',
+              border: '1px solid var(--border)',
+            }}
+          >
+            Setting the password for <strong>{account.email}</strong>
+          </div>
+        )}
+
+        <div>
+          <label className="label">New password</label>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <input
+              className="input"
+              type={showPassword ? 'text' : 'password'}
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              autoComplete="new-password"
+              autoFocus
+            />
+            <button
+              type="button"
+              className="btn btn-ghost"
+              style={{ fontSize: 12.5, padding: '7px 12px' }}
+              onClick={() => setShowPassword((v) => !v)}
+            >
+              {showPassword ? 'Hide' : 'Show'}
+            </button>
+          </div>
+        </div>
+
+        <ul style={{ margin: 0, padding: 0, listStyle: 'none', display: 'flex', flexDirection: 'column', gap: 4 }}>
+          {RULES.map((rule) => {
+            const met = rule.test(password);
+            return (
+              <li
+                key={rule.label}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 7,
+                  fontSize: 12.5,
+                  color: met ? 'var(--emerald)' : 'var(--text-muted)',
+                }}
+              >
+                <Icon name={met ? 'check-circle' : 'info'} size={13} />
+                {rule.label}
+              </li>
+            );
+          })}
+        </ul>
+
+        <div>
+          <label className="label">Confirm password</label>
+          <input
+            className="input"
+            type={showPassword ? 'text' : 'password'}
+            value={confirmPassword}
+            onChange={(e) => setConfirmPassword(e.target.value)}
+            autoComplete="new-password"
+          />
+          {confirmPassword && !matches && (
+            <span style={{ fontSize: 11.5, color: 'var(--red)' }}>The passwords don’t match</span>
+          )}
+        </div>
+
+        <button className="btn btn-primary" type="submit" disabled={!canSubmit || status === 'saving'}>
+          {status === 'saving' && <span className="spinner" />}
+          Activate my account
+        </button>
+      </form>
     </AuthLayout>
+  );
+}
+
+// An expired link is recoverable: a new one can be sent, throttled to once
+// every five minutes with the wait shown as it counts down.
+function ExpiredLink({ message, onResend }) {
+  const toast = useToast();
+  const [email, setEmail] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [secondsLeft, setSecondsLeft] = useState(0);
+
+  useEffect(() => {
+    if (secondsLeft <= 0) return undefined;
+    const id = setInterval(() => setSecondsLeft((s) => Math.max(0, s - 1)), 1000);
+    return () => clearInterval(id);
+  }, [secondsLeft]);
+
+  async function submit(event) {
+    event.preventDefault();
+    if (!email.trim() || secondsLeft > 0) return;
+    setBusy(true);
+    try {
+      const wait = await onResend(email);
+      setSecondsLeft(wait);
+      toast('If that account is waiting to be activated, a new link is on its way', 'success');
+    } catch (err) {
+      toast(err.message, 'error');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  const mm = String(Math.floor(secondsLeft / 60)).padStart(2, '0');
+  const ss = String(secondsLeft % 60).padStart(2, '0');
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+      <div style={{ display: 'flex', alignItems: 'flex-start', gap: 9, color: 'var(--red)' }}>
+        <Icon name="alert" size={18} style={{ marginTop: 1 }} />
+        <p style={{ margin: 0, fontSize: 14, lineHeight: 1.55, color: 'var(--text)' }}>{message}</p>
+      </div>
+
+      <p style={{ margin: 0, fontSize: 13, color: 'var(--text-muted)', lineHeight: 1.6 }}>
+        Enter the address you signed up with and we'll send a fresh link. If the account was already removed you're
+        welcome to sign up again.
+      </p>
+
+      <form onSubmit={submit} style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+        <input
+          className="input"
+          type="email"
+          placeholder="you@example.com"
+          value={email}
+          onChange={(e) => setEmail(e.target.value.toLowerCase())}
+          autoComplete="email"
+        />
+        <button className="btn btn-primary" type="submit" disabled={busy || !email.trim() || secondsLeft > 0}>
+          {busy && <span className="spinner" />}
+          {secondsLeft > 0 ? `Resend available in ${mm}:${ss}` : 'Send a new activation link'}
+        </button>
+      </form>
+
+      <div style={{ display: 'flex', gap: 14, justifyContent: 'center', fontSize: 13 }}>
+        <Link to="/register" style={{ color: 'var(--accent)', fontWeight: 600 }}>
+          Sign up again
+        </Link>
+        <Link to="/login" style={{ color: 'var(--accent)', fontWeight: 600 }}>
+          Back to sign in
+        </Link>
+      </div>
+    </div>
   );
 }

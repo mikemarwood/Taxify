@@ -140,3 +140,72 @@ export async function priceIdForPlan(planType) {
   }
   return id;
 }
+
+// Plan cards on the sign-up page. Prices come from Stripe rather than being
+// typed into the client, so what someone is quoted is what they'll be charged
+// and changing a price in Stripe is enough.
+//
+// Yearly only: the app is sold as an annual product and showing a monthly
+// figure people can't actually buy is a bait. A price configured with a
+// different interval is normalised to what a year of it costs.
+const PLAN_COPY = {
+  individual: {
+    name: 'Individual',
+    tagline: 'For a sole trader keeping their own records.',
+    features: ['One user', 'Unlimited expenses and receipts', 'Year-over-year reports', 'Excel and PDF export'],
+  },
+  family: {
+    name: 'Family',
+    tagline: 'For a household or a partner who shares the books.',
+    features: [
+      'Two users on one account',
+      'Everything in Individual',
+      'Read-only accountant access',
+      'Shared categories and receipts',
+    ],
+  },
+};
+
+function yearlyAmount(price) {
+  const amount = price.unit_amount ?? 0;
+  const interval = price.recurring?.interval;
+  const count = price.recurring?.interval_count || 1;
+  if (interval === 'year') return amount / count;
+  if (interval === 'month') return (amount * 12) / count;
+  if (interval === 'week') return (amount * 52) / count;
+  if (interval === 'day') return (amount * 365) / count;
+  return amount;
+}
+
+export async function getSignupPlans() {
+  const config = await getStripeConfig();
+  const ids = { individual: config.priceIndividual, family: config.priceFamily };
+
+  let stripe = null;
+  try {
+    stripe = await getStripe();
+  } catch {
+    // Not configured yet — the cards still render, just without a price.
+  }
+
+  const plans = [];
+  for (const planType of ['individual', 'family']) {
+    const copy = PLAN_COPY[planType];
+    const priceId = ids[planType];
+    let amount = null;
+    let currency = null;
+
+    if (stripe && priceId) {
+      try {
+        const price = await stripe.prices.retrieve(priceId);
+        amount = Math.round(yearlyAmount(price));
+        currency = String(price.currency || '').toUpperCase();
+      } catch (err) {
+        console.error(`Could not read the ${planType} price from Stripe`, err.message);
+      }
+    }
+
+    plans.push({ planType, ...copy, priceId: priceId || null, amountPerYear: amount, currency });
+  }
+  return plans;
+}

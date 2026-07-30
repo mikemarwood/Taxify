@@ -30,22 +30,21 @@ export function AuthProvider({ children }) {
     return res.data.user;
   }, []);
 
-  const register = useCallback(async ({ name, email, password, planType, country, businessName, referralSource, termsAccepted }) => {
-    const res = await api.post('/auth/register', {
-      name,
-      email: email.trim().toLowerCase(),
-      password,
-      planType,
-      country,
-      businessName,
-      referralSource,
-      termsAccepted,
-    });
+  // The whole sign-up form goes over in one object — it has enough fields now
+  // that a positional argument list would be a liability.
+  const register = useCallback(async (fields) => {
+    const res = await api.post('/auth/register', { ...fields, email: fields.email.trim().toLowerCase() });
     return res.data;
   }, []);
 
-  const activate = useCallback(async (token) => {
-    const res = await api.get(`/auth/activate?token=${encodeURIComponent(token)}`);
+  const checkActivationToken = useCallback(async (token) => {
+    const res = await api.get(`/auth/activate/check?token=${encodeURIComponent(token)}`);
+    return res.data;
+  }, []);
+
+  // Activation is also where the password is set, so this is a POST now.
+  const activate = useCallback(async (token, password) => {
+    const res = await api.post('/auth/activate', { token, password });
     setUser(res.data.user);
     return res.data.user;
   }, []);
@@ -56,8 +55,11 @@ export function AuthProvider({ children }) {
     return res.data.user;
   }, []);
 
+  // Returns how many seconds until it can be asked for again, so the button
+  // can count down rather than just refusing.
   const resendActivation = useCallback(async (email) => {
-    await api.post('/auth/resend-activation', { email: email.trim().toLowerCase() });
+    const res = await api.post('/auth/resend-activation', { email: email.trim().toLowerCase() });
+    return res.data?.retryAfterSeconds ?? 300;
   }, []);
 
   const logout = useCallback(async () => {
@@ -65,8 +67,8 @@ export function AuthProvider({ children }) {
     setUser(null);
   }, []);
 
-  const updateProfile = useCallback(async (name, email, country, businessName) => {
-    const res = await api.patch('/auth/profile', { name, email: email.trim().toLowerCase(), country, businessName });
+  const updateProfile = useCallback(async (fields) => {
+    const res = await api.patch('/auth/profile', { ...fields, email: fields.email.trim().toLowerCase() });
     setUser(res.data.user);
   }, []);
 
@@ -93,6 +95,7 @@ export function AuthProvider({ children }) {
         verifyOtp,
         register,
         activate,
+        checkActivationToken,
         acceptInvite,
         resendActivation,
         logout,

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useAuth } from '../lib/AuthContext.jsx';
 import { useToast } from '../components/Toast.jsx';
 import { api } from '../lib/api.js';
@@ -9,6 +9,15 @@ import AvatarEditorModal from '../components/AvatarEditorModal.jsx';
 import { isSoundEnabled, setSoundEnabled } from '../lib/sounds.js';
 
 const MAX_AVATAR_BYTES = 10 * 1024 * 1024;
+
+// Matches the sign-up form and the server: capital at the start of each word,
+// the rest lower case, applied as they type.
+function toPersonName(raw) {
+  return String(raw)
+    .replace(/\s+/g, ' ')
+    .toLowerCase()
+    .replace(/(^|[\s'’-])([a-z])/g, (_, sep, ch) => sep + ch.toUpperCase());
+}
 
 function AvatarSection({ user, setUser }) {
   const toast = useToast();
@@ -344,11 +353,33 @@ export default function Account() {
   const { user, updateProfile, changePassword, setOtpEnabled, setUser } = useAuth();
   const toast = useToast();
 
-  const [name, setName] = useState(user.name);
+  // Everything captured at sign-up is editable here except how they heard
+  // about us — that's a one-time answer about a moment that's passed.
+  const [firstName, setFirstName] = useState(user.firstName || '');
+  const [lastName, setLastName] = useState(user.lastName || '');
+  const [dateOfBirth, setDateOfBirth] = useState(user.dateOfBirth || '');
+  const [phone, setPhone] = useState(user.phone || '');
   const [email, setEmail] = useState(user.email);
+  const [currency, setCurrency] = useState(user.currency || 'AUD');
   const [country, setCountry] = useState(user.country || '');
+  const [state, setState] = useState(user.state || '');
   const [businessName, setBusinessName] = useState(user.businessName || '');
   const [profileBusy, setProfileBusy] = useState(false);
+  const [options, setOptions] = useState(null);
+
+  // Same lists the sign-up form uses, so the two can't drift.
+  useEffect(() => {
+    api
+      .get('/auth/signup-options')
+      .then((res) => setOptions(res.data))
+      .catch(() => setOptions({ countries: [], states: {}, currencies: [] }));
+  }, []);
+
+  const statesForCountry = useMemo(() => {
+    if (!options || !country) return null;
+    const match = options.countries.find((c) => c.name === country);
+    return match ? options.states[match.code] || null : null;
+  }, [options, country]);
 
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
@@ -378,16 +409,31 @@ export default function Account() {
   }
 
   const profileChanged =
-    name.trim() !== user.name ||
+    firstName.trim() !== (user.firstName || '') ||
+    lastName.trim() !== (user.lastName || '') ||
+    dateOfBirth !== (user.dateOfBirth || '') ||
+    phone.trim() !== (user.phone || '') ||
     email.trim().toLowerCase() !== user.email ||
+    currency !== (user.currency || '') ||
     country.trim() !== (user.country || '') ||
+    state.trim() !== (user.state || '') ||
     businessName.trim() !== (user.businessName || '');
 
   async function onSaveProfile(e) {
     e.preventDefault();
     setProfileBusy(true);
     try {
-      await updateProfile(name.trim(), email.trim(), country.trim(), businessName.trim());
+      await updateProfile({
+        firstName: firstName.trim(),
+        lastName: lastName.trim(),
+        dateOfBirth,
+        phone: phone.trim(),
+        email: email.trim(),
+        currency,
+        country: country.trim(),
+        state: state.trim(),
+        businessName: businessName.trim(),
+      });
       toast('Account details updated', 'success');
     } catch (err) {
       toast(err.message, 'error');
@@ -430,31 +476,120 @@ export default function Account() {
 
       <form onSubmit={onSaveProfile} className="card" style={{ padding: 20, display: 'flex', flexDirection: 'column', gap: 14 }}>
         <div style={{ fontWeight: 700 }}>Profile</div>
-        <div>
-          <label className="label">Name</label>
-          <input className="input" required value={name} onChange={(e) => setName(e.target.value)} />
+
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+          <div>
+            <label className="label">First name</label>
+            <input
+              className="input"
+              required
+              maxLength={60}
+              value={firstName}
+              onChange={(e) => setFirstName(toPersonName(e.target.value))}
+            />
+          </div>
+          <div>
+            <label className="label">Last name</label>
+            <input
+              className="input"
+              required
+              maxLength={60}
+              value={lastName}
+              onChange={(e) => setLastName(toPersonName(e.target.value))}
+            />
+          </div>
         </div>
+
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+          <div>
+            <label className="label">Date of birth</label>
+            <input
+              className="input"
+              type="date"
+              max={new Date().toISOString().slice(0, 10)}
+              value={dateOfBirth}
+              onChange={(e) => setDateOfBirth(e.target.value)}
+            />
+          </div>
+          <div>
+            <label className="label">Phone number</label>
+            <input
+              className="input"
+              inputMode="tel"
+              maxLength={20}
+              placeholder="08 9123 4567"
+              value={phone}
+              onChange={(e) => setPhone(e.target.value.replace(/[^\d+\s()-]/g, ''))}
+            />
+          </div>
+        </div>
+
         <div>
           <label className="label">Email</label>
           <input className="input" required type="email" value={email} onChange={(e) => setEmail(e.target.value.toLowerCase())} />
         </div>
+
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
           <div>
-            <label className="label">Business name (optional)</label>
-            <input className="input" value={businessName} onChange={(e) => setBusinessName(e.target.value)} />
-          </div>
-          <div>
             <label className="label">Country</label>
-            <select className="input" value={country} onChange={(e) => setCountry(e.target.value)}>
+            <select
+              className="input"
+              value={country}
+              onChange={(e) => {
+                setCountry(e.target.value);
+                setState('');
+                const match = options?.countries.find((c) => c.name === e.target.value);
+                if (match) setCurrency(match.currency);
+              }}
+            >
               <option value="">—</option>
-              {['Australia', 'New Zealand', 'United Kingdom', 'United States', 'Canada', 'Other'].map((c) => (
-                <option key={c} value={c}>
-                  {c}
+              {(options?.countries || []).map((c) => (
+                <option key={c.code} value={c.name}>
+                  {c.name}
                 </option>
               ))}
             </select>
           </div>
+          <div>
+            <label className="label">{statesForCountry ? 'State' : 'State or region'}</label>
+            {statesForCountry ? (
+              <select className="input" value={state} onChange={(e) => setState(e.target.value)}>
+                <option value="">—</option>
+                {statesForCountry.map((s) => (
+                  <option key={s} value={s}>
+                    {s}
+                  </option>
+                ))}
+              </select>
+            ) : (
+              <input
+                className="input"
+                maxLength={80}
+                disabled={!country}
+                value={state}
+                onChange={(e) => setState(e.target.value)}
+              />
+            )}
+          </div>
         </div>
+
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+          <div>
+            <label className="label">Preferred currency</label>
+            <select className="input" value={currency} onChange={(e) => setCurrency(e.target.value)}>
+              {(options?.currencies || []).map((c) => (
+                <option key={c.code} value={c.code}>
+                  {c.code} — {c.name}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="label">Business name (optional)</label>
+            <input className="input" maxLength={120} value={businessName} onChange={(e) => setBusinessName(e.target.value)} />
+          </div>
+        </div>
+
         <button className="btn btn-primary" type="submit" disabled={profileBusy || !profileChanged} style={{ alignSelf: 'flex-start' }}>
           {profileBusy && <span className="spinner" />}
           Save changes

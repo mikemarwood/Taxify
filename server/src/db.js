@@ -74,6 +74,49 @@ export async function ensureSchema() {
   await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS referral_source VARCHAR(100) NULL`);
   await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS terms_accepted_at DATETIME NULL`);
 
+  // `name` stays as the display name used everywhere else in the app; these
+  // are the parts it's assembled from, so a user can correct one without
+  // re-typing both.
+  await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS first_name VARCHAR(60) NULL`);
+  await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS last_name VARCHAR(60) NULL`);
+  await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS date_of_birth DATE NULL`);
+  await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS phone VARCHAR(30) NULL`);
+  await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS state VARCHAR(80) NULL`);
+  await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS currency VARCHAR(3) NULL`);
+  await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS promo_code VARCHAR(40) NULL`);
+  // Reminders are sent on a schedule before an unactivated account is purged,
+  // so the job needs to know which ones have already gone out.
+  await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS activation_reminded_at DATETIME NULL`);
+
+  // Split an existing single-field name so older accounts have parts too. Only
+  // touches rows where the split hasn't happened, so it's safe on every boot.
+  await pool.query(`
+    UPDATE users
+       SET first_name = TRIM(SUBSTRING_INDEX(name, ' ', 1)),
+           last_name = NULLIF(TRIM(SUBSTRING(name, LOCATE(' ', name))), '')
+     WHERE first_name IS NULL AND name IS NOT NULL AND name <> ''
+  `);
+
+  // Promo codes are set up in the admin panel and applied at sign-up. A code
+  // can be limited to one plan, capped by uses, and given an expiry.
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS promo_codes (
+      id INT PRIMARY KEY AUTO_INCREMENT,
+      code VARCHAR(40) NOT NULL,
+      description VARCHAR(255) NULL,
+      plan_type VARCHAR(20) NULL,
+      percent_off DECIMAL(5,2) NULL,
+      amount_off DECIMAL(10,2) NULL,
+      trial_days INT NULL,
+      max_uses INT NULL,
+      used_count INT NOT NULL DEFAULT 0,
+      active TINYINT(1) NOT NULL DEFAULT 1,
+      expires_at DATETIME NULL,
+      created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE KEY uniq_promo_code (code)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+  `);
+
   await pool.query(`
     CREATE TABLE IF NOT EXISTS categories (
       id INT PRIMARY KEY AUTO_INCREMENT,
