@@ -1,20 +1,18 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import AuthLayout from './AuthLayout.jsx';
+import { AnimatePresence, motion } from 'framer-motion';
 import Icon from '../components/Icon.jsx';
 import { api } from '../lib/api.js';
 import { useAuth } from '../lib/AuthContext.jsx';
 import { useToast } from '../components/Toast.jsx';
-import { playError } from '../lib/sounds.js';
+import { playClick, playError, playSuccess } from '../lib/sounds.js';
 
-// Mirrors the server's limits so the form can say what's wrong before a round
-// trip. The server re-checks all of it — this is for the person typing.
 const LIMITS = {
-  firstName: { min: 1, max: 60 },
-  lastName: { min: 1, max: 60 },
+  firstName: { max: 60 },
+  lastName: { max: 60 },
   phone: { min: 6, max: 20 },
   email: { max: 254 },
-  businessName: { min: 2, max: 120 },
+  businessName: { max: 120 },
 };
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
@@ -37,40 +35,26 @@ function money(cents, currency) {
   }).format(cents / 100);
 }
 
-function Field({ label, hint, error, required, children }) {
+const STEPS = [
+  { key: 'you', label: 'About you', icon: 'users' },
+  { key: 'email', label: 'Your email', icon: 'mail' },
+  { key: 'where', label: 'Where you are', icon: 'globe' },
+  { key: 'plan', label: 'Choose a plan', icon: 'tag' },
+  { key: 'finish', label: 'Finish up', icon: 'check-circle' },
+];
+
+function Field({ label, hint, error, required, children, span }) {
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 4, minWidth: 0 }}>
-      <label className="label" style={{ marginBottom: 0 }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 5, minWidth: 0, gridColumn: span ? '1 / -1' : undefined }}>
+      <label className="label" style={{ marginBottom: 0, fontSize: 12.5 }}>
         {label}
         {required && <span style={{ color: 'var(--red)' }}> *</span>}
       </label>
       {children}
-      {error ? (
-        <span style={{ fontSize: 11.5, color: 'var(--red)' }}>{error}</span>
-      ) : hint ? (
-        <span style={{ fontSize: 11.5, color: 'var(--text-muted)' }}>{hint}</span>
-      ) : null}
+      <span style={{ fontSize: 11.5, minHeight: 15, color: error ? 'var(--red)' : 'var(--text-muted)' }}>
+        {error || hint || ''}
+      </span>
     </div>
-  );
-}
-
-function Section({ title, children }) {
-  return (
-    <fieldset style={{ border: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: 12 }}>
-      <legend
-        style={{
-          padding: 0,
-          fontSize: 11,
-          fontWeight: 700,
-          letterSpacing: 0.7,
-          textTransform: 'uppercase',
-          color: 'var(--text-muted)',
-        }}
-      >
-        {title}
-      </legend>
-      {children}
-    </fieldset>
   );
 }
 
@@ -78,6 +62,9 @@ export default function Register() {
   const { register } = useAuth();
   const toast = useToast();
   const navigate = useNavigate();
+
+  const [step, setStep] = useState(0);
+  const [direction, setDirection] = useState(1);
 
   const [options, setOptions] = useState(null);
   const [plans, setPlans] = useState([]);
@@ -87,19 +74,19 @@ export default function Register() {
   const [lastName, setLastName] = useState('');
   const [dateOfBirth, setDateOfBirth] = useState('');
   const [phone, setPhone] = useState('');
+  const [businessName, setBusinessName] = useState('');
   const [email, setEmail] = useState('');
   const [confirmEmail, setConfirmEmail] = useState('');
-  const [currency, setCurrency] = useState('AUD');
   const [country, setCountry] = useState('');
   const [state, setState] = useState('');
-  const [businessName, setBusinessName] = useState('');
+  const [currency, setCurrency] = useState('AUD');
   const [planType, setPlanType] = useState('individual');
   const [promoCode, setPromoCode] = useState('');
   const [referralSource, setReferralSource] = useState('');
   const [termsAccepted, setTermsAccepted] = useState(false);
   const [captchaAnswer, setCaptchaAnswer] = useState('');
 
-  const [emailStatus, setEmailStatus] = useState({ state: 'idle' }); // idle | checking | free | taken | invalid
+  const [emailStatus, setEmailStatus] = useState({ state: 'idle' });
   const [promoStatus, setPromoStatus] = useState(null);
   const [promoBusy, setPromoBusy] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -132,8 +119,6 @@ export default function Register() {
     newCaptcha();
   }, [newCaptcha]);
 
-  // Checked as they type, debounced — finding out an address is taken after
-  // filling in a dozen fields is the worst possible moment.
   useEffect(() => {
     clearTimeout(emailTimer.current);
     const value = email.trim().toLowerCase();
@@ -145,14 +130,13 @@ export default function Register() {
       setEmailStatus({ state: 'invalid' });
       return undefined;
     }
-
     setEmailStatus({ state: 'checking' });
     emailTimer.current = setTimeout(() => {
       api
         .get(`/auth/email-available?email=${encodeURIComponent(value)}`)
         .then((res) => setEmailStatus({ state: res.data.available ? 'free' : 'taken', reason: res.data.reason }))
         .catch(() => setEmailStatus({ state: 'idle' }));
-    }, 450);
+    }, 400);
     return () => clearTimeout(emailTimer.current);
   }, [email]);
 
@@ -162,31 +146,6 @@ export default function Register() {
     return match ? options.states[match.code] || null : null;
   }, [options, country]);
 
-  function onCountryChange(next) {
-    setCountry(next);
-    setState('');
-    const match = options?.countries.find((c) => c.name === next);
-    if (match) setCurrency(match.currency);
-  }
-
-  const selectedPlan = plans.find((p) => p.planType === planType) || null;
-
-  async function applyPromo() {
-    const code = promoCode.trim().toUpperCase();
-    if (!code) return;
-    setPromoBusy(true);
-    try {
-      const res = await api.post('/auth/promo/check', { code, planType });
-      setPromoStatus({ ok: true, ...res.data });
-    } catch (err) {
-      setPromoStatus({ ok: false, reason: err.message });
-    } finally {
-      setPromoBusy(false);
-    }
-  }
-
-  // A code can be tied to one plan, so switching plans clears a discount that
-  // may no longer apply rather than showing a price that won't be honoured.
   useEffect(() => {
     setPromoStatus(null);
   }, [planType]);
@@ -200,35 +159,48 @@ export default function Register() {
     }
     const digits = phone.replace(/\D/g, '');
     if (digits.length > 0 && digits.length < LIMITS.phone.min) e.phone = 'That looks too short';
-    if (businessName.trim().length === 1) e.businessName = 'Too short';
     if (dateOfBirth) {
       const years = (Date.now() - new Date(dateOfBirth).getTime()) / (365.25 * 24 * 60 * 60 * 1000);
       if (years < 16) e.dateOfBirth = 'You must be at least 16';
       if (years > 120) e.dateOfBirth = 'Check the year';
     }
     return e;
-  }, [email, confirmEmail, emailStatus, phone, businessName, dateOfBirth]);
+  }, [email, confirmEmail, emailStatus, phone, dateOfBirth]);
 
-  const complete =
-    firstName.trim() &&
-    lastName.trim() &&
-    dateOfBirth &&
-    email.trim() &&
-    confirmEmail.trim() &&
-    currency &&
-    country &&
-    state.trim() &&
-    planType &&
-    referralSource &&
-    termsAccepted &&
-    captchaAnswer.trim() &&
-    emailStatus.state === 'free' &&
-    Object.keys(errors).length === 0;
+  // Each step gates its own Next, so a mistake is caught on the screen that
+  // caused it rather than at the very end.
+  const stepValid = [
+    firstName.trim() && lastName.trim() && dateOfBirth && !errors.dateOfBirth && !errors.phone,
+    email.trim() && confirmEmail.trim() && emailStatus.state === 'free' && !errors.confirmEmail,
+    country && state.trim() && currency,
+    Boolean(planType),
+    referralSource && termsAccepted && captchaAnswer.trim(),
+  ];
 
-  async function onSubmit(event) {
-    event.preventDefault();
-    if (!complete || busy) return;
+  const isLast = step === STEPS.length - 1;
 
+  function go(next) {
+    playClick();
+    setDirection(next > step ? 1 : -1);
+    setStep(next);
+  }
+
+  async function applyPromo() {
+    const code = promoCode.trim().toUpperCase();
+    if (!code) return;
+    setPromoBusy(true);
+    try {
+      const res = await api.post('/auth/promo/check', { code, planType });
+      setPromoStatus({ ok: true, ...res.data });
+      playSuccess();
+    } catch (err) {
+      setPromoStatus({ ok: false, reason: err.message });
+    } finally {
+      setPromoBusy(false);
+    }
+  }
+
+  async function submit() {
     setBusy(true);
     try {
       await register({
@@ -249,345 +221,539 @@ export default function Register() {
         captchaToken: captcha?.token,
         captchaAnswer,
       });
+      playSuccess();
       setPendingEmail(email.trim().toLowerCase());
     } catch (err) {
       playError();
       toast(err.message, 'error');
-      newCaptcha(); // a challenge is spent once submitted, right or wrong
+      newCaptcha();
     } finally {
       setBusy(false);
     }
   }
 
-  if (pendingEmail) {
-    return (
-      <AuthLayout title="Check your email" subtitle="One more step before you can sign in.">
-        <PendingActivation email={pendingEmail} />
-      </AuthLayout>
-    );
+  function onSubmit(event) {
+    event.preventDefault();
+    if (busy || !stepValid[step]) return;
+    if (isLast) submit();
+    else go(step + 1);
   }
 
-  const inputStyle = { fontSize: 13.5 };
+  if (pendingEmail) return <PendingActivation email={pendingEmail} />;
+
+  const selectedPlan = plans.find((p) => p.planType === planType) || null;
   const trialDays = options?.trialDays || 14;
 
   return (
-    <AuthLayout title="Create your account" subtitle={`A ${trialDays}-day trial, no card details required.`}>
-      <form onSubmit={onSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-        <Section title="About you">
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-            <Field label="First name" required>
-              <input
-                className="input"
-                style={inputStyle}
-                value={firstName}
-                maxLength={LIMITS.firstName.max}
-                onChange={(e) => setFirstName(toPersonName(e.target.value))}
-                autoComplete="given-name"
-              />
-            </Field>
-            <Field label="Last name" required>
-              <input
-                className="input"
-                style={inputStyle}
-                value={lastName}
-                maxLength={LIMITS.lastName.max}
-                onChange={(e) => setLastName(toPersonName(e.target.value))}
-                autoComplete="family-name"
-              />
-            </Field>
+    <Shell>
+      <form onSubmit={onSubmit} style={{ display: 'contents' }}>
+        {/* Rail: where you are in the sequence, and what's still coming. */}
+        <aside
+          style={{
+            background: 'var(--nav-bg)',
+            padding: '30px 26px',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 26,
+            minWidth: 0,
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <img src="/logo.svg" alt="" width="30" height="30" />
+            <span style={{ fontWeight: 700, fontSize: 19, color: 'var(--nav-text-active)' }}>Taxify</span>
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-            <Field label="Date of birth" required error={errors.dateOfBirth} hint="dd/mm/yyyy">
-              <input
-                type="date"
-                className="input"
-                style={inputStyle}
-                value={dateOfBirth}
-                max={new Date().toISOString().slice(0, 10)}
-                onChange={(e) => setDateOfBirth(e.target.value)}
-                autoComplete="bday"
-              />
-            </Field>
-            <Field label="Phone number" error={errors.phone} hint="Area code then number">
-              <input
-                className="input"
-                style={inputStyle}
-                value={phone}
-                inputMode="tel"
-                maxLength={LIMITS.phone.max}
-                placeholder="08 9123 4567"
-                // Digits and the punctuation people write around them; letters
-                // are dropped as they type rather than rejected on submit.
-                onChange={(e) => setPhone(e.target.value.replace(/[^\d+\s()-]/g, ''))}
-                autoComplete="tel"
-              />
-            </Field>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+            {STEPS.map((s, i) => {
+              const done = i < step;
+              const current = i === step;
+              return (
+                <button
+                  key={s.key}
+                  type="button"
+                  // Only backwards: skipping ahead past an unfinished step would
+                  // land you on a Next you can't press.
+                  disabled={i > step}
+                  onClick={() => i < step && go(i)}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 11,
+                    padding: '9px 10px',
+                    borderRadius: 'var(--radius-sm)',
+                    border: 'none',
+                    background: current ? 'var(--nav-active-bg)' : 'transparent',
+                    color: current || done ? 'var(--nav-text-active)' : 'var(--nav-text)',
+                    cursor: i < step ? 'pointer' : 'default',
+                    textAlign: 'left',
+                    fontSize: 13.5,
+                    fontWeight: current ? 700 : 500,
+                  }}
+                >
+                  <motion.span
+                    animate={{
+                      background: done ? 'var(--nav-accent)' : current ? 'rgba(255,255,255,0.18)' : 'rgba(255,255,255,0.07)',
+                      scale: current ? 1.06 : 1,
+                    }}
+                    transition={{ type: 'spring', stiffness: 400, damping: 26 }}
+                    style={{
+                      width: 26,
+                      height: 26,
+                      borderRadius: '50%',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      flexShrink: 0,
+                    }}
+                  >
+                    {done ? <Icon name="check" size={13} strokeWidth={2.6} /> : <Icon name={s.icon} size={13} />}
+                  </motion.span>
+                  {s.label}
+                </button>
+              );
+            })}
           </div>
 
-          <Field label="Business name" hint="Optional — if you trade under one" error={errors.businessName}>
-            <input
-              className="input"
-              style={inputStyle}
-              value={businessName}
-              maxLength={LIMITS.businessName.max}
-              onChange={(e) => setBusinessName(e.target.value)}
-              autoComplete="organization"
-            />
-          </Field>
-        </Section>
-
-        <Section title="Email address">
-          <Field
-            label="Email"
-            required
-            error={errors.email}
-            hint={
-              emailStatus.state === 'checking'
-                ? 'Checking…'
-                : emailStatus.state === 'free'
-                ? '✓ Available'
-                : 'You’ll sign in with this'
-            }
-          >
-            <input
-              type="email"
-              className="input"
-              style={inputStyle}
-              value={email}
-              maxLength={LIMITS.email.max}
-              onChange={(e) => setEmail(e.target.value.toLowerCase())}
-              autoComplete="email"
-            />
-          </Field>
-          <Field label="Confirm email" required error={errors.confirmEmail}>
-            <input
-              type="email"
-              className="input"
-              style={inputStyle}
-              value={confirmEmail}
-              maxLength={LIMITS.email.max}
-              // Pasting defeats the point of asking twice.
-              onPaste={(e) => e.preventDefault()}
-              onChange={(e) => setConfirmEmail(e.target.value.toLowerCase())}
-              autoComplete="off"
-            />
-          </Field>
-        </Section>
-
-        <Section title="Where you are">
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-            <Field label="Country" required>
-              <select className="input" style={inputStyle} value={country} onChange={(e) => onCountryChange(e.target.value)}>
-                <option value="">Choose…</option>
-                {(options?.countries || []).map((c) => (
-                  <option key={c.code} value={c.name}>
-                    {c.name}
-                  </option>
-                ))}
-              </select>
-            </Field>
-
-            <Field label={statesForCountry ? 'State' : 'State or region'} required>
-              {statesForCountry ? (
-                <select className="input" style={inputStyle} value={state} onChange={(e) => setState(e.target.value)}>
-                  <option value="">Choose…</option>
-                  {statesForCountry.map((s) => (
-                    <option key={s} value={s}>
-                      {s}
-                    </option>
-                  ))}
-                </select>
-              ) : (
-                <input
-                  className="input"
-                  style={inputStyle}
-                  value={state}
-                  maxLength={80}
-                  disabled={!country}
-                  placeholder={country ? 'Type your state or region' : 'Choose a country first'}
-                  onChange={(e) => setState(e.target.value)}
-                />
-              )}
-            </Field>
-          </div>
-
-          <Field label="Preferred currency" required hint="Used when you record an expense">
-            <select className="input" style={inputStyle} value={currency} onChange={(e) => setCurrency(e.target.value)}>
-              {(options?.currencies || []).map((c) => (
-                <option key={c.code} value={c.code}>
-                  {c.code} — {c.name}
-                </option>
-              ))}
-            </select>
-          </Field>
-        </Section>
-
-        <Section title="Choose a plan">
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))', gap: 12 }}>
-            {plans.map((plan) => (
-              <PlanCard
-                key={plan.planType}
-                plan={plan}
-                selected={planType === plan.planType}
-                discounted={promoStatus?.ok && planType === plan.planType ? promoStatus.discountedPerYear : null}
-                trialDays={trialDays}
-                onSelect={() => setPlanType(plan.planType)}
+          <div style={{ marginTop: 'auto', display: 'flex', flexDirection: 'column', gap: 10 }}>
+            <div style={{ height: 4, borderRadius: 999, background: 'rgba(255,255,255,0.14)', overflow: 'hidden' }}>
+              <motion.div
+                animate={{ width: `${((step + 1) / STEPS.length) * 100}%` }}
+                transition={{ type: 'spring', stiffness: 260, damping: 30 }}
+                style={{ height: '100%', background: 'var(--nav-accent)', borderRadius: 999 }}
               />
-            ))}
-          </div>
-
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'flex-start',
-              gap: 8,
-              padding: '10px 12px',
-              borderRadius: 'var(--radius-sm)',
-              background: 'var(--accent-soft)',
-              border: '1px solid var(--accent-ring)',
-              fontSize: 12.5,
-              lineHeight: 1.5,
-            }}
-          >
-            <Icon name="check-circle" size={15} style={{ color: 'var(--accent)', marginTop: 1 }} />
-            <span>
-              <strong>No card details needed.</strong> The {trialDays}-day trial starts when you activate, and
-              nothing is charged until you choose to subscribe.
+            </div>
+            <span style={{ fontSize: 12, color: 'var(--nav-text)' }}>
+              Step {step + 1} of {STEPS.length} · {trialDays}-day trial, no card
             </span>
           </div>
+        </aside>
 
-          <Field
-            label="Promo code"
-            hint={promoStatus?.ok ? null : 'Optional'}
-            error={promoStatus && !promoStatus.ok ? promoStatus.reason : null}
-          >
-            <div style={{ display: 'flex', gap: 8 }}>
-              <input
-                className="input"
-                style={{ ...inputStyle, textTransform: 'uppercase' }}
-                value={promoCode}
-                maxLength={40}
-                placeholder="SPRING25"
-                onChange={(e) => {
-                  setPromoCode(e.target.value.toUpperCase().replace(/[^A-Z0-9-]/g, ''));
-                  setPromoStatus(null);
-                }}
-              />
-              <button
-                type="button"
-                className="btn btn-ghost"
-                style={{ fontSize: 13 }}
-                disabled={!promoCode.trim() || promoBusy}
-                onClick={applyPromo}
-              >
-                {promoBusy && <span className="spinner" />}
-                Apply
-              </button>
-            </div>
-          </Field>
-          {promoStatus?.ok && (
-            <div style={{ fontSize: 12.5, color: 'var(--emerald)', fontWeight: 600 }}>
-              ✓ {promoStatus.promo.code} applied
-              {promoStatus.discountedPerYear !== null &&
-                ` — ${money(promoStatus.discountedPerYear, selectedPlan?.currency)} for the first year`}
-            </div>
-          )}
-        </Section>
-
-        <Section title="Finishing up">
-          <Field label="How did you hear about us?" required>
-            <select
-              className="input"
-              style={inputStyle}
-              value={referralSource}
-              onChange={(e) => setReferralSource(e.target.value)}
+        {/* Panel: one step at a time, sliding in the direction of travel. */}
+        <section style={{ padding: '30px 34px', display: 'flex', flexDirection: 'column', minWidth: 0, minHeight: 0 }}>
+          <AnimatePresence mode="wait" custom={direction}>
+            <motion.div
+              key={step}
+              custom={direction}
+              initial={{ opacity: 0, x: direction * 28 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: direction * -28 }}
+              transition={{ duration: 0.26, ease: [0.16, 1, 0.3, 1] }}
+              style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 4, minHeight: 0 }}
             >
-              <option value="">Choose…</option>
-              {(options?.referralSources || []).map((r) => (
-                <option key={r} value={r}>
-                  {r}
-                </option>
-              ))}
-            </select>
-          </Field>
+              <h1 style={{ margin: 0, fontSize: 23, letterSpacing: -0.4 }}>{HEADINGS[step].title}</h1>
+              <p style={{ margin: '0 0 14px', fontSize: 13.5, color: 'var(--text-muted)' }}>{HEADINGS[step].sub}</p>
 
-          <Field label="Verification" required hint="A quick check that you're a person">
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-              <span
-                style={{
-                  fontFamily: 'Consolas, monospace',
-                  fontSize: 17,
-                  fontWeight: 700,
-                  padding: '7px 14px',
-                  borderRadius: 'var(--radius-sm)',
-                  background: 'var(--bg-inset)',
-                  border: '1px solid var(--border)',
-                  letterSpacing: 1,
-                  userSelect: 'none',
-                }}
-              >
-                {captcha ? `${captcha.question} =` : '…'}
-              </span>
-              <input
-                className="input"
-                style={{ ...inputStyle, width: 90 }}
-                value={captchaAnswer}
-                inputMode="numeric"
-                maxLength={3}
-                onChange={(e) => setCaptchaAnswer(e.target.value.replace(/\D/g, ''))}
-              />
-              <button
-                type="button"
-                title="Give me a different sum"
-                className="btn btn-ghost"
-                style={{ fontSize: 12.5, padding: '7px 10px' }}
-                onClick={newCaptcha}
-              >
-                <Icon name="repeat" size={14} />
-              </button>
-            </div>
-          </Field>
+              {step === 0 && (
+                <Grid>
+                  <Field label="First name" required>
+                    <input
+                      className="input"
+                      autoFocus
+                      value={firstName}
+                      maxLength={LIMITS.firstName.max}
+                      onChange={(e) => setFirstName(toPersonName(e.target.value))}
+                      autoComplete="given-name"
+                    />
+                  </Field>
+                  <Field label="Last name" required>
+                    <input
+                      className="input"
+                      value={lastName}
+                      maxLength={LIMITS.lastName.max}
+                      onChange={(e) => setLastName(toPersonName(e.target.value))}
+                      autoComplete="family-name"
+                    />
+                  </Field>
+                  <Field label="Date of birth" required error={errors.dateOfBirth} hint="dd/mm/yyyy">
+                    <input
+                      type="date"
+                      className="input"
+                      value={dateOfBirth}
+                      max={new Date().toISOString().slice(0, 10)}
+                      onChange={(e) => setDateOfBirth(e.target.value)}
+                      autoComplete="bday"
+                    />
+                  </Field>
+                  <Field label="Phone number" error={errors.phone} hint="Area code then number">
+                    <input
+                      className="input"
+                      value={phone}
+                      inputMode="tel"
+                      maxLength={LIMITS.phone.max}
+                      placeholder="08 9123 4567"
+                      onChange={(e) => setPhone(e.target.value.replace(/[^\d+\s()-]/g, ''))}
+                      autoComplete="tel"
+                    />
+                  </Field>
+                  <Field label="Business name" span hint="Optional — if you trade under one">
+                    <input
+                      className="input"
+                      value={businessName}
+                      maxLength={LIMITS.businessName.max}
+                      onChange={(e) => setBusinessName(e.target.value)}
+                      autoComplete="organization"
+                    />
+                  </Field>
+                </Grid>
+              )}
 
-          <label style={{ display: 'flex', alignItems: 'flex-start', gap: 9, fontSize: 13, cursor: 'pointer' }}>
-            <input
-              type="checkbox"
-              checked={termsAccepted}
-              onChange={(e) => setTermsAccepted(e.target.checked)}
-              style={{ marginTop: 3 }}
-            />
-            <span>
-              I agree to the{' '}
-              <a href="/terms" target="_blank" rel="noreferrer" style={{ color: 'var(--accent)', fontWeight: 600 }}>
-                Terms of Service
-              </a>{' '}
-              and{' '}
-              <a href="/privacy" target="_blank" rel="noreferrer" style={{ color: 'var(--accent)', fontWeight: 600 }}>
-                Privacy Policy
-              </a>
-              .
+              {step === 1 && (
+                <Grid>
+                  <Field
+                    label="Email"
+                    required
+                    span
+                    error={errors.email}
+                    hint={
+                      emailStatus.state === 'checking'
+                        ? 'Checking availability…'
+                        : emailStatus.state === 'free'
+                        ? '✓ That address is available'
+                        : 'You’ll sign in with this'
+                    }
+                  >
+                    <input
+                      type="email"
+                      className="input"
+                      autoFocus
+                      value={email}
+                      maxLength={LIMITS.email.max}
+                      onChange={(e) => setEmail(e.target.value.toLowerCase())}
+                      autoComplete="email"
+                    />
+                  </Field>
+                  <Field label="Confirm email" required span error={errors.confirmEmail} hint="Typed again, not pasted">
+                    <input
+                      type="email"
+                      className="input"
+                      value={confirmEmail}
+                      maxLength={LIMITS.email.max}
+                      onPaste={(e) => e.preventDefault()}
+                      onChange={(e) => setConfirmEmail(e.target.value.toLowerCase())}
+                      autoComplete="off"
+                    />
+                  </Field>
+                  <Note span icon="mail">
+                    We'll send an activation link here. Opening it is where you choose your password — we don't ask
+                    for one now, so nobody can set a password on an address they don't control.
+                  </Note>
+                </Grid>
+              )}
+
+              {step === 2 && (
+                <Grid>
+                  <Field label="Country" required>
+                    <select
+                      className="input"
+                      autoFocus
+                      value={country}
+                      onChange={(e) => {
+                        setCountry(e.target.value);
+                        setState('');
+                        const match = options?.countries.find((c) => c.name === e.target.value);
+                        if (match) setCurrency(match.currency);
+                      }}
+                    >
+                      <option value="">Choose…</option>
+                      {(options?.countries || []).map((c) => (
+                        <option key={c.code} value={c.name}>
+                          {c.name}
+                        </option>
+                      ))}
+                    </select>
+                  </Field>
+                  <Field label={statesForCountry ? 'State' : 'State or region'} required>
+                    {statesForCountry ? (
+                      <select className="input" value={state} onChange={(e) => setState(e.target.value)}>
+                        <option value="">Choose…</option>
+                        {statesForCountry.map((s) => (
+                          <option key={s} value={s}>
+                            {s}
+                          </option>
+                        ))}
+                      </select>
+                    ) : (
+                      <input
+                        className="input"
+                        value={state}
+                        maxLength={80}
+                        disabled={!country}
+                        placeholder={country ? 'Type your state or region' : 'Choose a country first'}
+                        onChange={(e) => setState(e.target.value)}
+                      />
+                    )}
+                  </Field>
+                  <Field label="Preferred currency" required span hint="Used when you record an expense — set from your country">
+                    <select className="input" value={currency} onChange={(e) => setCurrency(e.target.value)}>
+                      {(options?.currencies || []).map((c) => (
+                        <option key={c.code} value={c.code}>
+                          {c.code} — {c.name}
+                        </option>
+                      ))}
+                    </select>
+                  </Field>
+                </Grid>
+              )}
+
+              {step === 3 && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 12, minHeight: 0 }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 12 }}>
+                    {plans.map((plan) => (
+                      <PlanCard
+                        key={plan.planType}
+                        plan={plan}
+                        selected={planType === plan.planType}
+                        discounted={promoStatus?.ok && planType === plan.planType ? promoStatus.discountedPerYear : null}
+                        trialDays={trialDays}
+                        onSelect={() => {
+                          playClick();
+                          setPlanType(plan.planType);
+                        }}
+                      />
+                    ))}
+                  </div>
+
+                  <div style={{ display: 'flex', gap: 8, alignItems: 'flex-end' }}>
+                    <Field label="Promo code" hint="Optional" error={promoStatus && !promoStatus.ok ? promoStatus.reason : null}>
+                      <input
+                        className="input"
+                        style={{ textTransform: 'uppercase', width: 190 }}
+                        value={promoCode}
+                        maxLength={40}
+                        placeholder="SPRING25"
+                        onChange={(e) => {
+                          setPromoCode(e.target.value.toUpperCase().replace(/[^A-Z0-9-]/g, ''));
+                          setPromoStatus(null);
+                        }}
+                      />
+                    </Field>
+                    <button
+                      type="button"
+                      className="btn btn-ghost"
+                      style={{ fontSize: 13, marginBottom: 20 }}
+                      disabled={!promoCode.trim() || promoBusy}
+                      onClick={applyPromo}
+                    >
+                      {promoBusy && <span className="spinner" />}
+                      Apply
+                    </button>
+                    {promoStatus?.ok && (
+                      <motion.span
+                        initial={{ opacity: 0, scale: 0.9 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        style={{ fontSize: 12.5, color: 'var(--emerald)', fontWeight: 700, marginBottom: 22 }}
+                      >
+                        ✓ {promoStatus.promo.code} applied
+                      </motion.span>
+                    )}
+                  </div>
+
+                  <Note icon="check-circle">
+                    <strong>No card details needed.</strong> The {trialDays}-day trial starts when you activate, and
+                    nothing is charged until you choose to subscribe.
+                  </Note>
+                </div>
+              )}
+
+              {step === 4 && (
+                <Grid>
+                  <Field label="How did you hear about us?" required span>
+                    <select
+                      className="input"
+                      autoFocus
+                      value={referralSource}
+                      onChange={(e) => setReferralSource(e.target.value)}
+                    >
+                      <option value="">Choose…</option>
+                      {(options?.referralSources || []).map((r) => (
+                        <option key={r} value={r}>
+                          {r}
+                        </option>
+                      ))}
+                    </select>
+                  </Field>
+
+                  <Field label="Quick check you're a person" required span>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                      <span
+                        style={{
+                          fontFamily: 'Consolas, monospace',
+                          fontSize: 17,
+                          fontWeight: 700,
+                          padding: '8px 15px',
+                          borderRadius: 'var(--radius-sm)',
+                          background: 'var(--bg-inset)',
+                          border: '1px solid var(--border)',
+                          letterSpacing: 1,
+                          userSelect: 'none',
+                        }}
+                      >
+                        {captcha ? `${captcha.question} =` : '…'}
+                      </span>
+                      <input
+                        className="input"
+                        style={{ width: 88 }}
+                        value={captchaAnswer}
+                        inputMode="numeric"
+                        maxLength={3}
+                        onChange={(e) => setCaptchaAnswer(e.target.value.replace(/\D/g, ''))}
+                      />
+                      <button
+                        type="button"
+                        title="Give me a different sum"
+                        className="btn btn-ghost"
+                        style={{ padding: '8px 11px' }}
+                        onClick={newCaptcha}
+                      >
+                        <Icon name="repeat" size={14} />
+                      </button>
+                    </div>
+                  </Field>
+
+                  <label
+                    style={{
+                      gridColumn: '1 / -1',
+                      display: 'flex',
+                      alignItems: 'flex-start',
+                      gap: 9,
+                      fontSize: 13,
+                      cursor: 'pointer',
+                      padding: '11px 13px',
+                      borderRadius: 'var(--radius-sm)',
+                      border: `1px solid ${termsAccepted ? 'var(--accent-ring)' : 'var(--border)'}`,
+                      background: termsAccepted ? 'var(--accent-soft)' : 'transparent',
+                    }}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={termsAccepted}
+                      onChange={(e) => setTermsAccepted(e.target.checked)}
+                      style={{ marginTop: 2 }}
+                    />
+                    <span>
+                      I agree to the{' '}
+                      <a href="/terms" target="_blank" rel="noreferrer" style={{ color: 'var(--accent)', fontWeight: 600 }}>
+                        Terms of Service
+                      </a>{' '}
+                      and{' '}
+                      <a href="/privacy" target="_blank" rel="noreferrer" style={{ color: 'var(--accent)', fontWeight: 600 }}>
+                        Privacy Policy
+                      </a>
+                      . Both open in a new tab.
+                    </span>
+                  </label>
+                </Grid>
+              )}
+            </motion.div>
+          </AnimatePresence>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, paddingTop: 14, borderTop: '1px solid var(--border)' }}>
+            <button
+              type="button"
+              className="btn btn-ghost"
+              onClick={() => (step === 0 ? navigate(-1) : go(step - 1))}
+              disabled={busy}
+            >
+              {step === 0 ? 'Cancel' : 'Back'}
+            </button>
+
+            <span style={{ flex: 1, fontSize: 12.5, color: 'var(--text-muted)' }}>
+              {isLast ? null : (
+                <>
+                  Already have an account?{' '}
+                  <Link to="/login" style={{ color: 'var(--accent)', fontWeight: 600 }}>
+                    Sign in
+                  </Link>
+                </>
+              )}
             </span>
-          </label>
-        </Section>
 
-        <div style={{ display: 'flex', gap: 10 }}>
-          <button className="btn btn-primary" type="submit" disabled={!complete || busy} style={{ flex: 1 }}>
-            {busy && <span className="spinner" />}
-            Create account
-          </button>
-          <button type="button" className="btn btn-ghost" onClick={() => navigate(-1)} disabled={busy}>
-            Cancel
-          </button>
-        </div>
-
-        <p style={{ fontSize: 13, color: 'var(--text-muted)', textAlign: 'center', margin: 0 }}>
-          Already have an account?{' '}
-          <Link to="/login" style={{ color: 'var(--accent)', fontWeight: 600 }}>
-            Sign in
-          </Link>
-        </p>
+            <motion.button
+              type="submit"
+              className="btn btn-primary"
+              disabled={!stepValid[step] || busy}
+              whileHover={stepValid[step] && !busy ? { scale: 1.02 } : undefined}
+              whileTap={stepValid[step] && !busy ? { scale: 0.98 } : undefined}
+              style={{ minWidth: 132 }}
+            >
+              {busy && <span className="spinner" />}
+              {isLast ? 'Create account' : 'Next'}
+              {!isLast && <Icon name="arrow-right" size={15} />}
+            </motion.button>
+          </div>
+        </section>
       </form>
-    </AuthLayout>
+    </Shell>
+  );
+}
+
+const HEADINGS = [
+  { title: 'Let’s start with you', sub: 'The name your records and reports will be filed under.' },
+  { title: 'Where can we reach you?', sub: 'This becomes your sign-in, so it needs to be one you can open.' },
+  { title: 'Where are you based?', sub: 'Sets your financial year and the currency expenses default to.' },
+  { title: 'Pick a plan', sub: 'Both start with a free trial. You can change plan later.' },
+  { title: 'Last thing', sub: 'Then we’ll email you a link to set your password.' },
+];
+
+// A full-height frame that centres the card. Content is short enough per step
+// to fit without scrolling on a normal screen; on a very short one the frame
+// scrolls rather than clipping, because a cut-off field is worse than a scroll.
+function Shell({ children }) {
+  return (
+    <div
+      style={{
+        minHeight: '100vh',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: 20,
+        overflow: 'auto',
+      }}
+    >
+      <motion.div
+        initial={{ opacity: 0, y: 14, scale: 0.99 }}
+        animate={{ opacity: 1, y: 0, scale: 1 }}
+        transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
+        className="card"
+        style={{
+          width: '100%',
+          maxWidth: 860,
+          display: 'grid',
+          gridTemplateColumns: 'minmax(200px, 250px) 1fr',
+          overflow: 'hidden',
+          padding: 0,
+          boxShadow: 'var(--shadow-overlay)',
+        }}
+      >
+        {children}
+      </motion.div>
+    </div>
+  );
+}
+
+function Grid({ children }) {
+  return <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2px 16px' }}>{children}</div>;
+}
+
+function Note({ children, icon, span }) {
+  return (
+    <div
+      style={{
+        gridColumn: span ? '1 / -1' : undefined,
+        display: 'flex',
+        alignItems: 'flex-start',
+        gap: 9,
+        padding: '11px 13px',
+        borderRadius: 'var(--radius-sm)',
+        background: 'var(--accent-soft)',
+        border: '1px solid var(--accent-ring)',
+        fontSize: 12.5,
+        lineHeight: 1.55,
+      }}
+    >
+      <Icon name={icon} size={15} style={{ color: 'var(--accent)', marginTop: 1 }} />
+      <span>{children}</span>
+    </div>
   );
 }
 
@@ -596,46 +762,55 @@ function PlanCard({ plan, selected, discounted, trialDays, onSelect }) {
   const cut = discounted !== null && discounted !== undefined ? money(discounted, plan.currency) : null;
 
   return (
-    <button
+    <motion.button
       type="button"
       onClick={onSelect}
+      whileHover={{ y: -2 }}
+      whileTap={{ scale: 0.99 }}
+      animate={{
+        borderColor: selected ? 'var(--accent)' : 'var(--border)',
+        background: selected ? 'var(--accent-soft)' : 'var(--bg-card)',
+      }}
       style={{
+        position: 'relative',
         textAlign: 'left',
-        padding: 16,
+        padding: 15,
         borderRadius: 'var(--radius)',
         cursor: 'pointer',
-        background: selected ? 'var(--accent-soft)' : 'var(--bg-card)',
-        border: `2px solid ${selected ? 'var(--accent)' : 'var(--border)'}`,
+        borderWidth: 2,
+        borderStyle: 'solid',
         display: 'flex',
         flexDirection: 'column',
-        gap: 8,
+        gap: 6,
       }}
     >
-      <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
-        <Icon
-          name={selected ? 'check-circle' : 'tag'}
-          size={16}
-          style={{ color: selected ? 'var(--accent)' : 'var(--text-muted)' }}
-        />
-        <span style={{ fontWeight: 700, fontSize: 15 }}>{plan.name}</span>
-      </div>
+      {selected && (
+        <motion.span
+          layoutId="plan-tick"
+          style={{ position: 'absolute', top: 12, right: 12, color: 'var(--accent)', display: 'flex' }}
+        >
+          <Icon name="check-circle" size={17} />
+        </motion.span>
+      )}
 
-      <div style={{ display: 'flex', alignItems: 'baseline', gap: 7, flexWrap: 'wrap' }}>
+      <span style={{ fontWeight: 700, fontSize: 15 }}>{plan.name}</span>
+
+      <span style={{ display: 'flex', alignItems: 'baseline', gap: 6, flexWrap: 'wrap' }}>
         {cut ? (
           <>
-            <span style={{ fontSize: 22, fontWeight: 800, color: 'var(--accent)' }}>{cut}</span>
-            <span style={{ fontSize: 13, color: 'var(--text-muted)', textDecoration: 'line-through' }}>{full}</span>
+            <span style={{ fontSize: 24, fontWeight: 800, color: 'var(--accent)' }}>{cut}</span>
+            <span style={{ fontSize: 12.5, color: 'var(--text-muted)', textDecoration: 'line-through' }}>{full}</span>
           </>
         ) : (
-          <span style={{ fontSize: 22, fontWeight: 800 }}>{full || '—'}</span>
+          <span style={{ fontSize: 24, fontWeight: 800 }}>{full || '—'}</span>
         )}
-        <span style={{ fontSize: 12.5, color: 'var(--text-muted)' }}>per year</span>
-      </div>
+        <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>per year</span>
+      </span>
 
       <span
         style={{
           alignSelf: 'flex-start',
-          fontSize: 11,
+          fontSize: 10.5,
           fontWeight: 700,
           padding: '2px 8px',
           borderRadius: 999,
@@ -646,19 +821,19 @@ function PlanCard({ plan, selected, discounted, trialDays, onSelect }) {
         {trialDays}-day free trial
       </span>
 
-      <span style={{ fontSize: 12.5, color: 'var(--text-muted)' }}>{plan.tagline}</span>
+      <span style={{ fontSize: 12, color: 'var(--text-muted)', lineHeight: 1.45 }}>{plan.tagline}</span>
 
-      <ul style={{ margin: 0, paddingLeft: 16, fontSize: 12.5, color: 'var(--text-muted)', lineHeight: 1.7 }}>
-        {plan.features.map((f) => (
+      <ul style={{ margin: 0, paddingLeft: 15, fontSize: 12, color: 'var(--text-muted)', lineHeight: 1.6 }}>
+        {plan.features.slice(0, 3).map((f) => (
           <li key={f}>{f}</li>
         ))}
       </ul>
-    </button>
+    </motion.button>
   );
 }
 
-// Shown after signing up. The resend button counts down rather than failing
-// quietly, so it's clear the request was heard and when it can be repeated.
+// Shown once the account exists. The resend button counts down rather than
+// failing quietly, so it's clear the request was heard.
 function PendingActivation({ email }) {
   const { resendActivation } = useAuth();
   const toast = useToast();
@@ -688,27 +863,62 @@ function PendingActivation({ email }) {
   const ss = String(secondsLeft % 60).padStart(2, '0');
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-      <div style={{ display: 'flex', justifyContent: 'center', color: 'var(--accent)' }}>
-        <Icon name="mail" size={34} />
-      </div>
-      <p style={{ margin: 0, fontSize: 14, lineHeight: 1.6 }}>
-        We've sent an activation link to <strong>{email}</strong>. Opening it is where you'll choose your password —
-        we didn't ask for one here so nobody can set a password on an address they don't control.
-      </p>
-      <p style={{ margin: 0, fontSize: 13, color: 'var(--text-muted)', lineHeight: 1.6 }}>
-        The link is good for 5 days. If it isn't used the account is removed automatically, and we'll remind you
-        before that happens. Check your spam folder before resending.
-      </p>
+    <div
+      style={{
+        minHeight: '100vh',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: 20,
+      }}
+    >
+      <motion.div
+        initial={{ opacity: 0, y: 16, scale: 0.98 }}
+        animate={{ opacity: 1, y: 0, scale: 1 }}
+        transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
+        className="card"
+        style={{ width: '100%', maxWidth: 480, padding: 34, textAlign: 'center' }}
+      >
+        <motion.div
+          initial={{ scale: 0.5, opacity: 0 }}
+          animate={{ scale: 1, opacity: 1 }}
+          transition={{ type: 'spring', stiffness: 300, damping: 18, delay: 0.1 }}
+          style={{
+            width: 62,
+            height: 62,
+            margin: '0 auto 18px',
+            borderRadius: '50%',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            background: 'var(--accent-soft)',
+            color: 'var(--accent)',
+          }}
+        >
+          <Icon name="mail" size={28} />
+        </motion.div>
 
-      <button className="btn btn-ghost" onClick={resend} disabled={busy || secondsLeft > 0}>
-        {busy && <span className="spinner" />}
-        {secondsLeft > 0 ? `Resend available in ${mm}:${ss}` : 'Resend activation email'}
-      </button>
+        <h1 style={{ margin: '0 0 8px', fontSize: 22 }}>Check your email</h1>
+        <p style={{ margin: '0 0 8px', fontSize: 14, lineHeight: 1.6 }}>
+          We've sent an activation link to <strong>{email}</strong>.
+        </p>
+        <p style={{ margin: '0 0 22px', fontSize: 13, color: 'var(--text-muted)', lineHeight: 1.6 }}>
+          Opening it is where you'll choose your password. The link works for 5 days — after that the account is
+          removed automatically, and we'll remind you before then. Check your spam folder before resending.
+        </p>
 
-      <Link to="/login" style={{ fontSize: 13, color: 'var(--accent)', fontWeight: 600, textAlign: 'center' }}>
-        Back to sign in
-      </Link>
+        <button className="btn btn-ghost" onClick={resend} disabled={busy || secondsLeft > 0} style={{ width: '100%' }}>
+          {busy && <span className="spinner" />}
+          {secondsLeft > 0 ? `Resend available in ${mm}:${ss}` : 'Resend activation email'}
+        </button>
+
+        <Link
+          to="/login"
+          style={{ display: 'block', marginTop: 16, fontSize: 13, color: 'var(--accent)', fontWeight: 600 }}
+        >
+          Back to sign in
+        </Link>
+      </motion.div>
     </div>
   );
 }
