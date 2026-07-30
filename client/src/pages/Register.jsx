@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { AnimatePresence, motion } from 'framer-motion';
 import Icon from '../components/Icon.jsx';
+import SignupArtwork from '../components/SignupArtwork.jsx';
 import { api } from '../lib/api.js';
 import { useAuth } from '../lib/AuthContext.jsx';
 import { useToast } from '../components/Toast.jsx';
@@ -249,18 +250,38 @@ export default function Register() {
       <form onSubmit={onSubmit} style={{ display: 'contents' }}>
         {/* Rail: where you are in the sequence, and what's still coming. */}
         <aside
+          className="signup-brand"
           style={{
+            position: 'relative',
             background: 'var(--nav-bg)',
-            padding: '30px 26px',
+            padding: '40px 40px 32px',
             display: 'flex',
             flexDirection: 'column',
-            gap: 26,
+            gap: 24,
             minWidth: 0,
+            overflow: 'hidden',
           }}
         >
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <img src="/logo.svg" alt="" width="30" height="30" />
-            <span style={{ fontWeight: 700, fontSize: 19, color: 'var(--nav-text-active)' }}>Taxify</span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 11 }}>
+            <img src="/logo.svg" alt="" width="34" height="34" />
+            <span style={{ fontWeight: 700, fontSize: 21, color: 'var(--nav-text-active)' }}>Taxify</span>
+          </div>
+
+          <h2
+            style={{
+              margin: 0,
+              fontSize: 'clamp(22px, 2.2vw, 29px)',
+              lineHeight: 1.25,
+              letterSpacing: -0.6,
+              color: 'var(--nav-text-active)',
+              textWrap: 'balance',
+            }}
+          >
+            Every receipt where you left it, come tax time.
+          </h2>
+
+          <div className="signup-art" style={{ display: 'flex', justifyContent: 'center', padding: '4px 0' }}>
+            <SignupArtwork />
           </div>
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
@@ -314,7 +335,7 @@ export default function Register() {
             })}
           </div>
 
-          <div style={{ marginTop: 'auto', display: 'flex', flexDirection: 'column', gap: 10 }}>
+          <div style={{ marginTop: 'auto', display: 'flex', flexDirection: 'column', gap: 12 }}>
             <div style={{ height: 4, borderRadius: 999, background: 'rgba(255,255,255,0.14)', overflow: 'hidden' }}>
               <motion.div
                 animate={{ width: `${((step + 1) / STEPS.length) * 100}%` }}
@@ -323,13 +344,42 @@ export default function Register() {
               />
             </div>
             <span style={{ fontSize: 12, color: 'var(--nav-text)' }}>
-              Step {step + 1} of {STEPS.length} · {trialDays}-day trial, no card
+              Step {step + 1} of {STEPS.length}
             </span>
+
+            <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', paddingTop: 4 }}>
+              {[
+                { icon: 'gift', label: `${trialDays}-day free trial` },
+                { icon: 'lock', label: 'No card required' },
+                { icon: 'shield', label: 'Cancel any time' },
+              ].map((t) => (
+                <span
+                  key={t.label}
+                  style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11.5, color: 'var(--nav-text)' }}
+                >
+                  <Icon name={t.icon} size={13} style={{ color: 'var(--nav-accent)' }} />
+                  {t.label}
+                </span>
+              ))}
+            </div>
           </div>
         </aside>
 
         {/* Panel: one step at a time, sliding in the direction of travel. */}
-        <section style={{ padding: '30px 34px', display: 'flex', flexDirection: 'column', minWidth: 0, minHeight: 0 }}>
+        <section
+          style={{
+            // Paper against the navy, so the two halves read as chrome and
+            // content rather than as one flat surface.
+            background: 'var(--bg-card)',
+            padding: 'clamp(28px, 5vw, 56px)',
+            display: 'flex',
+            flexDirection: 'column',
+            justifyContent: 'center',
+            minWidth: 0,
+            minHeight: 0,
+          }}
+        >
+          <div style={{ width: '100%', maxWidth: 560, margin: '0 auto', display: 'flex', flexDirection: 'column', flex: 1, justifyContent: 'center' }}>
           <AnimatePresence mode="wait" custom={direction}>
             <motion.div
               key={step}
@@ -338,10 +388,10 @@ export default function Register() {
               animate={{ opacity: 1, x: 0 }}
               exit={{ opacity: 0, x: direction * -28 }}
               transition={{ duration: 0.26, ease: [0.16, 1, 0.3, 1] }}
-              style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 4, minHeight: 0 }}
+              style={{ display: 'flex', flexDirection: 'column', gap: 4, minHeight: 0 }}
             >
-              <h1 style={{ margin: 0, fontSize: 23, letterSpacing: -0.4 }}>{HEADINGS[step].title}</h1>
-              <p style={{ margin: '0 0 14px', fontSize: 13.5, color: 'var(--text-muted)' }}>{HEADINGS[step].sub}</p>
+              <h1 style={{ margin: 0, fontSize: 'clamp(22px, 2.4vw, 28px)', letterSpacing: -0.5 }}>{HEADINGS[step].title}</h1>
+              <p style={{ margin: '0 0 18px', fontSize: 14, color: 'var(--text-muted)' }}>{HEADINGS[step].sub}</p>
 
               {step === 0 && (
                 <Grid>
@@ -647,7 +697,7 @@ export default function Register() {
             </motion.div>
           </AnimatePresence>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10, paddingTop: 14, borderTop: '1px solid var(--border)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 22, paddingTop: 18, borderTop: '1px solid var(--border)' }}>
             <button
               type="button"
               className="btn btn-ghost"
@@ -674,12 +724,13 @@ export default function Register() {
               disabled={!stepValid[step] || busy}
               whileHover={stepValid[step] && !busy ? { scale: 1.02 } : undefined}
               whileTap={stepValid[step] && !busy ? { scale: 0.98 } : undefined}
-              style={{ minWidth: 132 }}
+              style={{ minWidth: 138 }}
             >
               {busy && <span className="spinner" />}
               {isLast ? 'Create account' : 'Next'}
               {!isLast && <Icon name="arrow-right" size={15} />}
             </motion.button>
+          </div>
           </div>
         </section>
       </form>
@@ -695,38 +746,24 @@ const HEADINGS = [
   { title: 'Last thing', sub: 'Then we’ll email you a link to set your password.' },
 ];
 
-// A full-height frame that centres the card. Content is short enough per step
-// to fit without scrolling on a normal screen; on a very short one the frame
-// scrolls rather than clipping, because a cut-off field is worse than a scroll.
+// Full bleed rather than a card floating in the middle of the viewport: on a
+// wide screen a centred 860px panel leaves most of the page empty, which reads
+// as unfinished. The brand side runs edge to edge and the form sits on paper
+// beside it, so the page is the layout instead of a container for one.
+//
+// Below 900px the brand side is dropped entirely — on a phone it would push
+// the fields off screen, and the fields are what someone came for.
 function Shell({ children }) {
   return (
     <div
+      className="signup-shell"
       style={{
         minHeight: '100vh',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        padding: 20,
-        overflow: 'auto',
+        display: 'grid',
+        gridTemplateColumns: 'minmax(360px, 40%) 1fr',
       }}
     >
-      <motion.div
-        initial={{ opacity: 0, y: 14, scale: 0.99 }}
-        animate={{ opacity: 1, y: 0, scale: 1 }}
-        transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
-        className="card"
-        style={{
-          width: '100%',
-          maxWidth: 860,
-          display: 'grid',
-          gridTemplateColumns: 'minmax(200px, 250px) 1fr',
-          overflow: 'hidden',
-          padding: 0,
-          boxShadow: 'var(--shadow-overlay)',
-        }}
-      >
-        {children}
-      </motion.div>
+      {children}
     </div>
   );
 }

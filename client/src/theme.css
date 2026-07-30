@@ -355,3 +355,15 @@ input[type="date"].input::-webkit-calendar-picker-indicator:hover { opacity: 1; 
 }
 .nav-btn:hover:not(:disabled) { background: rgba(255, 255, 255, 0.14); }
 .nav-btn:active:not(:disabled) { background: rgba(255, 255, 255, 0.06); }
+
+/* Sign-up: full-bleed split. Below 900px the brand side is dropped rather than
+   stacked — on a phone it would push the fields off screen, and the fields are
+   what someone came for. */
+@media (max-width: 900px) {
+  .signup-shell { grid-template-columns: 1fr !important; }
+  .signup-brand { display: none !important; }
+}
+/* Keep the artwork from eating the rail on a short screen. */
+@media (max-height: 760px) {
+  .signup-art { display: none !important; }
+}
