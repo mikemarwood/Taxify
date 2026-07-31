@@ -148,20 +148,29 @@ export async function priceIdForPlan(planType) {
 // Yearly only: the app is sold as an annual product and showing a monthly
 // figure people can't actually buy is a bait. A price configured with a
 // different interval is normalised to what a year of it costs.
+// The only thing that differs between these is the second full-access login —
+// everything else, accountant access included, is on both. Listing a shared
+// feature under one plan reads as an upsell that isn't real, and someone finds
+// that out only after paying.
 const PLAN_COPY = {
   individual: {
     name: 'Individual',
-    tagline: 'For a sole trader keeping their own records.',
-    features: ['One user', 'Unlimited expenses and receipts', 'Year-over-year reports', 'Excel and PDF export'],
+    tagline: 'For one person keeping their own records.',
+    features: [
+      'One login',
+      'Unlimited expenses and receipts',
+      'Year-over-year reports and exports',
+      'Read-only accountant access',
+    ],
   },
   family: {
     name: 'Family',
-    tagline: 'For a household or a partner who shares the books.',
+    tagline: 'For a couple or household sharing one set of books.',
     features: [
-      'Two users on one account',
+      'Two logins, one shared set of records',
       'Everything in Individual',
+      'Both of you see the same expenses and receipts',
       'Read-only accountant access',
-      'Shared categories and receipts',
     ],
   },
 };
