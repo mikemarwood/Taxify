@@ -14,7 +14,27 @@ router.post(
   requireAccountOwner,
   asyncHandler(async (req, res) => {
     const stripe = await getStripe();
-    const planType = req.user.planType || 'individual';
+
+    // The plan can be chosen at checkout, so someone whose trial has ended can
+    // subscribe to the plan they actually want rather than the one their trial
+    // happened to start on. Anything unrecognised falls back to their current
+    // plan — the price charged is always one of ours, never client-supplied.
+    const requested =
+      req.body?.planType === 'family' ? 'family' : req.body?.planType === 'individual' ? 'individual' : null;
+    const planType = requested || req.user.planType || 'individual';
+
+    if (planType === 'individual' && req.user.planType === 'family') {
+      const [members] = await pool.execute(
+        `SELECT COUNT(*) AS n FROM users WHERE account_owner_id = ? AND role = 'sub_user'`,
+        [req.user.id]
+      );
+      if (Number(members[0]?.n) > 0) {
+        return res
+          .status(400)
+          .json({ error: 'Remove the second full-access login before moving to the Individual plan.' });
+      }
+    }
+
     const priceId = await priceIdForPlan(planType);
 
     const session = await stripe.checkout.sessions.create({
@@ -23,7 +43,7 @@ router.post(
       customer_email: req.user.stripeCustomerId ? undefined : req.user.email,
       line_items: [{ price: priceId, quantity: 1 }],
       client_reference_id: String(req.user.id),
-      metadata: { userId: String(req.user.id) },
+      metadata: { userId: String(req.user.id), planType },
       success_url: `${CLIENT_ORIGIN}/account?checkout=success`,
       cancel_url: `${CLIENT_ORIGIN}/account?checkout=cancelled`,
     });
@@ -70,10 +90,13 @@ router.post(
         const userId = Number(session.client_reference_id || session.metadata?.userId);
         if (userId) {
           const subscription = await stripe.subscriptions.retrieve(session.subscription);
+          // They may have switched plan at checkout, so the plan recorded here
+          // is the one that was actually paid for.
+          const planType = session.metadata?.planType === 'family' ? 'family' : 'individual';
           await pool.execute(
             `UPDATE users SET stripe_customer_id = ?, stripe_subscription_id = ?, subscription_status = 'active',
-             subscription_current_period_end = FROM_UNIXTIME(?) WHERE id = ?`,
-            [session.customer, subscription.id, subscription.current_period_end, userId]
+             plan_type = ?, subscription_current_period_end = FROM_UNIXTIME(?) WHERE id = ?`,
+            [session.customer, subscription.id, planType, subscription.current_period_end, userId]
           );
         }
         break;

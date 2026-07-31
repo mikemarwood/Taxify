@@ -1,4 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { motion } from 'framer-motion';
+import { useSearchParams } from 'react-router-dom';
+import Icon from '../components/Icon.jsx';
 import { useAuth } from '../lib/AuthContext.jsx';
 import { useToast } from '../components/Toast.jsx';
 import { api } from '../lib/api.js';
@@ -7,6 +10,7 @@ import Toggle from '../components/Toggle.jsx';
 import Avatar from '../components/Avatar.jsx';
 import AvatarEditorModal from '../components/AvatarEditorModal.jsx';
 import { isSoundEnabled, setSoundEnabled } from '../lib/sounds.js';
+import PlanComparison from '../components/PlanComparison.jsx';
 
 const MAX_AVATAR_BYTES = 10 * 1024 * 1024;
 
@@ -246,100 +250,6 @@ function BillingSection({ user }) {
   );
 }
 
-function PlanComparison({ user }) {
-  const toast = useToast();
-  const [plans, setPlans] = useState(null);
-
-  useEffect(() => {
-    api
-      .get('/auth/plans')
-      .then((res) => setPlans(res.data.plans))
-      .catch(() => setPlans([]));
-  }, []);
-
-  if (!plans || plans.length === 0) return null;
-
-  function money(cents, currency) {
-    if (cents === null || cents === undefined) return '—';
-    return new Intl.NumberFormat(undefined, {
-      style: 'currency',
-      currency: currency || 'AUD',
-      minimumFractionDigits: cents % 100 === 0 ? 0 : 2,
-    }).format(cents / 100);
-  }
-
-  return (
-    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(230px, 1fr))', gap: 12, marginTop: 4 }}>
-      {plans.map((plan) => {
-        const current = user.planType === plan.planType;
-        return (
-          <div
-            key={plan.planType}
-            style={{
-              padding: 15,
-              borderRadius: 'var(--radius)',
-              border: `2px solid ${current ? 'var(--accent)' : 'var(--border)'}`,
-              background: current ? 'var(--accent-soft)' : 'var(--bg-elevated)',
-              display: 'flex',
-              flexDirection: 'column',
-              gap: 7,
-            }}
-          >
-            <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
-              <span style={{ fontWeight: 700, fontSize: 14.5 }}>{plan.name}</span>
-              {current && (
-                <span
-                  style={{
-                    fontSize: 10.5,
-                    fontWeight: 700,
-                    padding: '2px 7px',
-                    borderRadius: 999,
-                    background: 'var(--accent)',
-                    color: '#fff',
-                  }}
-                >
-                  YOUR PLAN
-                </span>
-              )}
-            </div>
-
-            <div style={{ display: 'flex', alignItems: 'baseline', gap: 6 }}>
-              <span style={{ fontSize: 21, fontWeight: 800 }}>{money(plan.amountPerYear, plan.currency)}</span>
-              <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>per year</span>
-            </div>
-
-            <span style={{ fontSize: 12, color: 'var(--text-muted)', lineHeight: 1.45 }}>{plan.tagline}</span>
-
-            <ul style={{ margin: 0, paddingLeft: 16, fontSize: 12, color: 'var(--text-muted)', lineHeight: 1.65 }}>
-              {plan.features.map((f) => (
-                <li key={f}>{f}</li>
-              ))}
-            </ul>
-
-            {!current && (
-              <button
-                type="button"
-                className="btn btn-ghost"
-                style={{ fontSize: 12.5, marginTop: 2 }}
-                onClick={() =>
-                  toast(
-                    plan.planType === 'family'
-                      ? 'To move to the Family plan, contact support and we’ll switch it over.'
-                      : 'To move to the Individual plan, remove your second login first, then contact support.',
-                    'info'
-                  )
-                }
-              >
-                Switch to {plan.name}
-              </button>
-            )}
-          </div>
-        );
-      })}
-    </div>
-  );
-}
-
 function FamilySection({ user }) {
   const toast = useToast();
   const [members, setMembers] = useState(null);
@@ -450,6 +360,7 @@ function FamilySection({ user }) {
 
 export default function Account() {
   const { user, updateProfile, changePassword, setOtpEnabled, setUser } = useAuth();
+  const [searchParams, setSearchParams] = useSearchParams();
   const toast = useToast();
 
   // Everything captured at sign-up is editable here except how they heard
@@ -561,19 +472,93 @@ export default function Account() {
     }
   }
 
+  // One page of eight stacked cards means scrolling past billing to change a
+  // password. The tabs are the same sections, one area at a time, and the tab
+  // lives in the URL so "go to billing" can link straight to it.
+  const tabs = [
+    { id: 'profile', label: 'Profile', icon: 'user' },
+    ...(user.role === 'owner'
+      ? [
+          { id: 'billing', label: 'Plan & billing', icon: 'credit-card' },
+          { id: 'family', label: 'Family & access', icon: 'users' },
+        ]
+      : []),
+    { id: 'security', label: 'Security', icon: 'shield' },
+    { id: 'preferences', label: 'Preferences', icon: 'settings' },
+  ];
+
+  const requested = searchParams.get('tab');
+  const tab = tabs.some((t) => t.id === requested) ? requested : 'profile';
+  const active = tabs.find((t) => t.id === tab);
+
+  function selectTab(id) {
+    setSearchParams(id === 'profile' ? {} : { tab: id }, { replace: true });
+  }
+
   return (
-    <div style={{ maxWidth: 640, display: 'flex', flexDirection: 'column', gap: 20 }}>
+    <div style={{ maxWidth: 780, display: 'flex', flexDirection: 'column', gap: 20 }}>
       <div>
         <h1 style={{ margin: '0 0 4px', fontSize: 26 }}>Account settings</h1>
         <p style={{ color: 'var(--text-muted)', margin: 0 }}>Update your details, password, and how you sign in.</p>
       </div>
 
-      <AvatarSection user={user} setUser={setUser} />
+      <div
+        role="tablist"
+        style={{
+          display: 'flex',
+          flexWrap: 'wrap',
+          gap: 4,
+          padding: 4,
+          borderRadius: 'var(--radius)',
+          background: 'var(--bg-inset)',
+          border: '1px solid var(--border)',
+        }}
+      >
+        {tabs.map((t) => (
+          <button
+            key={t.id}
+            type="button"
+            role="tab"
+            aria-selected={t.id === tab}
+            onClick={() => selectTab(t.id)}
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 7,
+              padding: '8px 13px',
+              borderRadius: 8,
+              border: 0,
+              cursor: 'pointer',
+              fontSize: 13,
+              fontWeight: 600,
+              color: t.id === tab ? 'var(--text)' : 'var(--text-muted)',
+              background: t.id === tab ? 'var(--bg-elevated)' : 'transparent',
+              boxShadow: t.id === tab ? 'var(--shadow-sm)' : 'none',
+            }}
+          >
+            <Icon name={t.icon} size={14} />
+            {t.label}
+          </button>
+        ))}
+      </div>
 
-      {user.role === 'owner' && <BillingSection user={user} />}
-      {user.role === 'owner' && <FamilySection user={user} />}
+      <motion.div
+        key={tab}
+        initial={{ opacity: 0, y: 6 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.18 }}
+        style={{ display: 'flex', flexDirection: 'column', gap: 20 }}
+      >
+        {tab === 'profile' && <AvatarSection user={user} setUser={setUser} />}
 
-      <form onSubmit={onSaveProfile} className="card" style={{ padding: 20, display: 'flex', flexDirection: 'column', gap: 14 }}>
+        {tab === 'billing' && <BillingSection user={user} />}
+        {tab === 'family' && <FamilySection user={user} />}
+
+      <form
+        onSubmit={onSaveProfile}
+        className="card"
+        style={{ padding: 20, display: tab === 'profile' ? 'flex' : 'none', flexDirection: 'column', gap: 14 }}
+      >
         <div style={{ fontWeight: 700 }}>Profile</div>
 
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
@@ -695,7 +680,11 @@ export default function Account() {
         </button>
       </form>
 
-      <form onSubmit={onSavePassword} className="card" style={{ padding: 20, display: 'flex', flexDirection: 'column', gap: 14 }}>
+      <form
+        onSubmit={onSavePassword}
+        className="card"
+        style={{ padding: 20, display: tab === 'security' ? 'flex' : 'none', flexDirection: 'column', gap: 14 }}
+      >
         <div style={{ fontWeight: 700 }}>Change password</div>
         <div>
           <label className="label">Current password</label>
@@ -737,7 +726,7 @@ export default function Account() {
         </button>
       </form>
 
-      <div className="card" style={{ padding: 20 }}>
+      <div className="card" style={{ padding: 20, display: tab === 'security' ? 'block' : 'none' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, marginBottom: 16 }}>
           <div>
             <div style={{ fontWeight: 700 }}>Multi-Factor Authentication (MFA)</div>
@@ -756,17 +745,20 @@ export default function Account() {
         <OtpBenefits />
       </div>
 
-      <div className="card" style={{ padding: 20 }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16 }}>
-          <div>
-            <div style={{ fontWeight: 700 }}>Interface sounds</div>
-            <div style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 2 }}>
-              Short tones on saving, errors, and opening a dialog. Stored on this device.
+        {tab === 'preferences' && (
+          <div className="card" style={{ padding: 20 }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16 }}>
+              <div>
+                <div style={{ fontWeight: 700 }}>Interface sounds</div>
+                <div style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 2 }}>
+                  Short tones on saving, errors, and opening a dialog. Stored on this device.
+                </div>
+              </div>
+              <Toggle checked={soundOn} onChange={onToggleSound} />
             </div>
           </div>
-          <Toggle checked={soundOn} onChange={onToggleSound} />
-        </div>
-      </div>
+        )}
+      </motion.div>
     </div>
   );
 }

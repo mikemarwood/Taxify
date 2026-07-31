@@ -10,16 +10,87 @@ import ViewAsBanner from './ViewAsBanner.jsx';
 import OtpOnboardingModal from './OtpOnboardingModal.jsx';
 import { playClick } from '../lib/sounds.js';
 import { formatMoney } from '../lib/money.js';
+import { describeSubscription } from '../lib/subscription.js';
 
-const navItems = [
-  { to: '/', label: 'Dashboard', icon: 'dashboard' },
-  { to: '/expenses', label: 'Expenses', icon: 'list' },
-  { to: '/add', label: 'Add Expense', icon: 'plus-circle' },
-  { to: '/categories', label: 'Categories', icon: 'tag' },
-  { to: '/reports', label: 'Reports', icon: 'chart' },
-  { to: '/recycle-bin', label: 'Recycle Bin', icon: 'trash' },
-  { to: '/account', label: 'Account', icon: 'settings' },
+// Eight equal-weight links in one column give no sense of where anything is.
+// Grouping them under headings means the eye lands on a section first and a
+// link second, which is how people actually look for "where do I add a receipt".
+const navGroups = [
+  {
+    title: null,
+    items: [
+      { to: '/', label: 'Dashboard', icon: 'dashboard' },
+      { to: '/reports', label: 'Reports', icon: 'chart' },
+    ],
+  },
+  {
+    title: 'Expenses',
+    items: [
+      { to: '/add', label: 'Add expense', icon: 'plus-circle' },
+      { to: '/expenses', label: 'All expenses', icon: 'list' },
+      { to: '/categories', label: 'Categories', icon: 'tag' },
+      { to: '/recycle-bin', label: 'Recycle bin', icon: 'trash' },
+    ],
+  },
+  {
+    title: 'Settings',
+    items: [{ to: '/account', label: 'Account', icon: 'settings' }],
+    adminItems: [{ to: '/admin', label: 'Administration', icon: 'wrench' }],
+  },
 ];
+
+// An accountant is here to look, not to file — the links they can't use are
+// left out rather than shown and rejected.
+const ACCOUNTANT_PATHS = ['/', '/expenses', '/reports', '/account'];
+
+function NavItem({ item }) {
+  return (
+    <NavLink
+      to={item.to}
+      end={item.to === '/'}
+      onClick={playClick}
+      className="nav-item"
+      style={({ isActive }) => ({
+        position: 'relative',
+        display: 'flex',
+        alignItems: 'center',
+        gap: 12,
+        padding: '8px 12px',
+        borderRadius: 'var(--radius-sm)',
+        fontSize: 13.5,
+        fontWeight: isActive ? 600 : 500,
+        textDecoration: 'none',
+        color: isActive ? 'var(--nav-text-active)' : 'var(--nav-text)',
+        background: isActive ? 'var(--nav-active-bg)' : 'transparent',
+      })}
+    >
+      {({ isActive }) => (
+        <>
+          {/* Fluent marks the selected item with an accent pill on the leading
+              edge rather than filling the whole row. */}
+          {isActive && (
+            <motion.span
+              layoutId="nav-indicator"
+              transition={{ type: 'spring', stiffness: 420, damping: 34 }}
+              style={{
+                position: 'absolute',
+                left: 0,
+                top: '50%',
+                translateY: '-50%',
+                width: 3,
+                height: 16,
+                borderRadius: 999,
+                background: 'var(--nav-accent)',
+              }}
+            />
+          )}
+          <Icon name={item.icon} size={17} style={{ color: isActive ? 'var(--nav-accent)' : 'inherit' }} />
+          {item.label}
+        </>
+      )}
+    </NavLink>
+  );
+}
 
 export default function Layout({ children }) {
   const { user, logout } = useAuth();
@@ -27,6 +98,7 @@ export default function Layout({ children }) {
   const location = useLocation();
   const toast = useToast();
   const [showMfaPrompt, setShowMfaPrompt] = useState(false);
+  const billing = describeSubscription(user);
 
   useEffect(() => {
     if (user?.mfaPromptDue) {
@@ -77,104 +149,125 @@ export default function Layout({ children }) {
           <span style={{ fontWeight: 700, fontSize: 19, letterSpacing: -0.4, color: 'var(--nav-text-active)' }}>Taxify</span>
         </div>
 
-        <nav style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-          {[
-            ...(user?.role === 'accountant' ? navItems.filter((i) => ['/', '/expenses', '/reports', '/account'].includes(i.to)) : navItems),
-            ...(user?.isAdmin ? [{ to: '/admin', label: 'Administration', icon: 'wrench' }] : []),
-          ].map((item) => (
-            <NavLink
-              key={item.to}
-              to={item.to}
-              end={item.to === '/'}
-              onClick={playClick}
-              className="nav-item"
-              style={({ isActive }) => ({
-                position: 'relative',
-                display: 'flex',
-                alignItems: 'center',
-                gap: 12,
-                padding: '9px 12px',
-                borderRadius: 'var(--radius-sm)',
-                fontSize: 14,
-                fontWeight: isActive ? 600 : 500,
-                textDecoration: 'none',
-                color: isActive ? 'var(--nav-text-active)' : 'var(--nav-text)',
-                background: isActive ? 'var(--nav-active-bg)' : 'transparent',
-              })}
-            >
-              {({ isActive }) => (
-                <>
-                  {/* Fluent marks the selected item with an accent pill on the
-                      leading edge rather than filling the whole row. */}
-                  {isActive && (
-                    <motion.span
-                      layoutId="nav-indicator"
-                      transition={{ type: 'spring', stiffness: 420, damping: 34 }}
-                      style={{
-                        position: 'absolute',
-                        left: 0,
-                        top: '50%',
-                        translateY: '-50%',
-                        width: 3,
-                        height: 16,
-                        borderRadius: 999,
-                        background: 'var(--nav-accent)',
-                      }}
-                    />
-                  )}
-                  <Icon name={item.icon} size={17} style={{ color: isActive ? 'var(--nav-accent)' : 'inherit' }} />
-                  {item.label}
-                </>
-              )}
-            </NavLink>
-          ))}
+        <nav style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
+          {navGroups
+            .map((group) => {
+              const items = [...group.items, ...(user?.isAdmin ? group.adminItems || [] : [])].filter(
+                (i) => user?.role !== 'accountant' || ACCOUNTANT_PATHS.includes(i.to)
+              );
+              return { ...group, items };
+            })
+            .filter((group) => group.items.length > 0)
+            .map((group) => (
+              <div key={group.title || 'main'} style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+                {group.title && (
+                  <div
+                    style={{
+                      fontSize: 10.5,
+                      fontWeight: 700,
+                      letterSpacing: 0.7,
+                      textTransform: 'uppercase',
+                      color: 'var(--nav-text)',
+                      opacity: 0.55,
+                      padding: '0 12px',
+                      marginBottom: 3,
+                    }}
+                  >
+                    {group.title}
+                  </div>
+                )}
+                {group.items.map((item) => (
+                  <NavItem key={item.to} item={item} />
+                ))}
+              </div>
+            ))}
         </nav>
 
-        <div style={{ marginTop: 'auto', display: 'flex', flexDirection: 'column', gap: 10 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '0 8px' }}>
-            <Link to="/account" title="Account settings" style={{ lineHeight: 0 }}>
-              <Avatar name={user?.name} avatarUrl={user?.avatarUrl} size={36} />
-            </Link>
+        <div style={{ marginTop: 'auto', display: 'flex', flexDirection: 'column', gap: 8 }}>
+          {/* One bordered block instead of loose rows: the avatar, who you are,
+              which plan, and how long it lasts read as a single card rather
+              than four things stacked at the bottom of the rail. */}
+          <div
+            style={{
+              border: '1px solid var(--nav-border)',
+              borderRadius: 'var(--radius-sm)',
+              background: 'rgba(255, 255, 255, 0.04)',
+              padding: 10,
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 9,
+            }}
+          >
             <Link
               to="/account"
-              style={{ fontSize: 12.5, color: 'var(--nav-text)', minWidth: 0, textDecoration: 'none' }}
               title="Account settings"
+              style={{ display: 'flex', alignItems: 'center', gap: 9, textDecoration: 'none', minWidth: 0 }}
             >
-              Signed in as
-              <div
-                style={{
-                  color: 'var(--nav-text-active)',
-                  fontWeight: 600,
-                  fontSize: 13.5,
-                  overflow: 'hidden',
-                  textOverflow: 'ellipsis',
-                  whiteSpace: 'nowrap',
-                }}
-              >
-                {user?.name}
-              </div>
-              {/* The plan sits with the name because "which plan am I on?" is
-                  asked in the same breath as "who am I signed in as?" — and it
-                  decides whether a second login is even offered. */}
-              {user?.role === 'owner' && (
+              <Avatar name={user?.name} avatarUrl={user?.avatarUrl} size={32} />
+              <span style={{ minWidth: 0, display: 'flex', flexDirection: 'column' }}>
                 <span
                   style={{
-                    display: 'inline-block',
-                    marginTop: 3,
-                    fontSize: 10.5,
-                    fontWeight: 700,
-                    letterSpacing: 0.3,
-                    padding: '2px 8px',
-                    borderRadius: 999,
-                    color: 'var(--nav-accent)',
-                    background: 'rgba(255, 255, 255, 0.1)',
+                    color: 'var(--nav-text-active)',
+                    fontWeight: 600,
+                    fontSize: 13,
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    whiteSpace: 'nowrap',
                   }}
                 >
-                  {user.planType === 'family' ? 'Family plan' : 'Individual plan'}
+                  {user?.name}
                 </span>
-              )}
+                <span
+                  style={{
+                    fontSize: 11,
+                    color: 'var(--nav-text)',
+                    opacity: 0.8,
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    whiteSpace: 'nowrap',
+                  }}
+                >
+                  {user?.role === 'owner'
+                    ? `${user.planType === 'family' ? 'Family' : 'Individual'} plan`
+                    : user?.role === 'accountant'
+                    ? 'Accountant access'
+                    : 'Family member'}
+                </span>
+              </span>
             </Link>
+
+            {/* Trial state belongs with the plan: which plan you're on is no
+                use if you don't know it's about to stop. */}
+            {user?.role === 'owner' && (
+              <Link
+                to="/account?tab=billing"
+                title={billing.detail}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 7,
+                  fontSize: 11.5,
+                  fontWeight: 600,
+                  textDecoration: 'none',
+                  padding: '5px 8px',
+                  borderRadius: 6,
+                  color: billing.tone === 'bad' || billing.tone === 'warn' ? '#1a1200' : 'var(--nav-text-active)',
+                  background:
+                    billing.tone === 'bad'
+                      ? 'var(--red)'
+                      : billing.tone === 'warn'
+                      ? 'var(--amber)'
+                      : 'rgba(255, 255, 255, 0.07)',
+                }}
+              >
+                <Icon name={billing.state === 'active' ? 'check-circle' : 'info'} size={13} />
+                <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {billing.label}
+                </span>
+              </Link>
+            )}
           </div>
+
           <button
             className="btn nav-btn"
             style={{ fontSize: 13 }}

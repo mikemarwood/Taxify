@@ -13,11 +13,13 @@ import Icon from '../components/Icon.jsx';
 import { formatMoney } from '../lib/money.js';
 import { FinancialYearCountdown, MonthlySpendChart, CategorySpendChart } from '../components/SpendCharts.jsx';
 import { useAuth } from '../lib/AuthContext.jsx';
+import { describeSubscription, toneColor } from '../lib/subscription.js';
 
 const COLLAPSED_ROW_COUNT = 8;
 
 export default function Dashboard() {
   const { user } = useAuth();
+  const billing = describeSubscription(user);
   const [expenses, setExpenses] = useState(null);
   const [year, setYear] = useState(null);
   const [showAll, setShowAll] = useState(false);
@@ -125,7 +127,7 @@ export default function Dashboard() {
           <p style={{ color: 'var(--text-muted)', margin: '4px 0 0' }}>Your deductions at a glance.</p>
         </div>
         <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
-          <ExportMenu baseUrl="/api/export/expenses" label="Export all" />
+          <ExportMenu baseUrl="/api/export/expenses" label="Export & download" archiveYear={year} />
           {user?.role !== 'accountant' && (
             <Link to="/add" className="btn btn-primary">
               + Add expense
@@ -167,6 +169,52 @@ export default function Dashboard() {
           <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}>
             <FinancialYearCountdown financialYear={year} />
           </motion.div>
+
+          {user?.role === 'owner' && (
+            <motion.div
+              className="card"
+              style={{ padding: 20, display: 'flex', flexDirection: 'column', gap: 6 }}
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.25 }}
+            >
+              <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>
+                {billing.state === 'trial' ? 'Free trial' : billing.state === 'active' ? 'Subscription' : 'Account'}
+              </div>
+              <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
+                {billing.daysLeft !== null && billing.daysLeft > 0 ? (
+                  <>
+                    <span
+                      style={{
+                        fontSize: 26,
+                        fontWeight: 800,
+                        color: toneColor(billing.tone),
+                        fontVariantNumeric: 'tabular-nums',
+                      }}
+                    >
+                      {billing.daysLeft}
+                    </span>
+                    <span style={{ fontSize: 13, color: 'var(--text-muted)' }}>
+                      {billing.daysLeft === 1 ? 'day left' : 'days left'}
+                    </span>
+                  </>
+                ) : (
+                  <span style={{ fontSize: 19, fontWeight: 700, color: toneColor(billing.tone) }}>
+                    {billing.label}
+                  </span>
+                )}
+              </div>
+              <div style={{ fontSize: 11.5, color: 'var(--text-muted)' }}>{billing.detail}</div>
+              {(billing.tone === 'bad' || billing.tone === 'warn') && (
+                <Link
+                  to="/account?tab=billing"
+                  style={{ fontSize: 12, fontWeight: 600, color: 'var(--accent)', marginTop: 2 }}
+                >
+                  See plans and subscribe →
+                </Link>
+              )}
+            </motion.div>
+          )}
         </div>
       )}
 
