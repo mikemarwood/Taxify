@@ -26,6 +26,10 @@ export function toPublicUser(user, mfaMode) {
     businessName: user.business_name || null,
     // Admin-granted access that ignores the subscription. computeAccessLocked
     // reads these off the public shape, so they have to survive the mapping.
+    // Set by requireAuth when an admin is viewing this account, so the client
+    // can show the banner and hide anything that writes.
+    viewedBy: null,
+    readOnly: false,
     accessBypass: !!user.access_bypass,
     accessBypassUntil: user.access_bypass_until || null,
     subscriptionStatus: user.subscription_status || 'trialing',

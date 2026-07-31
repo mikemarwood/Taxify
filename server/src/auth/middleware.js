@@ -24,6 +24,28 @@ export const requireAuth = asyncHandler(async (req, res, next) => {
   const mfaMode = await getMfaMode();
   req.user = toPublicUser(user, mfaMode);
   req.user.accessLocked = await computeAccessLocked(req.user);
+
+  // An admin viewing someone else's account. Enforced here rather than in each
+  // route because "read-only" has to mean every route, including ones written
+  // later that nobody thought about — a support tool that can quietly edit a
+  // customer's records is worse than no support tool.
+  if (payload.viewedBy) {
+    const [adminRows] = await pool.execute('SELECT id, name, email, is_admin FROM users WHERE id = ?', [
+      payload.viewedBy,
+    ]);
+    const admin = adminRows[0];
+    // Admin rights removed since the session started ends it immediately.
+    if (!admin || !admin.is_admin) return res.status(401).json({ error: 'Not authenticated' });
+
+    req.user.viewedBy = { id: admin.id, name: admin.name, email: admin.email };
+    req.user.readOnly = true;
+
+    const isExit = req.originalUrl.includes('/auth/exit-view-as');
+    if (req.method !== 'GET' && !isExit) {
+      return res.status(403).json({ error: 'You are viewing this account as an administrator — it is read-only.' });
+    }
+  }
+
   next();
 });
 

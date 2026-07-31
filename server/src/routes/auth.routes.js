@@ -1054,6 +1054,29 @@ router.post(
   })
 );
 
+// Hands the admin their own session back. The only write a view-as session is
+// allowed to make — see requireAuth, which blocks everything else.
+router.post(
+  '/exit-view-as',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    if (!req.user.viewedBy) return res.status(400).json({ error: 'You are not viewing another account' });
+
+    const [rows] = await pool.execute('SELECT * FROM users WHERE id = ?', [req.user.viewedBy.id]);
+    const admin = rows[0];
+    if (!admin || !admin.is_admin) {
+      res.clearCookie(COOKIE_NAME, { ...cookieOptions(), maxAge: 0 });
+      return res.status(401).json({ error: 'Sign in again' });
+    }
+
+    res.cookie(COOKIE_NAME, signToken(admin), cookieOptions());
+    const mfaMode = await getMfaMode();
+    const publicUser = toPublicUser(admin, mfaMode);
+    publicUser.accessLocked = await computeAccessLocked(publicUser);
+    res.json({ user: publicUser });
+  })
+);
+
 router.post('/logout', (req, res) => {
   res.clearCookie(COOKIE_NAME, { ...cookieOptions(), maxAge: 0 });
   res.json({ ok: true });

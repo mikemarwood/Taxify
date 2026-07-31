@@ -7,6 +7,9 @@ import { userRootDir } from '../lib/receiptStorage.js';
 import { normalisePromoCode, isValidPromoCodeFormat } from '../lib/promoCodes.js';
 import pool, { getSetting, setSetting, getMfaMode } from '../db.js';
 import { requireAuth, requireAdmin } from '../auth/middleware.js';
+import { signViewAsToken, cookieOptions, COOKIE_NAME } from '../auth/jwt.js';
+import { toPublicUser } from '../auth/publicUser.js';
+import { computeAccessLocked } from '../auth/access.js';
 import { asyncHandler } from '../lib/asyncHandler.js';
 import { toTitleCase } from '../lib/text.js';
 import { getSmtpConfig, saveSmtpConfig, sendTestEmail, diagnoseSmtp, sendAdminCreatedAccountEmail } from '../lib/mailer.js';
@@ -181,6 +184,66 @@ router.delete(
 
     console.log(`[admin] ${req.user.email} deleted account ${target.email} (${dependents.length} dependent login(s))`);
     res.json({ ok: true, deletedDependents: dependents.length });
+  })
+);
+
+// Moves an account between plans. Downgrading to Individual while a second
+// login exists is refused rather than silently locking that person out — the
+// sub-user has to be removed first, which is a decision for the account holder.
+router.patch(
+  '/users/:id/plan',
+  asyncHandler(async (req, res) => {
+    const planType = req.body?.planType;
+    if (planType !== 'individual' && planType !== 'family') {
+      return res.status(400).json({ error: 'Plan must be individual or family' });
+    }
+
+    const [rows] = await pool.execute('SELECT id, email, plan_type, role FROM users WHERE id = ?', [req.params.id]);
+    const target = rows[0];
+    if (!target) return res.status(404).json({ error: 'User not found' });
+    if (target.role !== 'owner') {
+      return res.status(400).json({ error: 'Only account holders have a plan — this login belongs to one' });
+    }
+
+    if (planType === 'individual') {
+      const [subs] = await pool.execute("SELECT id FROM users WHERE account_holder_id = ? AND role = 'sub_user'", [
+        target.id,
+      ]);
+      if (subs.length > 0) {
+        return res.status(400).json({
+          error: 'This account has a second user. Remove them first, or the downgrade would lock them out.',
+        });
+      }
+    }
+
+    await pool.execute('UPDATE users SET plan_type = ? WHERE id = ?', [planType, target.id]);
+    console.log(`[admin] ${req.user.email} moved ${target.email} from ${target.plan_type} to ${planType}`);
+    res.json({ ok: true, planType });
+  })
+);
+
+// Signs the admin in as another account, read-only. requireAuth enforces the
+// read-only part for every route at once; this only mints the token.
+router.post(
+  '/users/:id/view-as',
+  asyncHandler(async (req, res) => {
+    const targetId = Number(req.params.id);
+    if (targetId === req.user.id) return res.status(400).json({ error: "You're already signed in as yourself" });
+    if (req.user.viewedBy) return res.status(400).json({ error: 'Exit the current view first' });
+
+    const [rows] = await pool.execute('SELECT * FROM users WHERE id = ?', [targetId]);
+    const target = rows[0];
+    if (!target) return res.status(404).json({ error: 'User not found' });
+
+    console.log(`[admin] ${req.user.email} started viewing as ${target.email}`);
+    res.cookie(COOKIE_NAME, signViewAsToken(target, req.user.id), cookieOptions(false));
+
+    const mfaMode = await getMfaMode();
+    const publicUser = toPublicUser(target, mfaMode);
+    publicUser.accessLocked = await computeAccessLocked(publicUser);
+    publicUser.viewedBy = { id: req.user.id, name: req.user.name, email: req.user.email };
+    publicUser.readOnly = true;
+    res.json({ user: publicUser });
   })
 );
 

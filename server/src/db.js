@@ -245,6 +245,16 @@ export async function ensureSchema() {
     ALTER TABLE expenses ADD UNIQUE INDEX IF NOT EXISTS uq_expenses_import (user_id, import_key)
   `);
 
+  // Who entered it and who touched it last. user_id is who the expense belongs
+  // to, which on a Family plan isn't the same question — either person can add
+  // and edit, and "who put this in?" is the one that gets asked.
+  await pool.query(`ALTER TABLE expenses ADD COLUMN IF NOT EXISTS created_by INT NULL`);
+  await pool.query(`ALTER TABLE expenses ADD COLUMN IF NOT EXISTS updated_by INT NULL`);
+  await pool.query(`ALTER TABLE expenses ADD COLUMN IF NOT EXISTS updated_at DATETIME NULL`);
+
+  // Existing rows predate the column; the owner is the best guess available.
+  await pool.query(`UPDATE expenses SET created_by = user_id WHERE created_by IS NULL`);
+
   await pool.query(`
     CREATE TABLE IF NOT EXISTS default_categories (
       id INT PRIMARY KEY AUTO_INCREMENT,

@@ -12,6 +12,13 @@ export function signToken(user) {
   return jwt.sign({ sub: user.id, email: user.email }, JWT_SECRET, { expiresIn: TOKEN_TTL });
 }
 
+// A view-as session carries the admin's own id so the session can be handed
+// back on exit. Deliberately short-lived: it's a support tool, not somewhere to
+// work from, and a forgotten one shouldn't sit open for ninety days.
+export function signViewAsToken(user, adminId) {
+  return jwt.sign({ sub: user.id, email: user.email, viewedBy: adminId }, JWT_SECRET, { expiresIn: '2h' });
+}
+
 export function verifyToken(token) {
   try {
     return jwt.verify(token, JWT_SECRET);
