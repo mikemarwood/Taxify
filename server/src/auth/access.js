@@ -1,6 +1,12 @@
 import pool from '../db.js';
 
 function isRowActive(row) {
+  // An admin can hand an account access without a subscription — a comped
+  // account, a support case, someone whose payment is still being sorted out.
+  // Checked first, so it outranks an expired trial or a lapsed card.
+  if (row.access_bypass) {
+    return !row.access_bypass_until || new Date(row.access_bypass_until) > new Date();
+  }
   if (row.subscription_status === 'active') {
     return !row.subscription_current_period_end || new Date(row.subscription_current_period_end) > new Date();
   }
@@ -19,11 +25,15 @@ export async function computeAccessLocked(publicUser) {
       subscription_status: publicUser.subscriptionStatus,
       subscription_current_period_end: publicUser.subscriptionCurrentPeriodEnd,
       trial_ends_at: publicUser.trialEndsAt,
+      access_bypass: publicUser.accessBypass,
+      access_bypass_until: publicUser.accessBypassUntil,
     });
   }
   if (!publicUser.accountHolderId) return true;
   const [rows] = await pool.execute(
-    'SELECT subscription_status, subscription_current_period_end, trial_ends_at FROM users WHERE id = ?',
+    `SELECT subscription_status, subscription_current_period_end, trial_ends_at,
+            access_bypass, access_bypass_until
+     FROM users WHERE id = ?`,
     [publicUser.accountHolderId]
   );
   if (!rows[0]) return true;

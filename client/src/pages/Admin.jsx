@@ -179,6 +179,38 @@ function UsersTab() {
   }
   useEffect(load, []);
 
+  // Full access without a subscription. Asking for an end date rather than
+  // defaulting to forever, because a granted account that nobody remembers
+  // granting is how a paid product quietly stops being one.
+  async function toggleAccess(u) {
+    if (u.accessBypass) {
+      if (!window.confirm(`Revoke granted access for ${u.email}? They'll go back to their subscription status.`)) return;
+      try {
+        await api.patch(`/admin/users/${u.id}/access`, { bypass: false });
+        toast(`Access revoked for ${u.email}`, 'success');
+        load();
+      } catch (err) {
+        toast(err.message, 'error');
+      }
+      return;
+    }
+
+    const until = window.prompt(
+      `Give ${u.email} full access without a subscription.\n\n` +
+        'End date as YYYY-MM-DD, or leave blank for open-ended:',
+      ''
+    );
+    if (until === null) return;
+
+    try {
+      await api.patch(`/admin/users/${u.id}/access`, { bypass: true, until: until.trim() || null });
+      toast(until.trim() ? `Access granted until ${until.trim()}` : 'Access granted (open-ended)', 'success');
+      load();
+    } catch (err) {
+      toast(err.message, 'error');
+    }
+  }
+
   async function toggleAdmin(u) {
     try {
       await api.patch(`/admin/users/${u.id}`, { isAdmin: !u.isAdmin });
@@ -272,6 +304,26 @@ function UsersTab() {
                 Invite pending
               </span>
             )}
+            {u.accessBypass && (
+              <span
+                title={
+                  u.accessBypassUntil
+                    ? `Granted access until ${new Date(u.accessBypassUntil).toLocaleDateString()}`
+                    : 'Granted access, open-ended'
+                }
+                style={{
+                  fontSize: 12,
+                  fontWeight: 600,
+                  padding: '4px 10px',
+                  borderRadius: 999,
+                  color: 'var(--emerald)',
+                  background: 'rgba(12, 115, 67, 0.12)',
+                }}
+              >
+                Access granted
+                {u.accessBypassUntil ? ` · to ${new Date(u.accessBypassUntil).toLocaleDateString()}` : ''}
+              </span>
+            )}
             {u.isAdmin && (
               <span
                 style={{
@@ -288,6 +340,18 @@ function UsersTab() {
             )}
             {u.id !== me.id && (
               <>
+                <button
+                  className="btn btn-ghost"
+                  title={
+                    u.accessBypass
+                      ? 'Remove the granted access — this account goes back to its subscription'
+                      : 'Give this account full access without a subscription'
+                  }
+                  style={{ fontSize: 12, padding: '6px 12px', color: u.accessBypass ? 'var(--emerald)' : undefined }}
+                  onClick={() => toggleAccess(u)}
+                >
+                  {u.accessBypass ? 'Revoke access' : 'Grant access'}
+                </button>
                 <button
                   className="btn btn-ghost"
                   style={{ fontSize: 12, padding: '6px 12px' }}

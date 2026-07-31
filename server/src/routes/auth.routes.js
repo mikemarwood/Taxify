@@ -666,7 +666,7 @@ router.post(
     const code = generateOtp();
     const expiresAt = new Date(Date.now() + OTP_TTL_MINUTES * 60 * 1000);
     await pool.execute(
-      'UPDATE users SET otp_code = ?, otp_expires_at = ?, otp_attempts = 0 WHERE id = ?',
+      'UPDATE users SET otp_code = ?, otp_expires_at = ?, otp_attempts = 0, otp_last_sent_at = NOW() WHERE id = ?',
       [hashOtp(code), expiresAt, user.id]
     );
 
@@ -688,6 +688,60 @@ router.post(
       expiresAt,
       expiresInSeconds: OTP_TTL_MINUTES * 60,
       publicDevice: !!publicDevice,
+    });
+  })
+);
+
+const OTP_RESEND_COOLDOWN_MS = 5 * 60 * 1000;
+
+// A fresh login code for someone whose first one never arrived. Deliberately
+// does not reset otp_attempts: resetting it would turn "resend" into a way
+// around the three-strikes lockout.
+router.post(
+  '/otp/resend',
+  asyncHandler(async (req, res) => {
+    const { userId } = req.body || {};
+    if (!userId) return res.status(400).json({ error: 'Invalid request' });
+
+    const [rows] = await pool.execute('SELECT * FROM users WHERE id = ?', [userId]);
+    const user = rows[0];
+    if (!user) return res.status(401).json({ error: 'Invalid request' });
+
+    if (user.otp_locked_until && new Date(user.otp_locked_until) > new Date()) {
+      return res.status(423).json({
+        error: 'Too many incorrect codes. Login is temporarily locked.',
+        lockedUntil: user.otp_locked_until,
+        lockedForSeconds: secondsUntil(user.otp_locked_until),
+      });
+    }
+
+    const sinceLast = user.otp_last_sent_at ? Date.now() - new Date(user.otp_last_sent_at).getTime() : Infinity;
+    if (sinceLast < OTP_RESEND_COOLDOWN_MS) {
+      return res.status(429).json({
+        error: 'A code was sent recently — wait before asking for another.',
+        retryAfterSeconds: Math.ceil((OTP_RESEND_COOLDOWN_MS - sinceLast) / 1000),
+      });
+    }
+
+    const code = generateOtp();
+    const expiresAt = new Date(Date.now() + OTP_TTL_MINUTES * 60 * 1000);
+    await pool.execute('UPDATE users SET otp_code = ?, otp_expires_at = ?, otp_last_sent_at = NOW() WHERE id = ?', [
+      hashOtp(code),
+      expiresAt,
+      user.id,
+    ]);
+
+    try {
+      await sendOtpEmail(user.email, user.name, code, OTP_TTL_MINUTES);
+    } catch (err) {
+      console.error('Failed to resend OTP email', err);
+      return res.status(500).json({ error: 'Could not send your login code. Please try again shortly.' });
+    }
+
+    res.json({
+      ok: true,
+      expiresInSeconds: OTP_TTL_MINUTES * 60,
+      retryAfterSeconds: Math.ceil(OTP_RESEND_COOLDOWN_MS / 1000),
     });
   })
 );

@@ -55,6 +55,7 @@ router.get(
   asyncHandler(async (req, res) => {
     const [users] = await pool.execute(
       `SELECT u.id, u.name, u.email, u.is_admin, u.avatar_path, u.created_at, u.activated_at,
+              u.access_bypass, u.access_bypass_until, u.subscription_status, u.trial_ends_at,
               (SELECT COUNT(*) FROM expenses e WHERE e.user_id = u.id) AS expense_count
        FROM users u
        ORDER BY u.created_at`
@@ -69,6 +70,10 @@ router.get(
         createdAt: u.created_at,
         active: !!u.activated_at,
         expenseCount: u.expense_count,
+        subscriptionStatus: u.subscription_status,
+        trialEndsAt: u.trial_ends_at,
+        accessBypass: !!u.access_bypass,
+        accessBypassUntil: u.access_bypass_until,
         // Everything this user has uploaded — receipts and property documents
         // both live under <uploads>/<id>.
         storageBytes: directorySize(userRootDir(uploadsDir, u.id)),
@@ -176,6 +181,35 @@ router.delete(
 
     console.log(`[admin] ${req.user.email} deleted account ${target.email} (${dependents.length} dependent login(s))`);
     res.json({ ok: true, deletedDependents: dependents.length });
+  })
+);
+
+// Hands an account access regardless of its subscription — a comped account, a
+// support case, someone mid-way through sorting out payment. Optionally until a
+// date, so it lapses on its own rather than being forgotten about.
+router.patch(
+  '/users/:id/access',
+  asyncHandler(async (req, res) => {
+    const { bypass, until } = req.body || {};
+    const [rows] = await pool.execute('SELECT id, email FROM users WHERE id = ?', [req.params.id]);
+    if (!rows[0]) return res.status(404).json({ error: 'User not found' });
+
+    const untilDate = until ? String(until).slice(0, 10) : null;
+    if (untilDate && !/^\d{4}-\d{2}-\d{2}$/.test(untilDate)) {
+      return res.status(400).json({ error: 'Enter the end date as a date, or leave it blank for open-ended' });
+    }
+
+    await pool.execute('UPDATE users SET access_bypass = ?, access_bypass_until = ? WHERE id = ?', [
+      bypass ? 1 : 0,
+      bypass ? untilDate : null,
+      req.params.id,
+    ]);
+
+    console.log(
+      `[admin] ${req.user.email} ${bypass ? 'granted' : 'revoked'} bypass access for ${rows[0].email}` +
+        (bypass && untilDate ? ` until ${untilDate}` : '')
+    );
+    res.json({ ok: true });
   })
 );
 

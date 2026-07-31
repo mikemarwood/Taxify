@@ -4,6 +4,7 @@ import AuthLayout from './AuthLayout.jsx';
 import { useAuth } from '../lib/AuthContext.jsx';
 import { useToast } from '../components/Toast.jsx';
 import { onDigitKeyDown } from '../lib/sounds.js';
+import { api } from '../lib/api.js';
 import Toggle from '../components/Toggle.jsx';
 
 function msToClock(ms) {
@@ -28,6 +29,9 @@ export default function Login() {
   const [lockedUntil, setLockedUntil] = useState(null);
   const [lockRemainingMs, setLockRemainingMs] = useState(0);
   const [lockSeconds, setLockSeconds] = useState(0);
+  const [resendIn, setResendIn] = useState(0);
+  const [resending, setResending] = useState(false);
+  const attemptedRef = useRef(null);
   const codeInputRef = useRef(null);
 
   // Counted down from the duration the server sent, not from the difference
@@ -50,6 +54,18 @@ export default function Login() {
     const id = setInterval(tick, 1000);
     return () => clearInterval(id);
   }, [lockedUntil, lockSeconds]);
+
+  // The first code counts as a send, so the resend button starts on cooldown
+  // rather than inviting an immediate second one.
+  useEffect(() => {
+    if (otpState) setResendIn(300);
+  }, [otpState?.userId]);
+
+  useEffect(() => {
+    if (resendIn <= 0) return undefined;
+    const id = setInterval(() => setResendIn((s) => Math.max(0, s - 1)), 1000);
+    return () => clearInterval(id);
+  }, [resendIn]);
 
   useEffect(() => {
     if (otpState) codeInputRef.current?.focus();
@@ -81,25 +97,62 @@ export default function Login() {
     }
   }
 
-  async function onVerify(e) {
-    e.preventDefault();
+  async function submitCode(value) {
     if (remainingMs <= 0) {
-      toast('That code has expired — please log in again', 'error');
-      setOtpState(null);
+      toast('That code has expired — send a new one', 'error');
       return;
     }
     setBusy(true);
     try {
-      await verifyOtp(otpState.userId, code, publicDevice);
+      await verifyOtp(otpState.userId, value, publicDevice);
       navigate('/');
     } catch (err) {
       if (err.lockedUntil) {
         lockAccount(err.lockedUntil, err.lockedForSeconds);
         setOtpState(null);
       }
+      // A rejected code is cleared so the next attempt starts from an empty
+      // box — otherwise auto-submit would fire again on the same wrong digits.
+      setCode('');
+      attemptedRef.current = null;
+      codeInputRef.current?.focus();
       toast(err.message, 'error');
     } finally {
       setBusy(false);
+    }
+  }
+
+  function onVerify(e) {
+    e.preventDefault();
+    if (code.length === 4) submitCode(code);
+  }
+
+  // Four digits is the whole code, so there's nothing left to decide — waiting
+  // for a button press is a step that only exists because the form has one.
+  // The ref stops a re-render from submitting the same digits twice.
+  function onCodeChange(next) {
+    const digits = next.replace(/\D/g, '').slice(0, 4);
+    setCode(digits);
+    if (digits.length === 4 && !busy && attemptedRef.current !== digits) {
+      attemptedRef.current = digits;
+      submitCode(digits);
+    }
+  }
+
+  async function onResend() {
+    setResending(true);
+    try {
+      const res = await api.post('/auth/otp/resend', { userId: otpState.userId });
+      setOtpState({ ...otpState, expiresInSeconds: res.data.expiresInSeconds });
+      setResendIn(res.data.retryAfterSeconds ?? 300);
+      setCode('');
+      attemptedRef.current = null;
+      toast('A new code is on its way', 'success');
+    } catch (err) {
+      if (err.retryAfterSeconds) setResendIn(err.retryAfterSeconds);
+      toast(err.message, 'error');
+    } finally {
+      setResending(false);
     }
   }
 
@@ -127,22 +180,39 @@ export default function Login() {
               pattern="[0-9]*"
               maxLength={4}
               required
+              autoComplete="one-time-code"
+              disabled={busy}
               value={code}
-              onChange={(e) => setCode(e.target.value.replace(/\D/g, '').slice(0, 4))}
+              onChange={(e) => onCodeChange(e.target.value)}
               onKeyDown={onDigitKeyDown}
               style={{ fontSize: 22, letterSpacing: 8, textAlign: 'center' }}
             />
           </div>
+
           <p style={{ fontSize: 13, color: 'var(--text-muted)', margin: 0, textAlign: 'center' }}>
-            {remainingMs > 0 ? (
-              <>Code expires in <strong style={{ color: 'var(--text)' }}>{msToClock(remainingMs)}</strong></>
+            {busy ? (
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+                <span className="spinner" style={{ color: 'var(--text-muted)' }} />
+                Checking your code…
+              </span>
+            ) : remainingMs > 0 ? (
+              <>
+                Signs you in as soon as all four digits are in · expires in{' '}
+                <strong style={{ color: 'var(--text)' }}>{msToClock(remainingMs)}</strong>
+              </>
             ) : (
-              <span style={{ color: 'var(--red)' }}>Code expired — go back and log in again</span>
+              <span style={{ color: 'var(--red)' }}>That code has expired — send a new one below</span>
             )}
           </p>
-          <button className="btn btn-primary" disabled={busy || code.length !== 4} type="submit">
-            {busy && <span className="spinner" />}
-            Verify &amp; log in
+
+          <button
+            type="button"
+            className="btn btn-ghost"
+            disabled={resending || resendIn > 0}
+            onClick={onResend}
+          >
+            {resending && <span className="spinner" />}
+            {resendIn > 0 ? `Resend available in ${msToClock(resendIn * 1000)}` : 'Send a new code'}
           </button>
           <button
             type="button"

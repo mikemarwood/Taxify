@@ -94,6 +94,15 @@ export async function ensureSchema() {
   await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS password_reset_expires_at DATETIME NULL`);
   await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS password_reset_requested_at DATETIME NULL`);
 
+  // When the last login code went out, so a resend can be throttled without
+  // inferring the send time from the code's expiry.
+  await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS otp_last_sent_at DATETIME NULL`);
+
+  // Admin-granted access that ignores the subscription state entirely. NULL
+  // `until` means open-ended; a date makes it lapse on its own.
+  await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS access_bypass TINYINT(1) NOT NULL DEFAULT 0`);
+  await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS access_bypass_until DATETIME NULL`);
+
   // Split an existing single-field name so older accounts have parts too. Only
   // touches rows where the split hasn't happened, so it's safe on every boot.
   await pool.query(`
