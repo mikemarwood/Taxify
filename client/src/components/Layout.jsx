@@ -6,6 +6,7 @@ import { useToast } from './Toast.jsx';
 import { api } from '../lib/api.js';
 import Avatar from './Avatar.jsx';
 import Icon from './Icon.jsx';
+import ViewAsBanner from './ViewAsBanner.jsx';
 import OtpOnboardingModal from './OtpOnboardingModal.jsx';
 import { playClick } from '../lib/sounds.js';
 import { formatMoney } from '../lib/money.js';
@@ -49,7 +50,9 @@ export default function Layout({ children }) {
   }, []);
 
   return (
-    <div style={{ minHeight: '100vh', display: 'flex' }}>
+    <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
+      <ViewAsBanner />
+      <div style={{ flex: 1, display: 'flex', minHeight: 0 }}>
       <aside
         className="scrollbar-slim"
         style={{
@@ -150,6 +153,26 @@ export default function Layout({ children }) {
               >
                 {user?.name}
               </div>
+              {/* The plan sits with the name because "which plan am I on?" is
+                  asked in the same breath as "who am I signed in as?" — and it
+                  decides whether a second login is even offered. */}
+              {user?.role === 'owner' && (
+                <span
+                  style={{
+                    display: 'inline-block',
+                    marginTop: 3,
+                    fontSize: 10.5,
+                    fontWeight: 700,
+                    letterSpacing: 0.3,
+                    padding: '2px 8px',
+                    borderRadius: 999,
+                    color: 'var(--nav-accent)',
+                    background: 'rgba(255, 255, 255, 0.1)',
+                  }}
+                >
+                  {user.planType === 'family' ? 'Family plan' : 'Individual plan'}
+                </span>
+              )}
             </Link>
           </div>
           <button
@@ -218,6 +241,7 @@ export default function Layout({ children }) {
       )}
 
       {showMfaPrompt && <OtpOnboardingModal onClose={() => setShowMfaPrompt(false)} />}
+      </div>
     </div>
   );
 }

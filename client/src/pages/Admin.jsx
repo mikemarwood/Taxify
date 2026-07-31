@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { api } from '../lib/api.js';
 import { useAuth } from '../lib/AuthContext.jsx';
@@ -170,7 +171,8 @@ function CreateUserForm({ onCreated }) {
 }
 
 function UsersTab() {
-  const { user: me } = useAuth();
+  const { user: me, setUser } = useAuth();
+  const navigate = useNavigate();
   const toast = useToast();
   const [users, setUsers] = useState(null);
 
@@ -178,6 +180,45 @@ function UsersTab() {
     api.get('/admin/users').then((res) => setUsers(res.data.users));
   }
   useEffect(load, []);
+
+  async function changePlan(u) {
+    const next = u.planType === 'family' ? 'individual' : 'family';
+    const wording =
+      next === 'family'
+        ? `Move ${u.email} to the Family plan? They'll be able to invite a second full-access login.`
+        : `Move ${u.email} to the Individual plan? They'll lose the ability to have a second login.`;
+    if (!window.confirm(wording)) return;
+
+    try {
+      await api.patch(`/admin/users/${u.id}/plan`, { planType: next });
+      toast(`${u.email} moved to the ${next === 'family' ? 'Family' : 'Individual'} plan`, 'success');
+      load();
+    } catch (err) {
+      toast(err.message, 'error');
+    }
+  }
+
+  // Signs you in as them, read-only. Confirmed first because the page you're
+  // on changes underneath you and the next thing you see is their data.
+  async function viewAs(u) {
+    if (
+      !window.confirm(
+        `View Taxify as ${u.name} (${u.email})?\n\n` +
+          'You will see their account exactly as they do, but nothing can be changed. ' +
+          'A banner stays on screen until you exit.'
+      )
+    ) {
+      return;
+    }
+
+    try {
+      const res = await api.post(`/admin/users/${u.id}/view-as`);
+      setUser(res.data.user);
+      navigate('/');
+    } catch (err) {
+      toast(err.message, 'error');
+    }
+  }
 
   // Full access without a subscription. Asking for an end date rather than
   // defaulting to forever, because a granted account that nobody remembers
@@ -338,9 +379,32 @@ function UsersTab() {
                 Administrator
               </span>
             )}
+            <span
+              title="Current plan"
+              style={{
+                fontSize: 11.5,
+                fontWeight: 700,
+                padding: '4px 10px',
+                borderRadius: 999,
+                color: 'var(--accent)',
+                background: 'var(--accent-soft)',
+              }}
+            >
+              {u.planType === 'family' ? 'Family' : 'Individual'}
+            </span>
+
             {/* Available on your own row too. The self-guard below exists to
                 stop an admin demoting or deleting themselves out of the panel;
-                granting yourself access does neither. */}
+                changing your own plan or access does neither. */}
+            <button
+              className="btn btn-ghost"
+              title={`Move to the ${u.planType === 'family' ? 'Individual' : 'Family'} plan`}
+              style={{ fontSize: 12, padding: '6px 12px' }}
+              onClick={() => changePlan(u)}
+            >
+              Change plan
+            </button>
+
             <button
               className="btn btn-ghost"
               title={
@@ -356,6 +420,14 @@ function UsersTab() {
 
             {u.id !== me.id && (
               <>
+                <button
+                  className="btn btn-ghost"
+                  title="See their account exactly as they do, read-only"
+                  style={{ fontSize: 12, padding: '6px 12px' }}
+                  onClick={() => viewAs(u)}
+                >
+                  View as
+                </button>
                 <button
                   className="btn btn-ghost"
                   style={{ fontSize: 12, padding: '6px 12px' }}

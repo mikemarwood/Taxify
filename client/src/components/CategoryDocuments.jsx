@@ -36,6 +36,72 @@ function iconForName(name) {
   return 'image';
 }
 
+// A real thumbnail rather than a file-type icon — a page of a statement is
+// recognisable at 40px in a way "PDF" never is. PDFs render their first page
+// the same way the full preview does; pointer events are off so the click
+// reaches the row.
+function DocThumb({ doc }) {
+  const isImage = /\.(jpe?g|png|webp|gif|heic|heif|avif|bmp|tiff?|jfif)$/i.test(doc.originalName);
+  const isPdf = /\.pdf$/i.test(doc.originalName);
+
+  const frame = {
+    width: 38,
+    height: 38,
+    flexShrink: 0,
+    borderRadius: 6,
+    overflow: 'hidden',
+    border: '1px solid var(--border)',
+    background: 'var(--bg-card)',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    color: 'var(--text-muted)',
+  };
+
+  if (isImage) {
+    return (
+      <span style={frame}>
+        <img
+          src={doc.url}
+          alt=""
+          loading="lazy"
+          style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'top' }}
+        />
+      </span>
+    );
+  }
+
+  if (isPdf) {
+    return (
+      <span style={frame}>
+        <iframe
+          src={`${doc.url}#toolbar=0&navpanes=0&scrollbar=0&view=Fit`}
+          title=""
+          tabIndex={-1}
+          loading="lazy"
+          style={{
+            width: 150,
+            height: 150,
+            border: 'none',
+            // Scaled down so a whole page fits the tile instead of the
+            // top-left corner of one.
+            transform: 'scale(0.253)',
+            transformOrigin: 'top left',
+            pointerEvents: 'none',
+            background: '#fff',
+          }}
+        />
+      </span>
+    );
+  }
+
+  return (
+    <span style={frame}>
+      <Icon name={iconForName(doc.originalName)} size={16} />
+    </span>
+  );
+}
+
 // Australian financial year runs 1 Jul – 30 Jun, so "this year" through the
 // second half of the calendar year is the one that just started.
 function defaultFinancialYear() {
@@ -249,7 +315,7 @@ export default function CategoryDocuments({ category }) {
                     fontSize: 12.5,
                   }}
                 >
-                  <Icon name={iconForName(d.originalName)} size={14} style={{ color: 'var(--text-muted)' }} />
+                  <DocThumb doc={d} />
                   <button
                     type="button"
                     title={`${d.originalName} — click to preview`}

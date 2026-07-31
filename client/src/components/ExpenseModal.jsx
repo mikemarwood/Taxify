@@ -399,6 +399,19 @@ export default function ExpenseModal({ expense, onClose, onSaved, onDeleted }) {
                     })}
                   />
                 )}
+                {expense.createdByName && <DetailRow label="Added by" value={expense.createdByName} />}
+                {/* Only shown once it's actually been edited — "last edited by"
+                    on a record nobody has touched is noise. */}
+                {expense.updatedByName && expense.updatedAt && (
+                  <DetailRow
+                    label="Last edited by"
+                    value={`${expense.updatedByName} · ${new Date(expense.updatedAt).toLocaleDateString(undefined, {
+                      day: '2-digit',
+                      month: 'short',
+                      year: 'numeric',
+                    })}`}
+                  />
+                )}
               </div>
 
               {expense.notes && (
