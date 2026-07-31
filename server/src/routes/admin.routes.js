@@ -443,6 +443,21 @@ router.patch(
     if (password !== undefined && typeof password !== 'string') return res.status(400).json({ error: 'password must be a string' });
     if (from !== undefined && typeof from !== 'string') return res.status(400).json({ error: 'from must be a string' });
 
+    // A From of just "Taxify" reads fine in this box but leaves the envelope
+    // sender with no address in it, so the relay rewrites it — mail then
+    // arrives as MAILER-DAEMON and goes straight to junk. Caught here rather
+    // than left to be discovered from a spam folder weeks later.
+    if (from !== undefined && from.trim()) {
+      const match = /<([^>]+)>/.exec(from);
+      const address = (match ? match[1] : from).trim();
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(address)) {
+        return res.status(400).json({
+          error:
+            'The From address needs a real email address — either "you@example.com" or "Your Name <you@example.com>"',
+        });
+      }
+    }
+
     await saveSmtpConfig({
       host,
       port: port !== undefined ? Number(port) : undefined,

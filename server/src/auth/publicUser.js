@@ -24,6 +24,10 @@ export function toPublicUser(user, mfaMode) {
     country: user.country || null,
     state: user.state || null,
     businessName: user.business_name || null,
+    // Admin-granted access that ignores the subscription. computeAccessLocked
+    // reads these off the public shape, so they have to survive the mapping.
+    accessBypass: !!user.access_bypass,
+    accessBypassUntil: user.access_bypass_until || null,
     subscriptionStatus: user.subscription_status || 'trialing',
     trialEndsAt: user.trial_ends_at || null,
     subscriptionCurrentPeriodEnd: user.subscription_current_period_end || null,

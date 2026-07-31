@@ -338,20 +338,24 @@ function UsersTab() {
                 Administrator
               </span>
             )}
+            {/* Available on your own row too. The self-guard below exists to
+                stop an admin demoting or deleting themselves out of the panel;
+                granting yourself access does neither. */}
+            <button
+              className="btn btn-ghost"
+              title={
+                u.accessBypass
+                  ? 'Remove the granted access — this account goes back to its subscription'
+                  : 'Give this account full access without a subscription'
+              }
+              style={{ fontSize: 12, padding: '6px 12px', color: u.accessBypass ? 'var(--emerald)' : undefined }}
+              onClick={() => toggleAccess(u)}
+            >
+              {u.accessBypass ? 'Revoke access' : 'Grant access'}
+            </button>
+
             {u.id !== me.id && (
               <>
-                <button
-                  className="btn btn-ghost"
-                  title={
-                    u.accessBypass
-                      ? 'Remove the granted access — this account goes back to its subscription'
-                      : 'Give this account full access without a subscription'
-                  }
-                  style={{ fontSize: 12, padding: '6px 12px', color: u.accessBypass ? 'var(--emerald)' : undefined }}
-                  onClick={() => toggleAccess(u)}
-                >
-                  {u.accessBypass ? 'Revoke access' : 'Grant access'}
-                </button>
                 <button
                   className="btn btn-ghost"
                   style={{ fontSize: 12, padding: '6px 12px' }}
@@ -609,10 +613,14 @@ function EmailSettingsTab() {
           <input
             className="input"
             style={{ marginTop: 6, width: '100%' }}
-            placeholder="Mikes App Hub <no-reply@mikesapphub.com>"
+            placeholder="Taxify <taxify@mikesapphub.com>"
             value={form.from || ''}
             onChange={(e) => update('from', e.target.value)}
           />
+          <span style={{ display: 'block', marginTop: 4, fontSize: 11.5, color: 'var(--text-muted)' }}>
+            Must contain a real address. A name on its own leaves the envelope sender empty, and the mail arrives
+            as MAILER-DAEMON. Use the mailbox your SMTP username can send as.
+          </span>
         </label>
 
         <div>

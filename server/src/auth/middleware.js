@@ -13,6 +13,7 @@ export const requireAuth = asyncHandler(async (req, res, next) => {
     `SELECT id, email, name, first_name, last_name, date_of_birth, phone, is_admin, avatar_path,
             otp_enabled, otp_last_prompted_at, role, account_holder_id, plan_type,
             currency, country, state, business_name, activated_at, trial_ends_at,
+            access_bypass, access_bypass_until,
             subscription_status, stripe_customer_id, stripe_subscription_id, subscription_current_period_end
      FROM users WHERE id = ?`,
     [payload.sub]
