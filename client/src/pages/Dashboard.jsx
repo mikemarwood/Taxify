@@ -11,6 +11,7 @@ import ExportMenu from '../components/ExportMenu.jsx';
 import { defaultFinancialYear } from '../lib/financialYear.js';
 import Icon from '../components/Icon.jsx';
 import { formatMoney } from '../lib/money.js';
+import { FinancialYearCountdown, MonthlySpendChart, CategorySpendChart } from '../components/SpendCharts.jsx';
 import { useAuth } from '../lib/AuthContext.jsx';
 
 const COLLAPSED_ROW_COUNT = 8;
@@ -160,46 +161,32 @@ export default function Dashboard() {
           </motion.div>
           <motion.div className="card" style={{ padding: 20 }} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }}>
             <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>Top category</div>
-            <div style={{ fontSize: 18, fontWeight: 700, marginTop: 6, color: byCategory[0]?.color }}>
-              {byCategory[0]?.name || '—'}
-            </div>
+            <div style={{ fontSize: 18, fontWeight: 700, marginTop: 6 }}>{byCategory[0]?.name || '—'}</div>
+          </motion.div>
+
+          <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}>
+            <FinancialYearCountdown financialYear={year} />
           </motion.div>
         </div>
       )}
 
-      {!loading && byCategory.length > 0 && (
-        <div style={{ marginBottom: 24 }}>
-          <div style={{ fontWeight: 700, marginBottom: 10 }}>Totals by category</div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: 10 }}>
-            {byCategory.map((c, i) => {
-              const active = categoryFilter === c.name;
-              return (
-                <motion.div
-                  key={c.name}
-                  className="card"
-                  initial={{ opacity: 0, y: 6 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  whileHover={{ y: -3 }}
-                  transition={{ delay: Math.min(i, 10) * 0.03 }}
-                  onClick={() => setCategoryFilter(active ? null : c.name)}
-                  title={`View ${c.name} entries`}
-                  style={{
-                    padding: '10px 12px',
-                    cursor: 'pointer',
-                    border: active ? `1px solid ${c.color}` : '1px solid var(--border)',
-                    boxShadow: active ? `0 0 0 1px ${c.color}` : undefined,
-                  }}
-                >
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: 'var(--text-muted)' }}>
-                    <Icon name={c.icon} size={14} style={{ color: c.color }} />
-                    <span style={{ width: 8, height: 8, borderRadius: '50%', background: c.color, flexShrink: 0 }} />
-                    <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.name}</span>
-                  </div>
-                  <div style={{ fontSize: 16, fontWeight: 700, marginTop: 4 }}>{formatMoney(c.total)}</div>
-                </motion.div>
-              );
-            })}
-          </div>
+      {/* Two charts: one answers "when did I spend", the other "on what".
+          Clicking a category filters the list below, so the chart is also the
+          control rather than a picture beside one. */}
+      {!loading && filtered.length > 0 && (
+        <div
+          style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(330px, 1fr))',
+            gap: 16,
+            marginBottom: 24,
+          }}
+        >
+          <MonthlySpendChart expenses={filtered} financialYear={year} />
+          <CategorySpendChart
+            byCategory={byCategory}
+            onSelect={(name) => setCategoryFilter(categoryFilter === name ? null : name)}
+          />
         </div>
       )}
 
