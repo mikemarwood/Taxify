@@ -84,9 +84,14 @@ function validateName(name) {
 router.get(
   '/',
   asyncHandler(async (req, res) => {
+    // How much has gone through a category is what makes the list worth
+    // looking at — a name and a colour on their own say nothing.
     const [categories] = await pool.execute(
       `SELECT c.id, c.name, c.color, c.icon, c.is_property_rental,
-              (SELECT COUNT(*) FROM category_documents d WHERE d.category_id = c.id) AS document_count
+              (SELECT COUNT(*) FROM category_documents d WHERE d.category_id = c.id) AS document_count,
+              (SELECT COUNT(*) FROM expenses e WHERE e.category_id = c.id AND e.deleted_at IS NULL) AS expense_count,
+              (SELECT COALESCE(SUM(e.amount), 0) FROM expenses e
+                WHERE e.category_id = c.id AND e.deleted_at IS NULL) AS total_amount
        FROM categories c WHERE c.user_id = ? ORDER BY c.name`,
       [req.user.id]
     );
@@ -98,6 +103,8 @@ router.get(
         icon: c.icon,
         isPropertyRental: !!c.is_property_rental,
         documentCount: Number(c.document_count) || 0,
+        expenseCount: Number(c.expense_count) || 0,
+        totalAmount: Number(c.total_amount) || 0,
       })),
     });
   })

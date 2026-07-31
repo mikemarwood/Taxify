@@ -163,6 +163,16 @@ button, input, select, textarea {
 .btn-ghost:hover:not(:disabled) { background: var(--bg-elevated); border-color: var(--border-strong); }
 .btn-ghost:active:not(:disabled) { background: var(--bg-inset); }
 
+/* A square button holding nothing but an icon. Kept at 34px so it stays a
+   comfortable target without the horizontal padding a labelled button needs. */
+.icon-btn {
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  color: var(--text-muted);
+}
+.icon-btn:hover:not(:disabled) { color: var(--text); }
+
 .input {
   width: 100%;
   padding: 9px 12px;

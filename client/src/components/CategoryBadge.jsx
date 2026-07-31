@@ -14,9 +14,9 @@ export default function CategoryBadge({ category }) {
         display: 'inline-flex',
         alignItems: 'center',
         gap: 5,
-        fontSize: 12,
+        fontSize: 12.5,
         fontWeight: 600,
-        padding: '4px 10px',
+        padding: '5px 11px',
         borderRadius: 999,
         color: category.color,
         background: `${category.color}22`,
@@ -24,7 +24,7 @@ export default function CategoryBadge({ category }) {
         whiteSpace: 'nowrap',
       }}
     >
-      <Icon name={category.icon} size={13} />
+      <Icon name={category.icon} size={15} strokeWidth={1.9} />
       {category.name}
     </span>
   );

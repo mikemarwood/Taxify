@@ -146,6 +146,12 @@ export async function ensureSchema() {
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
   `);
 
+  // CREATE TABLE IF NOT EXISTS leaves an existing table alone, so a database
+  // created before `icon` was part of the definition never got the column and
+  // every category drew the fallback. Adding it explicitly is the only thing
+  // that reaches those installs.
+  await pool.query(`ALTER TABLE categories ADD COLUMN IF NOT EXISTS icon VARCHAR(50) NOT NULL DEFAULT 'tag'`);
+
   // A property rental has paperwork that belongs to the property itself rather
   // than to any one expense — agent statements, depreciation schedules, the
   // end-of-year summary — so those categories get a document store.
@@ -266,6 +272,8 @@ export async function ensureSchema() {
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
   `);
 
+  await pool.query(`ALTER TABLE default_categories ADD COLUMN IF NOT EXISTS icon VARCHAR(50) NOT NULL DEFAULT 'tag'`);
+
   const [existing] = await pool.query('SELECT COUNT(*) AS count FROM default_categories');
   if (existing[0].count === 0) {
     for (const c of INITIAL_DEFAULT_CATEGORIES) {
@@ -279,6 +287,26 @@ export async function ensureSchema() {
       value VARCHAR(255) NOT NULL
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
   `);
+
+  // Installs that predate the icon column ended up with every seeded category
+  // showing the generic fallback. Give the defaults their intended icons back,
+  // once, and only where nothing has been chosen — a category someone
+  // deliberately re-iconed is left alone.
+  const [backfilled] = await pool.query(`SELECT value FROM settings WHERE \`key\` = 'category_icons_backfilled'`);
+  if (backfilled.length === 0) {
+    for (const c of INITIAL_DEFAULT_CATEGORIES) {
+      if (c.icon === 'tag') continue;
+      await pool.execute(`UPDATE default_categories SET icon = ? WHERE name = ? AND (icon = 'tag' OR icon = '')`, [
+        c.icon,
+        c.name,
+      ]);
+      await pool.execute(`UPDATE categories SET icon = ? WHERE name = ? AND (icon = 'tag' OR icon = '')`, [
+        c.icon,
+        c.name,
+      ]);
+    }
+    await pool.execute(`INSERT INTO settings (\`key\`, value) VALUES ('category_icons_backfilled', '1')`);
+  }
   await pool.query(`
     INSERT IGNORE INTO settings (\`key\`, value) VALUES ('registration_enabled', 'true')
   `);

@@ -84,7 +84,7 @@ function NavItem({ item }) {
               }}
             />
           )}
-          <Icon name={item.icon} size={17} style={{ color: isActive ? 'var(--nav-accent)' : 'inherit' }} />
+          <Icon name={item.icon} size={19} strokeWidth={isActive ? 2 : 1.8} style={{ color: isActive ? "var(--nav-accent)" : "inherit" }} />
           {item.label}
         </>
       )}
