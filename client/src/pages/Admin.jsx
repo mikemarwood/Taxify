@@ -479,13 +479,18 @@ function SettingsTab() {
 
 function EmailSettingsTab() {
   const toast = useToast();
+  const { user: me } = useAuth();
   const [form, setForm] = useState(null);
   const [password, setPassword] = useState('');
-  const [testTo, setTestTo] = useState('');
+  // Prefilled with your own address: it's where a test almost always goes, and
+  // it means the buttons aren't disabled the moment the tab opens.
+  const [testTo, setTestTo] = useState(me?.email || '');
   const [busy, setBusy] = useState(false);
   const [testing, setTesting] = useState(false);
   const [diagnosing, setDiagnosing] = useState(false);
   const [diagnosis, setDiagnosis] = useState(null);
+
+  const testToValid = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(testTo.trim());
 
   function load() {
     api.get('/admin/email-settings').then((res) => {
@@ -634,19 +639,25 @@ function EmailSettingsTab() {
         <div style={{ fontWeight: 700 }}>Send a test email</div>
         <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>
           Sends a test message using the settings above (save first if you just changed them).
+          {testTo && !testToValid && (
+            <span style={{ color: 'var(--red)' }}> Enter a valid email address to enable these.</span>
+          )}
         </div>
         <div style={{ display: 'flex', gap: 10 }}>
           <input
             className="input"
+            type="email"
             style={{ flex: 1 }}
             placeholder="you@example.com"
             value={testTo}
-            onChange={(e) => setTestTo(e.target.value)}
+            // Addresses are case-insensitive and stored lower case everywhere
+            // else, so the field matches rather than quietly differing.
+            onChange={(e) => setTestTo(e.target.value.toLowerCase())}
           />
-          <button className="btn btn-ghost" disabled={testing} onClick={onTest}>
+          <button className="btn btn-ghost" disabled={testing || !testToValid} onClick={onTest}>
             {testing ? 'Sending…' : 'Send test'}
           </button>
-          <button className="btn btn-ghost" disabled={diagnosing} onClick={onDiagnose}>
+          <button className="btn btn-ghost" disabled={diagnosing || !testToValid} onClick={onDiagnose}>
             {diagnosing ? 'Checking…' : 'Diagnose'}
           </button>
         </div>
