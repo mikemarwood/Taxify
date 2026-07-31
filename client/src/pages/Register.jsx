@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { AnimatePresence, motion } from 'framer-motion';
 import Icon from '../components/Icon.jsx';
+import { AuthSplitFrame } from '../components/AuthSplit.jsx';
 import SignupArtwork from '../components/SignupArtwork.jsx';
 import { api } from '../lib/api.js';
 import { useAuth } from '../lib/AuthContext.jsx';
@@ -246,7 +247,7 @@ export default function Register() {
   const trialDays = options?.trialDays || 14;
 
   return (
-    <Shell>
+    <AuthSplitFrame>
       <form onSubmit={onSubmit} style={{ display: 'contents' }}>
         {/* Rail: where you are in the sequence, and what's still coming. */}
         <aside
@@ -734,7 +735,7 @@ export default function Register() {
           </div>
         </section>
       </form>
-    </Shell>
+    </AuthSplitFrame>
   );
 }
 
@@ -746,27 +747,6 @@ const HEADINGS = [
   { title: 'Last thing', sub: 'Then we’ll email you a link to set your password.' },
 ];
 
-// Full bleed rather than a card floating in the middle of the viewport: on a
-// wide screen a centred 860px panel leaves most of the page empty, which reads
-// as unfinished. The brand side runs edge to edge and the form sits on paper
-// beside it, so the page is the layout instead of a container for one.
-//
-// Below 900px the brand side is dropped entirely — on a phone it would push
-// the fields off screen, and the fields are what someone came for.
-function Shell({ children }) {
-  return (
-    <div
-      className="signup-shell"
-      style={{
-        minHeight: '100vh',
-        display: 'grid',
-        gridTemplateColumns: 'minmax(360px, 40%) 1fr',
-      }}
-    >
-      {children}
-    </div>
-  );
-}
 
 function Grid({ children }) {
   return <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2px 16px' }}>{children}</div>;

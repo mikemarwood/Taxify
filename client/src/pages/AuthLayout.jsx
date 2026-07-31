@@ -1,84 +1,49 @@
 import { motion } from 'framer-motion';
-import AndroidDownloadButton from '../components/AndroidDownloadButton.jsx';
-import Icon from '../components/Icon.jsx';
+import { Link } from 'react-router-dom';
+import AuthSplit from '../components/AuthSplit.jsx';
 
-const FEATURES = [
-  { icon: 'gift', title: '14-day free trial', text: 'Full access to every feature from day one — no card required to get started.' },
-  { icon: 'tag', title: 'Tax categories, ready to go', text: 'Start with General, Training, Tooling, Electronics, Home Rental, and more — no setup.' },
-  { icon: 'receipt', title: 'Drag-and-drop receipts', text: 'Snap or drag a receipt in and watch it upload with live progress — no fumbling with forms.' },
-  { icon: 'chart', title: 'Year-over-year reports', text: 'Compare spending by category across tax years at a glance, ready for tax time.' },
-  { icon: 'users', title: 'Family & accountant access', text: 'Share a Family plan with a second user, or give your accountant read-only access any time.' },
-  { icon: 'lock', title: 'Passwords, properly secured', text: 'Every password is hashed with bcrypt before it ever touches the database.' },
-];
-
+// Every signed-out page other than sign-up: log in, activate, accept an
+// invite. Sign-up has its own aside because it shows step progress there;
+// everything else gets the product panel.
 export default function AuthLayout({ title, subtitle, children }) {
   return (
-    <div
-      style={{
-        minHeight: '100vh',
-        display: 'flex',
-        flexDirection: 'column',
-      }}
-    >
-      <div
-        style={{
-          flex: 1,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          padding: 20,
-          gap: 40,
-          flexWrap: 'wrap',
-        }}
-      >
+    <AuthSplit>
       <motion.div
-        initial={{ opacity: 0, x: -16 }}
-        animate={{ opacity: 1, x: 0 }}
-        transition={{ duration: 0.35, ease: 'easeOut' }}
-        style={{ maxWidth: 420, padding: '0 8px' }}
+        initial={{ opacity: 0, y: 12 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
+        style={{ width: '100%', maxWidth: 420, margin: '0 auto' }}
       >
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 20 }}>
-          <img src="/logo.svg" alt="Taxify" width="36" height="36" />
-          <span style={{ fontWeight: 800, fontSize: 22 }}>Taxify</span>
-        </div>
-        <h2 style={{ fontSize: 24, margin: '0 0 20px', lineHeight: 1.3 }}>
-          The simplest way to track tax-deductible spending, all year round.
-        </h2>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-          {FEATURES.map((f) => (
-            <div key={f.title} style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
-              <Icon name={f.icon} size={19} style={{ color: 'var(--violet)', marginTop: 1 }} />
-              <div>
-                <div style={{ fontWeight: 700, fontSize: 14 }}>{f.title}</div>
-                <div style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 2 }}>{f.text}</div>
-              </div>
-            </div>
-          ))}
-        </div>
-        <div style={{ marginTop: 28 }}>
-          <AndroidDownloadButton />
-        </div>
-      </motion.div>
-
-      <motion.div
-        initial={{ opacity: 0, y: 16, scale: 0.98 }}
-        animate={{ opacity: 1, y: 0, scale: 1 }}
-        transition={{ duration: 0.35, ease: 'easeOut', delay: 0.05 }}
-        className="card"
-        style={{ width: '100%', maxWidth: 400, padding: 32 }}
-      >
-        <h1 style={{ fontSize: 22, margin: '0 0 4px' }}>{title}</h1>
-        <p style={{ fontSize: 14, color: 'var(--text-muted)', margin: '0 0 24px' }}>{subtitle}</p>
+        <h1 style={{ fontSize: 'clamp(22px, 2.4vw, 28px)', margin: '0 0 5px', letterSpacing: -0.5 }}>{title}</h1>
+        <p style={{ fontSize: 14, color: 'var(--text-muted)', margin: '0 0 26px' }}>{subtitle}</p>
         {children}
-      </motion.div>
-      </div>
 
-      <div style={{ textAlign: 'center', fontSize: 12, color: 'var(--text-muted)', padding: '16px 20px' }}>
-        © {new Date().getFullYear()} Taxify · Powered by{' '}
-        <a href="https://mikesapphub.com" target="_blank" rel="noreferrer" style={{ color: 'var(--blue)' }}>
-          Mikes App Hub
-        </a>
-      </div>
-    </div>
+        <div
+          style={{
+            marginTop: 28,
+            paddingTop: 16,
+            borderTop: '1px solid var(--border)',
+            fontSize: 12,
+            color: 'var(--text-muted)',
+            display: 'flex',
+            gap: 14,
+            flexWrap: 'wrap',
+          }}
+        >
+          <Link to="/terms" style={{ color: 'inherit' }}>
+            Terms
+          </Link>
+          <Link to="/privacy" style={{ color: 'inherit' }}>
+            Privacy
+          </Link>
+          <span style={{ marginLeft: 'auto' }}>
+            © {new Date().getFullYear()} Taxify ·{' '}
+            <a href="https://mikesapphub.com" target="_blank" rel="noreferrer" style={{ color: 'var(--accent)' }}>
+              Mikes App Hub
+            </a>
+          </span>
+        </div>
+      </motion.div>
+    </AuthSplit>
   );
 }
