@@ -461,6 +461,88 @@ export async function sendSubscriptionRenewingEmail(to, name, periodEnd) {
   });
 }
 
+// Everything known about why mail isn't going out, in one call. Nodemailer's
+// error messages on their own are terse ("Invalid login", "Connection closed")
+// and don't say which of the several ways this can be misconfigured applies —
+// so the config in use, the connection handshake and an actual send are each
+// reported separately.
+//
+// The password is never returned, only whether one is set.
+export async function diagnoseSmtp(to) {
+  const config = await getSmtpConfig();
+  const envelopeFrom = senderAddress(config.from);
+
+  const report = {
+    config: {
+      host: config.host || null,
+      port: config.port,
+      secure: config.secure,
+      user: config.user || null,
+      hasPassword: Boolean(config.password),
+      from: config.from || null,
+      envelopeFrom: envelopeFrom || null,
+    },
+    checks: [],
+  };
+
+  function record(step, ok, detail) {
+    report.checks.push({ step, ok, detail });
+    return ok;
+  }
+
+  if (!config.host) {
+    record('SMTP host configured', false, 'No host set — fill in Admin > Email server');
+    return report;
+  }
+  record('SMTP host configured', true, `${config.host}:${config.port} (${config.secure ? 'TLS' : 'STARTTLS/plain'})`);
+
+  // A From of "Taxify" with no address slips through the settings form but
+  // gives an envelope sender no relay will accept.
+  const fromValid = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(envelopeFrom);
+  record(
+    'From address is a real address',
+    fromValid,
+    fromValid ? envelopeFrom : `"${config.from}" has no usable address in it`
+  );
+  if (!fromValid) return report;
+
+  let transporter;
+  try {
+    transporter = await getTransporter();
+  } catch (err) {
+    record('Build transport', false, err.message);
+    return report;
+  }
+
+  // Connection and credentials, before anything is sent.
+  try {
+    await transporter.verify();
+    record('Connect and authenticate', true, config.user ? `Authenticated as ${config.user}` : 'Connected (no auth)');
+  } catch (err) {
+    record('Connect and authenticate', false, describeSmtpError(err));
+    return report;
+  }
+
+  try {
+    await sendTestEmail(to);
+    record('Send a test message', true, `Relay accepted the message for ${to}`);
+  } catch (err) {
+    record('Send a test message', false, describeSmtpError(err));
+  }
+
+  return report;
+}
+
+// Pulls the parts of a nodemailer error that actually identify the problem —
+// the SMTP response code and the server's own words.
+function describeSmtpError(err) {
+  const parts = [];
+  if (err.code) parts.push(err.code);
+  if (err.responseCode) parts.push(`SMTP ${err.responseCode}`);
+  parts.push(err.response || err.message || 'Unknown error');
+  return parts.join(' · ');
+}
+
 export async function sendTestEmail(to) {
   await sendMail({
     to,

@@ -415,6 +415,8 @@ function EmailSettingsTab() {
   const [testTo, setTestTo] = useState('');
   const [busy, setBusy] = useState(false);
   const [testing, setTesting] = useState(false);
+  const [diagnosing, setDiagnosing] = useState(false);
+  const [diagnosis, setDiagnosis] = useState(null);
 
   function load() {
     api.get('/admin/email-settings').then((res) => {
@@ -459,6 +461,21 @@ function EmailSettingsTab() {
       toast(err.message, 'error');
     } finally {
       setTesting(false);
+    }
+  }
+
+  // Walks the whole chain and shows where it stops. "It didn't arrive" has
+  // several causes and the send error on its own rarely says which.
+  async function onDiagnose() {
+    setDiagnosing(true);
+    setDiagnosis(null);
+    try {
+      const res = await api.post('/admin/email-settings/diagnose', testTo ? { to: testTo } : {});
+      setDiagnosis(res.data);
+    } catch (err) {
+      toast(err.message, 'error');
+    } finally {
+      setDiagnosing(false);
     }
   }
 
@@ -556,7 +573,52 @@ function EmailSettingsTab() {
           <button className="btn btn-ghost" disabled={testing} onClick={onTest}>
             {testing ? 'Sending…' : 'Send test'}
           </button>
+          <button className="btn btn-ghost" disabled={diagnosing} onClick={onDiagnose}>
+            {diagnosing ? 'Checking…' : 'Diagnose'}
+          </button>
         </div>
+
+        {diagnosis && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 4 }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+              {diagnosis.checks.map((c) => (
+                <div key={c.step} style={{ display: 'flex', alignItems: 'flex-start', gap: 9, fontSize: 13 }}>
+                  <Icon
+                    name={c.ok ? 'check-circle' : 'alert'}
+                    size={15}
+                    style={{ color: c.ok ? 'var(--emerald)' : 'var(--red)', marginTop: 1, flexShrink: 0 }}
+                  />
+                  <div style={{ minWidth: 0 }}>
+                    <div style={{ fontWeight: 600 }}>{c.step}</div>
+                    <div
+                      style={{
+                        fontSize: 12,
+                        color: c.ok ? 'var(--text-muted)' : 'var(--red)',
+                        fontFamily: c.ok ? 'inherit' : 'Consolas, monospace',
+                        wordBreak: 'break-word',
+                      }}
+                    >
+                      {c.detail}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <details style={{ fontSize: 12, color: 'var(--text-muted)' }}>
+              <summary style={{ cursor: 'pointer' }}>Settings in use</summary>
+              <div style={{ fontFamily: 'Consolas, monospace', marginTop: 6, lineHeight: 1.7 }}>
+                <div>host: {diagnosis.config.host || '—'}</div>
+                <div>port: {diagnosis.config.port}</div>
+                <div>secure: {String(diagnosis.config.secure)}</div>
+                <div>user: {diagnosis.config.user || '(none)'}</div>
+                <div>password: {diagnosis.config.hasPassword ? 'set' : 'NOT SET'}</div>
+                <div>from: {diagnosis.config.from || '—'}</div>
+                <div>envelope from: {diagnosis.config.envelopeFrom || '—'}</div>
+              </div>
+            </details>
+          </div>
+        )}
       </div>
     </div>
   );

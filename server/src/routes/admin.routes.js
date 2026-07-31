@@ -9,7 +9,7 @@ import pool, { getSetting, setSetting, getMfaMode } from '../db.js';
 import { requireAuth, requireAdmin } from '../auth/middleware.js';
 import { asyncHandler } from '../lib/asyncHandler.js';
 import { toTitleCase } from '../lib/text.js';
-import { getSmtpConfig, saveSmtpConfig, sendTestEmail, sendAdminCreatedAccountEmail } from '../lib/mailer.js';
+import { getSmtpConfig, saveSmtpConfig, sendTestEmail, diagnoseSmtp, sendAdminCreatedAccountEmail } from '../lib/mailer.js';
 import { getStripeAdminSettings, saveStripeAdminSettings, getStripeSecretKeyForMode } from '../lib/stripe.js';
 import { hashPassword } from '../auth/password.js';
 import { generateActivationToken } from '../auth/activationToken.js';
@@ -431,6 +431,17 @@ router.post(
     } catch (err) {
       res.status(502).json({ error: err.message || 'Failed to send test email' });
     }
+  })
+);
+
+// Runs the whole chain — config, connection, credentials, an actual send — and
+// reports each step separately, because "it didn't arrive" has half a dozen
+// causes and the send error alone rarely says which one applies.
+router.post(
+  '/email-settings/diagnose',
+  asyncHandler(async (req, res) => {
+    const to = (req.body && req.body.to) || req.user.email;
+    res.json({ to, ...(await diagnoseSmtp(to)) });
   })
 );
 
