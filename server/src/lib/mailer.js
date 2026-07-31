@@ -324,25 +324,66 @@ export async function sendAccountActivatedEmail(to, name, options = {}) {
   });
 }
 
+export async function sendPasswordResetEmail(to, name, resetUrl, expiryHours) {
+  await sendMail({
+    to,
+    subject: 'Reset your Taxify password',
+    title: 'Reset your password',
+    heading: `Hi${name ? ` ${name}` : ''}, here's the link to set a new password.`,
+    bodyHtml: `
+      <p style="font-size:14px;color:#1f2937;margin:0 0 16px;line-height:1.55;">
+        Someone asked to reset the password on this account. If that was you, use the link below to choose
+        a new one.
+      </p>
+      ${button(resetUrl, 'Set a new password')}
+      ${linkFallback(resetUrl)}
+      <p style="font-size:13px;color:#4b5563;margin:0 0 8px;line-height:1.55;">
+        <strong>This link expires in ${expiryHours} hours</strong> and can only be used once.
+      </p>
+      <p style="font-size:13px;color:#4b5563;margin:0;line-height:1.55;">
+        If you didn't ask for this, ignore this email — your password stays as it is, and the link expires
+        on its own. Nobody can change your password without opening it.
+      </p>
+    `,
+  });
+}
+
+export async function sendPasswordChangedEmail(to, name) {
+  const loginUrl = `${process.env.CLIENT_ORIGIN || 'http://localhost:5173'}/login`;
+  await sendMail({
+    to,
+    subject: 'Your Taxify password was changed',
+    title: 'Password changed',
+    heading: `Hi${name ? ` ${name}` : ''}, your password has been changed.`,
+    bodyHtml: `
+      <p style="font-size:14px;color:#1f2937;margin:0 0 16px;line-height:1.55;">
+        You can now sign in with your new password. Any reset links sent earlier no longer work.
+      </p>
+      ${button(loginUrl, 'Sign in to Taxify')}
+      <p style="font-size:13px;color:#4b5563;margin:0;line-height:1.55;">
+        <strong>If this wasn't you</strong>, reset your password again straight away from the sign-in page
+        and check that the email address on the account is still yours.
+      </p>
+    `,
+  });
+}
+
 export async function sendInviteEmail(to, name, role, acceptUrl, inviterName) {
   const roleLabel = role === 'accountant' ? 'accountant (read-only)' : 'family member';
   await sendMail({
     to,
     subject: `${inviterName} invited you to Taxify`,
-    title: 'Account Invitation',
-    heading: `Hi ${name},`,
+    title: 'Account invitation',
+    heading: `Hi${name ? ` ${name}` : ''}, ${inviterName} has invited you to Taxify.`,
     bodyHtml: `
-      <p style="font-size:14px;color:#4b5563;margin:0 0 20px;line-height:1.5;">
-        ${inviterName} has invited you to Taxify as a <strong>${roleLabel}</strong>. Set a password to
-        finish creating your account.
+      <p style="font-size:14px;color:#1f2937;margin:0 0 16px;line-height:1.55;">
+        You've been added as a <strong>${roleLabel}</strong>. Setting a password is all that's left —
+        it finishes creating your account.
       </p>
-      <div style="text-align:center;margin:0 0 20px;">
-        <a href="${acceptUrl}" style="display:inline-block;background:#1e3a8a;color:#ffffff;font-weight:700;font-size:14px;text-decoration:none;padding:14px 28px;border-radius:8px;">
-          Set my password
-        </a>
-      </div>
-      <p style="font-size:13px;color:#4b5563;margin:0;line-height:1.5;">
-        This link expires in 5 days.
+      ${button(acceptUrl, 'Set my password')}
+      ${linkFallback(acceptUrl)}
+      <p style="font-size:13px;color:#4b5563;margin:0;line-height:1.55;">
+        This link expires in 5 days. If you weren't expecting this, you can ignore it.
       </p>
     `,
   });
@@ -352,19 +393,16 @@ export async function sendAdminCreatedAccountEmail(to, name, acceptUrl) {
   await sendMail({
     to,
     subject: 'An account has been created for you on Taxify',
-    title: 'Account Created',
-    heading: `Hi ${name},`,
+    title: 'Account created',
+    heading: `Hi${name ? ` ${name}` : ''}, an account has been set up for you.`,
     bodyHtml: `
-      <p style="font-size:14px;color:#4b5563;margin:0 0 20px;line-height:1.5;">
-        An administrator has created a Taxify account for you. Set a password to finish setting it up and
-        start your 14-day free trial with full access to every feature.
+      <p style="font-size:14px;color:#1f2937;margin:0 0 16px;line-height:1.55;">
+        An administrator created a Taxify account for you. Setting a password finishes it off and starts
+        your 14-day free trial, with full access to every feature.
       </p>
-      <div style="text-align:center;margin:0 0 20px;">
-        <a href="${acceptUrl}" style="display:inline-block;background:#1e3a8a;color:#ffffff;font-weight:700;font-size:14px;text-decoration:none;padding:14px 28px;border-radius:8px;">
-          Set my password
-        </a>
-      </div>
-      <p style="font-size:13px;color:#4b5563;margin:0;line-height:1.5;">
+      ${button(acceptUrl, 'Set my password')}
+      ${linkFallback(acceptUrl)}
+      <p style="font-size:13px;color:#4b5563;margin:0;line-height:1.55;">
         This link expires in 5 days.
       </p>
     `,
@@ -376,7 +414,7 @@ export async function sendTrialEndingEmail(to, name, daysLeft, trialEndsAt) {
   await sendMail({
     to,
     subject: `Your Taxify trial ends in ${daysLeft} day${daysLeft === 1 ? '' : 's'}`,
-    title: 'Trial Ending Soon',
+    title: 'Trial ending soon',
     heading: `Hi ${name},`,
     bodyHtml: `
       <p style="font-size:14px;color:#4b5563;margin:0 0 20px;line-height:1.5;">
@@ -391,7 +429,7 @@ export async function sendTrialExpiredEmail(to, name) {
   await sendMail({
     to,
     subject: 'Your Taxify trial has ended',
-    title: 'Access Restricted',
+    title: 'Access restricted',
     heading: `Hi ${name},`,
     bodyHtml: `
       <p style="font-size:14px;color:#4b5563;margin:0 0 20px;line-height:1.5;">
@@ -408,7 +446,7 @@ export async function sendSubscriptionRenewingEmail(to, name, periodEnd) {
   await sendMail({
     to,
     subject: `Your Taxify plan renews on ${when}`,
-    title: 'Upcoming Renewal',
+    title: 'Upcoming renewal',
     heading: `Hi ${name},`,
     bodyHtml: `
       <p style="font-size:14px;color:#4b5563;margin:0 0 20px;line-height:1.5;">
@@ -424,7 +462,7 @@ export async function sendTestEmail(to) {
   await sendMail({
     to,
     subject: 'Mikes App Hub — test email',
-    title: 'Test Email',
+    title: 'Test email',
     heading: 'It works!',
     bodyHtml: `
       <p style="font-size:14px;color:#4b5563;margin:0;line-height:1.5;">

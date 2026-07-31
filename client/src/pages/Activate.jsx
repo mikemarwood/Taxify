@@ -5,15 +5,7 @@ import Icon from '../components/Icon.jsx';
 import { useAuth } from '../lib/AuthContext.jsx';
 import { useToast } from '../components/Toast.jsx';
 import { playSuccess, playError } from '../lib/sounds.js';
-
-// Mirrors isStrongPassword on the server. Shown as a live checklist rather
-// than a single pass/fail, so it's obvious which rule is still unmet.
-const RULES = [
-  { label: 'At least 8 characters', test: (p) => p.length >= 8 },
-  { label: 'An uppercase letter', test: (p) => /[A-Z]/.test(p) },
-  { label: 'A lowercase letter', test: (p) => /[a-z]/.test(p) },
-  { label: 'A number', test: (p) => /\d/.test(p) },
-];
+import PasswordFields, { isStrongPassword } from '../components/PasswordFields.jsx';
 
 export default function Activate() {
   const { activate, checkActivationToken, resendActivation } = useAuth();
@@ -28,7 +20,6 @@ export default function Activate() {
 
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
-  const [showPassword, setShowPassword] = useState(false);
 
   // The link is checked before the form appears, so nobody chooses a password
   // only to be told the link expired.
@@ -49,9 +40,8 @@ export default function Activate() {
       });
   }, [token, checkActivationToken]);
 
-  const rulesMet = RULES.every((r) => r.test(password));
   const matches = password.length > 0 && password === confirmPassword;
-  const canSubmit = rulesMet && matches && status === 'ready';
+  const canSubmit = isStrongPassword(password) && matches && status === 'ready';
 
   async function onSubmit(event) {
     event.preventDefault();
@@ -119,62 +109,13 @@ export default function Activate() {
           </div>
         )}
 
-        <div>
-          <label className="label">New password</label>
-          <div style={{ display: 'flex', gap: 8 }}>
-            <input
-              className="input"
-              type={showPassword ? 'text' : 'password'}
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              autoComplete="new-password"
-              autoFocus
-            />
-            <button
-              type="button"
-              className="btn btn-ghost"
-              style={{ fontSize: 12.5, padding: '7px 12px' }}
-              onClick={() => setShowPassword((v) => !v)}
-            >
-              {showPassword ? 'Hide' : 'Show'}
-            </button>
-          </div>
-        </div>
-
-        <ul style={{ margin: 0, padding: 0, listStyle: 'none', display: 'flex', flexDirection: 'column', gap: 4 }}>
-          {RULES.map((rule) => {
-            const met = rule.test(password);
-            return (
-              <li
-                key={rule.label}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 7,
-                  fontSize: 12.5,
-                  color: met ? 'var(--emerald)' : 'var(--text-muted)',
-                }}
-              >
-                <Icon name={met ? 'check-circle' : 'info'} size={13} />
-                {rule.label}
-              </li>
-            );
-          })}
-        </ul>
-
-        <div>
-          <label className="label">Confirm password</label>
-          <input
-            className="input"
-            type={showPassword ? 'text' : 'password'}
-            value={confirmPassword}
-            onChange={(e) => setConfirmPassword(e.target.value)}
-            autoComplete="new-password"
-          />
-          {confirmPassword && !matches && (
-            <span style={{ fontSize: 11.5, color: 'var(--red)' }}>The passwords don’t match</span>
-          )}
-        </div>
+        <PasswordFields
+          password={password}
+          setPassword={setPassword}
+          confirmPassword={confirmPassword}
+          setConfirmPassword={setConfirmPassword}
+          autoFocus
+        />
 
         <button className="btn btn-primary" type="submit" disabled={!canSubmit || status === 'saving'}>
           {status === 'saving' && <span className="spinner" />}

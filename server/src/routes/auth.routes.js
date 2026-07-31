@@ -13,7 +13,14 @@ import { asyncHandler } from '../lib/asyncHandler.js';
 import { generateOtp, hashOtp, OTP_TTL_MINUTES, OTP_MAX_ATTEMPTS, OTP_LOCKOUT_MINUTES } from '../auth/otp.js';
 import { toPublicUser } from '../auth/publicUser.js';
 import { computeAccessLocked } from '../auth/access.js';
-import { sendOtpEmail, sendActivationEmail, sendInviteEmail, sendAccountActivatedEmail } from '../lib/mailer.js';
+import {
+  sendOtpEmail,
+  sendActivationEmail,
+  sendInviteEmail,
+  sendAccountActivatedEmail,
+  sendPasswordResetEmail,
+  sendPasswordChangedEmail,
+} from '../lib/mailer.js';
 import { ACTIVATION_TOKEN_DAYS, generateActivationToken } from '../auth/activationToken.js';
 import { COUNTRIES, STATES, CURRENCIES, countryByName, countryByCode, isKnownCurrency, isValidState } from '../lib/geoData.js';
 import { createCaptcha, verifyCaptcha } from '../lib/captcha.js';
@@ -850,6 +857,124 @@ router.patch(
 
     await pool.execute('UPDATE users SET password_hash = ? WHERE id = ?', [hashPassword(newPassword), req.user.id]);
     res.json({ ok: true });
+  })
+);
+
+// --- Forgot password -----------------------------------------------------
+
+const RESET_TOKEN_HOURS = 24;
+const RESET_COOLDOWN_MS = 5 * 60 * 1000;
+
+// The response is the same whether or not the address has an account. The
+// sign-up form does disclose whether an email is taken — it has to, to tell
+// you before you fill the rest in — but there's no reason to hand that out a
+// second time from an endpoint that needs no context at all.
+router.post(
+  '/forgot-password',
+  asyncHandler(async (req, res) => {
+    const { email, captchaToken, captchaAnswer } = req.body || {};
+    if (!verifyCaptcha(captchaToken, captchaAnswer)) {
+      return res.status(400).json({ error: 'The verification answer was wrong — try the new sum' });
+    }
+
+    const normalizedEmail = String(email || '').trim().toLowerCase();
+    if (!EMAIL_PATTERN.test(normalizedEmail)) {
+      return res.status(400).json({ error: 'Enter a valid email address' });
+    }
+
+    const neutral = { ok: true };
+
+    // Only activated accounts: an account still waiting on its activation link
+    // has no password to reset, and should follow that link instead.
+    const [rows] = await pool.execute(
+      'SELECT id, email, first_name, name, password_reset_requested_at FROM users WHERE email = ? AND activated_at IS NOT NULL',
+      [normalizedEmail]
+    );
+    const user = rows[0];
+    if (!user) return res.json(neutral);
+
+    // Throttled so this can't be used to bombard someone's inbox. Silent —
+    // saying "wait five minutes" would confirm the account exists.
+    if (
+      user.password_reset_requested_at &&
+      Date.now() - new Date(user.password_reset_requested_at).getTime() < RESET_COOLDOWN_MS
+    ) {
+      return res.json(neutral);
+    }
+
+    const token = crypto.randomBytes(32).toString('hex');
+    const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
+    const expiresAt = new Date(Date.now() + RESET_TOKEN_HOURS * 60 * 60 * 1000);
+
+    await pool.execute(
+      `UPDATE users SET password_reset_token_hash = ?, password_reset_expires_at = ?,
+       password_reset_requested_at = NOW() WHERE id = ?`,
+      [tokenHash, expiresAt, user.id]
+    );
+
+    const resetUrl = `${process.env.CLIENT_ORIGIN || 'http://localhost:5173'}/reset-password?token=${token}`;
+    try {
+      await sendPasswordResetEmail(user.email, user.first_name || user.name, resetUrl, RESET_TOKEN_HOURS);
+    } catch (err) {
+      console.error('Failed to send password reset email', err);
+    }
+
+    res.json(neutral);
+  })
+);
+
+async function findResetCandidate(token) {
+  if (!token) return null;
+  const tokenHash = crypto.createHash('sha256').update(String(token)).digest('hex');
+  const [rows] = await pool.execute('SELECT * FROM users WHERE password_reset_token_hash = ?', [tokenHash]);
+  const user = rows[0];
+  if (!user || !user.password_reset_expires_at) return null;
+  if (new Date(user.password_reset_expires_at) < new Date()) return null;
+  return user;
+}
+
+// Checked before the form is shown, so nobody chooses a password only to be
+// told the link had expired.
+router.get(
+  '/reset-password/check',
+  asyncHandler(async (req, res) => {
+    const user = await findResetCandidate(req.query?.token);
+    if (!user) return res.status(400).json({ error: 'This reset link is invalid or has expired.' });
+    res.json({ ok: true, email: user.email });
+  })
+);
+
+router.post(
+  '/reset-password',
+  asyncHandler(async (req, res) => {
+    const { token, password } = req.body || {};
+    if (!isStrongPassword(password)) {
+      return res.status(400).json({
+        error: 'Password must be at least 8 characters and include an uppercase letter, a lowercase letter, and a number',
+      });
+    }
+
+    const user = await findResetCandidate(token);
+    if (!user) return res.status(400).json({ error: 'This reset link is invalid or has expired.' });
+
+    // The token is cleared in the same statement that sets the password, so a
+    // link can only ever be used once.
+    await pool.execute(
+      `UPDATE users SET password_hash = ?, password_reset_token_hash = NULL,
+       password_reset_expires_at = NULL WHERE id = ?`,
+      [hashPassword(password), user.id]
+    );
+
+    try {
+      await sendPasswordChangedEmail(user.email, user.first_name || user.name);
+    } catch (err) {
+      console.error('Failed to send password changed email', err);
+    }
+
+    // Deliberately not signing them in. Typing the new password on the login
+    // page proves it's the one they think they set, and keeps a stolen reset
+    // link from handing over a live session in one click.
+    res.json({ ok: true, email: user.email });
   })
 );
 

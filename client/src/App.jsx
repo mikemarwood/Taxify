@@ -7,6 +7,8 @@ import Register from './pages/Register.jsx';
 import Terms from './pages/Terms.jsx';
 import Privacy from './pages/Privacy.jsx';
 import Activate from './pages/Activate.jsx';
+import ForgotPassword from './pages/ForgotPassword.jsx';
+import ResetPassword from './pages/ResetPassword.jsx';
 import AcceptInvite from './pages/AcceptInvite.jsx';
 import Dashboard from './pages/Dashboard.jsx';
 import Expenses from './pages/Expenses.jsx';
@@ -58,6 +60,8 @@ export default function App() {
       <Route path="/register" element={<PublicOnly><Register /></PublicOnly>} />
       <Route path="/terms" element={<Terms />} />
       <Route path="/privacy" element={<Privacy />} />
+      <Route path="/forgot-password" element={<PublicOnly><ForgotPassword /></PublicOnly>} />
+      <Route path="/reset-password" element={<ResetPassword />} />
       <Route path="/activate" element={<Activate />} />
       <Route path="/accept-invite" element={<AcceptInvite />} />
       <Route path="/" element={<Protected><Dashboard /></Protected>} />

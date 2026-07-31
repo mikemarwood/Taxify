@@ -88,6 +88,12 @@ export async function ensureSchema() {
   // so the job needs to know which ones have already gone out.
   await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS activation_reminded_at DATETIME NULL`);
 
+  // Password resets. Only the hash is stored, same as activation tokens — a
+  // stolen database backup then can't be used to reset anybody's password.
+  await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS password_reset_token_hash VARCHAR(64) NULL`);
+  await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS password_reset_expires_at DATETIME NULL`);
+  await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS password_reset_requested_at DATETIME NULL`);
+
   // Split an existing single-field name so older accounts have parts too. Only
   // touches rows where the split hasn't happened, so it's safe on every boot.
   await pool.query(`

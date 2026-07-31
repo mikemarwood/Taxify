@@ -158,7 +158,12 @@ export default function Login() {
           <input className="input" type="email" required value={email} onChange={(e) => setEmail(e.target.value.toLowerCase())} />
         </div>
         <div>
-          <label className="label">Password</label>
+          <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 10 }}>
+            <label className="label">Password</label>
+            <Link to="/forgot-password" style={{ fontSize: 12.5, color: 'var(--accent)', fontWeight: 600 }}>
+              Forgot password?
+            </Link>
+          </div>
           <input className="input" type="password" required value={password} onChange={(e) => setPassword(e.target.value)} />
         </div>
         <Toggle
