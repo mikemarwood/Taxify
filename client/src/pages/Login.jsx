@@ -27,31 +27,38 @@ export default function Login() {
   const [remainingMs, setRemainingMs] = useState(0);
   const [lockedUntil, setLockedUntil] = useState(null);
   const [lockRemainingMs, setLockRemainingMs] = useState(0);
+  const [lockSeconds, setLockSeconds] = useState(0);
   const codeInputRef = useRef(null);
 
+  // Counted down from the duration the server sent, not from the difference
+  // between its clock and this one. A server running a few minutes behind used
+  // to make a code that had just been issued read as already expired.
   useEffect(() => {
-    if (!otpState) return;
-    const tick = () => setRemainingMs(new Date(otpState.expiresAt).getTime() - Date.now());
+    if (!otpState) return undefined;
+    const deadline = Date.now() + (otpState.expiresInSeconds ?? 300) * 1000;
+    const tick = () => setRemainingMs(deadline - Date.now());
     tick();
     const id = setInterval(tick, 1000);
     return () => clearInterval(id);
   }, [otpState]);
 
   useEffect(() => {
-    if (!lockedUntil) return;
-    const tick = () => setLockRemainingMs(new Date(lockedUntil).getTime() - Date.now());
+    if (!lockedUntil) return undefined;
+    const deadline = Date.now() + (lockSeconds ?? 0) * 1000;
+    const tick = () => setLockRemainingMs(deadline - Date.now());
     tick();
     const id = setInterval(tick, 1000);
     return () => clearInterval(id);
-  }, [lockedUntil]);
+  }, [lockedUntil, lockSeconds]);
 
   useEffect(() => {
     if (otpState) codeInputRef.current?.focus();
   }, [otpState]);
 
-  function lockAccount(until) {
+  function lockAccount(until, seconds) {
     setLockedUntil(until);
-    setLockRemainingMs(new Date(until).getTime() - Date.now());
+    setLockSeconds(seconds ?? 0);
+    setLockRemainingMs((seconds ?? 0) * 1000);
   }
 
   async function onSubmit(e) {
@@ -67,7 +74,7 @@ export default function Login() {
         navigate('/');
       }
     } catch (err) {
-      if (err.lockedUntil) lockAccount(err.lockedUntil);
+      if (err.lockedUntil) lockAccount(err.lockedUntil, err.lockedForSeconds);
       toast(err.message, 'error');
     } finally {
       setBusy(false);
@@ -87,7 +94,7 @@ export default function Login() {
       navigate('/');
     } catch (err) {
       if (err.lockedUntil) {
-        lockAccount(err.lockedUntil);
+        lockAccount(err.lockedUntil, err.lockedForSeconds);
         setOtpState(null);
       }
       toast(err.message, 'error');

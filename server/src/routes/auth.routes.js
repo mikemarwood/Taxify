@@ -29,6 +29,15 @@ import { evaluatePromoCode, recordPromoRedemption } from '../lib/promoCodes.js';
 
 const TRIAL_DAYS = 14;
 
+// Seconds from now until a stored timestamp, worked out entirely server-side.
+// The pool returns DATETIMEs as strings with no timezone on them, so a browser
+// parses one as its own local time — which is wrong by however far the two are
+// apart. Sending a duration instead sidesteps the whole problem.
+function secondsUntil(value) {
+  if (!value) return 0;
+  return Math.max(0, Math.ceil((new Date(value).getTime() - Date.now()) / 1000));
+}
+
 // How long before an unactivated sign-up can ask for another email. Long
 // enough to stop a stuck user hammering it, short enough not to feel punitive.
 export const RESEND_COOLDOWN_MS = 5 * 60 * 1000;
@@ -639,6 +648,7 @@ router.post(
       return res.status(423).json({
         error: 'Too many incorrect codes. Login is temporarily locked.',
         lockedUntil: user.otp_locked_until,
+        lockedForSeconds: secondsUntil(user.otp_locked_until),
       });
     }
 
@@ -668,7 +678,17 @@ router.post(
       return res.status(500).json({ error: 'Could not send your login code. Please try again shortly.' });
     }
 
-    res.json({ otpRequired: true, userId: user.id, expiresAt, publicDevice: !!publicDevice });
+    // Both are sent, but the client counts down from expiresInSeconds. An
+    // absolute timestamp is only as good as the agreement between the two
+    // clocks, and a server running a few minutes behind makes a code that was
+    // just issued read as already expired.
+    res.json({
+      otpRequired: true,
+      userId: user.id,
+      expiresAt,
+      expiresInSeconds: OTP_TTL_MINUTES * 60,
+      publicDevice: !!publicDevice,
+    });
   })
 );
 
@@ -686,6 +706,7 @@ router.post(
       return res.status(423).json({
         error: 'Too many incorrect codes. Login is temporarily locked.',
         lockedUntil: user.otp_locked_until,
+        lockedForSeconds: secondsUntil(user.otp_locked_until),
       });
     }
 
@@ -704,6 +725,7 @@ router.post(
         return res.status(423).json({
           error: 'Too many incorrect codes. Login is temporarily locked.',
           lockedUntil,
+          lockedForSeconds: OTP_LOCKOUT_MINUTES * 60,
         });
       }
       await pool.execute('UPDATE users SET otp_attempts = ? WHERE id = ?', [attempts, user.id]);

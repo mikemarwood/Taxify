@@ -12,6 +12,7 @@ api.interceptors.response.use(
     const message = data.error || 'Something went wrong. Please try again.';
     const wrapped = new Error(message);
     if (data.lockedUntil) wrapped.lockedUntil = data.lockedUntil;
+    if (data.lockedForSeconds !== undefined) wrapped.lockedForSeconds = data.lockedForSeconds;
     if (data.attemptsRemaining !== undefined) wrapped.attemptsRemaining = data.attemptsRemaining;
     return Promise.reject(wrapped);
   }
