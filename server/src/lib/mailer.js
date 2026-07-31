@@ -506,6 +506,24 @@ export async function diagnoseSmtp(to) {
   );
   if (!fromValid) return report;
 
+  // A From on a different domain to the SMTP account is the classic cause of
+  // a rewritten sender: the relay won't send as a domain it doesn't own, so it
+  // substitutes a bounce path and the mail arrives "on behalf of" — or as
+  // MAILER-DAEMON. Not fatal (some setups legitimately differ), but it's
+  // almost always a typo, so it's called out.
+  if (config.user && config.user.includes('@')) {
+    const fromDomain = envelopeFrom.split('@')[1]?.toLowerCase();
+    const userDomain = config.user.split('@')[1]?.toLowerCase();
+    const same = fromDomain === userDomain;
+    record(
+      'From matches the SMTP account',
+      same,
+      same
+        ? `Both on ${fromDomain}`
+        : `From is on "${fromDomain}" but the account is on "${userDomain}" — check for a typo. The relay will rewrite a sender it doesn't own.`
+    );
+  }
+
   let transporter;
   try {
     transporter = await getTransporter();
