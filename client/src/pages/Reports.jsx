@@ -7,11 +7,13 @@ import { formatMoney } from '../lib/money.js';
 import CategoryBadge from '../components/CategoryBadge.jsx';
 import ExpenseModal from '../components/ExpenseModal.jsx';
 import ExportMenu from '../components/ExportMenu.jsx';
+import YearArchiveButton from '../components/YearArchiveButton.jsx';
 
 export default function Reports() {
   const [expenses, setExpenses] = useState(null);
   const [categoryFilter, setCategoryFilter] = useState(null);
   const [selectedExpense, setSelectedExpense] = useState(null);
+  const [archiveYear, setArchiveYear] = useState('');
 
   function load() {
     api.get('/expenses').then((res) => setExpenses(res.data.expenses));
@@ -53,6 +55,12 @@ export default function Reports() {
     return { categories: sortedCategories, years: sortedYears, cellTotals: cells, categoryTotals: catTotals, yearTotals: yrTotals, grandTotal: grand };
   }, [expenses]);
 
+  // Defaults to the most recent year with anything in it — the one someone is
+  // almost always after at tax time.
+  useEffect(() => {
+    if (!archiveYear && years.length > 0) setArchiveYear(years[years.length - 1]);
+  }, [years, archiveYear]);
+
   const loading = expenses === null;
 
   const filteredExpenses = useMemo(() => {
@@ -74,7 +82,25 @@ export default function Reports() {
           <h1 style={{ margin: '0 0 4px', fontSize: 26 }}>Reports</h1>
           <p style={{ color: 'var(--text-muted)', margin: 0 }}>Compare spending by category across tax years.</p>
         </div>
-        <ExportMenu baseUrl="/api/export/categories" label="Export summary" />
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 12 }}>
+          <ExportMenu baseUrl="/api/export/categories" label="Export summary" />
+          <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8 }}>
+            <select
+              className="input"
+              aria-label="Financial year to archive"
+              value={archiveYear}
+              onChange={(e) => setArchiveYear(e.target.value)}
+              style={{ width: 128, fontSize: 12.5, padding: '7px 9px' }}
+            >
+              {years.map((y) => (
+                <option key={y} value={y}>
+                  FY {y}
+                </option>
+              ))}
+            </select>
+            <YearArchiveButton financialYear={archiveYear} disabled={years.length === 0} />
+          </div>
+        </div>
       </div>
 
       {loading ? (

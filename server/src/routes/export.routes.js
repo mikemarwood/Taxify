@@ -5,8 +5,14 @@ import pool from '../db.js';
 import { requireAuth, requireActiveAccess } from '../auth/middleware.js';
 import { getVisibleUserIds } from '../auth/access.js';
 import { asyncHandler } from '../lib/asyncHandler.js';
-import { financialYearOf } from '../lib/financialYear.js';
+import path from 'path';
+import { fileURLToPath } from 'url';
+import { financialYearOf, financialYearRange } from '../lib/financialYear.js';
 import { addBrandHeader, addFooter, BRAND } from '../lib/pdfBranding.js';
+import { streamYearArchive } from '../lib/yearArchive.js';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const uploadsDir = path.join(__dirname, '..', '..', 'uploads');
 
 const router = Router();
 router.use(requireAuth, requireActiveAccess);
@@ -314,6 +320,55 @@ router.get(
     doc.font('Helvetica-Bold').fontSize(10).text(`Grand total: ${grandTotal.toFixed(2)}`, doc.page.margins.left, y + 10);
     addFooter(doc);
     doc.end();
+  })
+);
+
+// The whole year as a zip: spreadsheet, PDF, and every attachment in folders.
+// Built for handing to an accountant, so the receipts are real files rather
+// than links back into an app they can't sign into.
+router.get(
+  '/year/:financialYear.zip',
+  asyncHandler(async (req, res) => {
+    const { financialYear } = req.params;
+    if (!financialYearRange(financialYear)) {
+      return res.status(400).json({ error: 'Expected a financial year like 2025-2026' });
+    }
+
+    const visibleUserIds = await getVisibleUserIds(req.user);
+    const [rows] = await pool.execute(
+      `SELECT e.id, e.user_id, e.item_name, e.amount, e.currency, e.purchase_date, e.receipt_path,
+              e.is_recurring, e.frequency, e.notes, c.name AS category_name
+       FROM expenses e
+       LEFT JOIN categories c ON c.id = e.category_id
+       WHERE e.user_id IN (${visibleUserIds.map(() => '?').join(',')}) AND e.deleted_at IS NULL
+       ORDER BY e.purchase_date ASC, e.id ASC`,
+      visibleUserIds
+    );
+
+    const expenses = rows
+      .map((r) => ({
+        id: r.id,
+        ownerId: r.user_id,
+        itemName: r.item_name,
+        amount: Number(r.amount),
+        currency: r.currency,
+        purchaseDate: r.purchase_date,
+        category: r.category_name || 'Uncategorised',
+        recurring: r.is_recurring ? r.frequency : '',
+        notes: r.notes || '',
+        receiptFilename: r.receipt_path || null,
+      }))
+      .filter((e) => financialYearOf(e.purchaseDate) === financialYear);
+
+    if (expenses.length === 0) {
+      return res.status(404).json({ error: `Nothing recorded in FY ${financialYear} yet` });
+    }
+
+    const [categories] = await pool.execute('SELECT name, is_property_rental FROM categories WHERE user_id = ?', [
+      req.user.id,
+    ]);
+
+    await streamYearArchive({ res, uploadsDir, userId: req.user.id, financialYear, expenses, categories });
   })
 );
 
