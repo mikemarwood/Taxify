@@ -160,7 +160,10 @@ export async function sendMail({ to, subject, title, heading, bodyHtml }) {
     // Pinning it to the same address as the From header is also what DMARC
     // alignment requires.
     envelope: { from: address, to },
-    sender: address,
+    // Deliberately no Sender header. RFC 5322 says it belongs only when it
+    // differs from From, and here it never does — a redundant one makes some
+    // clients show "on behalf of" and gives a strict relay a reason to refuse.
+    //
     // Generated from the sending domain rather than the machine's hostname,
     // which is usually something internal that matches nothing in DNS.
     messageId: `<${crypto.randomUUID()}@${address.split('@')[1] || 'localhost'}>`,
