@@ -59,8 +59,10 @@ router.get(
     const [users] = await pool.execute(
       `SELECT u.id, u.name, u.email, u.is_admin, u.avatar_path, u.created_at, u.activated_at,
               u.access_bypass, u.access_bypass_until, u.subscription_status, u.trial_ends_at,
+              u.role, u.account_holder_id, holder.name AS holder_name,
               (SELECT COUNT(*) FROM expenses e WHERE e.user_id = u.id) AS expense_count
        FROM users u
+       LEFT JOIN users holder ON holder.id = u.account_holder_id
        ORDER BY u.created_at`
     );
     res.json({
@@ -77,6 +79,12 @@ router.get(
         trialEndsAt: u.trial_ends_at,
         accessBypass: !!u.access_bypass,
         accessBypassUntil: u.access_bypass_until,
+        // Removing a family member is an administrator's job — neither of the
+        // two can remove the other — so the panel has to be able to tell one
+        // apart from an account holder at a glance.
+        role: u.role || 'owner',
+        accountHolderId: u.account_holder_id || null,
+        accountHolderName: u.holder_name || null,
         // Everything this user has uploaded — receipts and property documents
         // both live under <uploads>/<id>.
         storageBytes: directorySize(userRootDir(uploadsDir, u.id)),

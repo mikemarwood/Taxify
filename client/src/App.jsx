@@ -11,6 +11,7 @@ import ForgotPassword from './pages/ForgotPassword.jsx';
 import ResetPassword from './pages/ResetPassword.jsx';
 import AcceptInvite from './pages/AcceptInvite.jsx';
 import ConfirmEmail from './pages/ConfirmEmail.jsx';
+import ClientPicker from './pages/ClientPicker.jsx';
 import Dashboard from './pages/Dashboard.jsx';
 import Expenses from './pages/Expenses.jsx';
 import AddExpense from './pages/AddExpense.jsx';
@@ -30,12 +31,23 @@ function Splash() {
   );
 }
 
+const ACCOUNTANT_PATHS = ['/', '/expenses', '/reports', '/account'];
+
 function Protected({ children, adminOnly }) {
   const { user, loading } = useAuth();
   const location = useLocation();
   if (loading) return <Splash />;
   if (!user) return <Navigate to="/login" replace />;
   if (adminOnly && !user.isAdmin) return <Navigate to="/" replace />;
+
+  // An accountant with no client open has nothing to look at — the picker is
+  // the only page that makes sense, and choosing there is what starts their
+  // access window. They're also held to reading: expenses and reports.
+  if (user.role === 'accountant') {
+    if (!user.activeClient) return <Navigate to="/clients" replace />;
+    if (!ACCOUNTANT_PATHS.includes(location.pathname)) return <Navigate to="/" replace />;
+  }
+
   if (!adminOnly && user.accessLocked && location.pathname !== '/account') {
     return (
       <Layout>
@@ -49,7 +61,18 @@ function Protected({ children, adminOnly }) {
 function PublicOnly({ children }) {
   const { user, loading } = useAuth();
   if (loading) return <Splash />;
-  if (user) return <Navigate to="/" replace />;
+  if (user) return <Navigate to={user.role === 'accountant' ? '/clients' : '/'} replace />;
+  return children;
+}
+
+// The picker sits outside Protected: it is the one page an accountant can
+// reach before they have chosen a client, which is the state Protected sends
+// them here from.
+function AccountantOnly({ children }) {
+  const { user, loading } = useAuth();
+  if (loading) return <Splash />;
+  if (!user) return <Navigate to="/login?accountant=1" replace />;
+  if (user.role !== 'accountant') return <Navigate to="/" replace />;
   return children;
 }
 
@@ -66,6 +89,7 @@ export default function App() {
       <Route path="/activate" element={<Activate />} />
       <Route path="/accept-invite" element={<AcceptInvite />} />
       <Route path="/confirm-email" element={<ConfirmEmail />} />
+      <Route path="/clients" element={<AccountantOnly><ClientPicker /></AccountantOnly>} />
       <Route path="/" element={<Protected><Dashboard /></Protected>} />
       <Route path="/expenses" element={<Protected><Expenses /></Protected>} />
       <Route path="/add" element={<Protected><AddExpense /></Protected>} />

@@ -3,7 +3,7 @@ import ExcelJS from 'exceljs';
 import PDFDocument from 'pdfkit';
 import pool from '../db.js';
 import { requireAuth, requireActiveAccess } from '../auth/middleware.js';
-import { getVisibleUserIds } from '../auth/access.js';
+import { getVisibleUserIds, expenseScope } from '../auth/access.js';
 import { asyncHandler } from '../lib/asyncHandler.js';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -18,15 +18,15 @@ const router = Router();
 router.use(requireAuth, requireActiveAccess);
 
 async function loadExpenses(req) {
-  const visibleUserIds = await getVisibleUserIds(req.user);
+  const scope = await expenseScope(req.user);
   const [rows] = await pool.execute(
     `SELECT e.item_name, e.amount, e.currency, e.purchase_date, e.is_recurring, e.frequency, e.notes,
             c.name AS category_name
      FROM expenses e
      LEFT JOIN categories c ON c.id = e.category_id
-     WHERE e.user_id IN (${visibleUserIds.map(() => '?').join(',')}) AND e.deleted_at IS NULL
+     WHERE ${scope.clause} AND e.deleted_at IS NULL
      ORDER BY e.purchase_date DESC, e.id DESC`,
-    visibleUserIds
+    scope.params
   );
   return rows.map((r) => ({
     itemName: r.item_name,
@@ -334,15 +334,15 @@ router.get(
       return res.status(400).json({ error: 'Expected a financial year like 2025-2026' });
     }
 
-    const visibleUserIds = await getVisibleUserIds(req.user);
+    const scope = await expenseScope(req.user);
     const [rows] = await pool.execute(
       `SELECT e.id, e.user_id, e.item_name, e.amount, e.currency, e.purchase_date, e.receipt_path,
               e.is_recurring, e.frequency, e.notes, c.name AS category_name
        FROM expenses e
        LEFT JOIN categories c ON c.id = e.category_id
-       WHERE e.user_id IN (${visibleUserIds.map(() => '?').join(',')}) AND e.deleted_at IS NULL
+       WHERE ${scope.clause} AND e.deleted_at IS NULL
        ORDER BY e.purchase_date ASC, e.id ASC`,
-      visibleUserIds
+      scope.params
     );
 
     const expenses = rows

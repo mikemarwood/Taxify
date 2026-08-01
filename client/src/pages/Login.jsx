@@ -6,6 +6,7 @@ import { useToast } from '../components/Toast.jsx';
 import { onDigitKeyDown } from '../lib/sounds.js';
 import { api } from '../lib/api.js';
 import Toggle from '../components/Toggle.jsx';
+import Icon from '../components/Icon.jsx';
 
 function msToClock(ms) {
   const total = Math.max(0, Math.ceil(ms / 1000));
@@ -22,6 +23,7 @@ export default function Login() {
   const [password, setPassword] = useState('');
   const [publicDevice, setPublicDevice] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [accountantMode, setAccountantMode] = useState(() => new URLSearchParams(window.location.search).has('accountant'));
 
   const [otpState, setOtpState] = useState(null); // { userId, expiresAt }
   const [code, setCode] = useState('');
@@ -87,7 +89,7 @@ export default function Login() {
         setCode('');
         setLockedUntil(null);
       } else {
-        navigate('/');
+        navigate(result.user?.role === 'accountant' ? '/clients' : '/');
       }
     } catch (err) {
       if (err.lockedUntil) lockAccount(err.lockedUntil, err.lockedForSeconds);
@@ -104,8 +106,8 @@ export default function Login() {
     }
     setBusy(true);
     try {
-      await verifyOtp(otpState.userId, value, publicDevice);
-      navigate('/');
+      const user = await verifyOtp(otpState.userId, value, publicDevice);
+      navigate(user?.role === 'accountant' ? '/clients' : '/');
     } catch (err) {
       if (err.lockedUntil) {
         lockAccount(err.lockedUntil, err.lockedForSeconds);
@@ -228,7 +230,62 @@ export default function Login() {
   }
 
   return (
-    <AuthLayout title="Welcome back" subtitle="Log in to keep tracking your deductions.">
+    <AuthLayout
+      title={accountantMode ? 'Accountant sign-in' : 'Welcome back'}
+      subtitle={
+        accountantMode
+          ? 'Sign in to open the books your clients have shared with you.'
+          : 'Log in to keep tracking your deductions.'
+      }
+    >
+      {/* Two doors, not two login systems — the credentials are the same, but
+          an accountant arrives expecting to be recognised as one, and lands on
+          their client list rather than on somebody's dashboard. */}
+      <div
+        role="tablist"
+        style={{
+          display: 'flex',
+          gap: 4,
+          padding: 4,
+          marginBottom: 20,
+          borderRadius: 'var(--radius)',
+          background: 'var(--bg-inset)',
+          border: '1px solid var(--border)',
+        }}
+      >
+        {[
+          { id: false, label: 'I have an account', icon: 'user' },
+          { id: true, label: "I'm an accountant", icon: 'briefcase' },
+        ].map((t) => (
+          <button
+            key={String(t.id)}
+            type="button"
+            role="tab"
+            aria-selected={accountantMode === t.id}
+            onClick={() => setAccountantMode(t.id)}
+            style={{
+              flex: 1,
+              display: 'inline-flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: 7,
+              padding: '9px 10px',
+              borderRadius: 8,
+              border: 0,
+              cursor: 'pointer',
+              fontSize: 13,
+              fontWeight: 600,
+              color: accountantMode === t.id ? 'var(--text)' : 'var(--text-muted)',
+              background: accountantMode === t.id ? 'var(--bg-elevated)' : 'transparent',
+              boxShadow: accountantMode === t.id ? 'var(--shadow-sm)' : 'none',
+            }}
+          >
+            <Icon name={t.icon} size={15} />
+            {t.label}
+          </button>
+        ))}
+      </div>
+
       <form onSubmit={onSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
         <div>
           <label className="label">Email</label>
@@ -253,9 +310,16 @@ export default function Login() {
           Log in
         </button>
       </form>
-      <p style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 20, textAlign: 'center' }}>
-        No account yet? <Link to="/register" style={{ color: 'var(--blue)', fontWeight: 600 }}>Create one</Link>
-      </p>
+      {accountantMode ? (
+        <p style={{ fontSize: 12.5, color: 'var(--text-muted)', marginTop: 20, textAlign: 'center', lineHeight: 1.6 }}>
+          Accountant access is read-only and is set up by your client from their account. It lasts 24 hours from the
+          first time you open their books.
+        </p>
+      ) : (
+        <p style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 20, textAlign: 'center' }}>
+          No account yet? <Link to="/register" style={{ color: 'var(--blue)', fontWeight: 600 }}>Create one</Link>
+        </p>
+      )}
     </AuthLayout>
   );
 }

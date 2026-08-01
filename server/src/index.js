@@ -17,6 +17,7 @@ import { purgeUnactivatedAccounts, runBillingReminders } from './jobs/billingJob
 import { runRecurringExpenses } from './jobs/expenseJobs.js';
 import pool, { ensureSchema } from './db.js';
 import { migrateReceiptFolders } from './migrations/receiptFolders.js';
+import { purgeExpiredAssignments } from './auth/accountants.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
@@ -156,6 +157,14 @@ runRecurringExpenses(pool).catch((err) => console.error('Failed to run recurring
 setInterval(() => {
   runRecurringExpenses(pool).catch((err) => console.error('Failed to run recurring expenses', err));
 }, 60 * 60 * 1000);
+
+// Accountant access is meant to be gone 24 hours after it was first used.
+// Requests already refuse an expired assignment, but "removed" should be true
+// of the database whether or not anyone happens to log in and trigger it.
+purgeExpiredAssignments().catch((err) => console.error('Failed to purge expired accountant access', err));
+setInterval(() => {
+  purgeExpiredAssignments().catch((err) => console.error('Failed to purge expired accountant access', err));
+}, 15 * 60 * 1000);
 
 app.listen(PORT, () => {
   console.log(`Taxify server listening on http://localhost:${PORT}`);

@@ -1,4 +1,5 @@
 import pool from '../db.js';
+import { financialYearClause } from './accountants.js';
 
 function isRowActive(row) {
   // An admin can hand an account access without a subscription — a comped
@@ -51,4 +52,23 @@ export async function getVisibleUserIds(publicUser) {
     if (rows.length > 0) return rows.map((r) => r.id);
   }
   return [publicUser.id];
+}
+
+// The whole WHERE fragment for "expenses this request may read" — the user ids
+// plus, for an accountant given only some financial years, the date ranges
+// those years cover. Built in one place so a query written later can't
+// accidentally hand an accountant a year they were never given.
+export async function expenseScope(publicUser, column = 'e.user_id', dateColumn = 'e.purchase_date') {
+  const ids = await getVisibleUserIds(publicUser);
+  const parts = [`${column} IN (${ids.map(() => '?').join(',')})`];
+  const params = [...ids];
+
+  const years = publicUser.role === 'accountant' ? publicUser.allowedFinancialYears : null;
+  const restriction = financialYearClause(years, dateColumn);
+  if (restriction) {
+    parts.push(restriction.clause);
+    params.push(...restriction.params);
+  }
+
+  return { ids, clause: parts.join(' AND '), params };
 }

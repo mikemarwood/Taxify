@@ -251,33 +251,68 @@ function BillingSection({ user }) {
   );
 }
 
+// A handful of years back and the current one — the range anyone would
+// actually hand an accountant.
+function yearOptions() {
+  const now = new Date();
+  const current = now.getMonth() >= 6 ? now.getFullYear() : now.getFullYear() - 1;
+  const list = [];
+  for (let start = current; start >= current - 6; start--) list.push(`${start}-${start + 1}`);
+  return list;
+}
+
+function formatWhen(value) {
+  if (!value) return null;
+  return new Date(value).toLocaleString(undefined, {
+    day: '2-digit',
+    month: 'short',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+}
+
 function FamilySection({ user }) {
   const toast = useToast();
   const [members, setMembers] = useState(null);
+  const [accountants, setAccountants] = useState(null);
+  const [windowHours, setWindowHours] = useState(24);
   const [inviteName, setInviteName] = useState('');
   const [inviteEmail, setInviteEmail] = useState('');
   const [inviteRole, setInviteRole] = useState(user.planType === 'family' ? 'sub_user' : 'accountant');
+  const [allYears, setAllYears] = useState(true);
+  const [pickedYears, setPickedYears] = useState([]);
   const [busy, setBusy] = useState(false);
 
   function load() {
     api.get('/auth/family').then((res) => setMembers(res.data.members));
+    api.get('/auth/accountant-access').then((res) => {
+      setAccountants(res.data.accountants);
+      setWindowHours(res.data.windowHours || 24);
+    });
   }
 
   useEffect(load, []);
 
   const hasSubUser = members?.some((m) => m.role === 'sub_user');
-  const hasAccountant = members?.some((m) => m.role === 'accountant');
   const canInviteSubUser = user.planType === 'family' && !hasSubUser;
-  const canInviteAccountant = !hasAccountant;
 
   async function onInvite(e) {
     e.preventDefault();
     setBusy(true);
     try {
-      await api.post('/auth/invite', { name: inviteName.trim(), email: inviteEmail.trim().toLowerCase(), role: inviteRole });
-      toast('Invitation sent', 'success');
+      await api.post('/auth/invite', {
+        name: inviteName.trim(),
+        email: inviteEmail.trim().toLowerCase(),
+        role: inviteRole,
+        // Omitted entirely for a family member — the server ignores it, and
+        // sending it anyway would suggest it did something.
+        ...(inviteRole === 'accountant' && !allYears ? { financialYears: pickedYears } : {}),
+      });
+      toast(inviteRole === 'accountant' ? 'Access granted — we’ve emailed them' : 'Invitation sent', 'success');
       setInviteName('');
       setInviteEmail('');
+      setPickedYears([]);
+      setAllYears(true);
       load();
     } catch (err) {
       toast(err.message, 'error');
@@ -286,7 +321,7 @@ function FamilySection({ user }) {
     }
   }
 
-  async function onRemove(id) {
+  async function onRemoveMember(id) {
     try {
       await api.delete(`/auth/family/${id}`);
       toast('Access removed', 'success');
@@ -296,59 +331,205 @@ function FamilySection({ user }) {
     }
   }
 
+  async function onRevokeAccountant(assignment) {
+    if (!window.confirm(`Remove ${assignment.name}'s access to your account?`)) return;
+    try {
+      await api.delete(`/auth/accountant-access/${assignment.id}`);
+      toast('Accountant access removed', 'success');
+      load();
+    } catch (err) {
+      toast(err.message, 'error');
+    }
+  }
+
+  const canSubmit =
+    inviteName.trim() &&
+    inviteEmail.trim() &&
+    (inviteRole !== 'accountant' || allYears || pickedYears.length > 0);
+
   return (
-    <div className="card" style={{ padding: 20, display: 'flex', flexDirection: 'column', gap: 14 }}>
-      <div style={{ fontWeight: 700 }}>Family &amp; accountant access</div>
+    <div className="card" style={{ padding: 20, display: 'flex', flexDirection: 'column', gap: 18 }}>
+      <div>
+        <div style={{ fontWeight: 700 }}>Family &amp; accountant access</div>
+        <div style={{ fontSize: 12.5, color: 'var(--text-muted)', marginTop: 3, lineHeight: 1.55 }}>
+          A family member shares this account fully and permanently. An accountant gets a read-only look that ends on
+          its own.
+        </div>
+      </div>
 
       {members?.length > 0 && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
           {members.map((m) => (
-            <div key={m.id} style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 13 }}>
-              <span style={{ fontWeight: 600, flex: 1 }}>{m.name}</span>
-              <span style={{ color: 'var(--text-muted)' }}>{m.email}</span>
-              <span style={{ color: 'var(--text-muted)', textTransform: 'capitalize' }}>
-                {m.role === 'sub_user' ? 'family member' : 'accountant'}
-              </span>
-              <span style={{ color: m.active ? 'var(--emerald)' : 'var(--text-muted)' }}>
+            <div
+              key={m.id}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 10,
+                fontSize: 13,
+                flexWrap: 'wrap',
+                padding: '10px 12px',
+                borderRadius: 'var(--radius-sm)',
+                background: 'var(--bg-elevated)',
+              }}
+            >
+              <Icon name={m.role === 'sub_user' ? 'users' : 'briefcase'} size={16} style={{ color: 'var(--accent)' }} />
+              <span style={{ fontWeight: 600 }}>{m.name}</span>
+              <span style={{ color: 'var(--text-muted)', flex: 1, minWidth: 140 }}>{m.email}</span>
+              <span style={{ color: m.active ? 'var(--emerald)' : 'var(--text-muted)', fontSize: 12 }}>
                 {m.active ? 'Active' : 'Invite pending'}
               </span>
-              <button className="btn btn-ghost" style={{ fontSize: 12, padding: '4px 10px' }} onClick={() => onRemove(m.id)}>
-                Remove
+              {/* Two people on a Family plan are equals — removing one is an
+                  administrator's call, not a race between them. */}
+              {m.role === 'sub_user' ? (
+                <span
+                  title="Family members share full access. Contact support to remove one."
+                  style={{ fontSize: 11.5, color: 'var(--text-muted)', display: 'inline-flex', alignItems: 'center', gap: 5 }}
+                >
+                  <Icon name="lock" size={12} />
+                  Full access
+                </span>
+              ) : (
+                <button
+                  className="btn btn-ghost"
+                  style={{ fontSize: 12, padding: '5px 11px' }}
+                  onClick={() => onRemoveMember(m.id)}
+                >
+                  Remove
+                </button>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+
+      {accountants?.length > 0 && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          <div style={{ fontSize: 12, fontWeight: 700, letterSpacing: 0.5, textTransform: 'uppercase', color: 'var(--text-muted)' }}>
+            Accountants with access
+          </div>
+          {accountants.map((a) => (
+            <div
+              key={a.id}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 10,
+                fontSize: 13,
+                flexWrap: 'wrap',
+                padding: '10px 12px',
+                borderRadius: 'var(--radius-sm)',
+                background: 'var(--bg-elevated)',
+              }}
+            >
+              <Icon name="briefcase" size={16} style={{ color: 'var(--accent)' }} />
+              <span style={{ fontWeight: 600 }}>{a.name}</span>
+              <span style={{ color: 'var(--text-muted)', flex: 1, minWidth: 140 }}>{a.email}</span>
+              <span style={{ fontSize: 11.5, color: 'var(--text-muted)' }}>
+                {a.financialYears ? `FY ${a.financialYears.join(', ')}` : 'All years'}
+              </span>
+              <span style={{ fontSize: 11.5, color: a.expiresAt ? 'var(--amber)' : 'var(--text-muted)' }}>
+                {a.expiresAt ? `Ends ${formatWhen(a.expiresAt)}` : 'Not opened yet'}
+              </span>
+              <button
+                className="btn btn-ghost"
+                style={{ fontSize: 12, padding: '5px 11px' }}
+                onClick={() => onRevokeAccountant(a)}
+              >
+                Revoke
               </button>
             </div>
           ))}
         </div>
       )}
 
-      {(canInviteSubUser || canInviteAccountant) && (
-        <form onSubmit={onInvite} style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-            <input
-              className="input"
-              required
-              placeholder="Name"
-              value={inviteName}
-              onChange={(e) => setInviteName(e.target.value)}
-            />
-            <input
-              className="input"
-              required
-              type="email"
-              placeholder="Email"
-              value={inviteEmail}
-              onChange={(e) => setInviteEmail(e.target.value.toLowerCase())}
-            />
+      <form onSubmit={onInvite} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+          <input
+            className="input"
+            required
+            placeholder="Name"
+            value={inviteName}
+            onChange={(e) => setInviteName(e.target.value)}
+          />
+          <input
+            className="input"
+            required
+            type="email"
+            placeholder="Email"
+            value={inviteEmail}
+            onChange={(e) => setInviteEmail(e.target.value.toLowerCase())}
+          />
+        </div>
+
+        <select className="input" value={inviteRole} onChange={(e) => setInviteRole(e.target.value)}>
+          <option value="accountant">Accountant — read-only, {windowHours} hours</option>
+          {canInviteSubUser && <option value="sub_user">Family member — full, permanent access</option>}
+        </select>
+
+        {inviteRole === 'accountant' && (
+          <div
+            style={{
+              padding: 14,
+              borderRadius: 'var(--radius-sm)',
+              background: 'var(--bg-inset)',
+              border: '1px solid var(--border)',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 10,
+            }}
+          >
+            <div className="label" style={{ margin: 0 }}>
+              How much of your history can they see?
+            </div>
+            <label style={{ display: 'flex', alignItems: 'center', gap: 9, fontSize: 13, cursor: 'pointer' }}>
+              <input type="radio" checked={allYears} onChange={() => setAllYears(true)} />
+              Every financial year
+            </label>
+            <label style={{ display: 'flex', alignItems: 'center', gap: 9, fontSize: 13, cursor: 'pointer' }}>
+              <input type="radio" checked={!allYears} onChange={() => setAllYears(false)} />
+              Only the years I choose
+            </label>
+
+            {!allYears && (
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, paddingLeft: 2 }}>
+                {yearOptions().map((y) => {
+                  const on = pickedYears.includes(y);
+                  return (
+                    <button
+                      key={y}
+                      type="button"
+                      onClick={() => setPickedYears((prev) => (on ? prev.filter((p) => p !== y) : [...prev, y]))}
+                      style={{
+                        fontSize: 12,
+                        fontWeight: 600,
+                        padding: '6px 11px',
+                        borderRadius: 999,
+                        cursor: 'pointer',
+                        color: on ? '#fff' : 'var(--text-muted)',
+                        background: on ? 'var(--accent)' : 'var(--bg-card)',
+                        border: `1px solid ${on ? 'var(--accent)' : 'var(--border)'}`,
+                      }}
+                    >
+                      FY {y}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+
+            <p style={{ fontSize: 11.5, color: 'var(--text-muted)', margin: 0, lineHeight: 1.5 }}>
+              Their access begins the first time they open your books and is removed automatically {windowHours} hours
+              later. They can never change anything.
+            </p>
           </div>
-          <select className="input" value={inviteRole} onChange={(e) => setInviteRole(e.target.value)}>
-            {canInviteSubUser && <option value="sub_user">Family member (full access)</option>}
-            {canInviteAccountant && <option value="accountant">Accountant (read-only)</option>}
-          </select>
-          <button className="btn btn-primary" type="submit" disabled={busy} style={{ alignSelf: 'flex-start', fontSize: 13 }}>
-            {busy && <span className="spinner" />}
-            Send invite
-          </button>
-        </form>
-      )}
+        )}
+
+        <button className="btn btn-primary" type="submit" disabled={busy || !canSubmit} style={{ alignSelf: 'flex-start', fontSize: 13 }}>
+          {busy && <span className="spinner" />}
+          {inviteRole === 'accountant' ? 'Grant access' : 'Send invite'}
+        </button>
+      </form>
 
       {!canInviteSubUser && user.planType !== 'family' && (
         <p style={{ fontSize: 12, color: 'var(--text-muted)', margin: 0 }}>

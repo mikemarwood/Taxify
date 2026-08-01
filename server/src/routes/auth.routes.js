@@ -6,13 +6,20 @@ import crypto from 'crypto';
 import { fileURLToPath } from 'url';
 import pool, { getSetting, getMfaMode } from '../db.js';
 import { hashPassword, verifyPassword, isStrongPassword } from '../auth/password.js';
-import { signToken, cookieOptions, COOKIE_NAME } from '../auth/jwt.js';
+import { signToken, signAccountantToken, cookieOptions, COOKIE_NAME } from '../auth/jwt.js';
 import { requireAuth, requireAccountOwner } from '../auth/middleware.js';
 import { seedDefaultCategories } from '../seed/defaultCategories.js';
 import { asyncHandler } from '../lib/asyncHandler.js';
 import { generateOtp, hashOtp, OTP_TTL_MINUTES, OTP_MAX_ATTEMPTS, OTP_LOCKOUT_MINUTES } from '../auth/otp.js';
 import { toPublicUser } from '../auth/publicUser.js';
 import { computeAccessLocked } from '../auth/access.js';
+import {
+  listAssignments,
+  openAssignment,
+  purgeExpiredAssignments,
+  serialiseYears,
+  ACCOUNTANT_WINDOW_HOURS,
+} from '../auth/accountants.js';
 import {
   sendOtpEmail,
   sendActivationEmail,
@@ -22,6 +29,7 @@ import {
   sendPasswordChangedEmail,
   sendEmailChangeEmail,
   sendEmailChangedNoticeEmail,
+  sendAccountantAccessEmail,
 } from '../lib/mailer.js';
 import { ACTIVATION_TOKEN_DAYS, generateActivationToken } from '../auth/activationToken.js';
 import { COUNTRIES, STATES, CURRENCIES, countryByName, countryByCode, isKnownCurrency, isValidState } from '../lib/geoData.js';
@@ -488,27 +496,68 @@ router.post(
   requireAuth,
   requireAccountOwner,
   asyncHandler(async (req, res) => {
-    const { name, email, role } = req.body || {};
+    const { name, email, role, financialYears } = req.body || {};
     if (!name || !String(name).trim()) return res.status(400).json({ error: 'Name is required' });
     if (!email || !String(email).trim()) return res.status(400).json({ error: 'Email is required' });
     if (role !== 'sub_user' && role !== 'accountant') {
       return res.status(400).json({ error: 'role must be sub_user or accountant' });
     }
 
-    const [existingRows] = await pool.execute('SELECT id FROM users WHERE account_holder_id = ? AND role = ?', [
-      req.user.id,
-      role,
-    ]);
-    if (existingRows.length > 0) {
-      return res.status(400).json({
-        error: role === 'accountant' ? 'You already have an accountant invited' : 'You already have a family member invited',
-      });
-    }
-    if (role === 'sub_user' && req.user.planType !== 'family') {
-      return res.status(400).json({ error: 'Upgrade to the Family plan to add a second user' });
+    const normalizedEmail = String(email).trim().toLowerCase();
+    const displayName = String(name).trim();
+
+    // A family member is a second person on this account, so there is only ever
+    // room for one and only on the plan that includes them.
+    if (role === 'sub_user') {
+      if (req.user.planType !== 'family') {
+        return res.status(400).json({ error: 'Upgrade to the Family plan to add a second user' });
+      }
+      const [existingRows] = await pool.execute(
+        "SELECT id FROM users WHERE account_holder_id = ? AND role = 'sub_user'",
+        [req.user.id]
+      );
+      if (existingRows.length > 0) {
+        return res.status(400).json({ error: 'You already have a family member on this account' });
+      }
     }
 
-    const normalizedEmail = String(email).trim().toLowerCase();
+    // Only accountants can be scoped to particular years. A family member is a
+    // co-owner of the same books, not a visitor with a reading window.
+    const yearScope = role === 'accountant' ? serialiseYears(financialYears) : null;
+
+    if (role === 'accountant') {
+      // An accountant works for several people, so the same address turning up
+      // again is the normal case, not a collision — it gets another assignment
+      // rather than another login.
+      const [existing] = await pool.execute('SELECT id, role, name FROM users WHERE email = ?', [normalizedEmail]);
+      const found = existing[0];
+
+      if (found) {
+        if (found.role !== 'accountant') {
+          return res.status(409).json({ error: 'That address already belongs to a Taxify account holder' });
+        }
+        const [already] = await pool.execute(
+          'SELECT id FROM accountant_assignments WHERE accountant_user_id = ? AND owner_user_id = ?',
+          [found.id, req.user.id]
+        );
+        if (already.length > 0) {
+          return res.status(400).json({ error: 'That accountant already has access to your account' });
+        }
+        await pool.execute(
+          'INSERT INTO accountant_assignments (accountant_user_id, owner_user_id, financial_years) VALUES (?, ?, ?)',
+          [found.id, req.user.id, yearScope]
+        );
+
+        const loginUrl = `${process.env.CLIENT_ORIGIN || 'http://localhost:5173'}/login?accountant=1`;
+        try {
+          await sendAccountantAccessEmail(normalizedEmail, found.name, req.user.name, loginUrl, yearScope);
+        } catch (err) {
+          console.error('Failed to send accountant access email', err);
+        }
+        return res.status(201).json({ ok: true, existingAccountant: true });
+      }
+    }
+
     const placeholderHash = hashPassword(crypto.randomBytes(32).toString('hex'));
     const { token, tokenHash, expiresAt } = generateActivationToken();
 
@@ -517,7 +566,7 @@ router.post(
       const [result] = await pool.execute(
         `INSERT INTO users (email, password_hash, name, role, account_holder_id, activation_token_hash, activation_token_expires_at)
          VALUES (?, ?, ?, ?, ?, ?, ?)`,
-        [normalizedEmail, placeholderHash, String(name).trim(), role, req.user.id, tokenHash, expiresAt]
+        [normalizedEmail, placeholderHash, displayName, role, req.user.id, tokenHash, expiresAt]
       );
       userId = result.insertId;
     } catch (err) {
@@ -529,16 +578,91 @@ router.post(
 
     if (role === 'sub_user') {
       await seedDefaultCategories(pool, userId);
+    } else {
+      await pool.execute(
+        'INSERT INTO accountant_assignments (accountant_user_id, owner_user_id, financial_years) VALUES (?, ?, ?)',
+        [userId, req.user.id, yearScope]
+      );
     }
 
     const acceptUrl = `${process.env.CLIENT_ORIGIN || 'http://localhost:5173'}/accept-invite?token=${token}`;
     try {
-      await sendInviteEmail(normalizedEmail, String(name).trim(), role, acceptUrl, req.user.name);
+      await sendInviteEmail(normalizedEmail, displayName, role, acceptUrl, req.user.name);
     } catch (err) {
       console.error('Failed to send invite email', err);
     }
 
     res.status(201).json({ ok: true });
+  })
+);
+
+// --- Accountant client picker --------------------------------------------
+
+// Deliberately outside requireActiveAccess: an accountant reaches this before
+// they have a client, which is exactly the state that middleware rejects.
+router.get(
+  '/clients',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    if (req.user.role !== 'accountant') return res.status(403).json({ error: 'Accountant access only' });
+
+    const clients = await listAssignments(req.user.id);
+
+    // Enough about each client to tell them apart when several are listed —
+    // whose books, how big, and how much of the history was shared.
+    const enriched = await Promise.all(
+      clients.map(async (c) => {
+        const [rows] = await pool.execute(
+          `SELECT COUNT(*) AS n, COALESCE(SUM(e.amount), 0) AS total, MAX(e.purchase_date) AS latest
+           FROM expenses e
+           JOIN users u ON u.id = e.user_id
+           WHERE (u.id = ? OR u.account_holder_id = ?) AND u.role <> 'accountant' AND e.deleted_at IS NULL`,
+          [c.ownerId, c.ownerId]
+        );
+        return {
+          ...c,
+          expenseCount: Number(rows[0]?.n) || 0,
+          totalAmount: Number(rows[0]?.total) || 0,
+          latestExpense: rows[0]?.latest || null,
+        };
+      })
+    );
+
+    res.json({ clients: enriched, activeClientId: req.user.accountHolderId || null, windowHours: ACCOUNTANT_WINDOW_HOURS });
+  })
+);
+
+// Registered before /clients/:ownerId, or "exit" would be read as an id.
+
+// Opening a client starts their 24-hour window if this is the first look, and
+// re-issues the session cookie naming that client.
+router.post(
+  '/clients/:ownerId',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    if (req.user.role !== 'accountant') return res.status(403).json({ error: 'Accountant access only' });
+
+    const ownerId = Number(req.params.ownerId);
+    const assignment = await openAssignment(req.user.id, ownerId);
+    if (!assignment) return res.status(404).json({ error: 'That access has been removed or has expired.' });
+
+    res.cookie(
+      COOKIE_NAME,
+      signAccountantToken(req.user, ownerId, ACCOUNTANT_WINDOW_HOURS),
+      cookieOptions(false)
+    );
+    res.json({ ok: true, expiresAt: assignment.expires_at || assignment.expiresAt || null });
+  })
+);
+
+// Back to the picker without logging out.
+router.post(
+  '/clients/exit',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    if (req.user.role !== 'accountant') return res.status(403).json({ error: 'Accountant access only' });
+    res.cookie(COOKIE_NAME, signToken(req.user), cookieOptions(false));
+    res.json({ ok: true });
   })
 );
 
@@ -617,12 +741,72 @@ router.delete(
   requireAuth,
   requireAccountOwner,
   asyncHandler(async (req, res) => {
-    const [result] = await pool.execute('DELETE FROM users WHERE id = ? AND account_holder_id = ?', [
+    const [rows] = await pool.execute('SELECT id, role FROM users WHERE id = ? AND account_holder_id = ?', [
       req.params.id,
+      req.user.id,
+    ]);
+    const member = rows[0];
+    if (!member) return res.status(404).json({ error: 'Not found' });
+
+    // Two people on a Family plan are equals — both have full access, and
+    // neither gets to end the other's. Only an administrator can, so a
+    // disagreement between them can't be settled by whoever clicks first.
+    if (member.role === 'sub_user') {
+      return res.status(403).json({
+        error: 'Family members share full access and cannot remove each other. Contact support to remove one.',
+      });
+    }
+
+    await pool.execute('DELETE FROM users WHERE id = ?', [member.id]);
+    res.json({ ok: true });
+  })
+);
+
+// Revoking an accountant is the owner's to do — unlike a family member, an
+// accountant is a visitor, and their access was always meant to end.
+router.delete(
+  '/accountant-access/:ownerAssignmentId',
+  requireAuth,
+  requireAccountOwner,
+  asyncHandler(async (req, res) => {
+    const [result] = await pool.execute('DELETE FROM accountant_assignments WHERE id = ? AND owner_user_id = ?', [
+      req.params.ownerAssignmentId,
       req.user.id,
     ]);
     if (result.affectedRows === 0) return res.status(404).json({ error: 'Not found' });
     res.json({ ok: true });
+  })
+);
+
+// Who currently has accountant access to this account, and until when.
+router.get(
+  '/accountant-access',
+  requireAuth,
+  requireAccountOwner,
+  asyncHandler(async (req, res) => {
+    await purgeExpiredAssignments();
+    const [rows] = await pool.execute(
+      `SELECT a.id, a.financial_years, a.first_login_at, a.expires_at, a.created_at,
+              u.name, u.email, u.activated_at
+       FROM accountant_assignments a
+       JOIN users u ON u.id = a.accountant_user_id
+       WHERE a.owner_user_id = ?
+       ORDER BY u.name`,
+      [req.user.id]
+    );
+    res.json({
+      accountants: rows.map((r) => ({
+        id: r.id,
+        name: r.name,
+        email: r.email,
+        active: !!r.activated_at,
+        financialYears: r.financial_years ? r.financial_years.split(',') : null,
+        firstLoginAt: r.first_login_at,
+        expiresAt: r.expires_at,
+        grantedAt: r.created_at,
+      })),
+      windowHours: ACCOUNTANT_WINDOW_HOURS,
+    });
   })
 );
 

@@ -379,19 +379,43 @@ function UsersTab() {
                 Administrator
               </span>
             )}
-            <span
-              title="Current plan"
-              style={{
-                fontSize: 11.5,
-                fontWeight: 700,
-                padding: '4px 10px',
-                borderRadius: 999,
-                color: 'var(--accent)',
-                background: 'var(--accent-soft)',
-              }}
-            >
-              {u.planType === 'family' ? 'Family' : 'Individual'}
-            </span>
+            {/* Whose login this is. A family member can only be removed from
+                here — the two of them can't remove each other — so telling
+                them apart from an account holder matters. */}
+            {u.role && u.role !== 'owner' ? (
+              <span
+                title={
+                  u.role === 'sub_user'
+                    ? `Family member on ${u.accountHolderName || 'another'}'s account — only an administrator can remove them`
+                    : `Accountant login${u.accountHolderName ? ` (invited by ${u.accountHolderName})` : ''}`
+                }
+                style={{
+                  fontSize: 11.5,
+                  fontWeight: 700,
+                  padding: '4px 10px',
+                  borderRadius: 999,
+                  color: 'var(--amber)',
+                  background: 'rgba(245, 158, 11, 0.14)',
+                }}
+              >
+                {u.role === 'sub_user' ? 'Family member' : 'Accountant'}
+                {u.accountHolderName ? ` · ${u.accountHolderName}` : ''}
+              </span>
+            ) : (
+              <span
+                title="Current plan"
+                style={{
+                  fontSize: 11.5,
+                  fontWeight: 700,
+                  padding: '4px 10px',
+                  borderRadius: 999,
+                  color: 'var(--accent)',
+                  background: 'var(--accent-soft)',
+                }}
+              >
+                {u.planType === 'family' ? 'Family' : 'Individual'}
+              </span>
+            )}
 
             {/* Available on your own row too. The self-guard below exists to
                 stop an admin demoting or deleting themselves out of the panel;

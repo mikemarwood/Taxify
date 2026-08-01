@@ -106,6 +106,38 @@ export async function ensureSchema() {
   // inferring the send time from the code's expiry.
   await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS otp_last_sent_at DATETIME NULL`);
 
+  // An accountant works for several people, so which books they are looking at
+  // is a property of the session, not of their user row. account_holder_id
+  // could only ever name one client — this table names all of them, along with
+  // how much of each client's history they were given and when their window
+  // closes.
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS accountant_assignments (
+      id INT PRIMARY KEY AUTO_INCREMENT,
+      accountant_user_id INT NOT NULL,
+      owner_user_id INT NOT NULL,
+      financial_years VARCHAR(255) NULL,
+      first_login_at DATETIME NULL,
+      expires_at DATETIME NULL,
+      created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE KEY uniq_accountant_owner (accountant_user_id, owner_user_id),
+      KEY idx_assignment_accountant (accountant_user_id),
+      FOREIGN KEY (accountant_user_id) REFERENCES users(id) ON DELETE CASCADE,
+      FOREIGN KEY (owner_user_id) REFERENCES users(id) ON DELETE CASCADE
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+  `);
+
+  // NULL financial_years means the whole history — the column only exists to
+  // narrow it.
+  await pool.query(`ALTER TABLE accountant_assignments ADD COLUMN IF NOT EXISTS financial_years VARCHAR(255) NULL`);
+
+  // Accountants who predate the table keep the client they already had.
+  await pool.query(`
+    INSERT IGNORE INTO accountant_assignments (accountant_user_id, owner_user_id)
+    SELECT id, account_holder_id FROM users
+    WHERE role = 'accountant' AND account_holder_id IS NOT NULL
+  `);
+
   // Admin-granted access that ignores the subscription state entirely. NULL
   // `until` means open-ended; a date makes it lapse on its own.
   await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS access_bypass TINYINT(1) NOT NULL DEFAULT 0`);

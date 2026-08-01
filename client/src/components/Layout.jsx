@@ -7,6 +7,7 @@ import { api } from '../lib/api.js';
 import Avatar from './Avatar.jsx';
 import Icon from './Icon.jsx';
 import ViewAsBanner from './ViewAsBanner.jsx';
+import ClientBanner from './ClientBanner.jsx';
 import OtpOnboardingModal from './OtpOnboardingModal.jsx';
 import { playClick } from '../lib/sounds.js';
 import { formatMoney } from '../lib/money.js';
@@ -124,6 +125,7 @@ export default function Layout({ children }) {
   return (
     <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
       <ViewAsBanner />
+      <ClientBanner />
       <div style={{ flex: 1, display: 'flex', minHeight: 0 }}>
       <aside
         className="scrollbar-slim"

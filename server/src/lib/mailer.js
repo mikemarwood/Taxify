@@ -427,6 +427,35 @@ export async function sendEmailChangedNoticeEmail(to, name, newEmail) {
   });
 }
 
+// For an accountant who already has a Taxify login — they don't need another
+// account, just telling that another client's books are now on their list.
+export async function sendAccountantAccessEmail(to, name, clientName, loginUrl, yearScope) {
+  const scope = yearScope
+    ? `You have been given the financial ${yearScope.includes(',') ? 'years' : 'year'} <strong>${escapeHtml(
+        yearScope.split(',').join(', ')
+      )}</strong>.`
+    : 'You have been given their full history.';
+  await sendMail({
+    to,
+    subject: `${clientName} has given you access to their Taxify account`,
+    title: 'New client access',
+    heading: `Hi${name ? ` ${name}` : ''}, ${escapeHtml(clientName)} has shared their books with you.`,
+    bodyHtml: `
+      <p style="font-size:14px;color:#1f2937;margin:0 0 16px;line-height:1.55;">
+        Sign in with the accountant login you already have — <strong>${escapeHtml(clientName)}</strong> will appear
+        alongside your other clients. ${scope}
+      </p>
+      ${button(loginUrl, 'Sign in as an accountant')}
+      ${linkFallback(loginUrl)}
+      <p style="font-size:13px;color:#4b5563;margin:0;line-height:1.55;">
+        Access is <strong>read-only</strong> and lasts <strong>24 hours from the first time you open their
+        account</strong>, after which it is removed automatically. Ask them to share it again whenever you need
+        another look.
+      </p>
+    `,
+  });
+}
+
 export async function sendInviteEmail(to, name, role, acceptUrl, inviterName) {
   const roleLabel = role === 'accountant' ? 'accountant (read-only)' : 'family member';
   await sendMail({

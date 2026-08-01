@@ -6,7 +6,7 @@ import crypto from 'crypto';
 import { fileURLToPath } from 'url';
 import pool from '../db.js';
 import { requireAuth, requireActiveAccess } from '../auth/middleware.js';
-import { getVisibleUserIds } from '../auth/access.js';
+import { getVisibleUserIds, expenseScope } from '../auth/access.js';
 import { asyncHandler } from '../lib/asyncHandler.js';
 import { financialYearOf } from '../lib/financialYear.js';
 import { viewableCopy } from '../lib/heicPreview.js';
@@ -116,7 +116,9 @@ router.use(requireAuth, requireActiveAccess);
 router.get(
   '/',
   asyncHandler(async (req, res) => {
-    const visibleUserIds = await getVisibleUserIds(req.user);
+    // An accountant may have been given only part of the history, so the scope
+    // carries the year restriction as well as whose rows may be read.
+    const scope = await expenseScope(req.user);
     const [rows] = await pool.execute(
       `SELECT e.id, e.user_id, e.item_name, e.amount, e.currency, e.purchase_date, e.receipt_path,
               e.is_recurring, e.frequency, e.notes, e.created_at, e.updated_at, e.auto_generated,
@@ -126,9 +128,9 @@ router.get(
        LEFT JOIN categories c ON c.id = e.category_id
        LEFT JOIN users creator ON creator.id = e.created_by
        LEFT JOIN users editor ON editor.id = e.updated_by
-       WHERE e.user_id IN (${visibleUserIds.map(() => '?').join(',')}) AND e.deleted_at IS NULL
+       WHERE ${scope.clause} AND e.deleted_at IS NULL
        ORDER BY e.purchase_date DESC, e.id DESC`,
-      visibleUserIds
+      scope.params
     );
 
     const expenses = rows.map((r) => ({
