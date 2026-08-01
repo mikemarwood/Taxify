@@ -1,48 +1,72 @@
+import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import AndroidDownloadButton from '../components/AndroidDownloadButton.jsx';
 import Icon from '../components/Icon.jsx';
+import { api } from '../lib/api.js';
 
+// Said as what it does for you, not what it is. Each one is something people
+// actually lose time or money on.
 const FEATURES = [
   {
     icon: 'receipt',
-    title: 'Drag-and-drop receipts',
-    text: 'Snap a photo or drag a file in and watch it upload with live progress. Every receipt lives right alongside the expense it belongs to.',
+    title: 'Photograph it and forget it',
+    text: 'Snap a receipt on your phone and Taxify files it — right year, right category, named so you can find it again. The shoebox stays empty.',
+  },
+  {
+    icon: 'folder',
+    title: 'Filed by financial year, automatically',
+    text: 'Every expense lands in the right tax year on its own — using your country’s year, whether that starts in July, April or January.',
   },
   {
     icon: 'tag',
-    title: 'Tax categories, ready to go',
-    text: 'Start with a full set of deduction categories — General, Training, Tooling, Electronics, Home Rental and more — no setup required.',
+    title: 'Categories that carry forward',
+    text: 'Start with a full set of deduction categories. Each new year opens with last year’s set, so you never retype them.',
   },
   {
     icon: 'repeat',
-    title: 'Recurring expenses',
-    text: 'Mark a bill as weekly, monthly, quarterly, or yearly once, and it stays flagged for you every time it comes around.',
-  },
-  {
-    icon: 'globe',
-    title: 'Multi-currency support',
-    text: 'Log expenses in AUD, USD, GBP, EUR, or NZD — perfect for contractors and travellers working across borders.',
-  },
-  {
-    icon: 'search',
-    title: 'Instant search & filters',
-    text: 'Filter by category, custom date range, or search by keyword to find any entry in seconds — even years of records.',
+    title: 'Recurring bills log themselves',
+    text: 'Mark a bill weekly, monthly, quarterly or yearly once, and every occurrence after that is added for you.',
   },
   {
     icon: 'chart',
-    title: 'Year-over-year reports',
-    text: 'Compare spending by category across tax years at a glance, with visual breakdowns ready for tax time.',
+    title: 'Know where the money actually went',
+    text: 'Category by category, year against year, with each one’s share of your total — before your accountant has to ask.',
+  },
+  {
+    icon: 'download',
+    title: 'Hand over the whole year in one file',
+    text: 'One click gives you a zip: a summary spreadsheet, a PDF, and every receipt in folders — each one linked from the sheet.',
+  },
+  {
+    icon: 'briefcase',
+    title: 'Give your accountant a look, not the keys',
+    text: 'Read-only access, limited to the years you choose, that expires by itself 24 hours after they first open your books.',
+  },
+  {
+    icon: 'home',
+    title: 'Built for property investors',
+    text: 'Mark a category as a rental and keep agent statements, depreciation schedules and end-of-year summaries against the property itself.',
+  },
+  {
+    icon: 'cash',
+    title: 'Close the year properly',
+    text: 'Record what came back and the year locks, so nothing can change what was claimed after the return was assessed.',
+  },
+  {
+    icon: 'mail',
+    title: 'A nudge, not a nag',
+    text: 'One reminder to book your tax appointment, and one the day before it. That is genuinely all — we count.',
+  },
+  {
+    icon: 'users',
+    title: 'Share it with your partner',
+    text: 'The Family plan adds a second full login. Same expenses, same receipts, two people keeping them up to date.',
   },
   {
     icon: 'lock',
-    title: 'Bank-grade account security',
-    text: 'Passwords are hashed with bcrypt and never stored in plain text, with email-based two-factor login codes to keep your account yours alone.',
-  },
-  {
-    icon: 'phone',
-    title: 'Take it anywhere',
-    text: 'Use Taxify in any browser, or install the Android app for quick expense logging on the go.',
+    title: 'Your records, kept properly',
+    text: 'Passwords hashed, a code emailed at every sign-in, and receipts only ever served back to the account that owns them.',
   },
 ];
 
@@ -104,6 +128,44 @@ function FeatureCard({ icon, title, text, index }) {
 }
 
 export default function Landing() {
+  // Prices come from Stripe rather than being typed here, so what is advertised
+  // is what will actually be charged. The hard-coded PLANS below are only the
+  // shape and the wording — they are the fallback if the call fails, which is
+  // better than a pricing section that renders empty.
+  const [livePlans, setLivePlans] = useState(null);
+  const [trialDays, setTrialDays] = useState(14);
+
+  useEffect(() => {
+    api
+      .get('/auth/plans')
+      .then((res) => {
+        if (res.data.plans?.length) setLivePlans(res.data.plans);
+        if (res.data.trialDays) setTrialDays(res.data.trialDays);
+      })
+      .catch(() => {});
+  }, []);
+
+  const plans = livePlans
+    ? livePlans.map((plan) => {
+        const fallback = PLANS.find((f) => f.name.toLowerCase() === plan.planType) || PLANS[0];
+        return {
+          name: plan.name,
+          price:
+            plan.amountPerYear === null || plan.amountPerYear === undefined
+              ? fallback.price
+              : new Intl.NumberFormat(undefined, {
+                  style: 'currency',
+                  currency: plan.currency || 'AUD',
+                  minimumFractionDigits: plan.amountPerYear % 100 === 0 ? 0 : 2,
+                }).format(plan.amountPerYear / 100),
+          period: '/year',
+          text: plan.tagline || fallback.text,
+          features: plan.features?.length ? plan.features : fallback.features,
+          highlight: plan.planType === 'family',
+        };
+      })
+    : PLANS;
+
   return (
     <div>
       <header
@@ -186,7 +248,7 @@ export default function Landing() {
             </Link>
           </div>
           <p style={{ fontSize: 12.5, color: 'var(--text-muted)', marginTop: 18 }}>
-            14-day free trial · No credit card required
+            {trialDays}-day free trial · No credit card required
           </p>
         </motion.section>
 
@@ -278,11 +340,11 @@ export default function Landing() {
               Simple, honest pricing
             </h2>
             <p style={{ color: 'var(--text-muted)', fontSize: 15, maxWidth: 520, margin: '0 auto' }}>
-              Start with a 14-day free trial on either plan. Billed once a year — no surprises.
+              Start with a {trialDays}-day free trial on either plan. Billed once a year — no surprises.
             </p>
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 20, maxWidth: 640, margin: '0 auto' }}>
-            {PLANS.map((p, i) => (
+            {plans.map((p, i) => (
               <motion.div
                 key={p.name}
                 className="card"
@@ -328,9 +390,29 @@ export default function Landing() {
                     </li>
                   ))}
                 </ul>
+                <Link
+                  to="/register"
+                  className={p.highlight ? 'btn btn-primary' : 'btn btn-ghost'}
+                  style={{ marginTop: 20, width: '100%', fontSize: 13.5 }}
+                >
+                  Start my {trialDays}-day free trial
+                </Link>
               </motion.div>
             ))}
           </div>
+
+          <p
+            style={{
+              textAlign: 'center',
+              fontSize: 12.5,
+              color: 'var(--text-muted)',
+              marginTop: 22,
+              lineHeight: 1.6,
+            }}
+          >
+            No card needed to start. Cancel any time — payments are handled by Stripe, and Taxify never sees your card
+            details. Prices in AUD.
+          </p>
         </section>
 
         <motion.section
@@ -349,7 +431,7 @@ export default function Landing() {
             Ready to stop losing receipts?
           </h2>
           <p style={{ color: 'var(--text-muted)', fontSize: 15, maxWidth: 480, margin: '0 auto 24px' }}>
-            Start your 14-day free trial and have your first expense logged before your coffee's cold.
+            Start your {trialDays}-day free trial and have your first expense logged before your coffee’s cold.
           </p>
           <div style={{ display: 'flex', gap: 12, justifyContent: 'center', flexWrap: 'wrap', marginBottom: 20 }}>
             <Link to="/register" className="btn btn-primary" style={{ padding: '13px 28px', fontSize: 15 }}>
