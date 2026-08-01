@@ -10,6 +10,7 @@ import { getVisibleUserIds, expenseScope } from '../auth/access.js';
 import { asyncHandler } from '../lib/asyncHandler.js';
 import { financialYearOf } from '../lib/financialYear.js';
 import { resolveCategoryForYear } from '../lib/categoryYears.js';
+import { blockIfFinalised, finalisedYearsFor } from '../lib/finalisedYears.js';
 import { viewableCopy } from '../lib/heicPreview.js';
 import { MAX_UPLOAD_BYTES, isAllowedUpload, UPLOAD_REJECTED_MESSAGE } from '../lib/uploadRules.js';
 import { advanceDate } from '../lib/recurrence.js';
@@ -172,7 +173,9 @@ router.get(
         : null,
     }));
 
-    res.json({ expenses });
+    // Which years are closed travels with the list, so the app can show a
+    // year as locked rather than letting someone edit and be refused.
+    res.json({ expenses, finalisedYears: await finalisedYearsFor(req.user) });
   })
 );
 
@@ -287,6 +290,12 @@ router.post(
         return res.status(400).json({ error: 'Notes must be 1000 characters or fewer' });
       }
 
+      const closed = await blockIfFinalised(req.user, purchaseDate);
+      if (closed) {
+        cleanupUpload();
+        return res.status(409).json({ error: closed });
+      }
+
       let newCategoryName = 'Uncategorised';
       let resolvedCategoryId = null;
       if (categoryId) {
@@ -378,6 +387,14 @@ router.patch(
       if (notes && String(notes).length > 1000) {
         cleanupUpload();
         return res.status(400).json({ error: 'Notes must be 1000 characters or fewer' });
+      }
+
+      // Both dates: moving an expense across the boundary changes two years,
+      // and either being closed is a reason to refuse.
+      const closed = await blockIfFinalised(req.user, purchaseDate, existing.purchase_date);
+      if (closed) {
+        cleanupUpload();
+        return res.status(409).json({ error: closed });
       }
 
       let newCategoryName = 'Uncategorised';
@@ -513,6 +530,9 @@ router.delete(
     const expense = rows[0];
     if (!expense) return res.status(404).json({ error: 'Expense not found' });
 
+    const closed = await blockIfFinalised(req.user, expense.purchase_date);
+    if (closed) return res.status(409).json({ error: closed });
+
     const wanted = req.query.deleteReceipt === 'true' || req.body?.deleteReceipt === true;
     let receiptDeleted = false;
 
@@ -544,10 +564,15 @@ router.post(
   '/:id/restore',
   asyncHandler(async (req, res) => {
     const [rows] = await pool.execute(
-      'SELECT id FROM expenses WHERE id = ? AND user_id = ? AND deleted_at IS NOT NULL',
+      'SELECT id, purchase_date FROM expenses WHERE id = ? AND user_id = ? AND deleted_at IS NOT NULL',
       [req.params.id, req.user.id]
     );
     if (!rows[0]) return res.status(404).json({ error: 'Expense not found in recycle bin' });
+
+    // Restoring puts a row back into a year's totals, so a closed year refuses
+    // it for the same reason it refuses a new one.
+    const closed = await blockIfFinalised(req.user, rows[0].purchase_date);
+    if (closed) return res.status(409).json({ error: closed });
 
     await pool.execute('UPDATE expenses SET deleted_at = NULL WHERE id = ? AND user_id = ?', [
       req.params.id,

@@ -13,8 +13,10 @@ import adminRoutes from './routes/admin.routes.js';
 import appRoutes from './routes/app.routes.js';
 import billingRoutes from './routes/billing.routes.js';
 import exportRoutes from './routes/export.routes.js';
+import taxYearRoutes from './routes/taxYears.routes.js';
 import { purgeUnactivatedAccounts, runBillingReminders } from './jobs/billingJobs.js';
 import { runRecurringExpenses } from './jobs/expenseJobs.js';
+import { runTaxReminders } from './jobs/taxReminders.js';
 import pool, { ensureSchema } from './db.js';
 import { migrateReceiptFolders } from './migrations/receiptFolders.js';
 import { migrateCategoriesByYear } from './migrations/categoriesByYear.js';
@@ -91,6 +93,7 @@ app.use('/api/admin', adminRoutes);
 app.use('/api/app', appRoutes);
 app.use('/api/billing', billingRoutes);
 app.use('/api/export', exportRoutes);
+app.use('/api/tax-years', taxYearRoutes);
 
 // eslint-disable-next-line no-unused-vars
 app.use((err, req, res, next) => {
@@ -175,6 +178,13 @@ purgeExpiredAssignments().catch((err) => console.error('Failed to purge expired 
 setInterval(() => {
   purgeExpiredAssignments().catch((err) => console.error('Failed to purge expired accountant access', err));
 }, 15 * 60 * 1000);
+
+// Twice a day is enough for something measured in months, and keeps the
+// appointment reminder from slipping past its window if a restart lands badly.
+runTaxReminders(pool).catch((err) => console.error('Failed to run tax reminders', err));
+setInterval(() => {
+  runTaxReminders(pool).catch((err) => console.error('Failed to run tax reminders', err));
+}, 12 * 60 * 60 * 1000);
 
 app.listen(PORT, () => {
   console.log(`Taxify server listening on http://localhost:${PORT}`);

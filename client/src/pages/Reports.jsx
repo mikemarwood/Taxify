@@ -9,6 +9,7 @@ import ExpenseModal from '../components/ExpenseModal.jsx';
 import ExportMenu from '../components/ExportMenu.jsx';
 import YearArchiveButton from '../components/YearArchiveButton.jsx';
 import YearDocuments from '../components/YearDocuments.jsx';
+import TaxYears from '../components/TaxYears.jsx';
 
 export default function Reports() {
   const [expenses, setExpenses] = useState(null);
@@ -130,6 +131,10 @@ export default function Reports() {
               <div style={{ fontSize: 24, fontWeight: 800, marginTop: 6 }}>{categories.length}</div>
             </motion.div>
           </div>
+
+          {/* What each year actually came back as, beside what it claimed —
+              the only two numbers a year is really judged on. */}
+          <TaxYears years={years} spendByYear={yearTotals} />
 
           {/* Filed paperwork belongs with the year it covers, not buried under
               the category it happened to be uploaded to — one collapsed panel

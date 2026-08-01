@@ -456,6 +456,59 @@ export async function sendAccountantAccessEmail(to, name, clientName, loginUrl, 
   });
 }
 
+// Sent once per financial year, in the last three months of it, and only to
+// someone who hasn't already booked. One email a year is a reminder; more than
+// that is nagging, so the send is recorded and never repeated.
+export async function sendBookTaxReminderEmail(to, name, financialYear, endsOn, daysLeft, expenseCount) {
+  const reportsUrl = `${process.env.CLIENT_ORIGIN || 'http://localhost:5173'}/reports`;
+  await sendMail({
+    to,
+    subject: `${financialYear} ends in ${daysLeft} days — time to book your tax appointment`,
+    title: 'Time to book your tax appointment',
+    heading: `Hi${name ? ` ${name}` : ''}, FY ${financialYear} closes on ${endsOn}.`,
+    bodyHtml: `
+      <p style="font-size:14px;color:#1f2937;margin:0 0 16px;line-height:1.55;">
+        Good accountants fill up in the weeks after 30 June, so booking now tends to mean a better time slot rather
+        than a better outcome later. You have <strong>${expenseCount} ${
+          expenseCount === 1 ? 'expense' : 'expenses'
+        }</strong> recorded for this year so far.
+      </p>
+      <p style="font-size:14px;color:#1f2937;margin:0 0 16px;line-height:1.55;">
+        Once you have a date, add it in Taxify and we'll count down to it — and stop sending this.
+      </p>
+      ${button(reportsUrl, 'Add my appointment')}
+      ${linkFallback(reportsUrl)}
+      <p style="font-size:13px;color:#4b5563;margin:0;line-height:1.55;">
+        This is the only reminder we'll send about booking ${financialYear}.
+      </p>
+    `,
+  });
+}
+
+// The day before an appointment someone entered themselves. They asked to be
+// reminded by putting the date in, so this is the one email that is expected.
+export async function sendTaxAppointmentReminderEmail(to, name, financialYear, when, company, accountant) {
+  const reportsUrl = `${process.env.CLIENT_ORIGIN || 'http://localhost:5173'}/reports`;
+  await sendMail({
+    to,
+    subject: `Tomorrow: your ${financialYear} tax appointment with ${company}`,
+    title: 'Your tax appointment is tomorrow',
+    heading: `Hi${name ? ` ${name}` : ''}, you're seeing ${escapeHtml(company)} tomorrow.`,
+    bodyHtml: `
+      <p style="font-size:14px;color:#1f2937;margin:0 0 16px;line-height:1.55;">
+        <strong>${escapeHtml(when)}</strong>${accountant ? ` with ${escapeHtml(accountant)}` : ''}, for the
+        <strong>${financialYear}</strong> financial year.
+      </p>
+      <p style="font-size:14px;color:#1f2937;margin:0 0 16px;line-height:1.55;">
+        Everything for the year — the summary spreadsheet, a PDF, and every receipt in folders — downloads as a single
+        zip from Reports, which is usually what an accountant wants handed over.
+      </p>
+      ${button(reportsUrl, 'Download my year')}
+      ${linkFallback(reportsUrl)}
+    `,
+  });
+}
+
 export async function sendInviteEmail(to, name, role, acceptUrl, inviterName) {
   const roleLabel = role === 'accountant' ? 'accountant (read-only)' : 'family member';
   await sendMail({

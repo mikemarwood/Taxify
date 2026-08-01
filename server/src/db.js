@@ -221,6 +221,53 @@ export async function ensureSchema() {
   // end-of-year summary — so those categories get a document store.
   await pool.query(`ALTER TABLE categories ADD COLUMN IF NOT EXISTS is_property_rental TINYINT(1) NOT NULL DEFAULT 0`);
 
+  // The admin side of a financial year, as opposed to what was spent in it:
+  // when the return is being done and with whom, what came back, and whether
+  // the year is closed. All three are the same year's story, so they live on
+  // one row. The refund is often the accountant's to know first, which is why
+  // it is the one thing an accountant may write — recorded_by keeps that
+  // honest.
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS tax_years (
+      id INT PRIMARY KEY AUTO_INCREMENT,
+      user_id INT NOT NULL,
+      financial_year VARCHAR(9) NOT NULL,
+      amount DECIMAL(12, 2) NULL,
+      notes VARCHAR(500) NULL,
+      recorded_by INT NULL,
+      recorded_at DATETIME NULL,
+      updated_at DATETIME NULL,
+      finalised_at DATETIME NULL,
+      finalised_by INT NULL,
+      appointment_at DATETIME NULL,
+      appointment_company VARCHAR(160) NULL,
+      appointment_accountant VARCHAR(160) NULL,
+      created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE KEY uniq_tax_year (user_id, financial_year),
+      KEY idx_tax_years_user (user_id),
+      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+  `);
+
+  for (const column of [
+    'amount DECIMAL(12, 2) NULL',
+    'notes VARCHAR(500) NULL',
+    'recorded_by INT NULL',
+    'recorded_at DATETIME NULL',
+    'updated_at DATETIME NULL',
+    'finalised_at DATETIME NULL',
+    'finalised_by INT NULL',
+    'appointment_at DATETIME NULL',
+    'appointment_company VARCHAR(160) NULL',
+    'appointment_accountant VARCHAR(160) NULL',
+    // Both reminders are once-only, and remembering that they went is the
+    // whole difference between a useful nudge and being nagged.
+    'booking_reminder_sent_at DATETIME NULL',
+    'appointment_reminder_sent_at DATETIME NULL',
+  ]) {
+    await pool.query(`ALTER TABLE tax_years ADD COLUMN IF NOT EXISTS ${column}`);
+  }
+
   await pool.query(`
     CREATE TABLE IF NOT EXISTS category_documents (
       id INT PRIMARY KEY AUTO_INCREMENT,
