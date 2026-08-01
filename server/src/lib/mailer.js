@@ -371,6 +371,62 @@ export async function sendPasswordChangedEmail(to, name) {
   });
 }
 
+function escapeHtml(value) {
+  return String(value ?? '').replace(
+    /[&<>"']/g,
+    (ch) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch])
+  );
+}
+
+// Sent to the address someone wants to move to, never to the one they have.
+// The account keeps working on the old address until this link is opened, so a
+// typo costs nothing and an unopened link changes nothing.
+export async function sendEmailChangeEmail(to, name, confirmUrl, expiryHours, currentEmail) {
+  await sendMail({
+    to,
+    subject: 'Confirm your new Taxify email address',
+    title: 'Confirm your new email address',
+    heading: `Hi${name ? ` ${name}` : ''}, confirm this address to finish the change.`,
+    bodyHtml: `
+      <p style="font-size:14px;color:#1f2937;margin:0 0 16px;line-height:1.55;">
+        A request was made to change the email address on a Taxify account from
+        <strong>${escapeHtml(currentEmail)}</strong> to this one. Open the link below to confirm it.
+      </p>
+      ${button(confirmUrl, 'Confirm this email address')}
+      ${linkFallback(confirmUrl)}
+      <p style="font-size:13px;color:#4b5563;margin:0 0 8px;line-height:1.55;">
+        <strong>This link expires in ${expiryHours} hours</strong> and can only be used once. Until it is
+        opened the account carries on working on the old address — nothing changes on its own.
+      </p>
+      <p style="font-size:13px;color:#4b5563;margin:0;line-height:1.55;">
+        If you weren't expecting this, ignore the email. Whoever asked cannot complete the change without
+        opening this link.
+      </p>
+    `,
+  });
+}
+
+// And a heads-up to the address being left behind, so losing the sign-in on an
+// account is never something that happens quietly.
+export async function sendEmailChangedNoticeEmail(to, name, newEmail) {
+  await sendMail({
+    to,
+    subject: 'The email address on your Taxify account was changed',
+    title: 'Email address changed',
+    heading: `Hi${name ? ` ${name}` : ''}, your sign-in address has changed.`,
+    bodyHtml: `
+      <p style="font-size:14px;color:#1f2937;margin:0 0 16px;line-height:1.55;">
+        This account now signs in with <strong>${escapeHtml(newEmail)}</strong>. This address will no longer
+        work for signing in.
+      </p>
+      <p style="font-size:13px;color:#4b5563;margin:0;line-height:1.55;">
+        <strong>If this wasn't you</strong>, contact support straight away — your expenses and receipts are
+        untouched, but someone else may now have the sign-in.
+      </p>
+    `,
+  });
+}
+
 export async function sendInviteEmail(to, name, role, acceptUrl, inviterName) {
   const roleLabel = role === 'accountant' ? 'accountant (read-only)' : 'family member';
   await sendMail({

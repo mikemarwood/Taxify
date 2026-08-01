@@ -11,6 +11,7 @@ import Avatar from '../components/Avatar.jsx';
 import AvatarEditorModal from '../components/AvatarEditorModal.jsx';
 import { isSoundEnabled, setSoundEnabled } from '../lib/sounds.js';
 import PlanComparison from '../components/PlanComparison.jsx';
+import ChangeEmailSection from '../components/ChangeEmailSection.jsx';
 
 const MAX_AVATAR_BYTES = 10 * 1024 * 1024;
 
@@ -369,7 +370,6 @@ export default function Account() {
   const [lastName, setLastName] = useState(user.lastName || '');
   const [dateOfBirth, setDateOfBirth] = useState(user.dateOfBirth || '');
   const [phone, setPhone] = useState(user.phone || '');
-  const [email, setEmail] = useState(user.email);
   const [currency, setCurrency] = useState(user.currency || 'AUD');
   const [country, setCountry] = useState(user.country || '');
   const [state, setState] = useState(user.state || '');
@@ -423,7 +423,6 @@ export default function Account() {
     lastName.trim() !== (user.lastName || '') ||
     dateOfBirth !== (user.dateOfBirth || '') ||
     phone.trim() !== (user.phone || '') ||
-    email.trim().toLowerCase() !== user.email ||
     currency !== (user.currency || '') ||
     country.trim() !== (user.country || '') ||
     state.trim() !== (user.state || '') ||
@@ -438,7 +437,6 @@ export default function Account() {
         lastName: lastName.trim(),
         dateOfBirth,
         phone: phone.trim(),
-        email: email.trim(),
         currency,
         country: country.trim(),
         state: state.trim(),
@@ -483,7 +481,7 @@ export default function Account() {
           { id: 'family', label: 'Family & access', icon: 'users' },
         ]
       : []),
-    { id: 'security', label: 'Security', icon: 'shield' },
+    { id: 'security', label: 'Email & password', icon: 'shield' },
     { id: 'preferences', label: 'Preferences', icon: 'settings' },
   ];
 
@@ -608,9 +606,22 @@ export default function Account() {
           </div>
         </div>
 
+        {/* Read-only here on purpose: the sign-in address only moves once the
+            new one has been proved, which is what the Email & password tab
+            does. Editing it inline would look like it had worked. */}
         <div>
           <label className="label">Email</label>
-          <input className="input" required type="email" value={email} onChange={(e) => setEmail(e.target.value.toLowerCase())} />
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+            <input className="input" type="email" value={user.email} readOnly disabled style={{ flex: 1, minWidth: 200 }} />
+            <button
+              type="button"
+              className="btn btn-ghost"
+              style={{ fontSize: 12.5, padding: '8px 13px' }}
+              onClick={() => selectTab('security')}
+            >
+              Change email
+            </button>
+          </div>
         </div>
 
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
@@ -679,6 +690,8 @@ export default function Account() {
           Save changes
         </button>
       </form>
+
+        {tab === 'security' && user.role === 'owner' && <ChangeEmailSection user={user} />}
 
       <form
         onSubmit={onSavePassword}

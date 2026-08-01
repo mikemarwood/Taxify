@@ -15,6 +15,14 @@ export function AuthProvider({ children }) {
       .finally(() => setLoading(false));
   }, []);
 
+  // Re-reads the session from the server. Used after something changes the
+  // account from outside this tab — confirming a new email address, say.
+  const refresh = useCallback(async () => {
+    const res = await api.get('/auth/me');
+    setUser(res.data.user);
+    return res.data.user;
+  }, []);
+
   const login = useCallback(async (email, password, publicDevice) => {
     const res = await api.post('/auth/login', { email: email.trim().toLowerCase(), password, publicDevice });
     if (res.data.otpRequired) {
@@ -91,6 +99,7 @@ export function AuthProvider({ children }) {
       value={{
         user,
         loading,
+        refresh,
         login,
         verifyOtp,
         register,

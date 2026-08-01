@@ -20,6 +20,8 @@ import {
   sendAccountActivatedEmail,
   sendPasswordResetEmail,
   sendPasswordChangedEmail,
+  sendEmailChangeEmail,
+  sendEmailChangedNoticeEmail,
 } from '../lib/mailer.js';
 import { ACTIVATION_TOKEN_DAYS, generateActivationToken } from '../auth/activationToken.js';
 import { COUNTRIES, STATES, CURRENCIES, countryByName, countryByCode, isKnownCurrency, isValidState } from '../lib/geoData.js';
@@ -845,8 +847,10 @@ router.patch(
       if (error) return res.status(400).json({ error });
     }
 
-    const normalizedEmail = String(email || '').trim().toLowerCase();
-    if (!EMAIL_PATTERN.test(normalizedEmail)) return res.status(400).json({ error: 'Enter a valid email address' });
+    // The address is deliberately not editable here. Changing what you sign in
+    // with has to be proved at the new address first — see the email-change
+    // routes below — so this leaves it alone even if a client sends one.
+    const normalizedEmail = req.user.email;
 
     const dob = String(dateOfBirth || '').slice(0, 10);
     if (dob && !/^\d{4}-\d{2}-\d{2}$/.test(dob)) return res.status(400).json({ error: 'Enter a valid date of birth' });
@@ -933,6 +937,176 @@ router.patch(
 
     await pool.execute('UPDATE users SET password_hash = ? WHERE id = ?', [hashPassword(newPassword), req.user.id]);
     res.json({ ok: true });
+  })
+);
+
+// --- Changing the sign-in email ------------------------------------------
+
+const EMAIL_CHANGE_HOURS = 24;
+const EMAIL_CHANGE_COOLDOWN_MS = 2 * 60 * 1000;
+
+function pendingEmailState(row) {
+  if (!row?.pending_email || !row.pending_email_expires_at) return null;
+  const expiresAt = new Date(row.pending_email_expires_at);
+  if (expiresAt < new Date()) return null;
+  return { pendingEmail: row.pending_email, expiresAt };
+}
+
+// Whether a confirmation is currently outstanding, so the page can say so
+// rather than looking as though the request went nowhere.
+router.get(
+  '/email-change',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const [rows] = await pool.execute(
+      'SELECT pending_email, pending_email_expires_at FROM users WHERE id = ?',
+      [req.user.id]
+    );
+    const pending = pendingEmailState(rows[0]);
+    res.json({ pending: pending ? { email: pending.pendingEmail, expiresAt: pending.expiresAt } : null });
+  })
+);
+
+// The change is only ever requested here — nothing is written to `email`. The
+// account carries on signing in with the address it has until the link sent to
+// the new one is opened, so a typo or an abandoned request costs nothing.
+//
+// The current password is required: a session left open on an unlocked machine
+// would otherwise be enough to move the account to someone else's address, and
+// that is not recoverable by the person who owns it.
+router.post(
+  '/email-change',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    if (req.user.role === 'accountant' || req.user.role === 'sub_user') {
+      // Their address is the invitation the account holder sent — changing it
+      // is a matter for that invitation, not for this form.
+      return res.status(403).json({ error: 'Ask the account holder to re-invite you at a different address.' });
+    }
+
+    const { newEmail, currentPassword } = req.body || {};
+    const normalized = String(newEmail || '').trim().toLowerCase();
+
+    if (!EMAIL_PATTERN.test(normalized)) return res.status(400).json({ error: 'Enter a valid email address' });
+    if (normalized === req.user.email) {
+      return res.status(400).json({ error: 'That is already the address on this account' });
+    }
+    if (!currentPassword) return res.status(400).json({ error: 'Enter your current password to confirm' });
+
+    const [rows] = await pool.execute(
+      'SELECT password_hash, first_name, name, pending_email, pending_email_requested_at FROM users WHERE id = ?',
+      [req.user.id]
+    );
+    const row = rows[0];
+    if (!row || !verifyPassword(currentPassword, row.password_hash)) {
+      return res.status(401).json({ error: 'That password is not correct' });
+    }
+
+    const [taken] = await pool.execute('SELECT id FROM users WHERE email = ?', [normalized]);
+    if (taken.length > 0) return res.status(409).json({ error: 'An account with that email already exists' });
+
+    // Re-asking for the same address resends; asking for a different one
+    // starts over. Either way it is throttled, so this can't be turned into a
+    // way to post mail to a stranger repeatedly.
+    if (
+      row.pending_email === normalized &&
+      row.pending_email_requested_at &&
+      Date.now() - new Date(row.pending_email_requested_at).getTime() < EMAIL_CHANGE_COOLDOWN_MS
+    ) {
+      return res.status(429).json({ error: 'A confirmation email was just sent — check that inbox first.' });
+    }
+
+    const token = crypto.randomBytes(32).toString('hex');
+    const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
+    const expiresAt = new Date(Date.now() + EMAIL_CHANGE_HOURS * 60 * 60 * 1000);
+
+    await pool.execute(
+      `UPDATE users SET pending_email = ?, pending_email_token_hash = ?, pending_email_expires_at = ?,
+       pending_email_requested_at = NOW() WHERE id = ?`,
+      [normalized, tokenHash, expiresAt, req.user.id]
+    );
+
+    const confirmUrl = `${process.env.CLIENT_ORIGIN || 'http://localhost:5173'}/confirm-email?token=${token}`;
+    try {
+      await sendEmailChangeEmail(normalized, row.first_name || row.name, confirmUrl, EMAIL_CHANGE_HOURS, req.user.email);
+    } catch (err) {
+      console.error('Failed to send email change confirmation', err);
+      return res.status(502).json({ error: 'Could not send the confirmation email — try again shortly.' });
+    }
+
+    res.json({ pending: { email: normalized, expiresAt } });
+  })
+);
+
+router.delete(
+  '/email-change',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    await pool.execute(
+      `UPDATE users SET pending_email = NULL, pending_email_token_hash = NULL,
+       pending_email_expires_at = NULL, pending_email_requested_at = NULL WHERE id = ?`,
+      [req.user.id]
+    );
+    res.json({ ok: true });
+  })
+);
+
+// Opened from the new inbox, so it can't require a session — the person
+// proving they own the address may not be signed in on that device.
+router.post(
+  '/confirm-email',
+  asyncHandler(async (req, res) => {
+    const token = req.body?.token;
+    if (!token) return res.status(400).json({ error: 'This confirmation link is invalid or has expired.' });
+
+    const tokenHash = crypto.createHash('sha256').update(String(token)).digest('hex');
+    const [rows] = await pool.execute(
+      `SELECT id, email, first_name, name, pending_email, pending_email_expires_at
+       FROM users WHERE pending_email_token_hash = ?`,
+      [tokenHash]
+    );
+    const user = rows[0];
+    const pending = pendingEmailState(user);
+    if (!user || !pending) {
+      return res.status(400).json({ error: 'This confirmation link is invalid or has expired.' });
+    }
+
+    // Checked again here, not just at request time: someone else may have
+    // registered the address during the 24 hours the link was valid.
+    const [taken] = await pool.execute('SELECT id FROM users WHERE email = ? AND id <> ?', [
+      pending.pendingEmail,
+      user.id,
+    ]);
+    if (taken.length > 0) {
+      return res.status(409).json({ error: 'That address has since been registered to another account.' });
+    }
+
+    const previousEmail = user.email;
+
+    // The token is cleared in the same statement that moves the address, so a
+    // link can only ever be used once.
+    try {
+      await pool.execute(
+        `UPDATE users SET email = ?, pending_email = NULL, pending_email_token_hash = NULL,
+         pending_email_expires_at = NULL, pending_email_requested_at = NULL WHERE id = ?`,
+        [pending.pendingEmail, user.id]
+      );
+    } catch (err) {
+      if (err.code === 'ER_DUP_ENTRY') {
+        return res.status(409).json({ error: 'That address has since been registered to another account.' });
+      }
+      throw err;
+    }
+
+    // The address being left behind is told, so losing a sign-in is never
+    // something that happens quietly.
+    try {
+      await sendEmailChangedNoticeEmail(previousEmail, user.first_name || user.name, pending.pendingEmail);
+    } catch (err) {
+      console.error('Failed to send email change notice', err);
+    }
+
+    res.json({ ok: true, email: pending.pendingEmail, previousEmail });
   })
 );
 

@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react';
+import { motion } from 'framer-motion';
 import { api } from '../lib/api.js';
 import { useToast } from './Toast.jsx';
+import Icon from './Icon.jsx';
 
 // Both plans in full, with the current one marked. Prices come from Stripe
 // rather than being written here, so what's quoted is what will be charged.
@@ -36,65 +38,110 @@ export default function PlanComparison({ user, onChoose, chooseLabel }) {
   }
 
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(230px, 1fr))', gap: 12, marginTop: 4 }}>
+    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: 14, marginTop: 4 }}>
       {plans.map((plan) => {
         const current = user.planType === plan.planType;
+        // The plan you already have is not something to pick again — the whole
+        // card goes inert and says so, rather than offering a button that
+        // would do nothing.
+        const Tag = current ? 'div' : 'button';
         return (
-          <div
+          <motion.div
             key={plan.planType}
-            style={{
-              padding: 15,
-              borderRadius: 'var(--radius)',
-              border: `2px solid ${current ? 'var(--accent)' : 'var(--border)'}`,
-              background: current ? 'var(--accent-soft)' : 'var(--bg-elevated)',
-              display: 'flex',
-              flexDirection: 'column',
-              gap: 7,
-              textAlign: 'left',
-            }}
+            whileHover={current ? undefined : { y: -3 }}
+            transition={{ type: 'spring', stiffness: 400, damping: 28 }}
+            style={{ display: 'flex' }}
           >
-            <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
-              <span style={{ fontWeight: 700, fontSize: 14.5 }}>{plan.name}</span>
-              {current && (
+            <Tag
+              type={current ? undefined : 'button'}
+              aria-current={current ? 'true' : undefined}
+              onClick={current ? undefined : () => (onChoose ? onChoose(plan) : defaultChoose(plan))}
+              style={{
+                position: 'relative',
+                flex: 1,
+                padding: 0,
+                overflow: 'hidden',
+                borderRadius: 'var(--radius)',
+                border: `2px solid ${current ? 'var(--accent)' : 'var(--border)'}`,
+                background: current ? 'var(--accent-soft)' : 'var(--bg-card)',
+                boxShadow: current ? 'none' : 'var(--shadow-sm)',
+                cursor: current ? 'default' : 'pointer',
+                textAlign: 'left',
+                font: 'inherit',
+                color: 'var(--text)',
+                display: 'flex',
+                flexDirection: 'column',
+              }}
+            >
+              {/* A banner across the top, so which one you're on is settled
+                  before any of the prices are read. */}
+              <div
+                style={{
+                  padding: '6px 14px',
+                  fontSize: 10.5,
+                  fontWeight: 800,
+                  letterSpacing: 0.7,
+                  textTransform: 'uppercase',
+                  color: current ? '#fff' : 'var(--text-muted)',
+                  background: current ? 'var(--accent)' : 'var(--bg-inset)',
+                  borderBottom: '1px solid var(--border)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 6,
+                }}
+              >
+                {current ? (
+                  <>
+                    <Icon name="check-circle" size={13} />
+                    Your current plan
+                  </>
+                ) : (
+                  <>
+                    <Icon name="pointer" size={12} />
+                    Select this plan
+                  </>
+                )}
+              </div>
+
+              <div style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 8, flex: 1 }}>
+                <span style={{ fontWeight: 700, fontSize: 15 }}>{plan.name}</span>
+
+                <div style={{ display: 'flex', alignItems: 'baseline', gap: 6 }}>
+                  <span style={{ fontSize: 24, fontWeight: 800 }}>{money(plan.amountPerYear, plan.currency)}</span>
+                  <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>per year</span>
+                </div>
+
+                <span style={{ fontSize: 12.5, color: 'var(--text-muted)', lineHeight: 1.5 }}>{plan.tagline}</span>
+
+                <ul style={{ margin: '2px 0 0', padding: 0, listStyle: 'none', display: 'flex', flexDirection: 'column', gap: 6 }}>
+                  {plan.features.map((f) => (
+                    <li key={f} style={{ display: 'flex', gap: 8, fontSize: 12.5, color: 'var(--text-muted)', lineHeight: 1.45 }}>
+                      <span style={{ color: current ? 'var(--accent)' : 'var(--emerald)', marginTop: 1, flexShrink: 0 }}>
+                        <Icon name="check-circle" size={14} />
+                      </span>
+                      {f}
+                    </li>
+                  ))}
+                </ul>
+
                 <span
                   style={{
-                    fontSize: 10.5,
+                    marginTop: 'auto',
+                    paddingTop: 12,
+                    fontSize: 12.5,
                     fontWeight: 700,
-                    padding: '2px 7px',
-                    borderRadius: 999,
-                    background: 'var(--accent)',
-                    color: '#fff',
+                    color: current ? 'var(--text-muted)' : 'var(--accent)',
                   }}
                 >
-                  YOUR PLAN
+                  {current
+                    ? "You're on this plan"
+                    : onChoose
+                    ? `${chooseLabel || 'Subscribe to'} ${plan.name} →`
+                    : `Switch to ${plan.name} →`}
                 </span>
-              )}
-            </div>
-
-            <div style={{ display: 'flex', alignItems: 'baseline', gap: 6 }}>
-              <span style={{ fontSize: 21, fontWeight: 800 }}>{money(plan.amountPerYear, plan.currency)}</span>
-              <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>per year</span>
-            </div>
-
-            <span style={{ fontSize: 12, color: 'var(--text-muted)', lineHeight: 1.45 }}>{plan.tagline}</span>
-
-            <ul style={{ margin: 0, paddingLeft: 16, fontSize: 12, color: 'var(--text-muted)', lineHeight: 1.65 }}>
-              {plan.features.map((f) => (
-                <li key={f}>{f}</li>
-              ))}
-            </ul>
-
-            {(onChoose || !current) && (
-              <button
-                type="button"
-                className={onChoose && current ? 'btn btn-primary' : 'btn btn-ghost'}
-                style={{ fontSize: 12.5, marginTop: 'auto' }}
-                onClick={() => (onChoose ? onChoose(plan) : defaultChoose(plan))}
-              >
-                {onChoose ? `${chooseLabel || 'Subscribe to'} ${plan.name}` : `Switch to ${plan.name}`}
-              </button>
-            )}
-          </div>
+              </div>
+            </Tag>
+          </motion.div>
         );
       })}
     </div>

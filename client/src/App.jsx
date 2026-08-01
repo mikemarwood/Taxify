@@ -10,6 +10,7 @@ import Activate from './pages/Activate.jsx';
 import ForgotPassword from './pages/ForgotPassword.jsx';
 import ResetPassword from './pages/ResetPassword.jsx';
 import AcceptInvite from './pages/AcceptInvite.jsx';
+import ConfirmEmail from './pages/ConfirmEmail.jsx';
 import Dashboard from './pages/Dashboard.jsx';
 import Expenses from './pages/Expenses.jsx';
 import AddExpense from './pages/AddExpense.jsx';
@@ -64,6 +65,7 @@ export default function App() {
       <Route path="/reset-password" element={<ResetPassword />} />
       <Route path="/activate" element={<Activate />} />
       <Route path="/accept-invite" element={<AcceptInvite />} />
+      <Route path="/confirm-email" element={<ConfirmEmail />} />
       <Route path="/" element={<Protected><Dashboard /></Protected>} />
       <Route path="/expenses" element={<Protected><Expenses /></Protected>} />
       <Route path="/add" element={<Protected><AddExpense /></Protected>} />

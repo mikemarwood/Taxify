@@ -94,6 +94,14 @@ export async function ensureSchema() {
   await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS password_reset_expires_at DATETIME NULL`);
   await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS password_reset_requested_at DATETIME NULL`);
 
+  // A requested email change is held here rather than written to `email`, so
+  // the account keeps signing in on the address it has until the new one is
+  // proven. An abandoned request expires and costs nothing.
+  await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS pending_email VARCHAR(255) NULL`);
+  await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS pending_email_token_hash VARCHAR(64) NULL`);
+  await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS pending_email_expires_at DATETIME NULL`);
+  await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS pending_email_requested_at DATETIME NULL`);
+
   // When the last login code went out, so a resend can be throttled without
   // inferring the send time from the code's expiry.
   await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS otp_last_sent_at DATETIME NULL`);
