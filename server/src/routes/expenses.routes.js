@@ -179,6 +179,24 @@ router.get(
   })
 );
 
+// The financial years this account actually has expenses in. Every year picker
+// in the app should be built from this rather than from a fixed range — an
+// account that started last year has no business offering 2019-2020.
+router.get(
+  '/years',
+  asyncHandler(async (req, res) => {
+    const scope = await expenseScope(req.user);
+    const [rows] = await pool.execute(
+      `SELECT DISTINCT purchase_date FROM expenses e WHERE ${scope.clause} AND e.deleted_at IS NULL`,
+      scope.params
+    );
+    const years = Array.from(new Set(rows.map((r) => financialYearOf(r.purchase_date)).filter(Boolean)))
+      .sort()
+      .reverse();
+    res.json({ years, current: financialYearOf(new Date().toISOString().slice(0, 10)) });
+  })
+);
+
 router.get(
   '/auto-generated/unnotified',
   asyncHandler(async (req, res) => {

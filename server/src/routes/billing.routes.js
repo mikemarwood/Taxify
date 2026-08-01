@@ -52,6 +52,61 @@ router.post(
   })
 );
 
+// Moving between plans on a *live* subscription. Sending an existing
+// subscriber back through checkout would open a second subscription and bill
+// them twice, so the price on the one they have is swapped instead and Stripe
+// prorates the difference.
+router.post(
+  '/change-plan',
+  requireAuth,
+  requireAccountOwner,
+  asyncHandler(async (req, res) => {
+    const planType = req.body?.planType === 'family' ? 'family' : 'individual';
+
+    // Downgrading while a second person is still using the account would lock
+    // them out, so it is refused rather than quietly stranding someone.
+    if (planType === 'individual') {
+      const [members] = await pool.execute(
+        `SELECT COUNT(*) AS n FROM users WHERE account_holder_id = ? AND role = 'sub_user'`,
+        [req.user.id]
+      );
+      if (Number(members[0]?.n) > 0) {
+        return res
+          .status(400)
+          .json({ error: 'Remove the second full-access login before moving to the Individual plan.' });
+      }
+    }
+
+    const [rows] = await pool.execute(
+      'SELECT stripe_subscription_id, plan_type FROM users WHERE id = ?',
+      [req.user.id]
+    );
+    const subscriptionId = rows[0]?.stripe_subscription_id;
+
+    // Nothing live to change — they should go through checkout instead.
+    if (!subscriptionId || req.user.subscriptionStatus !== 'active') {
+      return res.status(409).json({ error: 'no_subscription' });
+    }
+    if (rows[0].plan_type === planType) {
+      return res.status(400).json({ error: `You are already on the ${planType} plan` });
+    }
+
+    const stripe = await getStripe();
+    const priceId = await priceIdForPlan(planType);
+    const subscription = await stripe.subscriptions.retrieve(subscriptionId);
+    const itemId = subscription.items?.data?.[0]?.id;
+    if (!itemId) return res.status(409).json({ error: 'no_subscription' });
+
+    await stripe.subscriptions.update(subscriptionId, {
+      items: [{ id: itemId, price: priceId }],
+      proration_behavior: 'create_prorations',
+    });
+
+    await pool.execute('UPDATE users SET plan_type = ? WHERE id = ?', [planType, req.user.id]);
+    res.json({ ok: true, planType });
+  })
+);
+
 router.post(
   '/portal',
   requireAuth,

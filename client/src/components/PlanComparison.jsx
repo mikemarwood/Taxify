@@ -1,13 +1,13 @@
 import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import { api } from '../lib/api.js';
-import { useToast } from './Toast.jsx';
+import { usePlanChange } from '../lib/usePlanChange.js';
 import Icon from './Icon.jsx';
 
 // Both plans in full, with the current one marked. Prices come from Stripe
 // rather than being written here, so what's quoted is what will be charged.
 export default function PlanComparison({ user, onChoose, chooseLabel }) {
-  const toast = useToast();
+  const { changePlan, busy } = usePlanChange();
   const [plans, setPlans] = useState(null);
 
   useEffect(() => {
@@ -28,14 +28,7 @@ export default function PlanComparison({ user, onChoose, chooseLabel }) {
     }).format(cents / 100);
   }
 
-  function defaultChoose(plan) {
-    toast(
-      plan.planType === 'family'
-        ? 'To move to the Family plan, contact support and we’ll switch it over.'
-        : 'To move to the Individual plan, remove your second login first, then contact support.',
-      'info'
-    );
-  }
+  // Switching plans used to say "contact support", which is not a feature.
 
   return (
     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: 14, marginTop: 4 }}>
@@ -55,7 +48,7 @@ export default function PlanComparison({ user, onChoose, chooseLabel }) {
             <Tag
               type={current ? undefined : 'button'}
               aria-current={current ? 'true' : undefined}
-              onClick={current ? undefined : () => (onChoose ? onChoose(plan) : defaultChoose(plan))}
+              onClick={current || busy ? undefined : () => (onChoose ? onChoose(plan) : changePlan(plan.planType))}
               style={{
                 position: 'relative',
                 flex: 1,

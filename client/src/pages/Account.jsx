@@ -12,6 +12,8 @@ import AvatarEditorModal from '../components/AvatarEditorModal.jsx';
 import { isSoundEnabled, setSoundEnabled } from '../lib/sounds.js';
 import PlanComparison from '../components/PlanComparison.jsx';
 import ChangeEmailSection from '../components/ChangeEmailSection.jsx';
+import { usePlanChange } from '../lib/usePlanChange.js';
+import { useFinancialYears } from '../lib/useFinancialYears.js';
 
 const MAX_AVATAR_BYTES = 10 * 1024 * 1024;
 
@@ -251,16 +253,6 @@ function BillingSection({ user }) {
   );
 }
 
-// A handful of years back and the current one — the range anyone would
-// actually hand an accountant.
-function yearOptions() {
-  const now = new Date();
-  const current = now.getMonth() >= 6 ? now.getFullYear() : now.getFullYear() - 1;
-  const list = [];
-  for (let start = current; start >= current - 6; start--) list.push(`${start}-${start + 1}`);
-  return list;
-}
-
 function formatWhen(value) {
   if (!value) return null;
   return new Date(value).toLocaleString(undefined, {
@@ -314,6 +306,10 @@ function StartOwnAccount() {
 
 function FamilySection({ user }) {
   const toast = useToast();
+  const { changePlan, busy: planBusy } = usePlanChange();
+  // Only the years this account actually has — offering an accountant a year
+  // with nothing in it is offering them nothing.
+  const { years: grantableYears } = useFinancialYears();
   const [members, setMembers] = useState(null);
   const [accountants, setAccountants] = useState(null);
   const [windowHours, setWindowHours] = useState(24);
@@ -534,7 +530,7 @@ function FamilySection({ user }) {
 
             {!allYears && (
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, paddingLeft: 2 }}>
-                {yearOptions().map((y) => {
+                {grantableYears.map((y) => {
                   const on = pickedYears.includes(y);
                   return (
                     <button
@@ -572,10 +568,38 @@ function FamilySection({ user }) {
         </button>
       </form>
 
+      {/* Naming an upgrade without offering it is a dead end — this is the
+          exact moment someone wants the Family plan, so it's the moment to
+          make it one click. */}
       {!canInviteSubUser && user.planType !== 'family' && (
-        <p style={{ fontSize: 12, color: 'var(--text-muted)', margin: 0 }}>
-          Upgrade to the Family plan to add a second full-access user.
-        </p>
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 12,
+            flexWrap: 'wrap',
+            padding: 14,
+            borderRadius: 'var(--radius-sm)',
+            background: 'var(--accent-soft)',
+            border: '1px solid var(--accent-ring)',
+          }}
+        >
+          <Icon name="users" size={18} style={{ color: 'var(--accent)' }} />
+          <span style={{ flex: 1, minWidth: 200, fontSize: 12.5, color: 'var(--text-muted)', lineHeight: 1.55 }}>
+            You're on the Individual plan. The <strong style={{ color: 'var(--text)' }}>Family plan</strong> adds a
+            second full-access login for someone in your household — you both see the same expenses and receipts.
+          </span>
+          <button
+            type="button"
+            className="btn btn-primary"
+            style={{ fontSize: 12.5 }}
+            disabled={planBusy}
+            onClick={() => changePlan('family')}
+          >
+            {planBusy && <span className="spinner" />}
+            Upgrade to Family
+          </button>
+        </div>
       )}
     </div>
   );

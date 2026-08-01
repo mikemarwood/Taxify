@@ -5,6 +5,8 @@ import Icon from './Icon.jsx';
 import ProgressBar from './ProgressBar.jsx';
 import ReceiptLightbox from './ReceiptLightbox.jsx';
 import { playSuccess, playError } from '../lib/sounds.js';
+import { currentFinancialYear as defaultFinancialYear } from '../lib/financialYear.js';
+import { useFinancialYears } from '../lib/useFinancialYears.js';
 
 const MAX_FILE_BYTES = 10 * 1024 * 1024;
 const RECEIPT_EXT = /\.(jpe?g|png|webp|gif|heic|heif|avif|bmp|tiff?|svg|jfif|pdf|docx?)$/i;
@@ -102,22 +104,6 @@ function DocThumb({ doc }) {
   );
 }
 
-// Australian financial year runs 1 Jul – 30 Jun, so "this year" through the
-// second half of the calendar year is the one that just started.
-function defaultFinancialYear() {
-  const now = new Date();
-  const start = now.getMonth() >= 6 ? now.getFullYear() : now.getFullYear() - 1;
-  return `${start}-${start + 1}`;
-}
-
-// A handful back and one forward — paperwork arrives after the year closes,
-// and occasionally in advance of it.
-function yearOptions() {
-  const current = Number(defaultFinancialYear().slice(0, 4));
-  const list = [];
-  for (let start = current + 1; start >= current - 6; start--) list.push(`${start}-${start + 1}`);
-  return list;
-}
 
 // The paperwork that belongs to a rental property rather than to any single
 // expense — agent statements, depreciation schedules, the end-of-year summary.
@@ -134,6 +120,9 @@ export default function CategoryDocuments({ category }) {
   const [progress, setProgress] = useState(0);
   const [dragOver, setDragOver] = useState(false);
   const [preview, setPreview] = useState(null);
+  // Years this account actually has, plus the current one so paperwork can be
+  // filed before the first receipt of a new year arrives.
+  const { years: yearChoices } = useFinancialYears();
 
   const load = useCallback(() => {
     api
@@ -223,7 +212,7 @@ export default function CategoryDocuments({ category }) {
           onChange={(e) => setYear(e.target.value)}
           style={{ width: 132, fontSize: 12.5, padding: '6px 8px' }}
         >
-          {yearOptions().map((y) => (
+          {yearChoices.map((y) => (
             <option key={y} value={y}>
               FY {y}
             </option>

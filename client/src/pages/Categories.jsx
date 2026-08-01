@@ -8,6 +8,7 @@ import CategoryDocuments from '../components/CategoryDocuments.jsx';
 import { formatMoney } from '../lib/money.js';
 import { IconPicker, ColourPicker, CategoryPreview, SWATCHES } from '../components/CategoryPickers.jsx';
 import { defaultFinancialYear } from '../lib/financialYear.js';
+import { useFinancialYears } from '../lib/useFinancialYears.js';
 
 const MAX_NAME_LENGTH = 40;
 
@@ -29,6 +30,7 @@ export default function Categories() {
   const [editBusy, setEditBusy] = useState(false);
   const [year, setYear] = useState(() => defaultFinancialYear());
   const [years, setYears] = useState([]);
+  const { years: expenseYears } = useFinancialYears();
 
   function load(forYear = year) {
     setCategories(null);
@@ -103,6 +105,10 @@ export default function Categories() {
     }
   }
 
+  // Years with categories and years with expenses are both real; the union is
+  // what someone can meaningfully switch between.
+  const selectableYears = Array.from(new Set([...years, ...expenseYears, year])).sort().reverse();
+
   const totalTracked = (categories || []).reduce((sum, c) => sum + c.totalAmount, 0);
 
   return (
@@ -126,20 +132,14 @@ export default function Categories() {
           onChange={(e) => setYear(e.target.value)}
           style={{ width: 148, padding: '9px 10px', fontSize: 13 }}
         >
-          {years.map((y) => (
+          {/* Years this account actually has — either expenses or a set of
+              categories already carried into it — plus the current one. A
+              year nobody has used is a choice with no meaning. */}
+          {selectableYears.map((y) => (
             <option key={y} value={y}>
               FY {y}
             </option>
           ))}
-          {/* One year ahead, so next year's set can be prepared early. */}
-          {(() => {
-            const next = `${Number(year.slice(0, 4)) + 1}-${Number(year.slice(0, 4)) + 2}`;
-            return years.includes(next) ? null : (
-              <option key={next} value={next}>
-                FY {next}
-              </option>
-            );
-          })()}
         </select>
         <button
           type="button"
