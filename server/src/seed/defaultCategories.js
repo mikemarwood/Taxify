@@ -1,3 +1,5 @@
+import { defaultFinancialYear } from '../lib/financialYear.js';
+
 // One-time seed data used only to populate the `default_categories` table
 // the very first time it's created (see ensureSchema in ../db.js). After
 // that, the `default_categories` table itself is the source of truth and is
@@ -12,7 +14,9 @@ export const INITIAL_DEFAULT_CATEGORIES = [
   { name: 'Other', color: '#a1a1aa', icon: 'tag' },
 ];
 
-export async function seedDefaultCategories(pool, userId) {
+// The starter set every new account gets, filed against the year they signed
+// up in. Later years carry it forward on their own — see ensureCategoriesForYear.
+export async function seedDefaultCategories(pool, userId, financialYear = defaultFinancialYear()) {
   const [templates] = await pool.execute('SELECT name, color, icon FROM default_categories');
 
   const connection = await pool.getConnection();
@@ -20,8 +24,8 @@ export async function seedDefaultCategories(pool, userId) {
     await connection.beginTransaction();
     for (const c of templates) {
       await connection.execute(
-        'INSERT INTO categories (user_id, name, color, icon) VALUES (?, ?, ?, ?)',
-        [userId, c.name, c.color, c.icon]
+        'INSERT INTO categories (user_id, name, color, icon, financial_year) VALUES (?, ?, ?, ?, ?)',
+        [userId, c.name, c.color, c.icon, financialYear]
       );
     }
     await connection.commit();

@@ -11,6 +11,7 @@ import Icon from './Icon.jsx';
 import { formatAmount } from '../lib/money.js';
 import { onDigitKeyDown, playOpen, playClose } from '../lib/sounds.js';
 import { useAuth } from '../lib/AuthContext.jsx';
+import { financialYearOf } from '../lib/financialYear.js';
 
 const CURRENCIES = ['AUD', 'USD', 'NZD', 'GBP', 'EUR'];
 
@@ -142,11 +143,28 @@ export default function ExpenseModal({ expense, onClose, onSaved, onDeleted }) {
     return playClose;
   }, []);
 
+  // Categories belong to a financial year, so the list follows the date being
+  // edited — moving an expense into another year offers that year's set.
+  const categoryYear = financialYearOf(purchaseDate);
+
   useEffect(() => {
-    if (editing && categories.length === 0) {
-      api.get('/categories').then((res) => setCategories(res.data.categories));
-    }
-  }, [editing, categories.length]);
+    if (!editing) return;
+    api.get(`/categories?financialYear=${encodeURIComponent(categoryYear)}`).then((res) => {
+      const next = res.data.categories;
+      setCategoryId((current) => {
+        // Carried across by name, so changing the date doesn't quietly refile
+        // the expense under whatever happens to be first in the new year.
+        const previous = categories.find((c) => String(c.id) === String(current));
+        const match = previous && next.find((c) => c.name === previous.name);
+        if (match) return String(match.id);
+        const byName = expense.category && next.find((c) => c.name === expense.category.name);
+        if (byName) return String(byName.id);
+        return next[0] ? String(next[0].id) : '';
+      });
+      setCategories(next);
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editing, categoryYear]);
 
   function onFileChange(next) {
     setFile(next);

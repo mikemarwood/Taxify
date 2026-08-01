@@ -192,6 +192,30 @@ export async function ensureSchema() {
   // that reaches those installs.
   await pool.query(`ALTER TABLE categories ADD COLUMN IF NOT EXISTS icon VARCHAR(50) NOT NULL DEFAULT 'tag'`);
 
+  // Categories belong to a financial year: what you claimed against in
+  // 2024-2025 is not necessarily how you'd file this year, and a renamed or
+  // retired category must not rewrite what a closed year said. NULL means a
+  // row that predates the split and has not been placed yet.
+  await pool.query(`ALTER TABLE categories ADD COLUMN IF NOT EXISTS financial_year VARCHAR(9) NULL`);
+
+  // The old unique key was (user_id, name), which now has to admit the same
+  // name once per year. Rebuilt from information_schema because ALTER ... DROP
+  // KEY has no IF EXISTS in older MariaDB.
+  const [categoryIndexes] = await pool.query(
+    `SELECT DISTINCT INDEX_NAME FROM information_schema.STATISTICS
+     WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'categories'
+       AND INDEX_NAME IN ('uniq_categories_user_name', 'uniq_categories_user_name_year')`
+  );
+  const indexNames = categoryIndexes.map((r) => r.INDEX_NAME);
+  if (indexNames.includes('uniq_categories_user_name')) {
+    await pool.query(`ALTER TABLE categories DROP INDEX uniq_categories_user_name`);
+  }
+  if (!indexNames.includes('uniq_categories_user_name_year')) {
+    await pool.query(
+      `ALTER TABLE categories ADD UNIQUE KEY uniq_categories_user_name_year (user_id, name, financial_year)`
+    );
+  }
+
   // A property rental has paperwork that belongs to the property itself rather
   // than to any one expense — agent statements, depreciation schedules, the
   // end-of-year summary — so those categories get a document store.

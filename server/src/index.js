@@ -17,6 +17,7 @@ import { purgeUnactivatedAccounts, runBillingReminders } from './jobs/billingJob
 import { runRecurringExpenses } from './jobs/expenseJobs.js';
 import pool, { ensureSchema } from './db.js';
 import { migrateReceiptFolders } from './migrations/receiptFolders.js';
+import { migrateCategoriesByYear } from './migrations/categoriesByYear.js';
 import { purgeExpiredAssignments } from './auth/accountants.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -135,6 +136,15 @@ try {
   await migrateReceiptFolders(pool, path.join(__dirname, '..', 'uploads'));
 } catch (err) {
   console.error('Failed to migrate receipt folders — receipts may not be found until this succeeds');
+  console.error(err);
+}
+
+// Expenses are repointed at the right year's category here, so this must
+// finish before anything reads them.
+try {
+  await migrateCategoriesByYear(pool);
+} catch (err) {
+  console.error('Failed to split categories by financial year');
   console.error(err);
 }
 

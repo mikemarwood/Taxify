@@ -7,8 +7,8 @@ import { useToast } from '../components/Toast.jsx';
 import { SkeletonList } from '../components/Skeletons.jsx';
 import Icon from '../components/Icon.jsx';
 import PromoCodesTab from '../components/PromoCodesTab.jsx';
+import { IconPicker, ColourPicker, CategoryPreview, SWATCHES } from '../components/CategoryPickers.jsx';
 
-const SWATCHES = ['#8b5cf6', '#06b6d4', '#f59e0b', '#ec4899', '#10b981', '#3b82f6', '#ef4444', '#eab308', '#14b8a6', '#a1a1aa'];
 
 // Storage figures are for a human deciding whether someone is using a lot, so
 // one decimal at MB and above is plenty — the exact byte count would be noise.
@@ -1027,7 +1027,12 @@ function DefaultCategoriesTab() {
   const [categories, setCategories] = useState(null);
   const [name, setName] = useState('');
   const [color, setColor] = useState(SWATCHES[0]);
+  const [icon, setIcon] = useState('tag');
   const [busy, setBusy] = useState(false);
+  const [editingId, setEditingId] = useState(null);
+  const [editName, setEditName] = useState('');
+  const [editColor, setEditColor] = useState(SWATCHES[0]);
+  const [editIcon, setEditIcon] = useState('tag');
 
   function load() {
     api.get('/admin/default-categories').then((res) => setCategories(res.data.categories));
@@ -1039,9 +1044,24 @@ function DefaultCategoriesTab() {
     if (!name.trim()) return;
     setBusy(true);
     try {
-      await api.post('/admin/default-categories', { name, color });
+      await api.post('/admin/default-categories', { name, color, icon });
       setName('');
+      setIcon('tag');
       toast('Default category added — new signups will get it', 'success');
+      load();
+    } catch (err) {
+      toast(err.message, 'error');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function onSaveEdit(id) {
+    setBusy(true);
+    try {
+      await api.patch(`/admin/default-categories/${id}`, { name: editName, color: editColor, icon: editIcon });
+      setEditingId(null);
+      toast('Default category updated', 'success');
       load();
     } catch (err) {
       toast(err.message, 'error');
@@ -1061,61 +1081,117 @@ function DefaultCategoriesTab() {
 
   return (
     <div>
-      <p style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: -12, marginBottom: 20 }}>
-        This is the starter set every new account is seeded with. Changes here only affect future signups — existing
-        users keep managing their own categories independently.
+      <p style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: -12, marginBottom: 20, lineHeight: 1.6 }}>
+        The starter set every <strong>new account</strong> is created with, filed against the financial year they sign
+        up in. Changes here only affect future signups — an existing user's categories are their own, and carry forward
+        into each new year on their own.
       </p>
 
-      <form onSubmit={onAdd} className="card" style={{ padding: 20, display: 'flex', gap: 12, alignItems: 'center', marginBottom: 24 }}>
-        <input className="input" placeholder="New default category name" value={name} onChange={(e) => setName(e.target.value)} />
-        <div style={{ display: 'flex', gap: 6 }}>
-          {SWATCHES.map((s) => (
-            <button
-              type="button"
-              key={s}
-              onClick={() => setColor(s)}
-              style={{
-                width: 22,
-                height: 22,
-                borderRadius: '50%',
-                background: s,
-                border: color === s ? '2px solid white' : '2px solid transparent',
-                cursor: 'pointer',
-              }}
+      <form onSubmit={onAdd} className="card" style={{ padding: 20, display: 'flex', flexDirection: 'column', gap: 16, marginBottom: 24 }}>
+        <div style={{ display: 'flex', gap: 16, alignItems: 'flex-end', flexWrap: 'wrap' }}>
+          <CategoryPreview icon={icon} color={color} />
+          <div style={{ flex: 1, minWidth: 200 }}>
+            <label className="label">Name</label>
+            <input
+              className="input"
+              placeholder="New default category name"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
             />
-          ))}
+          </div>
+          <ColourPicker value={color} onChange={setColor} />
         </div>
-        <button className="btn btn-primary" disabled={busy} type="submit">
-          Add
+
+        <IconPicker value={icon} onChange={setIcon} />
+
+        <button className="btn btn-primary" disabled={busy || !name.trim()} type="submit" style={{ alignSelf: 'flex-start' }}>
+          {busy && <span className="spinner" />}
+          Add default category
         </button>
       </form>
 
       {categories === null ? (
         <SkeletonList rows={4} />
       ) : (
-        <div className="card" style={{ overflow: 'hidden' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 14 }}>
           <AnimatePresence initial={false}>
-            {categories.map((c, i) => (
-              <motion.div
-                key={c.id}
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0, x: 20 }}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 12,
-                  padding: '14px 18px',
-                  borderBottom: i < categories.length - 1 ? '1px solid var(--border)' : 'none',
-                }}
-              >
-                <div style={{ width: 14, height: 14, borderRadius: '50%', background: c.color }} />
-                <div style={{ flex: 1, fontWeight: 600 }}>{c.name}</div>
-                <button className="btn btn-ghost" style={{ fontSize: 12, padding: '6px 12px' }} onClick={() => onDelete(c.id)}>
-                  Delete
-                </button>
-              </motion.div>
-            ))}
+            {categories.map((c) => {
+              const editing = editingId === c.id;
+              return (
+                <motion.div
+                  key={c.id}
+                  layout
+                  initial={{ opacity: 0, scale: 0.97 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.97 }}
+                  className="card"
+                  style={{
+                    padding: 16,
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: 12,
+                    gridColumn: editing ? '1 / -1' : 'auto',
+                    borderLeft: `4px solid ${editing ? editColor : c.color}`,
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 13 }}>
+                    <CategoryPreview icon={editing ? editIcon : c.icon} color={editing ? editColor : c.color} size={48} />
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      {editing ? (
+                        <input className="input" autoFocus value={editName} onChange={(e) => setEditName(e.target.value)} />
+                      ) : (
+                        <div style={{ fontWeight: 700, fontSize: 15 }}>{c.name}</div>
+                      )}
+                    </div>
+                    {!editing && (
+                      <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
+                        <button
+                          className="btn btn-ghost"
+                          style={{ fontSize: 12.5, padding: '7px 12px', gap: 6 }}
+                          onClick={() => {
+                            setEditingId(c.id);
+                            setEditName(c.name);
+                            setEditColor(c.color);
+                            setEditIcon(c.icon || 'tag');
+                          }}
+                        >
+                          <Icon name="pencil" size={14} />
+                          Edit
+                        </button>
+                        <button
+                          className="btn btn-ghost icon-btn"
+                          title={`Delete ${c.name}`}
+                          onClick={() => onDelete(c.id)}
+                        >
+                          <Icon name="trash" size={16} />
+                        </button>
+                      </div>
+                    )}
+                  </div>
+
+                  {editing && (
+                    <>
+                      <ColourPicker value={editColor} onChange={setEditColor} />
+                      <IconPicker value={editIcon} onChange={setEditIcon} />
+                      <div style={{ display: 'flex', gap: 8 }}>
+                        <button
+                          className="btn btn-primary"
+                          style={{ fontSize: 13 }}
+                          disabled={busy || !editName.trim()}
+                          onClick={() => onSaveEdit(c.id)}
+                        >
+                          {busy && <span className="spinner" />}
+                          Save
+                        </button>
+                        <button className="btn btn-ghost" style={{ fontSize: 13 }} onClick={() => setEditingId(null)}>
+                          Cancel
+                        </button>
+                      </div>
+                    </>
+                  )}
+                </motion.div>
+              );
+            })}
           </AnimatePresence>
         </div>
       )}

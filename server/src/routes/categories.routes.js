@@ -16,7 +16,8 @@ import {
   isFinancialYearLabel,
   INBOX_SEGMENT,
 } from '../lib/receiptStorage.js';
-import { financialYearRange } from '../lib/financialYear.js';
+import { financialYearRange, defaultFinancialYear } from '../lib/financialYear.js';
+import { ensureCategoriesForYear } from '../lib/categoryYears.js';
 import { viewableCopy } from '../lib/heicPreview.js';
 import { MAX_UPLOAD_BYTES, isAllowedUpload, UPLOAD_REJECTED_MESSAGE } from '../lib/uploadRules.js';
 
@@ -81,26 +82,57 @@ function validateName(name) {
   return null;
 }
 
+// Which financial year the request is about. Anything unrecognised falls back
+// to the current one rather than erroring — a caller with no opinion means
+// "now", not "nothing".
+function requestedYear(req) {
+  const asked = req.query?.financialYear || req.body?.financialYear;
+  return financialYearRange(asked) ? String(asked) : defaultFinancialYear();
+}
+
 router.get(
   '/',
   asyncHandler(async (req, res) => {
+    const financialYear = requestedYear(req);
+
+    // Opening a year you haven't used yet carries last year's set forward, so
+    // July doesn't start with an empty page. An accountant only ever reads, so
+    // their visit never creates anything.
+    if (req.user.role !== 'accountant') {
+      await ensureCategoriesForYear(pool, req.user.id, financialYear);
+    }
+
     // How much has gone through a category is what makes the list worth
     // looking at — a name and a colour on their own say nothing.
     const [categories] = await pool.execute(
-      `SELECT c.id, c.name, c.color, c.icon, c.is_property_rental,
+      `SELECT c.id, c.name, c.color, c.icon, c.is_property_rental, c.financial_year,
               (SELECT COUNT(*) FROM category_documents d WHERE d.category_id = c.id) AS document_count,
               (SELECT COUNT(*) FROM expenses e WHERE e.category_id = c.id AND e.deleted_at IS NULL) AS expense_count,
               (SELECT COALESCE(SUM(e.amount), 0) FROM expenses e
                 WHERE e.category_id = c.id AND e.deleted_at IS NULL) AS total_amount
-       FROM categories c WHERE c.user_id = ? ORDER BY c.name`,
+       FROM categories c
+       WHERE c.user_id = ? AND (c.financial_year = ? OR c.financial_year IS NULL)
+       ORDER BY c.name`,
+      [req.user.id, financialYear]
+    );
+
+    // Every year this account has categories for, so the page can offer them
+    // without guessing.
+    const [years] = await pool.execute(
+      `SELECT DISTINCT financial_year FROM categories
+       WHERE user_id = ? AND financial_year IS NOT NULL ORDER BY financial_year DESC`,
       [req.user.id]
     );
+
     res.json({
+      financialYear,
+      years: years.map((y) => y.financial_year),
       categories: categories.map((c) => ({
         id: c.id,
         name: c.name,
         color: c.color,
         icon: c.icon,
+        financialYear: c.financial_year,
         isPropertyRental: !!c.is_property_rental,
         documentCount: Number(c.document_count) || 0,
         expenseCount: Number(c.expense_count) || 0,
@@ -117,17 +149,21 @@ router.post(
     const nameError = validateName(name);
     if (nameError) return res.status(400).json({ error: nameError });
 
+    const financialYear = requestedYear(req);
     const finalColor = color || PALETTE[Math.floor(Math.random() * PALETTE.length)];
     try {
       const [result] = await pool.execute(
-        'INSERT INTO categories (user_id, name, color, icon) VALUES (?, ?, ?, ?)',
-        [req.user.id, toTitleCase(String(name).trim()), finalColor, icon || 'tag']
+        'INSERT INTO categories (user_id, name, color, icon, financial_year) VALUES (?, ?, ?, ?, ?)',
+        [req.user.id, toTitleCase(String(name).trim()), finalColor, icon || 'tag', financialYear]
       );
-      const [rows] = await pool.execute('SELECT id, name, color, icon FROM categories WHERE id = ?', [result.insertId]);
+      const [rows] = await pool.execute(
+        'SELECT id, name, color, icon, financial_year FROM categories WHERE id = ?',
+        [result.insertId]
+      );
       res.status(201).json({ category: rows[0] });
     } catch (err) {
       if (err.code === 'ER_DUP_ENTRY') {
-        return res.status(409).json({ error: 'A category with that name already exists' });
+        return res.status(409).json({ error: `You already have a category called that in ${financialYear}` });
       }
       throw err;
     }

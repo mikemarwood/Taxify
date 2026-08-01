@@ -8,6 +8,12 @@ export function financialYearOf(dateStr) {
   return `${startYear}-${startYear + 1}`;
 }
 
+// The financial year today falls in. "This year" through the second half of a
+// calendar year is the one that has just started, not the one that just ended.
+export function defaultFinancialYear() {
+  return financialYearOf(new Date().toISOString().slice(0, 10));
+}
+
 // The inverse, for turning a "2024-2025" folder name back into the dates it
 // covers — needed when a rename has to find the expenses filed under it.
 // Returns null for anything that isn't one of our year folders.

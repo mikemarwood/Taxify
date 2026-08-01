@@ -9,6 +9,7 @@ import { requireAuth, requireActiveAccess } from '../auth/middleware.js';
 import { getVisibleUserIds, expenseScope } from '../auth/access.js';
 import { asyncHandler } from '../lib/asyncHandler.js';
 import { financialYearOf } from '../lib/financialYear.js';
+import { resolveCategoryForYear } from '../lib/categoryYears.js';
 import { viewableCopy } from '../lib/heicPreview.js';
 import { MAX_UPLOAD_BYTES, isAllowedUpload, UPLOAD_REJECTED_MESSAGE } from '../lib/uploadRules.js';
 import { advanceDate } from '../lib/recurrence.js';
@@ -287,16 +288,18 @@ router.post(
       }
 
       let newCategoryName = 'Uncategorised';
+      let resolvedCategoryId = null;
       if (categoryId) {
-        const [categoryRows] = await pool.execute('SELECT id, name FROM categories WHERE id = ? AND user_id = ?', [
-          categoryId,
-          req.user.id,
-        ]);
-        if (categoryRows.length === 0) {
+        // Categories belong to a financial year, so the one that gets saved is
+        // the one for the year this expense falls in — not whichever year's
+        // list it happened to be picked from.
+        resolvedCategoryId = await resolveCategoryForYear(pool, req.user.id, categoryId, purchaseDate);
+        if (resolvedCategoryId === undefined) {
           cleanupUpload();
           return res.status(400).json({ error: 'Invalid category' });
         }
-        newCategoryName = categoryRows[0].name;
+        const [categoryRows] = await pool.execute('SELECT name FROM categories WHERE id = ?', [resolvedCategoryId]);
+        newCategoryName = categoryRows[0]?.name || 'Uncategorised';
       }
 
       let receiptPath = req.file ? req.file.filename : null;
@@ -309,7 +312,7 @@ router.post(
         [
           req.user.id,
           req.user.id,
-          categoryId || null,
+          resolvedCategoryId,
           String(itemName).trim(),
           amountNum,
           currency || 'AUD',
@@ -378,16 +381,18 @@ router.patch(
       }
 
       let newCategoryName = 'Uncategorised';
+      let resolvedCategoryId = null;
       if (categoryId) {
-        const [categoryRows] = await pool.execute('SELECT id, name FROM categories WHERE id = ? AND user_id = ?', [
-          categoryId,
-          req.user.id,
-        ]);
-        if (categoryRows.length === 0) {
+        // Moving an expense into another financial year moves it onto that
+        // year's category too, so the year it is counted in and the category
+        // it is counted under never disagree.
+        resolvedCategoryId = await resolveCategoryForYear(pool, req.user.id, categoryId, purchaseDate);
+        if (resolvedCategoryId === undefined) {
           cleanupUpload();
           return res.status(400).json({ error: 'Invalid category' });
         }
-        newCategoryName = categoryRows[0].name;
+        const [categoryRows] = await pool.execute('SELECT name FROM categories WHERE id = ?', [resolvedCategoryId]);
+        newCategoryName = categoryRows[0]?.name || 'Uncategorised';
       }
 
       const oldCategoryName = await categoryNameFor(req.user.id, existing.category_id);
@@ -425,7 +430,7 @@ router.patch(
          updated_by = ?, updated_at = NOW()
          WHERE id = ? AND user_id = ?`,
         [
-          categoryId || null,
+          resolvedCategoryId,
           String(itemName).trim(),
           amountNum,
           currency || existing.currency || 'AUD',

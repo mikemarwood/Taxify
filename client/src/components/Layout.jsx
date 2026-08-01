@@ -35,7 +35,7 @@ const navGroups = [
   },
   {
     title: 'Settings',
-    items: [{ to: '/account', label: 'Account', icon: 'settings' }],
+    items: [{ to: '/account', label: 'My account', icon: 'settings' }],
     adminItems: [{ to: '/admin', label: 'Administration', icon: 'wrench' }],
   },
 ];

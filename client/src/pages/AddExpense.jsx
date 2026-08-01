@@ -6,6 +6,7 @@ import ReceiptDropzone from '../components/ReceiptDropzone.jsx';
 import CategoryBadge from '../components/CategoryBadge.jsx';
 import Toggle from '../components/Toggle.jsx';
 import Icon from '../components/Icon.jsx';
+import { financialYearOf } from '../lib/financialYear.js';
 import { onDigitKeyDown } from '../lib/sounds.js';
 
 const LAST_CATEGORY_KEY = 'taxify:lastCategoryByItem';
@@ -47,12 +48,26 @@ export default function AddExpense() {
     setReceiptError('');
   }
 
+  // Categories belong to a financial year, so the list follows the date on the
+  // form — backdating a receipt into last year offers last year's categories,
+  // which is the only set that can file it correctly.
+  const categoryYear = financialYearOf(purchaseDate);
+
   useEffect(() => {
-    api.get('/categories').then((res) => {
-      setCategories(res.data.categories);
-      if (res.data.categories[0]) setCategoryId(String(res.data.categories[0].id));
+    api.get(`/categories?financialYear=${encodeURIComponent(categoryYear)}`).then((res) => {
+      const next = res.data.categories;
+      setCategoryId((current) => {
+        // Carry the choice across by name where the year has one — changing
+        // the date shouldn't quietly refile the expense under something else.
+        const previous = categories.find((c) => String(c.id) === String(current));
+        const match = previous && next.find((c) => c.name === previous.name);
+        if (match) return String(match.id);
+        return next[0] ? String(next[0].id) : '';
+      });
+      setCategories(next);
     });
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [categoryYear]);
 
   function onItemNameChange(value) {
     const capitalized = capitalizeWords(value);

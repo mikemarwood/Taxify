@@ -3,85 +3,13 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { api } from '../lib/api.js';
 import { useToast } from '../components/Toast.jsx';
 import { SkeletonList } from '../components/Skeletons.jsx';
-import { ICON_OPTIONS } from '../lib/categoryIcons.js';
 import Icon from '../components/Icon.jsx';
 import CategoryDocuments from '../components/CategoryDocuments.jsx';
 import { formatMoney } from '../lib/money.js';
-
-const SWATCHES = ['#8b5cf6', '#06b6d4', '#f59e0b', '#ec4899', '#10b981', '#3b82f6', '#ef4444', '#eab308', '#14b8a6', '#a1a1aa'];
+import { IconPicker, ColourPicker, CategoryPreview, SWATCHES } from '../components/CategoryPickers.jsx';
+import { defaultFinancialYear } from '../lib/financialYear.js';
 
 const MAX_NAME_LENGTH = 40;
-
-// The icon is the thing you actually scan for in a list of categories, so it
-// is drawn at a size you can recognise across the page rather than at label
-// size. The picker shows them the same way, because picking a 15px glyph out
-// of a grid of 15px glyphs is guesswork.
-function IconPicker({ value, onChange }) {
-  return (
-    <div>
-      <div className="label" style={{ marginBottom: 6 }}>
-        Icon
-      </div>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(46px, 1fr))', gap: 6 }}>
-        {ICON_OPTIONS.map((icon) => {
-          const selected = value === icon;
-          return (
-            <button
-              type="button"
-              key={icon}
-              onClick={() => onChange(icon)}
-              title={icon.replace(/-/g, ' ')}
-              style={{
-                height: 46,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                borderRadius: 10,
-                color: selected ? 'var(--accent)' : 'var(--text-muted)',
-                background: selected ? 'var(--accent-soft)' : 'var(--bg-inset)',
-                border: selected ? '2px solid var(--accent)' : '1px solid var(--border)',
-                cursor: 'pointer',
-                transition: 'background 0.12s, color 0.12s',
-              }}
-            >
-              <Icon name={icon} size={22} strokeWidth={selected ? 2 : 1.7} />
-            </button>
-          );
-        })}
-      </div>
-    </div>
-  );
-}
-
-function ColourPicker({ value, onChange, label = 'Colour' }) {
-  return (
-    <div>
-      <div className="label" style={{ marginBottom: 6 }}>
-        {label}
-      </div>
-      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-        {SWATCHES.map((s) => (
-          <button
-            type="button"
-            key={s}
-            onClick={() => onChange(s)}
-            aria-label={s}
-            style={{
-              width: 30,
-              height: 30,
-              borderRadius: '50%',
-              background: s,
-              border: value === s ? '3px solid var(--bg-elevated)' : '3px solid transparent',
-              boxShadow: value === s ? `0 0 0 2px ${s}` : 'none',
-              cursor: 'pointer',
-              flexShrink: 0,
-            }}
-          />
-        ))}
-      </div>
-    </div>
-  );
-}
 
 export default function Categories() {
   const toast = useToast();
@@ -99,19 +27,30 @@ export default function Categories() {
   const [editColor, setEditColor] = useState('');
   const [editRental, setEditRental] = useState(false);
   const [editBusy, setEditBusy] = useState(false);
+  const [year, setYear] = useState(() => defaultFinancialYear());
+  const [years, setYears] = useState([]);
 
-  function load() {
-    api.get('/categories').then((res) => setCategories(res.data.categories));
+  function load(forYear = year) {
+    setCategories(null);
+    api.get(`/categories?financialYear=${encodeURIComponent(forYear)}`).then((res) => {
+      setCategories(res.data.categories);
+      // The server includes the year being viewed even when it had none of its
+      // own a moment ago, so the picker never loses the year you're on.
+      setYears(Array.from(new Set([...(res.data.years || []), forYear])).sort().reverse());
+    });
   }
 
-  useEffect(load, []);
+  useEffect(() => {
+    load(year);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [year]);
 
   async function onAdd(e) {
     e.preventDefault();
     if (!name.trim()) return;
     setBusy(true);
     try {
-      await api.post('/categories', { name, color, icon });
+      await api.post('/categories', { name, color, icon, financialYear: year });
       setName('');
       setIcon('tag');
       setAdding(false);
@@ -173,10 +112,35 @@ export default function Categories() {
           <h1 style={{ margin: '0 0 4px', fontSize: 26 }}>Categories</h1>
           <p style={{ color: 'var(--text-muted)', margin: 0 }}>
             {categories === null
-              ? 'Everyone starts with the same defaults — add your own on top.'
-              : `${categories.length} categories · ${formatMoney(totalTracked)} tracked`}
+              ? 'Loading…'
+              : `${categories.length} categories in FY ${year} · ${formatMoney(totalTracked)} tracked`}
           </p>
         </div>
+        {/* Categories belong to a financial year: how you filed things in
+            2024-2025 shouldn't change because you renamed something today.
+            A year you haven't used yet opens with last year's set. */}
+        <select
+          className="input"
+          aria-label="Financial year"
+          value={year}
+          onChange={(e) => setYear(e.target.value)}
+          style={{ width: 148, padding: '9px 10px', fontSize: 13 }}
+        >
+          {years.map((y) => (
+            <option key={y} value={y}>
+              FY {y}
+            </option>
+          ))}
+          {/* One year ahead, so next year's set can be prepared early. */}
+          {(() => {
+            const next = `${Number(year.slice(0, 4)) + 1}-${Number(year.slice(0, 4)) + 2}`;
+            return years.includes(next) ? null : (
+              <option key={next} value={next}>
+                FY {next}
+              </option>
+            );
+          })()}
+        </select>
         <button
           type="button"
           className="btn btn-primary"
@@ -199,24 +163,7 @@ export default function Categories() {
           >
             <div className="card" style={{ padding: 20, display: 'flex', flexDirection: 'column', gap: 16 }}>
               <div style={{ display: 'flex', gap: 16, alignItems: 'flex-end', flexWrap: 'wrap' }}>
-                {/* A live preview of the tile being described, so the icon and
-                    colour are chosen against the thing they'll appear on. */}
-                <div
-                  style={{
-                    width: 58,
-                    height: 58,
-                    borderRadius: 14,
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    background: `${color}1f`,
-                    border: `1px solid ${color}55`,
-                    color,
-                    flexShrink: 0,
-                  }}
-                >
-                  <Icon name={icon} size={28} />
-                </div>
+                <CategoryPreview icon={icon} color={color} />
                 <div style={{ flex: 1, minWidth: 200 }}>
                   <label className="label">Name</label>
                   <input
@@ -233,10 +180,10 @@ export default function Categories() {
 
               <IconPicker value={icon} onChange={setIcon} />
 
-              <div style={{ display: 'flex', gap: 10 }}>
+              <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
                 <button className="btn btn-primary" disabled={busy || !name.trim()} type="submit">
                   {busy && <span className="spinner" />}
-                  Add category
+                  Add to FY {year}
                 </button>
                 <button type="button" className="btn btn-ghost" onClick={() => setAdding(false)}>
                   Cancel

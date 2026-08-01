@@ -630,4 +630,43 @@ router.delete(
   })
 );
 
+// Editing rather than delete-and-recreate, so fixing a starter category's icon
+// doesn't mean retyping it.
+router.patch(
+  '/default-categories/:id',
+  asyncHandler(async (req, res) => {
+    const { name, color, icon } = req.body || {};
+
+    const [rows] = await pool.execute('SELECT id, name, color, icon FROM default_categories WHERE id = ?', [
+      req.params.id,
+    ]);
+    const existing = rows[0];
+    if (!existing) return res.status(404).json({ error: 'Default category not found' });
+
+    if (name !== undefined && !String(name).trim()) {
+      return res.status(400).json({ error: 'Category name is required' });
+    }
+
+    const finalName = name === undefined ? existing.name : toTitleCase(String(name).trim());
+    try {
+      await pool.execute('UPDATE default_categories SET name = ?, color = ?, icon = ? WHERE id = ?', [
+        finalName,
+        color || existing.color,
+        icon || existing.icon,
+        existing.id,
+      ]);
+    } catch (err) {
+      if (err.code === 'ER_DUP_ENTRY') {
+        return res.status(409).json({ error: 'A default category with that name already exists' });
+      }
+      throw err;
+    }
+
+    const [updated] = await pool.execute('SELECT id, name, color, icon FROM default_categories WHERE id = ?', [
+      existing.id,
+    ]);
+    res.json({ category: updated[0] });
+  })
+);
+
 export default router;
