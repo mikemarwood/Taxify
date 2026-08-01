@@ -357,7 +357,7 @@ export default function Landing() {
             </Link>
           </div>
           <div style={{ display: 'flex', justifyContent: 'center' }}>
-            <AndroidDownloadButton />
+            <AndroidDownloadButton variant="card" />
           </div>
         </motion.section>
       </main>

@@ -3,13 +3,14 @@ import Icon from './Icon.jsx';
 export default function CategoryBadge({ category }) {
   if (!category) {
     return (
-      <span style={{ fontSize: 12, color: 'var(--text-muted)', padding: '4px 10px', borderRadius: 999, border: '1px solid var(--border)' }}>
+      <span className="category-badge" style={{ fontSize: 12, color: 'var(--text-muted)', padding: '4px 10px', borderRadius: 999, border: '1px solid var(--border)' }}>
         Uncategorised
       </span>
     );
   }
   return (
     <span
+      className="category-badge"
       style={{
         display: 'inline-flex',
         alignItems: 'center',

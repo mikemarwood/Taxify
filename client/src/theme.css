@@ -381,3 +381,79 @@ input[type="date"].input::-webkit-calendar-picker-indicator:hover { opacity: 1; 
 @media (max-height: 760px) {
   .signup-art { display: none !important; }
 }
+
+/* The brand mark only appears once the rail carrying it is gone. */
+.auth-mobile-brand { display: none; align-items: center; gap: 10px; margin-bottom: 24px; }
+.auth-mobile-brand span { font-weight: 800; font-size: 21px; letter-spacing: -0.5px; }
+@media (max-width: 900px) {
+  .auth-mobile-brand { display: flex; }
+}
+
+/* ---------------------------------------------------------------------------
+   Small screens.
+
+   The app was built at desktop width with a fixed 232px rail and hard two-column
+   grids, so on a phone the content was squeezed into whatever was left — which
+   was almost nothing. Below 860px the rail becomes a drawer, every fixed grid
+   collapses to one column, and anything genuinely wide (tables, the reports
+   matrix) scrolls inside its own box instead of pushing the page sideways.
+
+   The page body must never scroll horizontally. That is the rule everything
+   here exists to keep.
+   --------------------------------------------------------------------------- */
+
+html, body { max-width: 100%; overflow-x: hidden; }
+
+@media (max-width: 860px) {
+  /* The rail slides in over the content rather than taking a share of it. */
+  .app-sidebar {
+    position: fixed !important;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    height: 100dvh !important;
+    z-index: 1200;
+    transform: translateX(-100%);
+    transition: transform 0.22s var(--ease-standard);
+    width: 264px !important;
+  }
+  .app-sidebar[data-open='true'] { transform: translateX(0); }
+  .app-shell-main { padding: 16px !important; }
+  .app-topbar { display: flex !important; }
+
+  /* Two columns of anything is one column here. */
+  .card > div[style*="1fr 1fr"],
+  form > div[style*="1fr 1fr"] { grid-template-columns: 1fr !important; }
+
+  /* Wide content scrolls itself rather than the page. */
+  table { min-width: 560px; }
+  .scrollbar-slim { -webkit-overflow-scrolling: touch; }
+
+  h1 { font-size: 21px !important; }
+}
+
+@media (max-width: 520px) {
+  .btn { padding: 9px 14px; }
+  .app-shell-main { padding: 12px !important; }
+}
+
+/* Anything absolutely-positioned to the viewport needs to clear the notch and
+   the home indicator on a phone. */
+.app-fab {
+  right: max(20px, env(safe-area-inset-right)) !important;
+  bottom: max(20px, env(safe-area-inset-bottom)) !important;
+}
+
+/* An expense row is date / name / category / receipt / amount. On a narrow
+   screen those five compete for space and the name wins by crushing everything
+   else, so the row wraps: date and amount on the first line with the name, the
+   category badge beneath. Nothing is dropped — it just uses two lines. */
+@media (max-width: 700px) {
+  .expense-row { flex-wrap: wrap !important; row-gap: 4px !important; padding: 10px 14px !important; }
+  .expense-row > span:first-child { width: auto !important; order: 1; }
+  .expense-row > span:nth-child(2) { order: 2; flex-basis: 0; min-width: 120px; }
+  .expense-row > span:last-child { order: 3; margin-left: auto; }
+  .expense-row > .category-badge,
+  .expense-row > button { order: 4; }
+  .expense-row > .category-badge { flex-basis: 100%; }
+}

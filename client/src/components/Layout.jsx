@@ -103,7 +103,14 @@ export default function Layout({ children }) {
   const location = useLocation();
   const toast = useToast();
   const [showMfaPrompt, setShowMfaPrompt] = useState(false);
+  // The drawer, on small screens only. Closed on every navigation, or it would
+  // stay over the page someone just asked for.
+  const [navOpen, setNavOpen] = useState(false);
   const billing = describeSubscription(user);
+
+  useEffect(() => {
+    setNavOpen(false);
+  }, [location.pathname]);
 
   useEffect(() => {
     if (user?.mfaPromptDue) {
@@ -130,9 +137,60 @@ export default function Layout({ children }) {
     <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
       <ViewAsBanner />
       <ClientBanner />
+
+      {/* Only on small screens, where the rail is a drawer rather than a
+          column. Without it there would be no way to reach the navigation. */}
+      <div
+        className="app-topbar"
+        style={{
+          display: 'none',
+          alignItems: 'center',
+          gap: 12,
+          padding: '10px 14px',
+          background: 'var(--nav-bg)',
+          color: 'var(--nav-text-active)',
+          borderBottom: '1px solid var(--nav-border)',
+          position: 'sticky',
+          top: 0,
+          zIndex: 1100,
+        }}
+      >
+        <button
+          type="button"
+          aria-label={navOpen ? 'Close menu' : 'Open menu'}
+          aria-expanded={navOpen}
+          onClick={() => setNavOpen((v) => !v)}
+          style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            width: 38,
+            height: 38,
+            borderRadius: 9,
+            border: '1px solid var(--nav-border)',
+            background: 'rgba(255, 255, 255, 0.08)',
+            color: 'inherit',
+            cursor: 'pointer',
+          }}
+        >
+          <Icon name={navOpen ? 'x' : 'menu'} size={19} />
+        </button>
+        <img src="/logo.svg" alt="" width="26" height="26" />
+        <span style={{ fontWeight: 700, fontSize: 16.5, letterSpacing: -0.3 }}>Taxify</span>
+      </div>
+
       <div style={{ flex: 1, display: 'flex', minHeight: 0 }}>
+      {/* Tapping the dimmed content closes the drawer — the gesture everyone
+          already expects. */}
+      {navOpen && (
+        <div
+          onClick={() => setNavOpen(false)}
+          style={{ position: 'fixed', inset: 0, background: 'rgba(16, 24, 40, 0.5)', zIndex: 1150 }}
+        />
+      )}
       <aside
-        className="scrollbar-slim"
+        className="scrollbar-slim app-sidebar"
+        data-open={navOpen ? 'true' : 'false'}
         style={{
           width: 232,
           flexShrink: 0,
@@ -319,18 +377,20 @@ export default function Layout({ children }) {
         initial={{ opacity: 0, y: 12 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
-        style={{ flex: 1, padding: '32px 40px', maxWidth: 1180 }}
+        className="app-shell-main"
+        style={{ flex: 1, padding: '32px 40px', maxWidth: 1180, minWidth: 0 }}
       >
         {children}
       </motion.main>
 
-      {location.pathname !== '/add' && user?.role !== 'accountant' && (
+      {location.pathname !== '/add' && user?.role !== 'accountant' && !user?.actingAsClient && (
         <motion.div
           initial={{ opacity: 0, scale: 0.8 }}
           animate={{ opacity: 1, scale: 1 }}
           transition={{ type: 'spring', stiffness: 380, damping: 22, delay: 0.15 }}
           whileHover={{ scale: 1.06 }}
           whileTap={{ scale: 0.94 }}
+          className="app-fab"
           style={{ position: 'fixed', right: 32, bottom: 32, zIndex: 900 }}
         >
           <Link

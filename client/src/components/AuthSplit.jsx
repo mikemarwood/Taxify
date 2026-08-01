@@ -23,17 +23,29 @@ export function AuthSplitFrame({ children }) {
   );
 }
 
+// On a phone the left rail is gone, so the page would otherwise open with no
+// sign of whose it is. This puts the mark back where the rail was.
+export function AuthMobileBrand() {
+  return (
+    <div className="auth-mobile-brand">
+      <img src="/logo.svg" alt="" width="34" height="34" />
+      <span>Taxify</span>
+    </div>
+  );
+}
+
 export default function AuthSplit({ aside, children }) {
   return (
     <AuthSplitFrame>
       {aside || <ProductPanel />}
 
       <section
+        className="auth-content"
         style={{
           // Paper against the navy, so the halves read as chrome and content
           // rather than as one flat surface.
           background: 'var(--bg-card)',
-          padding: 'clamp(28px, 5vw, 56px)',
+          padding: 'clamp(22px, 5vw, 56px)',
           display: 'flex',
           flexDirection: 'column',
           justifyContent: 'center',
@@ -41,6 +53,7 @@ export default function AuthSplit({ aside, children }) {
           minHeight: 0,
         }}
       >
+        <AuthMobileBrand />
         {children}
       </section>
     </AuthSplitFrame>

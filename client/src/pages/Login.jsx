@@ -8,6 +8,7 @@ import { api } from '../lib/api.js';
 import Toggle from '../components/Toggle.jsx';
 import Icon from '../components/Icon.jsx';
 import { homePathFor } from '../lib/home.js';
+import AndroidDownloadButton from '../components/AndroidDownloadButton.jsx';
 
 function msToClock(ms) {
   const total = Math.max(0, Math.ceil(ms / 1000));
@@ -321,6 +322,25 @@ export default function Login() {
           No account yet? <Link to="/register" style={{ color: 'var(--blue)', fontWeight: 600 }}>Create one</Link>
         </p>
       )}
+
+      {/* Also here, not only on the brand rail — the rail is hidden on a phone,
+          which is the one device the app actually installs on. */}
+      <div
+        style={{
+          marginTop: 26,
+          paddingTop: 22,
+          borderTop: '1px solid var(--border)',
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          gap: 10,
+        }}
+      >
+        <span style={{ fontSize: 12.5, color: 'var(--text-muted)', textAlign: 'center' }}>
+          Log expenses on the move — snap a receipt the moment you get it
+        </span>
+        <AndroidDownloadButton />
+      </div>
     </AuthLayout>
   );
 }
