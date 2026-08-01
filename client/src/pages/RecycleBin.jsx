@@ -5,6 +5,7 @@ import { useToast } from '../components/Toast.jsx';
 import { SkeletonList } from '../components/Skeletons.jsx';
 import CategoryBadge from '../components/CategoryBadge.jsx';
 import { formatMoney } from '../lib/money.js';
+import { formatDayMonth } from '../lib/dates.js';
 
 export default function RecycleBin() {
   const toast = useToast();
@@ -83,7 +84,7 @@ export default function RecycleBin() {
                 }}
               >
                 <span style={{ width: 78, flexShrink: 0, color: 'var(--text-muted)' }}>
-                  {new Date(e.purchaseDate).toLocaleDateString(undefined, { day: '2-digit', month: 'short' })}
+                  {formatDayMonth(e.purchaseDate)}
                 </span>
                 <span
                   style={{

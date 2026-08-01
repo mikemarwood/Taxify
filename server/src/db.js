@@ -149,6 +149,13 @@ export async function ensureSchema() {
     WHERE role = 'accountant' AND account_holder_id IS NOT NULL
   `);
 
+  // Once the assignment above exists, account_holder_id on an accountant is
+  // not just redundant — it is dangerous. "Whose books does this login share"
+  // is answered by that column, so an accountant carrying it would have their
+  // own expenses read as part of their client's the moment they started
+  // keeping any. Runs every boot: it is a WHERE-guarded no-op after the first.
+  await pool.query(`UPDATE users SET account_holder_id = NULL WHERE role = 'accountant'`);
+
   // Admin-granted access that ignores the subscription state entirely. NULL
   // `until` means open-ended; a date makes it lapse on its own.
   await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS access_bypass TINYINT(1) NOT NULL DEFAULT 0`);

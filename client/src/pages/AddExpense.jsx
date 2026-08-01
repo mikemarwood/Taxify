@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { AnimatePresence, motion } from 'framer-motion';
 import { api } from '../lib/api.js';
 import { useToast } from '../components/Toast.jsx';
 import ReceiptDropzone from '../components/ReceiptDropzone.jsx';
@@ -7,7 +8,8 @@ import CategoryBadge from '../components/CategoryBadge.jsx';
 import Toggle from '../components/Toggle.jsx';
 import Icon from '../components/Icon.jsx';
 import { financialYearOf } from '../lib/financialYear.js';
-import { onDigitKeyDown } from '../lib/sounds.js';
+import { onDigitKeyDown, playSuccess } from '../lib/sounds.js';
+import { formatMoney } from '../lib/money.js';
 import { useAuth } from '../lib/AuthContext.jsx';
 
 const LAST_CATEGORY_KEY = 'taxify:lastCategoryByItem';
@@ -41,6 +43,7 @@ export default function AddExpense() {
   const [submitting, setSubmitting] = useState(false);
   const [progress, setProgress] = useState(0);
   const [submitted, setSubmitted] = useState(false);
+  const [saved, setSaved] = useState(null);
   const [receiptStatus, setReceiptStatus] = useState('idle'); // idle | uploading | success | error
   const [receiptError, setReceiptError] = useState('');
 
@@ -107,7 +110,7 @@ export default function AddExpense() {
     if (file) form.append('receipt', file);
 
     try {
-      await api.post('/expenses', form, {
+      const res = await api.post('/expenses', form, {
         headers: { 'Content-Type': 'multipart/form-data' },
         onUploadProgress: (evt) => {
           const pct = evt.total ? Math.round((evt.loaded / evt.total) * 100) : 0;
@@ -121,9 +124,19 @@ export default function AddExpense() {
         localStorage.setItem(LAST_CATEGORY_KEY, JSON.stringify(map));
       }
       if (file) setReceiptStatus('success');
+      // Held on screen with its reference before moving on. A toast that
+      // vanishes in three seconds is a poor receipt for the one action in the
+      // app that is meant to leave a record — and if a receipt was attached,
+      // this is where you find out it actually landed.
+      setSaved({
+        id: res.data?.id,
+        itemName: itemName.trim(),
+        amount: Number(amount),
+        hadReceipt: !!file,
+      });
       setSubmitted(true);
-      toast('Expense added', 'success');
-      setTimeout(() => navigate('/'), 700);
+      playSuccess();
+      setTimeout(() => navigate('/'), 2600);
     } catch (err) {
       if (file) {
         setReceiptStatus('error');
@@ -252,9 +265,89 @@ export default function AddExpense() {
 
         <button className="btn btn-primary" type="submit" disabled={submitting || submitted || !formComplete} style={{ marginTop: 4 }}>
           {submitting && !submitted && <span className="spinner" />}
-          {submitted ? 'Saved ✓' : submitting ? 'Saving…' : 'Save expense'}
+          {submitted ? 'Saved' : submitting ? 'Saving…' : 'Save expense'}
         </button>
       </form>
+
+      {/* The confirmation, with the reference to quote if it ever has to be
+          found again. */}
+      <AnimatePresence>
+        {saved && (
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0 }}
+            className="card"
+            style={{
+              marginTop: 18,
+              padding: 18,
+              display: 'flex',
+              alignItems: 'center',
+              gap: 14,
+              borderLeft: '4px solid var(--emerald)',
+            }}
+          >
+            <motion.span
+              initial={{ scale: 0.5, rotate: -12 }}
+              animate={{ scale: 1, rotate: 0 }}
+              transition={{ type: 'spring', stiffness: 420, damping: 16 }}
+              style={{
+                width: 46,
+                height: 46,
+                borderRadius: '50%',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                background: 'rgba(12, 115, 67, 0.12)',
+                color: 'var(--emerald)',
+                flexShrink: 0,
+              }}
+            >
+              <Icon name="check-circle" size={26} />
+            </motion.span>
+
+            <div style={{ minWidth: 0, flex: 1 }}>
+              <div style={{ fontWeight: 700, fontSize: 15 }}>
+                {saved.itemName} saved — {formatMoney(saved.amount)}
+              </div>
+              <div
+                style={{
+                  display: 'flex',
+                  flexWrap: 'wrap',
+                  gap: 10,
+                  alignItems: 'center',
+                  marginTop: 5,
+                  fontSize: 12.5,
+                  color: 'var(--text-muted)',
+                }}
+              >
+                {saved.id && (
+                  <span
+                    title="The reference for this expense"
+                    style={{
+                      fontFamily: 'ui-monospace, monospace',
+                      fontWeight: 700,
+                      padding: '2px 8px',
+                      borderRadius: 6,
+                      background: 'var(--bg-inset)',
+                      border: '1px solid var(--border)',
+                      color: 'var(--text)',
+                    }}
+                  >
+                    #{String(saved.id).padStart(5, '0')}
+                  </span>
+                )}
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
+                  <Icon name={saved.hadReceipt ? 'receipt' : 'info'} size={13} />
+                  {saved.hadReceipt ? 'Receipt attached and filed' : 'No receipt attached'}
+                </span>
+              </div>
+            </div>
+
+            <span className="spinner" title="Returning to your dashboard" />
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

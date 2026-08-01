@@ -5,6 +5,7 @@ import { useToast } from './Toast.jsx';
 import Icon from './Icon.jsx';
 import Avatar from './Avatar.jsx';
 import { formatMoney } from '../lib/money.js';
+import { formatDateShort } from '../lib/dates.js';
 
 function formatBytes(bytes) {
   if (!bytes) return '0 MB';
@@ -16,18 +17,12 @@ function formatBytes(bytes) {
 
 function date(value) {
   if (!value) return '—';
-  return new Date(value).toLocaleDateString(undefined, { day: '2-digit', month: 'short', year: 'numeric' });
+  return formatDateShort(value);
 }
 
 function dateTime(value) {
   if (!value) return '—';
-  return new Date(value).toLocaleString(undefined, {
-    day: '2-digit',
-    month: 'short',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  });
+  return formatDateTime(value);
 }
 
 // "Android app" and "Chrome on Android" are different support conversations,

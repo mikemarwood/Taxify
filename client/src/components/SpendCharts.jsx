@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { motion } from 'framer-motion';
 import { formatMoney } from '../lib/money.js';
+import { formatDateLong } from '../lib/dates.js';
 
 // Two charts and a countdown, all reading from the same filtered expense list.
 //
@@ -64,7 +65,7 @@ export function FinancialYearCountdown({ financialYear }) {
     return {
       daysLeft: Math.max(0, Math.round((end - now) / day)),
       elapsed: Math.min(100, Math.max(0, (gone / total) * 100)),
-      endLabel: end.toLocaleDateString(undefined, { day: 'numeric', month: 'long', year: 'numeric' }),
+      endLabel: formatDateLong(end),
     };
   }, [financialYear]);
 

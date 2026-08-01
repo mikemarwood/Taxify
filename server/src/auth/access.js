@@ -80,8 +80,14 @@ export function dataOwnerId(publicUser) {
 export async function getVisibleUserIds(publicUser) {
   if (publicUser.actingAsClient) {
     const ownerId = publicUser.actingAsClient.id;
+    // The client, plus the family members who share their books. Stated as
+    // exactly that rather than as "everyone attached to them, except
+    // accountants" — an accountant who later starts their own account stops
+    // being an accountant by role while still carrying account_holder_id, and
+    // an exclusion phrased that way would quietly hand their private expenses
+    // to the client they were invited by.
     const [rows] = await pool.execute(
-      "SELECT id FROM users WHERE (id = ? OR account_holder_id = ?) AND role != 'accountant'",
+      "SELECT id FROM users WHERE id = ? OR (account_holder_id = ? AND role = 'sub_user')",
       [ownerId, ownerId]
     );
     if (rows.length > 0) return rows.map((r) => r.id);

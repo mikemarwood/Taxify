@@ -130,12 +130,7 @@ export default function ChangeEmailSection({ user }) {
               <div style={{ fontSize: 12.5, color: 'var(--text-muted)', marginTop: 3, lineHeight: 1.55 }}>
                 We've emailed <strong style={{ color: 'var(--text)' }}>{pending.email}</strong>. Open the link in that
                 inbox to finish the change — it expires{' '}
-                {new Date(pending.expiresAt).toLocaleString(undefined, {
-                  day: '2-digit',
-                  month: 'short',
-                  hour: '2-digit',
-                  minute: '2-digit',
-                })}
+                {formatDateTime(pending.expiresAt)}
                 . Until then you carry on signing in with {user.email}.
               </div>
               <button

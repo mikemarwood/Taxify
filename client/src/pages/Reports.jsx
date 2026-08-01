@@ -10,6 +10,7 @@ import ExportMenu from '../components/ExportMenu.jsx';
 import YearArchiveButton from '../components/YearArchiveButton.jsx';
 import YearDocuments from '../components/YearDocuments.jsx';
 import TaxYears from '../components/TaxYears.jsx';
+import { formatDateShort } from '../lib/dates.js';
 
 export default function Reports() {
   const [expenses, setExpenses] = useState(null);
@@ -255,7 +256,7 @@ export default function Reports() {
                       }}
                     >
                       <span style={{ width: 78, flexShrink: 0, color: 'var(--text-muted)' }}>
-                        {new Date(e.purchaseDate).toLocaleDateString(undefined, { day: '2-digit', month: 'short', year: 'numeric' })}
+                        {formatDateShort(e.purchaseDate)}
                       </span>
                       <span style={{ flex: 1, minWidth: 0, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                         {e.itemName}

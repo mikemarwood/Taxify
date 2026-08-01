@@ -10,6 +10,7 @@ import YearDocuments from '../components/YearDocuments.jsx';
 import Icon from '../components/Icon.jsx';
 import { formatMoney } from '../lib/money.js';
 import { useAuth } from '../lib/AuthContext.jsx';
+import { formatDayMonth } from '../lib/dates.js';
 
 // Lets the one search box take an amount as well as text. A bare number
 // matches by prefix, so "47" finds $47.91 and $47.00 — typing the exact cents
@@ -227,7 +228,7 @@ export default function Expenses() {
                       }}
                     >
                       <span style={{ width: 78, flexShrink: 0, color: 'var(--text-muted)' }}>
-                        {new Date(e.purchaseDate).toLocaleDateString(undefined, { day: '2-digit', month: 'short' })}
+                        {formatDayMonth(e.purchaseDate)}
                       </span>
                       <span
                         style={{

@@ -15,6 +15,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import pool, { ensureSchema } from '../db.js';
 import { receiptDirFor } from '../lib/receiptStorage.js';
+import { financialYearRuleFor } from '../auth/access.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const uploadsDir = path.join(__dirname, '..', '..', 'uploads');
@@ -51,9 +52,24 @@ async function main() {
   let errors = 0;
   const touchedUserIds = new Set();
 
+  // A script, not a request — each row's own account has to be asked which
+  // twelve months count as a year, or every receipt lands in an Australian
+  // folder the app will never look in.
+  const ruleCache = new Map();
+  async function ruleFor(userId) {
+    if (!ruleCache.has(userId)) ruleCache.set(userId, await financialYearRuleFor(userId));
+    return ruleCache.get(userId);
+  }
+
   for (const row of rows) {
     const oldPath = path.join(uploadsDir, String(row.user_id), row.receipt_path);
-    const newDir = receiptDirFor(uploadsDir, row.user_id, row.purchase_date, row.category_name || 'Uncategorised');
+    const newDir = receiptDirFor(
+      uploadsDir,
+      row.user_id,
+      row.purchase_date,
+      row.category_name || 'Uncategorised',
+      await ruleFor(row.user_id)
+    );
     const newPath = path.join(newDir, row.receipt_path);
 
     if (fs.existsSync(newPath)) {

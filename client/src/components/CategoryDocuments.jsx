@@ -5,9 +5,7 @@ import Icon from './Icon.jsx';
 import ProgressBar from './ProgressBar.jsx';
 import ReceiptLightbox from './ReceiptLightbox.jsx';
 import { playSuccess, playError } from '../lib/sounds.js';
-import { currentFinancialYear as defaultFinancialYear } from '../lib/financialYear.js';
 import { useFinancialYears } from '../lib/useFinancialYears.js';
-import { useAuth } from '../lib/AuthContext.jsx';
 
 const MAX_FILE_BYTES = 10 * 1024 * 1024;
 const RECEIPT_EXT = /\.(jpe?g|png|webp|gif|heic|heif|avif|bmp|tiff?|svg|jfif|pdf|docx?)$/i;
@@ -110,12 +108,14 @@ function DocThumb({ doc }) {
 // expense — agent statements, depreciation schedules, the end-of-year summary.
 // Several arrive at once, so this takes a whole selection in one go.
 export default function CategoryDocuments({ category }) {
-  const { user } = useAuth();
   const toast = useToast();
   const inputRef = useRef(null);
   const [years, setYears] = useState(null);
   const [directory, setDirectory] = useState('');
-  const [year, setYear] = useState(() => defaultFinancialYear(null, user?.financialYearRule));
+  // Starts empty and settles on the account's current year once the server
+  // says what that is — an alias that dropped the rule was defaulting every
+  // non-Australian user to the wrong year.
+  const [year, setYear] = useState('');
   const [docName, setDocName] = useState('');
   const [uploading, setUploading] = useState(false);
   const [uploadCount, setUploadCount] = useState(0);
@@ -124,7 +124,11 @@ export default function CategoryDocuments({ category }) {
   const [preview, setPreview] = useState(null);
   // Years this account actually has, plus the current one so paperwork can be
   // filed before the first receipt of a new year arrives.
-  const { years: yearChoices } = useFinancialYears();
+  const { years: yearChoices, current: currentYear } = useFinancialYears();
+
+  useEffect(() => {
+    if (!year && currentYear) setYear(currentYear);
+  }, [currentYear, year]);
 
   const load = useCallback(() => {
     api

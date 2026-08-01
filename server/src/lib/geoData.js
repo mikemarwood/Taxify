@@ -186,6 +186,19 @@ export function isKnownCurrency(code) {
   return CURRENCIES.some((c) => c.code === String(code || '').toUpperCase());
 }
 
+// A date should read the way it reads where the person lives: 03/04/2026 is
+// the 3rd of April in Sydney and the 4th of March in New York. Reading it off
+// the browser is wrong for anyone travelling, or on a work laptop set up
+// somewhere else.
+//
+// English with a region subtag rather than the country's own language — the
+// interface is in English, so this changes the order and the separators
+// without producing a half-translated one.
+export function localeForCountry(name) {
+  const country = countryByName(name);
+  return country ? `en-${country.code}` : 'en-AU';
+}
+
 // A state is valid if the country has no list (anything reasonable goes) or
 // the value is on it.
 export function isValidState(countryName, state) {

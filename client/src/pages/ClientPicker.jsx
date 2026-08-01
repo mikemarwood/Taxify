@@ -8,10 +8,11 @@ import Icon from '../components/Icon.jsx';
 import { SkeletonList } from '../components/Skeletons.jsx';
 import { formatMoney } from '../lib/money.js';
 import { playClick } from '../lib/sounds.js';
+import { formatDateShort } from '../lib/dates.js';
 
 function formatDate(value) {
   if (!value) return null;
-  return new Date(value).toLocaleDateString(undefined, { day: '2-digit', month: 'short', year: 'numeric' });
+  return formatDateShort(value, null);
 }
 
 // How long is left before this client's window closes, in the words someone

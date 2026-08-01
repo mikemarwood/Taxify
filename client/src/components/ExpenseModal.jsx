@@ -395,11 +395,7 @@ export default function ExpenseModal({ expense, onClose, onSaved, onDeleted }) {
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', rowGap: 16, columnGap: 16 }}>
                 <DetailRow
                   label="Purchase date"
-                  value={new Date(expense.purchaseDate).toLocaleDateString(undefined, {
-                    day: '2-digit',
-                    month: 'long',
-                    year: 'numeric',
-                  })}
+                  value={formatDateLong(expense.purchaseDate)}
                 />
                 <DetailRow label="Category" value={expense.category?.name || 'Uncategorised'} />
                 <DetailRow
@@ -410,11 +406,7 @@ export default function ExpenseModal({ expense, onClose, onSaved, onDeleted }) {
                 {expense.createdAt && (
                   <DetailRow
                     label="Added on"
-                    value={new Date(expense.createdAt).toLocaleDateString(undefined, {
-                      day: '2-digit',
-                      month: 'short',
-                      year: 'numeric',
-                    })}
+                    value={formatDateShort(expense.createdAt)}
                   />
                 )}
                 {expense.createdByName && <DetailRow label="Added by" value={expense.createdByName} />}
@@ -423,11 +415,7 @@ export default function ExpenseModal({ expense, onClose, onSaved, onDeleted }) {
                 {expense.updatedByName && expense.updatedAt && (
                   <DetailRow
                     label="Last edited by"
-                    value={`${expense.updatedByName} · ${new Date(expense.updatedAt).toLocaleDateString(undefined, {
-                      day: '2-digit',
-                      month: 'short',
-                      year: 'numeric',
-                    })}`}
+                    value={`${expense.updatedByName} · ${formatDateShort(expense.updatedAt)}`}
                   />
                 )}
               </div>

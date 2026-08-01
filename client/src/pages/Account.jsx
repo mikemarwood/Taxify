@@ -209,7 +209,7 @@ function BillingSection({ user }) {
         <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>
           Free trial ends{' '}
           <strong style={{ color: 'var(--text)' }}>
-            {new Date(user.trialEndsAt).toLocaleDateString(undefined, { day: '2-digit', month: 'long', year: 'numeric' })}
+            {formatDateLong(user.trialEndsAt)}
           </strong>
         </div>
       )}
@@ -217,11 +217,7 @@ function BillingSection({ user }) {
         <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>
           Renews{' '}
           <strong style={{ color: 'var(--text)' }}>
-            {new Date(user.subscriptionCurrentPeriodEnd).toLocaleDateString(undefined, {
-              day: '2-digit',
-              month: 'long',
-              year: 'numeric',
-            })}
+            {formatDateLong(user.subscriptionCurrentPeriodEnd)}
           </strong>
         </div>
       )}
@@ -256,12 +252,7 @@ function BillingSection({ user }) {
 
 function formatWhen(value) {
   if (!value) return null;
-  return new Date(value).toLocaleString(undefined, {
-    day: '2-digit',
-    month: 'short',
-    hour: '2-digit',
-    minute: '2-digit',
-  });
+  return formatDateTime(value);
 }
 
 // Someone invited only to read other people's books, who wants Taxify for

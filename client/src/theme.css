@@ -402,9 +402,14 @@ input[type="date"].input::-webkit-calendar-picker-indicator:hover { opacity: 1; 
    here exists to keep.
    --------------------------------------------------------------------------- */
 
-html, body { max-width: 100%; overflow-x: hidden; }
-
 @media (max-width: 860px) {
+  /* Scoped to small screens deliberately. `overflow-x: hidden` on body makes
+     body the scrollport for its descendants while html is what actually
+     scrolls, so every `position: sticky` inside stops sticking — the nav rail,
+     and the "you are viewing as an administrator" banner, which is a safety
+     affordance that has to stay on screen. */
+  html, body { max-width: 100%; overflow-x: hidden; }
+
   /* The rail slides in over the content rather than taking a share of it. */
   .app-sidebar {
     position: fixed !important;
@@ -437,11 +442,14 @@ html, body { max-width: 100%; overflow-x: hidden; }
   .app-shell-main { padding: 12px !important; }
 }
 
-/* Anything absolutely-positioned to the viewport needs to clear the notch and
-   the home indicator on a phone. */
-.app-fab {
-  right: max(20px, env(safe-area-inset-right)) !important;
-  bottom: max(20px, env(safe-area-inset-bottom)) !important;
+/* Anything pinned to the viewport needs to clear the notch and the home
+   indicator — on a phone. On desktop the inline 32px is right, and this used
+   to override it with !important at every width. */
+@media (max-width: 860px) {
+  .app-fab {
+    right: max(20px, env(safe-area-inset-right)) !important;
+    bottom: max(20px, env(safe-area-inset-bottom)) !important;
+  }
 }
 
 /* An expense row is date / name / category / receipt / amount. On a narrow

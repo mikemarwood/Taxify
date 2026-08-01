@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom';
+import { formatDateLong } from '../lib/dates.js';
 
 export default function Terms() {
   return (
@@ -12,7 +13,7 @@ export default function Terms() {
         <div className="card" style={{ padding: 32 }}>
           <h1 style={{ fontSize: 24, margin: '0 0 4px' }}>Terms of Service</h1>
           <p style={{ fontSize: 13, color: 'var(--text-muted)', margin: '0 0 24px' }}>
-            Last updated {new Date().toLocaleDateString(undefined, { day: '2-digit', month: 'long', year: 'numeric' })}
+            Last updated {formatDateLong(new Date())}
           </p>
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: 18, fontSize: 14, lineHeight: 1.6, color: 'var(--text)' }}>

@@ -592,10 +592,22 @@ router.post(
 
     let userId;
     try {
+      // A family member belongs to this account. An accountant does not — the
+      // assignment row is the whole relationship, and they may work for
+      // several people. Recording them as belonging here is what let their
+      // own expenses leak into a client's books once they had any.
       const [result] = await pool.execute(
         `INSERT INTO users (email, password_hash, name, role, account_holder_id, activation_token_hash, activation_token_expires_at)
          VALUES (?, ?, ?, ?, ?, ?, ?)`,
-        [normalizedEmail, placeholderHash, displayName, role, req.user.id, tokenHash, expiresAt]
+        [
+          normalizedEmail,
+          placeholderHash,
+          displayName,
+          role,
+          role === 'sub_user' ? req.user.id : null,
+          tokenHash,
+          expiresAt,
+        ]
       );
       userId = result.insertId;
     } catch (err) {
@@ -657,11 +669,28 @@ router.get(
       })
     );
 
-    res.json({ clients: enriched, activeClientId: req.user.accountHolderId || null, windowHours: ACCOUNTANT_WINDOW_HOURS });
+    // accountHolderId means "the account this login belongs to" again, so the
+    // open client has to come from the session rather than from the user row.
+    res.json({
+      clients: enriched,
+      activeClientId: req.user.actingAsClient?.id || null,
+      windowHours: ACCOUNTANT_WINDOW_HOURS,
+    });
   })
 );
 
-// Registered before /clients/:ownerId, or "exit" would be read as an id.
+// Back to the picker without logging out. Must be registered BEFORE
+// /clients/:ownerId — Express matches in order, so with these the other way
+// round "exit" was read as an owner id, became NaN, and Switch client failed.
+router.post(
+  '/clients/exit',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    if (!(await hasAssignments(req.user.id))) return res.status(403).json({ error: 'You do not act for any clients' });
+    res.cookie(COOKIE_NAME, signToken(req.user), cookieOptions(false));
+    res.json({ ok: true });
+  })
+);
 
 // Opening a client starts their 24-hour window if this is the first look, and
 // re-issues the session cookie naming that client.
@@ -672,6 +701,8 @@ router.post(
     if (!(await hasAssignments(req.user.id))) return res.status(403).json({ error: 'You do not act for any clients' });
 
     const ownerId = Number(req.params.ownerId);
+    if (!Number.isInteger(ownerId)) return res.status(400).json({ error: 'Unknown client' });
+
     const assignment = await openAssignment(req.user.id, ownerId);
     if (!assignment) return res.status(404).json({ error: 'That access has been removed or has expired.' });
 
@@ -681,17 +712,6 @@ router.post(
       cookieOptions(false)
     );
     res.json({ ok: true, expiresAt: assignment.expires_at || assignment.expiresAt || null });
-  })
-);
-
-// Back to the picker without logging out.
-router.post(
-  '/clients/exit',
-  requireAuth,
-  asyncHandler(async (req, res) => {
-    if (!(await hasAssignments(req.user.id))) return res.status(403).json({ error: 'You do not act for any clients' });
-    res.cookie(COOKIE_NAME, signToken(req.user), cookieOptions(false));
-    res.json({ ok: true });
   })
 );
 
@@ -708,7 +728,12 @@ router.post(
 
     const trialEndsAt = new Date(Date.now() + TRIAL_DAYS * 24 * 60 * 60 * 1000);
     await pool.execute(
-      `UPDATE users SET role = 'owner', plan_type = COALESCE(plan_type, 'individual'),
+      // account_holder_id is cleared, not just left behind. It pointed at the
+      // client who first invited them, and an account holder who "belongs to"
+      // somebody else is a contradiction — one that would put their private
+      // expenses inside that client's books.
+      `UPDATE users SET role = 'owner', account_holder_id = NULL,
+       plan_type = COALESCE(plan_type, 'individual'),
        subscription_status = 'trialing', trial_ends_at = ? WHERE id = ?`,
       [trialEndsAt, req.user.id]
     );
@@ -778,8 +803,11 @@ router.get(
   requireAuth,
   requireAccountOwner,
   asyncHandler(async (req, res) => {
+    // Family members only. Accountants have their own list, with their year
+    // scope and expiry — showing them here as well listed the same person
+    // twice with half the information each time.
     const [rows] = await pool.execute(
-      'SELECT id, name, email, role, activated_at FROM users WHERE account_holder_id = ? ORDER BY role, name',
+      "SELECT id, name, email, role, activated_at FROM users WHERE account_holder_id = ? AND role = 'sub_user' ORDER BY name",
       [req.user.id]
     );
     res.json({

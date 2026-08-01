@@ -6,7 +6,7 @@ import crypto from 'crypto';
 import { fileURLToPath } from 'url';
 import pool from '../db.js';
 import { requireAuth, requireActiveAccess } from '../auth/middleware.js';
-import { getVisibleUserIds, expenseScope } from '../auth/access.js';
+import { getVisibleUserIds, expenseScope, financialYearRuleFor } from '../auth/access.js';
 import { asyncHandler } from '../lib/asyncHandler.js';
 import { financialYearOf } from '../lib/financialYear.js';
 import { resolveCategoryForYear } from '../lib/categoryYears.js';
@@ -94,13 +94,23 @@ export async function purgeExpiredTrash(dbPool) {
   );
   if (rows.length === 0) return;
 
+  // A background job has no request to read the year rule from, so each row's
+  // own account has to be asked. Cached, because one purge usually covers
+  // several rows belonging to the same person.
+  const ruleCache = new Map();
+  async function ruleFor(userId) {
+    if (!ruleCache.has(userId)) ruleCache.set(userId, await financialYearRuleFor(userId));
+    return ruleCache.get(userId);
+  }
+
   for (const row of rows) {
     if (row.receipt_path) {
-      const dir = receiptDirFor(uploadsDir, row.user_id, row.purchase_date, row.category_name, req.user.financialYearRule);
+      const rule = await ruleFor(row.user_id);
+      const dir = receiptDirFor(uploadsDir, row.user_id, row.purchase_date, row.category_name, rule);
       // Keep the file if a live expense still shares it.
       const stillUsed = await otherExpensesUsingReceipt(
         dbPool,
-        { id: row.user_id },
+        { id: row.user_id, financialYearRule: rule },
         row.receipt_path,
         dir,
         row.id

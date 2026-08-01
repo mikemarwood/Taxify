@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { api } from '../lib/api.js';
 import Icon from './Icon.jsx';
+import { formatDateShort } from '../lib/dates.js';
 
 function formatSize(bytes) {
   if (!bytes) return null;
@@ -11,7 +12,7 @@ function formatSize(bytes) {
 
 function formatDate(value) {
   if (!value) return null;
-  return new Date(value).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' });
+  return formatDateShort(value, null);
 }
 
 // Whether this is the device the file will actually run on. An APK downloaded

@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react';
 import { api } from './api.js';
-import { currentFinancialYear } from './financialYear.js';
 
 // Every year picker in the app should offer the years this account actually
 // has, not a fixed run of the last seven. Someone who started in 2025 being
@@ -12,12 +11,21 @@ import { currentFinancialYear } from './financialYear.js';
 // receipt, for instance.
 export function useFinancialYears({ includeCurrent = true, extra = [] } = {}) {
   const [years, setYears] = useState(null);
+  // The current year comes from the server, which knows the account's rule.
+  // Working it out here meant defaulting to the Australian one, so a US or UK
+  // account got a phantom "FY 2026-2027" the server would never produce —
+  // selecting it filtered against a label that does not exist.
+  const [current, setCurrent] = useState(null);
 
   useEffect(() => {
     let cancelled = false;
     api
       .get('/expenses/years')
-      .then((res) => !cancelled && setYears(res.data.years || []))
+      .then((res) => {
+        if (cancelled) return;
+        setYears(res.data.years || []);
+        setCurrent(res.data.current || null);
+      })
       .catch(() => !cancelled && setYears([]));
     return () => {
       cancelled = true;
@@ -25,10 +33,10 @@ export function useFinancialYears({ includeCurrent = true, extra = [] } = {}) {
   }, []);
 
   const merged = Array.from(
-    new Set([...(years || []), ...(includeCurrent ? [currentFinancialYear()] : []), ...extra.filter(Boolean)])
+    new Set([...(years || []), ...(includeCurrent && current ? [current] : []), ...extra.filter(Boolean)])
   )
     .sort()
     .reverse();
 
-  return { years: merged, loading: years === null };
+  return { years: merged, current, loading: years === null };
 }

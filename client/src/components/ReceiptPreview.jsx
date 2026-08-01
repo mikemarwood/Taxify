@@ -12,7 +12,7 @@ function isPdf(filename, url) {
 // their first page in an iframe, which browsers do natively for a same-origin
 // file; pointer events are disabled on it so the click reaches the wrapper and
 // opens the zoomable lightbox instead of the browser's own PDF controls.
-export default function ReceiptPreview({ url, filename, onOpen, height = 190 }) {
+export default function ReceiptPreview({ url, filename, onOpen, height = 260 }) {
   const [imgError, setImgError] = useState(false);
   const pdf = isPdf(filename, url);
   // HEIC no longer lands here — the server converts it to JPEG for display —
@@ -55,17 +55,25 @@ export default function ReceiptPreview({ url, filename, onOpen, height = 190 }) 
         </div>
       ) : pdf ? (
         <iframe
-          src={`${url}#toolbar=0&navpanes=0&scrollbar=0&view=FitH`}
+          src={`${url}#toolbar=0&navpanes=0&scrollbar=0&view=Fit`}
           title={filename || 'Receipt'}
           tabIndex={-1}
           style={{ width: '100%', height: '100%', border: 'none', background: '#fff', pointerEvents: 'none' }}
         />
       ) : (
+        /* `contain`, not `cover`. Cropping a receipt to fill the box cuts off
+           the total — the one line anybody wants without opening it. */
         <img
           src={url}
           alt={filename || 'Receipt'}
           onError={() => setImgError(true)}
-          style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'top', display: 'block' }}
+          style={{
+            width: '100%',
+            height: '100%',
+            objectFit: 'contain',
+            objectPosition: 'center',
+            display: 'block',
+          }}
         />
       )}
 

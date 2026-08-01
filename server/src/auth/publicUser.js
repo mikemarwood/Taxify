@@ -1,4 +1,5 @@
 import { isMfaPromptDue } from './otp.js';
+import { localeForCountry } from '../lib/geoData.js';
 
 export function toPublicUser(user, mfaMode) {
   const otpEnabled = mfaMode === 'required' ? true : !!user.otp_enabled;
@@ -24,6 +25,9 @@ export function toPublicUser(user, mfaMode) {
     country: user.country || null,
     state: user.state || null,
     businessName: user.business_name || null,
+    // How dates should read for this person — from their country, not from
+    // whatever the browser happens to be set to.
+    locale: localeForCountry(user.country),
     // Which twelve months count as a year here. The client files dates into
     // years too — the year selector, the archive name, which categories a date
     // is offered — so it needs the same rule the server uses. requireAuth

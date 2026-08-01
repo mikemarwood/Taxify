@@ -14,6 +14,7 @@ import { formatMoney } from '../lib/money.js';
 import { FinancialYearCountdown, MonthlySpendChart, CategorySpendChart } from '../components/SpendCharts.jsx';
 import { useAuth } from '../lib/AuthContext.jsx';
 import { describeSubscription, toneColor } from '../lib/subscription.js';
+import { formatDayMonth } from '../lib/dates.js';
 
 const COLLAPSED_ROW_COUNT = 8;
 
@@ -334,7 +335,7 @@ export default function Dashboard() {
                   }}
                 >
                   <span style={{ width: 78, flexShrink: 0, color: 'var(--text-muted)' }}>
-                    {new Date(e.purchaseDate).toLocaleDateString(undefined, { day: '2-digit', month: 'short' })}
+                    {formatDayMonth(e.purchaseDate)}
                   </span>
                   <span
                     style={{

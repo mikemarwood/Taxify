@@ -95,7 +95,11 @@ export function playKeypadBeep() {
   tone(1050, { start: 0, duration: 0.045, type: 'square', peak: 0.04 });
 }
 
-// Attach as onKeyDown on a numeric input to get a soft ATM-style beep per digit.
+// Attach as onKeyDown on a numeric input to get a soft ATM-style beep per
+// digit. The decimal point counts: it is part of typing an amount, and a key
+// that stays silent in the middle of a number reads as one that didn't
+// register. Comma too — that is what the numeric keypad reports on a lot of
+// non-UK layouts.
 export function onDigitKeyDown(e) {
-  if (/^[0-9]$/.test(e.key)) playKeypadBeep();
+  if (/^[0-9.,]$/.test(e.key)) playKeypadBeep();
 }

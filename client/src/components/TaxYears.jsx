@@ -6,10 +6,11 @@ import { useAuth } from '../lib/AuthContext.jsx';
 import Icon from './Icon.jsx';
 import { formatMoney } from '../lib/money.js';
 import { playSuccess, playError } from '../lib/sounds.js';
+import { formatDateShort } from '../lib/dates.js';
 
 function formatWhen(value) {
   if (!value) return null;
-  return new Date(value).toLocaleDateString(undefined, { day: '2-digit', month: 'short', year: 'numeric' });
+  return formatDateShort(value, null);
 }
 
 // Stored as a plain local datetime ("2026-09-14 14:30:00") so it means the time
@@ -26,13 +27,7 @@ function parseLocal(value) {
 function formatAppointment(value) {
   const at = parseLocal(value);
   if (!at) return '';
-  return at.toLocaleString(undefined, {
-    weekday: 'short',
-    day: 'numeric',
-    month: 'short',
-    hour: 'numeric',
-    minute: '2-digit',
-  });
+  return formatAppointmentTime(at);
 }
 
 // Counts down in the units that are actually useful at that distance: months
