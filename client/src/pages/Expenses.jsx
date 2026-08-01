@@ -6,6 +6,7 @@ import CategoryBadge from '../components/CategoryBadge.jsx';
 import ExpenseModal from '../components/ExpenseModal.jsx';
 import ReceiptLightbox from '../components/ReceiptLightbox.jsx';
 import { defaultFinancialYear } from '../lib/financialYear.js';
+import YearDocuments from '../components/YearDocuments.jsx';
 import Icon from '../components/Icon.jsx';
 import { formatMoney } from '../lib/money.js';
 
@@ -179,6 +180,10 @@ export default function Expenses() {
           </button>
         )}
       </div>
+
+      {/* Paperwork filed against the selected year, whatever category it
+          was attached to — the year is what you are looking at here. */}
+      <YearDocuments financialYear={year} title="Documents filed for this year" />
 
       {loading ? (
         <SkeletonList rows={6} />

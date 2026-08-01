@@ -8,6 +8,7 @@ import CategoryBadge from '../components/CategoryBadge.jsx';
 import ExpenseModal from '../components/ExpenseModal.jsx';
 import ExportMenu from '../components/ExportMenu.jsx';
 import YearArchiveButton from '../components/YearArchiveButton.jsx';
+import YearDocuments from '../components/YearDocuments.jsx';
 
 export default function Reports() {
   const [expenses, setExpenses] = useState(null);
@@ -129,6 +130,13 @@ export default function Reports() {
               <div style={{ fontSize: 24, fontWeight: 800, marginTop: 6 }}>{categories.length}</div>
             </motion.div>
           </div>
+
+          {/* Filed paperwork belongs with the year it covers, not buried under
+              the category it happened to be uploaded to — one collapsed panel
+              per year that has any, newest first. */}
+          {[...years].reverse().map((y) => (
+            <YearDocuments key={y} financialYear={y} title={`Documents filed for FY ${y}`} />
+          ))}
 
           <motion.div
             className="card scrollbar-slim"

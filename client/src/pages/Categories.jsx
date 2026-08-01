@@ -326,18 +326,18 @@ export default function Categories() {
                     </div>
 
                     {!editing && !confirming && (
-                      <div style={{ display: 'flex', gap: 2, flexShrink: 0 }}>
+                      <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
                         <button
-                          className="btn btn-ghost icon-btn"
-                          title="Edit category"
-                          aria-label={`Edit ${c.name}`}
+                          className="btn btn-ghost"
+                          style={{ fontSize: 12.5, padding: '7px 12px', gap: 6 }}
                           onClick={() => startEdit(c)}
                         >
-                          <Icon name="settings" size={16} />
+                          <Icon name="pencil" size={14} />
+                          Edit
                         </button>
                         <button
                           className="btn btn-ghost icon-btn"
-                          title="Delete category"
+                          title={`Delete ${c.name}`}
                           aria-label={`Delete ${c.name}`}
                           onClick={() => {
                             setConfirmingId(c.id);

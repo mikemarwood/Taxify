@@ -337,6 +337,52 @@ const documentUpload = multer({
   },
 });
 
+// Every category document filed against one financial year, whichever category
+// it belongs to. At tax time the question is "what paperwork do I have for
+// 2025-2026", not "what has this one property got" — so the year is the thing
+// you ask by, and the category is just a label on the answer.
+router.get(
+  '/documents/year/:financialYear',
+  asyncHandler(async (req, res) => {
+    const { financialYear } = req.params;
+    if (!isFinancialYearLabel(financialYear)) {
+      return res.status(400).json({ error: 'Invalid financial year' });
+    }
+
+    const [rows] = await pool.execute(
+      `SELECT d.id, d.filename, d.original_name, d.document_name, d.financial_year, d.size_bytes, d.uploaded_at,
+              c.id AS category_id, c.name AS category_name, c.color AS category_color, c.icon AS category_icon
+       FROM category_documents d
+       JOIN categories c ON c.id = d.category_id
+       WHERE d.user_id = ? AND d.financial_year = ?
+       ORDER BY c.name, d.uploaded_at DESC, d.id DESC`,
+      [req.user.id, financialYear]
+    );
+
+    res.json({
+      financialYear,
+      documents: rows.map((d) => ({
+        id: d.id,
+        filename: d.filename,
+        originalName: d.original_name,
+        documentName: d.document_name || d.original_name,
+        financialYear: d.financial_year,
+        sizeBytes: d.size_bytes,
+        uploadedAt: d.uploaded_at,
+        category: {
+          id: d.category_id,
+          name: d.category_name,
+          color: d.category_color,
+          icon: d.category_icon,
+        },
+        url: `/api/categories/${d.category_id}/documents/${encodeURIComponent(d.filename)}?year=${encodeURIComponent(
+          d.financial_year || ''
+        )}`,
+      })),
+    });
+  })
+);
+
 router.get(
   '/:id/documents',
   asyncHandler(async (req, res) => {
