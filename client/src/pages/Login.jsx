@@ -7,6 +7,7 @@ import { onDigitKeyDown } from '../lib/sounds.js';
 import { api } from '../lib/api.js';
 import Toggle from '../components/Toggle.jsx';
 import Icon from '../components/Icon.jsx';
+import { homePathFor } from '../lib/home.js';
 
 function msToClock(ms) {
   const total = Math.max(0, Math.ceil(ms / 1000));
@@ -89,7 +90,7 @@ export default function Login() {
         setCode('');
         setLockedUntil(null);
       } else {
-        navigate(result.user?.role === 'accountant' ? '/clients' : '/');
+        navigate(accountantMode && (result.user?.isAccountant || result.user?.role === 'accountant') ? '/clients' : homePathFor(result.user));
       }
     } catch (err) {
       if (err.lockedUntil) lockAccount(err.lockedUntil, err.lockedForSeconds);
@@ -107,7 +108,7 @@ export default function Login() {
     setBusy(true);
     try {
       const user = await verifyOtp(otpState.userId, value, publicDevice);
-      navigate(user?.role === 'accountant' ? '/clients' : '/');
+      navigate(accountantMode && (user?.isAccountant || user?.role === 'accountant') ? '/clients' : homePathFor(user));
     } catch (err) {
       if (err.lockedUntil) {
         lockAccount(err.lockedUntil, err.lockedForSeconds);

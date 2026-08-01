@@ -3,7 +3,7 @@ import pool, { getMfaMode } from '../db.js';
 import { asyncHandler } from '../lib/asyncHandler.js';
 import { toPublicUser } from './publicUser.js';
 import { computeAccessLocked } from './access.js';
-import { findAssignment } from './accountants.js';
+import { findAssignment, hasAssignments } from './accountants.js';
 
 export const requireAuth = asyncHandler(async (req, res, next) => {
   const token = req.cookies?.[COOKIE_NAME];
@@ -25,38 +25,38 @@ export const requireAuth = asyncHandler(async (req, res, next) => {
   const mfaMode = await getMfaMode();
   req.user = toPublicUser(user, mfaMode);
 
-  // An accountant is only ever inside one client at a time, and which one is
-  // named by the token rather than by their user row — they may have several.
-  // Resolved before access is computed, because whether they are locked out
-  // depends on that client's subscription, not on their own non-existent one.
-  if (req.user.role === 'accountant') {
-    req.user.accountHolderId = null;
-    req.user.activeClient = null;
-    req.user.allowedFinancialYears = null;
+  // Acting for a client is a property of the *session*, not of the user. The
+  // same login can be an account holder tracking their own expenses and an
+  // accountant doing someone else's books — which hat they are wearing right
+  // now is whether the token names a client.
+  req.user.isAccountant = await hasAssignments(req.user.id);
+  req.user.actingAsClient = null;
+  req.user.allowedFinancialYears = null;
 
-    if (payload.clientId) {
-      const assignment = await findAssignment(req.user.id, payload.clientId);
-      // A revoked or expired assignment drops the client from the session at
-      // once — they land back on the picker rather than on stale books.
-      if (assignment) {
-        const [ownerRows] = await pool.execute('SELECT id, name, email, business_name FROM users WHERE id = ?', [
-          payload.clientId,
-        ]);
-        if (ownerRows[0]) {
-          req.user.accountHolderId = ownerRows[0].id;
-          req.user.allowedFinancialYears = assignment.financialYears;
-          req.user.activeClient = {
-            id: ownerRows[0].id,
-            name: ownerRows[0].name,
-            email: ownerRows[0].email,
-            businessName: ownerRows[0].business_name || null,
-            financialYears: assignment.financialYears,
-            expiresAt: assignment.expiresAt,
-          };
-        }
+  if (payload.clientId) {
+    const assignment = await findAssignment(req.user.id, payload.clientId);
+    // A revoked or expired assignment drops the client from the session at
+    // once — they land back on the picker rather than on stale books.
+    if (assignment) {
+      const [ownerRows] = await pool.execute('SELECT id, name, email, business_name FROM users WHERE id = ?', [
+        payload.clientId,
+      ]);
+      if (ownerRows[0]) {
+        req.user.allowedFinancialYears = assignment.financialYears;
+        req.user.actingAsClient = {
+          id: ownerRows[0].id,
+          name: ownerRows[0].name,
+          email: ownerRows[0].email,
+          businessName: ownerRows[0].business_name || null,
+          financialYears: assignment.financialYears,
+          expiresAt: assignment.expiresAt,
+        };
       }
     }
   }
+
+  // Kept for the client, which reads `activeClient`.
+  req.user.activeClient = req.user.actingAsClient;
 
   req.user.accessLocked = await computeAccessLocked(req.user);
 
@@ -90,23 +90,36 @@ export function requireAdmin(req, res, next) {
 }
 
 export function requireActiveAccess(req, res, next) {
-  // An accountant with no client open isn't locked out — they simply haven't
-  // chosen whose books to look at. Said distinctly so the app sends them to the
-  // picker instead of a "subscription required" wall that isn't their problem.
-  if (req.user?.role === 'accountant' && !req.user.accountHolderId) {
+  // Inside a client's books: read-only, and governed by that client's
+  // subscription rather than the accountant's own.
+  if (req.user?.actingAsClient) {
+    if (req.user.accessLocked) return res.status(403).json({ error: 'subscription_required' });
+    if (req.method !== 'GET') return res.status(403).json({ error: 'Accountant access is read-only' });
+    return next();
+  }
+
+  // Someone invited purely as an accountant has no books of their own yet, so
+  // there is nothing here for them until they either open a client or start
+  // their own account. Said distinctly so the app sends them to the picker
+  // rather than to a "subscription required" wall that isn't their problem.
+  if (req.user?.role === 'accountant') {
     return res.status(409).json({ error: 'select_client' });
   }
+
+  // Otherwise these are their own books, under their own subscription — the
+  // same rules as any other account holder, whether or not they also do
+  // somebody else's tax.
   if (req.user?.accessLocked) {
     return res.status(403).json({ error: 'subscription_required' });
-  }
-  if (req.user?.role === 'accountant' && req.method !== 'GET') {
-    return res.status(403).json({ error: 'Accountant access is read-only' });
   }
   next();
 }
 
 export function requireAccountOwner(req, res, next) {
-  if (req.user?.role !== 'owner') {
+  // An accountant inside a client is never the account holder, whatever their
+  // own role says — otherwise someone with their own account could act as the
+  // owner of a client they are merely visiting.
+  if (req.user?.actingAsClient || req.user?.role !== 'owner') {
     return res.status(403).json({ error: 'Only the account holder can do this' });
   }
   next();

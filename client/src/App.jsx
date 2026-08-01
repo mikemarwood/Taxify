@@ -1,5 +1,6 @@
 import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from './lib/AuthContext.jsx';
+import { homePathFor } from './lib/home.js';
 import Layout from './components/Layout.jsx';
 import Landing from './pages/Landing.jsx';
 import Login from './pages/Login.jsx';
@@ -31,7 +32,8 @@ function Splash() {
   );
 }
 
-const ACCOUNTANT_PATHS = ['/', '/expenses', '/reports', '/account'];
+// Inside a client's books an accountant reads, and reads only these.
+const CLIENT_VIEW_PATHS = ['/', '/expenses', '/reports', '/account'];
 
 function Protected({ children, adminOnly }) {
   const { user, loading } = useAuth();
@@ -40,12 +42,15 @@ function Protected({ children, adminOnly }) {
   if (!user) return <Navigate to="/login" replace />;
   if (adminOnly && !user.isAdmin) return <Navigate to="/" replace />;
 
-  // An accountant with no client open has nothing to look at — the picker is
-  // the only page that makes sense, and choosing there is what starts their
-  // access window. They're also held to reading: expenses and reports.
-  if (user.role === 'accountant') {
-    if (!user.activeClient) return <Navigate to="/clients" replace />;
-    if (!ACCOUNTANT_PATHS.includes(location.pathname)) return <Navigate to="/" replace />;
+  // Inside a client's books: held to reading, and to the pages that mean
+  // something for someone else's tax.
+  if (user.actingAsClient) {
+    if (!CLIENT_VIEW_PATHS.includes(location.pathname)) return <Navigate to="/" replace />;
+  } else if (user.role === 'accountant') {
+    // Invited purely as an accountant and not inside a client — they have no
+    // books of their own yet, so the only things here are the client picker
+    // and their own profile.
+    if (location.pathname !== '/account') return <Navigate to="/clients" replace />;
   }
 
   if (!adminOnly && user.accessLocked && location.pathname !== '/account') {
@@ -61,18 +66,19 @@ function Protected({ children, adminOnly }) {
 function PublicOnly({ children }) {
   const { user, loading } = useAuth();
   if (loading) return <Splash />;
-  if (user) return <Navigate to={user.role === 'accountant' ? '/clients' : '/'} replace />;
+  if (user) return <Navigate to={homePathFor(user)} replace />;
   return children;
 }
 
-// The picker sits outside Protected: it is the one page an accountant can
-// reach before they have chosen a client, which is the state Protected sends
-// them here from.
+// The picker sits outside Protected: it is the one page reachable before a
+// client has been chosen, which is the state Protected sends people here from.
 function AccountantOnly({ children }) {
   const { user, loading } = useAuth();
   if (loading) return <Splash />;
   if (!user) return <Navigate to="/login?accountant=1" replace />;
-  if (user.role !== 'accountant') return <Navigate to="/" replace />;
+  // Anyone who acts for a client can be here, including account holders who
+  // keep their own books as well.
+  if (!user.isAccountant && user.role !== 'accountant') return <Navigate to="/" replace />;
   return children;
 }
 

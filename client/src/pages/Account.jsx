@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { motion } from 'framer-motion';
-import { useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import Icon from '../components/Icon.jsx';
 import { useAuth } from '../lib/AuthContext.jsx';
 import { useToast } from '../components/Toast.jsx';
@@ -269,6 +269,47 @@ function formatWhen(value) {
     hour: '2-digit',
     minute: '2-digit',
   });
+}
+
+// Someone invited only to read other people's books, who wants Taxify for
+// their own tax as well. Same login, ordinary account — being an accountant
+// was never meant to be an alternative to being a customer.
+function StartOwnAccount() {
+  const toast = useToast();
+  const { refresh } = useAuth();
+  const navigate = useNavigate();
+  const [busy, setBusy] = useState(false);
+
+  async function start() {
+    setBusy(true);
+    try {
+      await api.post('/auth/start-own-account');
+      await refresh();
+      toast('Your own account is ready — your 14-day trial has started', 'success');
+      navigate('/');
+    } catch (err) {
+      toast(err.message, 'error');
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="card" style={{ padding: 20, display: 'flex', flexDirection: 'column', gap: 12 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
+        <Icon name="briefcase" size={18} style={{ color: 'var(--accent)' }} />
+        <span style={{ fontWeight: 700 }}>You're signed in as an accountant</span>
+      </div>
+      <p style={{ fontSize: 13.5, color: 'var(--text-muted)', margin: 0, lineHeight: 1.6 }}>
+        Right now this login only opens the books your clients have shared with you. If you want to track your own
+        expenses and receipts as well, you can start an ordinary Taxify account on this same login — a 14-day trial,
+        the same plans as anyone else, and every client you already have stays exactly as it is.
+      </p>
+      <button className="btn btn-primary" style={{ alignSelf: 'flex-start', fontSize: 13 }} disabled={busy} onClick={start}>
+        {busy && <span className="spinner" />}
+        Start tracking my own expenses
+      </button>
+    </div>
+  );
 }
 
 function FamilySection({ user }) {
@@ -728,6 +769,7 @@ export default function Account() {
         transition={{ duration: 0.18 }}
         style={{ display: 'flex', flexDirection: 'column', gap: 20 }}
       >
+        {tab === 'profile' && user.role === 'accountant' && <StartOwnAccount />}
         {tab === 'profile' && <AvatarSection user={user} setUser={setUser} />}
 
         {tab === 'billing' && <BillingSection user={user} />}

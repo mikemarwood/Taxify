@@ -17,6 +17,7 @@ import {
   listAssignments,
   openAssignment,
   purgeExpiredAssignments,
+  hasAssignments,
   serialiseYears,
   ACCOUNTANT_WINDOW_HOURS,
 } from '../auth/accountants.js';
@@ -533,8 +534,12 @@ router.post(
       const found = existing[0];
 
       if (found) {
-        if (found.role !== 'accountant') {
-          return res.status(409).json({ error: 'That address already belongs to a Taxify account holder' });
+        // An account holder who also does other people's books is one login
+        // with both hats, so an existing Taxify user is a perfectly good
+        // accountant — they simply gain a client. The one thing that would be
+        // absurd is giving someone access to their own account.
+        if (found.id === req.user.id) {
+          return res.status(400).json({ error: 'You already have access to your own account' });
         }
         const [already] = await pool.execute(
           'SELECT id FROM accountant_assignments WHERE accountant_user_id = ? AND owner_user_id = ?',
@@ -604,7 +609,7 @@ router.get(
   '/clients',
   requireAuth,
   asyncHandler(async (req, res) => {
-    if (req.user.role !== 'accountant') return res.status(403).json({ error: 'Accountant access only' });
+    if (!(await hasAssignments(req.user.id))) return res.status(403).json({ error: 'You do not act for any clients' });
 
     const clients = await listAssignments(req.user.id);
 
@@ -640,7 +645,7 @@ router.post(
   '/clients/:ownerId',
   requireAuth,
   asyncHandler(async (req, res) => {
-    if (req.user.role !== 'accountant') return res.status(403).json({ error: 'Accountant access only' });
+    if (!(await hasAssignments(req.user.id))) return res.status(403).json({ error: 'You do not act for any clients' });
 
     const ownerId = Number(req.params.ownerId);
     const assignment = await openAssignment(req.user.id, ownerId);
@@ -660,9 +665,37 @@ router.post(
   '/clients/exit',
   requireAuth,
   asyncHandler(async (req, res) => {
-    if (req.user.role !== 'accountant') return res.status(403).json({ error: 'Accountant access only' });
+    if (!(await hasAssignments(req.user.id))) return res.status(403).json({ error: 'You do not act for any clients' });
     res.cookie(COOKIE_NAME, signToken(req.user), cookieOptions(false));
     res.json({ ok: true });
+  })
+);
+
+// An accountant who was only ever invited to look at other people's books
+// deciding to keep their own. They become an ordinary account holder — same
+// trial, same plans, same everything — while keeping every client they had.
+router.post(
+  '/start-own-account',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    if (req.user.role !== 'accountant') {
+      return res.status(400).json({ error: 'You already have your own Taxify account' });
+    }
+
+    const trialEndsAt = new Date(Date.now() + TRIAL_DAYS * 24 * 60 * 60 * 1000);
+    await pool.execute(
+      `UPDATE users SET role = 'owner', plan_type = COALESCE(plan_type, 'individual'),
+       subscription_status = 'trialing', trial_ends_at = ? WHERE id = ?`,
+      [trialEndsAt, req.user.id]
+    );
+
+    // Their own books start with the same defaults as anybody else's.
+    await seedDefaultCategories(pool, req.user.id);
+
+    // The session is re-signed without a client, so they land in their own
+    // account rather than in whoever they were last looking at.
+    res.cookie(COOKIE_NAME, signToken(req.user), cookieOptions(false));
+    res.json({ ok: true, trialEndsAt });
   })
 );
 
@@ -710,6 +743,7 @@ router.post(
     res.cookie(COOKIE_NAME, jwt, cookieOptions());
     const mfaMode = await getMfaMode();
     const publicUser = toPublicUser(user, mfaMode);
+    publicUser.isAccountant = await hasAssignments(user.id);
     publicUser.accessLocked = await computeAccessLocked(publicUser);
     res.json({ user: publicUser });
   })
@@ -845,6 +879,9 @@ router.post(
       const token = signToken(user);
       res.cookie(COOKIE_NAME, token, cookieOptions(!publicDevice));
       const publicUser = toPublicUser(user, mfaMode);
+      // The client decides where to land from this, so it has to know whether
+      // they act for anyone as well as whether their own side is active.
+      publicUser.isAccountant = await hasAssignments(user.id);
       publicUser.accessLocked = await computeAccessLocked(publicUser);
       return res.json({ otpRequired: false, user: publicUser });
     }
@@ -981,6 +1018,9 @@ router.post(
     res.cookie(COOKIE_NAME, token, cookieOptions(!publicDevice));
     const mfaMode = await getMfaMode();
     const publicUser = toPublicUser(user, mfaMode);
+    // MFA is mandatory, so this — not /login — is where most people actually
+    // arrive. The client decides where to land from this payload.
+    publicUser.isAccountant = await hasAssignments(user.id);
     publicUser.accessLocked = await computeAccessLocked(publicUser);
     res.json({ user: publicUser });
   })

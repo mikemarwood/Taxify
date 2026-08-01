@@ -11,9 +11,7 @@ const MAX_REFUND = 9999999.99;
 
 // A year's admin belongs to the account, not to whichever login recorded it —
 // a family member and their accountant are looking at the same return.
-function accountOwnerId(user) {
-  return user.role === 'owner' ? user.id : user.accountHolderId;
-}
+import { dataOwnerId as accountOwnerId } from '../auth/access.js';
 
 // Accountants are read-only everywhere except here. The exception is deliberate
 // and narrow: the refund figure and the appointment are the two things they are
@@ -23,8 +21,7 @@ function canWrite(user, financialYear) {
   if (!accountOwnerId(user)) return 'You need an account before this can be recorded.';
   if (user.readOnly) return 'You are viewing this account as an administrator — it is read-only.';
 
-  if (user.role === 'accountant') {
-    if (!user.activeClient) return 'Open a client first.';
+  if (user.actingAsClient) {
     const years = user.allowedFinancialYears;
     if (financialYear && years && !years.includes(financialYear)) {
       return `You were given ${years.join(', ')} on this account — ${financialYear} is not yours to record.`;
@@ -91,12 +88,12 @@ router.get(
 
     // An accountant given only part of the history sees only that part — a
     // refund says as much about a year as its expenses do.
-    const allowed = req.user.role === 'accountant' ? req.user.allowedFinancialYears : null;
+    const allowed = req.user.actingAsClient ? req.user.allowedFinancialYears : null;
     const visible = allowed ? rows.filter((r) => allowed.includes(r.financial_year)) : rows;
 
     res.json({
       canEdit: canWrite(req.user, null) === null,
-      canReopen: req.user.role !== 'accountant' && !req.user.readOnly,
+      canReopen: !req.user.actingAsClient && !req.user.readOnly,
       years: visible.map(shape),
     });
   })
@@ -216,7 +213,7 @@ router.delete(
 router.post(
   '/:financialYear/reopen',
   asyncHandler(async (req, res) => {
-    if (req.user.role === 'accountant') {
+    if (req.user.actingAsClient) {
       return res.status(403).json({ error: 'Only the account holder can reopen a finalised year.' });
     }
     const refusal = canWrite(req.user, req.params.financialYear);

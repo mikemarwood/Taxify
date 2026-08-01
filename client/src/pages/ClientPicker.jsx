@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { api } from '../lib/api.js';
 import { useAuth } from '../lib/AuthContext.jsx';
@@ -36,6 +36,7 @@ export default function ClientPicker() {
   const [clients, setClients] = useState(null);
   const [windowHours, setWindowHours] = useState(24);
   const [opening, setOpening] = useState(null);
+  const [starting, setStarting] = useState(false);
 
   useEffect(() => {
     api
@@ -49,6 +50,22 @@ export default function ClientPicker() {
         setClients([]);
       });
   }, [toast]);
+
+  // Being invited to read someone else's books says nothing about whether you
+  // keep your own. This turns the same login into an ordinary account holder —
+  // trial, plans and all — without losing a single client.
+  async function startOwnAccount() {
+    setStarting(true);
+    try {
+      await api.post('/auth/start-own-account');
+      await refresh();
+      toast('Your own account is ready — your 14-day trial has started', 'success');
+      navigate('/');
+    } catch (err) {
+      toast(err.message, 'error');
+      setStarting(false);
+    }
+  }
 
   async function open(client) {
     playClick();
@@ -96,10 +113,27 @@ export default function ClientPicker() {
               <Icon name="briefcase" size={30} />
             </div>
             <div style={{ fontWeight: 700, marginBottom: 6 }}>No clients have shared their books with you</div>
-            <p style={{ color: 'var(--text-muted)', fontSize: 13.5, margin: 0, lineHeight: 1.6 }}>
+            <p style={{ color: 'var(--text-muted)', fontSize: 13.5, margin: '0 0 6px', lineHeight: 1.6 }}>
               Access is granted from the client's own account, under Family &amp; access. It also ends on its own{' '}
               {windowHours} hours after you first open it, so an old client may simply need to share it again.
             </p>
+            <p style={{ color: 'var(--text-muted)', fontSize: 13.5, margin: '0 0 18px', lineHeight: 1.6 }}>
+              Until then there is nothing here to open. You can still change your own name, password, email address
+              and sign-in settings.
+            </p>
+            <div style={{ display: 'flex', gap: 10, justifyContent: 'center', flexWrap: 'wrap' }}>
+              <Link to="/account" className="btn btn-ghost" style={{ fontSize: 13 }}>
+                My details &amp; password
+              </Link>
+              {/* An accountant invited to look at other people's books may want
+                  Taxify for their own tax too — same login, ordinary account. */}
+              {user?.role === 'accountant' && (
+                <button type="button" className="btn btn-primary" style={{ fontSize: 13 }} onClick={startOwnAccount}>
+                  {starting && <span className="spinner" />}
+                  Start tracking my own expenses
+                </button>
+              )}
+            </div>
           </div>
         ) : (
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: 16 }}>

@@ -1,15 +1,14 @@
 import pool from '../db.js';
 import { financialYearOf } from './financialYear.js';
+// Whose year is being locked: the client's when an accountant is inside their
+// books, otherwise the reader's own account. One definition, shared.
+import { dataOwnerId as accountOwnerId } from '../auth/access.js';
 
 // A refund arriving means the return was lodged and assessed, so the year is
 // closed: editing what it contained afterwards would leave the records saying
 // something different from what was actually claimed. The lock is enforced
 // here rather than in each route so a handler written later can't quietly
 // bypass it.
-
-function accountOwnerId(user) {
-  return user.role === 'owner' ? user.id : user.accountHolderId;
-}
 
 export async function isYearFinalised(user, financialYear) {
   const ownerId = accountOwnerId(user);

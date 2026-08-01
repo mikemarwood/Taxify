@@ -21,8 +21,8 @@ export function describeSubscription(user) {
     const until = user.accessBypassUntil ? daysUntil(user.accessBypassUntil) : null;
     return {
       state: 'granted',
-      label: 'Access granted',
-      detail: until === null ? 'Full access, no subscription needed' : `Granted access · ${until} day${until === 1 ? '' : 's'} left`,
+      label: 'Active',
+      detail: until === null ? 'Your account is active' : `Active · ${until} day${until === 1 ? '' : 's'} left`,
       daysLeft: until,
       tone: 'good',
     };

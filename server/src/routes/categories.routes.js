@@ -98,7 +98,7 @@ router.get(
     // Opening a year you haven't used yet carries last year's set forward, so
     // July doesn't start with an empty page. An accountant only ever reads, so
     // their visit never creates anything.
-    if (req.user.role !== 'accountant') {
+    if (!req.user.actingAsClient) {
       await ensureCategoriesForYear(pool, req.user.id, financialYear);
     }
 

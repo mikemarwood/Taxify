@@ -37,11 +37,15 @@ const navGroups = [
     title: 'Settings',
     items: [{ to: '/account', label: 'My account', icon: 'settings' }],
     adminItems: [{ to: '/admin', label: 'Administration', icon: 'wrench' }],
+    // Only for someone who actually acts for clients — a way back to the
+    // picker that sits with the rest of the navigation rather than only
+    // appearing in the banner once a client is already open.
+    accountantItems: [{ to: '/clients', label: 'My clients', icon: 'briefcase' }],
   },
 ];
 
-// An accountant is here to look, not to file — the links they can't use are
-// left out rather than shown and rejected.
+// Inside a client's books an accountant is here to look, not to file — the
+// links they can't use are left out rather than shown and rejected.
 const ACCOUNTANT_PATHS = ['/', '/expenses', '/reports', '/account'];
 
 function NavItem({ item }) {
@@ -154,8 +158,17 @@ export default function Layout({ children }) {
         <nav style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
           {navGroups
             .map((group) => {
-              const items = [...group.items, ...(user?.isAdmin ? group.adminItems || [] : [])].filter(
-                (i) => user?.role !== 'accountant' || ACCOUNTANT_PATHS.includes(i.to)
+              const items = [
+                ...group.items,
+                ...(user?.isAdmin ? group.adminItems || [] : []),
+                ...(user?.isAccountant ? group.accountantItems || [] : []),
+              ].filter(
+                // Inside a client, or invited only as an accountant, the pages
+                // that write to books are simply not offered.
+                (i) =>
+                  i.to === '/clients' ||
+                  !(user?.actingAsClient || user?.role === 'accountant') ||
+                  ACCOUNTANT_PATHS.includes(i.to)
               );
               return { ...group, items };
             })
@@ -229,10 +242,17 @@ export default function Layout({ children }) {
                     whiteSpace: 'nowrap',
                   }}
                 >
-                  {user?.role === 'owner'
-                    ? `${user.planType === 'family' ? 'Family' : 'Individual'} plan`
+                  {/* Which hat, said plainly. Someone who keeps their own
+                      books and does other people's needs to know which one
+                      they are in before they read a single number. */}
+                  {user?.actingAsClient
+                    ? `Acting as accountant · ${user.actingAsClient.businessName || user.actingAsClient.name}`
+                    : user?.role === 'owner'
+                    ? `${user.planType === 'family' ? 'Family' : 'Individual'} plan${
+                        user.isAccountant ? ' · accountant' : ''
+                      }`
                     : user?.role === 'accountant'
-                    ? 'Accountant access'
+                    ? 'Accountant — no account of your own yet'
                     : 'Family member'}
                 </span>
               </span>
@@ -240,7 +260,7 @@ export default function Layout({ children }) {
 
             {/* Trial state belongs with the plan: which plan you're on is no
                 use if you don't know it's about to stop. */}
-            {user?.role === 'owner' && (
+            {user?.role === 'owner' && !user?.actingAsClient && (
               <Link
                 to="/account?tab=billing"
                 title={billing.detail}

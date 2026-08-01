@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { useAuth } from '../lib/AuthContext.jsx';
 import { useToast } from '../components/Toast.jsx';
@@ -65,6 +66,16 @@ export default function SubscriptionRequired() {
               ? 'Your data is safe and waiting for you. Choose a yearly plan below to restore access to your expenses, reports and receipts.'
               : 'Access for this account is managed by your account holder. Ask them to subscribe to restore access.'}
           </p>
+
+          {/* Their own side has lapsed, but the clients who invited them are a
+              separate matter entirely — an accountant is never billed for
+              reading someone else's books. */}
+          {user?.isAccountant && (
+            <Link to="/clients" className="btn btn-ghost" style={{ marginTop: 16, fontSize: 13 }}>
+              <Icon name="briefcase" size={15} />
+              This doesn't affect your clients — open their books
+            </Link>
+          )}
         </div>
 
         {isOwner && (

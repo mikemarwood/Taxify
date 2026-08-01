@@ -83,6 +83,18 @@ export async function openAssignment(accountantUserId, ownerUserId) {
   return { ...row, financialYears: parseYears(row.financial_years) };
 }
 
+// Whether this login acts for anybody. Being an accountant is no longer a role
+// someone is instead of being a normal user — it is simply having clients, so
+// an account holder who also does other people's books is one login with both.
+export async function hasAssignments(userId) {
+  await purgeExpiredAssignments();
+  const [rows] = await pool.execute(
+    'SELECT 1 FROM accountant_assignments WHERE accountant_user_id = ? LIMIT 1',
+    [userId]
+  );
+  return rows.length > 0;
+}
+
 export async function findAssignment(accountantUserId, ownerUserId) {
   await purgeExpiredAssignments();
   const [rows] = await pool.execute(
