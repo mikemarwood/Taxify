@@ -12,16 +12,7 @@ import { onDigitKeyDown, playSuccess } from '../lib/sounds.js';
 import { formatMoney } from '../lib/money.js';
 import { useAuth } from '../lib/AuthContext.jsx';
 
-const LAST_CATEGORY_KEY = 'taxify:lastCategoryByItem';
 const CURRENCIES = ['AUD', 'USD', 'NZD', 'GBP', 'EUR'];
-
-function getLastCategoryMap() {
-  try {
-    return JSON.parse(localStorage.getItem(LAST_CATEGORY_KEY) || '{}');
-  } catch {
-    return {};
-  }
-}
 
 export default function AddExpense() {
   const { user } = useAuth();
@@ -34,7 +25,7 @@ export default function AddExpense() {
   const [currency, setCurrency] = useState('AUD');
   const [purchaseDate, setPurchaseDate] = useState(new Date().toISOString().slice(0, 10));
   const [categoryId, setCategoryId] = useState('');
-  const [categoryAutoSuggested, setCategoryAutoSuggested] = useState(false);
+  const [suggestion, setSuggestion] = useState(null);
   const [categoryTouched, setCategoryTouched] = useState(false);
   const [isRecurring, setIsRecurring] = useState(false);
   const [frequency, setFrequency] = useState('monthly');
@@ -75,18 +66,39 @@ export default function AddExpense() {
   }, [categoryYear]);
 
   function onItemNameChange(value) {
-    const capitalized = capitalizeWords(value);
-    setItemName(capitalized);
-    if (categoryTouched) return;
-    const key = capitalized.trim().toLowerCase();
-    const lastCategoryId = key ? getLastCategoryMap()[key] : null;
-    if (lastCategoryId && categories.some((c) => String(c.id) === String(lastCategoryId))) {
-      setCategoryId(String(lastCategoryId));
-      setCategoryAutoSuggested(true);
-    } else {
-      setCategoryAutoSuggested(false);
-    }
+    setItemName(capitalizeWords(value));
   }
+
+  // Asked of the server, which scores what was typed against everything this
+  // account has actually filed — so "Bunnings Warehouse Chatswood" is
+  // recognised from "Bunnings Warehouse Hornsby" instead of being treated as
+  // something never seen before. Debounced, and it never overrides a category
+  // chosen by hand.
+  useEffect(() => {
+    if (categoryTouched) return undefined;
+    const typed = itemName.trim();
+    if (typed.length < 2 || categories.length === 0) {
+      setSuggestion(null);
+      return undefined;
+    }
+
+    const id = setTimeout(() => {
+      api
+        .get(`/expenses/suggest-category?itemName=${encodeURIComponent(typed)}`)
+        .then((res) => {
+          const s = res.data.suggestion;
+          // Categories belong to a financial year, so this comes back as a
+          // name and is matched against the year being filed into.
+          const match = s && categories.find((c) => c.name === s.categoryName);
+          if (!match) return setSuggestion(null);
+          setSuggestion(s);
+          setCategoryId(String(match.id));
+        })
+        .catch(() => setSuggestion(null));
+    }, 350);
+
+    return () => clearTimeout(id);
+  }, [itemName, categoryTouched, categories]);
 
   const formComplete = itemName.trim().length > 0 && Number(amount) > 0 && !!purchaseDate;
 
@@ -117,12 +129,6 @@ export default function AddExpense() {
           setProgress(pct);
         },
       });
-      const key = itemName.trim().toLowerCase();
-      if (key && categoryId) {
-        const map = getLastCategoryMap();
-        map[key] = categoryId;
-        localStorage.setItem(LAST_CATEGORY_KEY, JSON.stringify(map));
-      }
       if (file) setReceiptStatus('success');
       // Held on screen with its reference before moving on. A toast that
       // vanishes in three seconds is a poor receipt for the one action in the
@@ -225,8 +231,34 @@ export default function AddExpense() {
               </option>
             ))}
           </select>
-          {categoryAutoSuggested && (
-            <div style={{ marginTop: 6, fontSize: 12, color: 'var(--text-muted)' }}>Auto-selected from last time</div>
+          {/* Says what it learned from, so the guess can be judged rather than
+              just trusted. Choosing a category by hand silences it for good on
+              this entry. */}
+          {suggestion && !categoryTouched && (
+            <div
+              style={{
+                marginTop: 7,
+                display: 'flex',
+                alignItems: 'flex-start',
+                gap: 7,
+                fontSize: 12,
+                color: 'var(--text-muted)',
+                lineHeight: 1.5,
+              }}
+            >
+              <Icon name="pointer" size={13} style={{ marginTop: 2, flexShrink: 0, color: 'var(--accent)' }} />
+              <span>
+                Chosen from your past expenses
+                {suggestion.example && (
+                  <>
+                    {' '}
+                    — you filed <strong style={{ color: 'var(--text)' }}>{suggestion.example}</strong> here
+                    {suggestion.timesUsed > 1 ? ` ${suggestion.timesUsed} times` : ''}
+                  </>
+                )}
+                . Change it if that's not right.
+              </span>
+            </div>
           )}
           {selectedCategory && (
             <div style={{ marginTop: 8 }}>

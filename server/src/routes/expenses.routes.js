@@ -14,6 +14,7 @@ import { blockIfFinalised, finalisedYearsFor } from '../lib/finalisedYears.js';
 import { viewableCopy } from '../lib/heicPreview.js';
 import { MAX_UPLOAD_BYTES, isAllowedUpload, UPLOAD_REJECTED_MESSAGE } from '../lib/uploadRules.js';
 import { advanceDate } from '../lib/recurrence.js';
+import { suggestCategory } from '../lib/categorySuggest.js';
 import { receiptDirFor, receiptRelDirFor, assertWithin, uniqueFilenameIn } from '../lib/receiptStorage.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -206,6 +207,42 @@ router.get(
       .sort()
       .reverse();
     res.json({ years, current: financialYearOf(new Date().toISOString().slice(0, 10), req.user.financialYearRule) });
+  })
+);
+
+// What category this probably is, judged against everything the account has
+// filed before. Deliberately a suggestion the form pre-selects rather than a
+// decision — it comes back with what it learned from, so it can be disagreed
+// with.
+router.get(
+  '/suggest-category',
+  asyncHandler(async (req, res) => {
+    const itemName = String(req.query.itemName || '').trim();
+    if (itemName.length < 2) return res.json({ suggestion: null });
+
+    const scope = await expenseScope(req.user);
+    const [rows] = await pool.execute(
+      `SELECT e.item_name, c.name AS category_name, COUNT(*) AS n, MAX(e.purchase_date) AS last_used
+       FROM expenses e
+       JOIN categories c ON c.id = e.category_id
+       WHERE ${scope.clause} AND e.deleted_at IS NULL
+       GROUP BY e.item_name, c.name
+       ORDER BY MAX(e.purchase_date) DESC
+       LIMIT 2000`,
+      scope.params
+    );
+
+    res.json({
+      suggestion: suggestCategory(
+        itemName,
+        rows.map((r) => ({
+          itemName: r.item_name,
+          categoryName: r.category_name,
+          count: r.n,
+          lastUsed: r.last_used,
+        }))
+      ),
+    });
   })
 );
 
