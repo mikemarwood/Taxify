@@ -24,6 +24,14 @@ export function toPublicUser(user, mfaMode) {
     country: user.country || null,
     state: user.state || null,
     businessName: user.business_name || null,
+    // Which twelve months count as a year here. The client files dates into
+    // years too — the year selector, the archive name, which categories a date
+    // is offered — so it needs the same rule the server uses. requireAuth
+    // overwrites this with the rule of whichever account is actually open.
+    financialYearRule: {
+      startMonth: user.fy_start_month || 7,
+      startDay: user.fy_start_day || 1,
+    },
     // Admin-granted access that ignores the subscription. computeAccessLocked
     // reads these off the public shape, so they have to survive the mapping.
     // Set by requireAuth when an admin is viewing this account, so the client

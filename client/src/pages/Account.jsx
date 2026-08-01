@@ -14,6 +14,7 @@ import PlanComparison from '../components/PlanComparison.jsx';
 import ChangeEmailSection from '../components/ChangeEmailSection.jsx';
 import { usePlanChange } from '../lib/usePlanChange.js';
 import { useFinancialYears } from '../lib/useFinancialYears.js';
+import { financialYearSpan } from '../lib/financialYear.js';
 
 const MAX_AVATAR_BYTES = 10 * 1024 * 1024;
 
@@ -617,8 +618,6 @@ export default function Account() {
   const [dateOfBirth, setDateOfBirth] = useState(user.dateOfBirth || '');
   const [phone, setPhone] = useState(user.phone || '');
   const [currency, setCurrency] = useState(user.currency || 'AUD');
-  const [country, setCountry] = useState(user.country || '');
-  const [state, setState] = useState(user.state || '');
   const [businessName, setBusinessName] = useState(user.businessName || '');
   const [profileBusy, setProfileBusy] = useState(false);
   const [options, setOptions] = useState(null);
@@ -630,12 +629,6 @@ export default function Account() {
       .then((res) => setOptions(res.data))
       .catch(() => setOptions({ countries: [], states: {}, currencies: [] }));
   }, []);
-
-  const statesForCountry = useMemo(() => {
-    if (!options || !country) return null;
-    const match = options.countries.find((c) => c.name === country);
-    return match ? options.states[match.code] || null : null;
-  }, [options, country]);
 
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
@@ -670,8 +663,6 @@ export default function Account() {
     dateOfBirth !== (user.dateOfBirth || '') ||
     phone.trim() !== (user.phone || '') ||
     currency !== (user.currency || '') ||
-    country.trim() !== (user.country || '') ||
-    state.trim() !== (user.state || '') ||
     businessName.trim() !== (user.businessName || '');
 
   async function onSaveProfile(e) {
@@ -684,8 +675,6 @@ export default function Account() {
         dateOfBirth,
         phone: phone.trim(),
         currency,
-        country: country.trim(),
-        state: state.trim(),
         businessName: businessName.trim(),
       });
       toast('Account details updated', 'success');
@@ -871,48 +860,28 @@ export default function Account() {
           </div>
         </div>
 
+        {/* Fixed after sign-up. The country decides which twelve months count
+            as a financial year, and every expense, receipt folder, category and
+            closed year has already been filed under that answer — changing it
+            here would silently refile a whole history into years it was never
+            claimed in. The server refuses it too. */}
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
           <div>
             <label className="label">Country</label>
-            <select
-              className="input"
-              value={country}
-              onChange={(e) => {
-                setCountry(e.target.value);
-                setState('');
-                const match = options?.countries.find((c) => c.name === e.target.value);
-                if (match) setCurrency(match.currency);
-              }}
-            >
-              <option value="">—</option>
-              {(options?.countries || []).map((c) => (
-                <option key={c.code} value={c.name}>
-                  {c.name}
-                </option>
-              ))}
-            </select>
+            <input className="input" value={user.country || '—'} readOnly disabled />
           </div>
           <div>
-            <label className="label">{statesForCountry ? 'State' : 'State or region'}</label>
-            {statesForCountry ? (
-              <select className="input" value={state} onChange={(e) => setState(e.target.value)}>
-                <option value="">—</option>
-                {statesForCountry.map((s) => (
-                  <option key={s} value={s}>
-                    {s}
-                  </option>
-                ))}
-              </select>
-            ) : (
-              <input
-                className="input"
-                maxLength={80}
-                disabled={!country}
-                value={state}
-                onChange={(e) => setState(e.target.value)}
-              />
-            )}
+            <label className="label">State or region</label>
+            <input className="input" value={user.state || '—'} readOnly disabled />
           </div>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'flex-start', gap: 9, fontSize: 12, color: 'var(--text-muted)', lineHeight: 1.55, marginTop: -6 }}>
+          <Icon name="lock" size={14} style={{ marginTop: 1, flexShrink: 0 }} />
+          <span>
+            Your financial year runs <strong>{financialYearSpan(user.financialYearRule)}</strong>, set from your
+            country when you signed up. Country and region are fixed because everything you have recorded is filed
+            against them — contact support if they are wrong.
+          </span>
         </div>
 
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>

@@ -145,7 +145,7 @@ export default function ExpenseModal({ expense, onClose, onSaved, onDeleted }) {
 
   // Categories belong to a financial year, so the list follows the date being
   // edited — moving an expense into another year offers that year's set.
-  const categoryYear = financialYearOf(purchaseDate);
+  const categoryYear = financialYearOf(purchaseDate, user?.financialYearRule);
 
   useEffect(() => {
     if (!editing) return;

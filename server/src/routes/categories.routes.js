@@ -87,7 +87,7 @@ function validateName(name) {
 // "now", not "nothing".
 function requestedYear(req) {
   const asked = req.query?.financialYear || req.body?.financialYear;
-  return financialYearRange(asked) ? String(asked) : defaultFinancialYear();
+  return isFinancialYearLabel(asked) ? String(asked) : defaultFinancialYear(req.user.financialYearRule);
 }
 
 router.get(

@@ -23,8 +23,10 @@ if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir, { recursive: true });
 // Receipt uploads follow the shared rules in lib/uploadRules.js, so what an
 // expense accepts and what a category document accepts can't drift apart.
 
-function dirFor(userId, purchaseDate, categoryName) {
-  return receiptDirFor(uploadsDir, userId, purchaseDate, categoryName);
+// The account's financial-year rule decides which year folder a receipt
+// lands in, so it travels with every path built here.
+function dirFor(userId, purchaseDate, categoryName, rule) {
+  return receiptDirFor(uploadsDir, userId, purchaseDate, categoryName, rule);
 }
 
 async function categoryNameFor(userId, categoryId) {
@@ -38,7 +40,7 @@ const storage = multer.diskStorage({
     try {
       const categoryName = await categoryNameFor(req.user.id, req.body?.categoryId);
       const purchaseDate = req.body?.purchaseDate || new Date().toISOString();
-      const dir = dirFor(req.user.id, purchaseDate, categoryName);
+      const dir = dirFor(req.user.id, purchaseDate, categoryName, req.user.financialYearRule);
       fs.mkdirSync(dir, { recursive: true });
       req._uploadDir = dir;
       cb(null, dir);
@@ -78,7 +80,7 @@ async function otherExpensesUsingReceipt(dbPool, user, receiptPath, dir, exclude
      WHERE e.user_id = ? AND e.receipt_path = ? AND e.deleted_at IS NULL AND e.id <> ?`,
     [user.id, receiptPath, excludeExpenseId || 0]
   );
-  return rows.filter((r) => dirFor(user.id, r.purchase_date, r.category_name || 'Uncategorised') === dir).length;
+  return rows.filter((r) => dirFor(user.id, r.purchase_date, r.category_name || 'Uncategorised', user.financialYearRule) === dir).length;
 }
 
 const TRASH_RETENTION_DAYS = 30;
@@ -94,7 +96,7 @@ export async function purgeExpiredTrash(dbPool) {
 
   for (const row of rows) {
     if (row.receipt_path) {
-      const dir = receiptDirFor(uploadsDir, row.user_id, row.purchase_date, row.category_name);
+      const dir = receiptDirFor(uploadsDir, row.user_id, row.purchase_date, row.category_name, req.user.financialYearRule);
       // Keep the file if a live expense still shares it.
       const stillUsed = await otherExpensesUsingReceipt(
         dbPool,
@@ -141,20 +143,20 @@ router.get(
       amount: Number(r.amount),
       currency: r.currency,
       purchaseDate: r.purchase_date,
-      financialYear: financialYearOf(r.purchase_date),
+      financialYear: financialYearOf(r.purchase_date, req.user.financialYearRule),
       receiptUrl: r.receipt_path ? `/api/expenses/${r.id}/receipt` : null,
       receiptFilename: r.receipt_path || null,
       // Where the file actually sits: relative for the inbox breadcrumbs, and
       // the full directory so an expense can be opened straight from Explorer.
       receiptPath: r.receipt_path
-        ? `${receiptRelDirFor(r.user_id, r.purchase_date, r.category_name || 'Uncategorised')}/${r.receipt_path}`
+        ? `${receiptRelDirFor(r.user_id, r.purchase_date, r.category_name || 'Uncategorised', req.user.financialYearRule)}/${r.receipt_path}`
         : null,
       receiptDir: r.receipt_path
-        ? receiptDirFor(uploadsDir, r.user_id, r.purchase_date, r.category_name || 'Uncategorised')
+        ? receiptDirFor(uploadsDir, r.user_id, r.purchase_date, r.category_name || 'Uncategorised', req.user.financialYearRule)
         : null,
       receiptFullPath: r.receipt_path
         ? path.join(
-            receiptDirFor(uploadsDir, r.user_id, r.purchase_date, r.category_name || 'Uncategorised'),
+            receiptDirFor(uploadsDir, r.user_id, r.purchase_date, r.category_name || 'Uncategorised', req.user.financialYearRule),
             r.receipt_path
           )
         : null,
@@ -190,10 +192,10 @@ router.get(
       `SELECT DISTINCT purchase_date FROM expenses e WHERE ${scope.clause} AND e.deleted_at IS NULL`,
       scope.params
     );
-    const years = Array.from(new Set(rows.map((r) => financialYearOf(r.purchase_date)).filter(Boolean)))
+    const years = Array.from(new Set(rows.map((r) => financialYearOf(r.purchase_date, req.user.financialYearRule)).filter(Boolean)))
       .sort()
       .reverse();
-    res.json({ years, current: financialYearOf(new Date().toISOString().slice(0, 10)) });
+    res.json({ years, current: financialYearOf(new Date().toISOString().slice(0, 10), req.user.financialYearRule) });
   })
 );
 
@@ -252,7 +254,7 @@ router.get(
         amount: Number(r.amount),
         currency: r.currency,
         purchaseDate: r.purchase_date,
-        financialYear: financialYearOf(r.purchase_date),
+        financialYear: financialYearOf(r.purchase_date, req.user.financialYearRule),
         receiptUrl: r.receipt_path ? `/api/expenses/${r.id}/receipt` : null,
         isRecurring: !!r.is_recurring,
         frequency: r.frequency,
@@ -320,7 +322,7 @@ router.post(
         // Categories belong to a financial year, so the one that gets saved is
         // the one for the year this expense falls in — not whichever year's
         // list it happened to be picked from.
-        resolvedCategoryId = await resolveCategoryForYear(pool, req.user.id, categoryId, purchaseDate);
+        resolvedCategoryId = await resolveCategoryForYear(pool, req.user.id, categoryId, purchaseDate, req.user.financialYearRule);
         if (resolvedCategoryId === undefined) {
           cleanupUpload();
           return res.status(400).json({ error: 'Invalid category' });
@@ -421,7 +423,7 @@ router.patch(
         // Moving an expense into another financial year moves it onto that
         // year's category too, so the year it is counted in and the category
         // it is counted under never disagree.
-        resolvedCategoryId = await resolveCategoryForYear(pool, req.user.id, categoryId, purchaseDate);
+        resolvedCategoryId = await resolveCategoryForYear(pool, req.user.id, categoryId, purchaseDate, req.user.financialYearRule);
         if (resolvedCategoryId === undefined) {
           cleanupUpload();
           return res.status(400).json({ error: 'Invalid category' });
@@ -431,8 +433,8 @@ router.patch(
       }
 
       const oldCategoryName = await categoryNameFor(req.user.id, existing.category_id);
-      const oldDir = dirFor(req.user.id, existing.purchase_date, oldCategoryName);
-      const newDir = dirFor(req.user.id, purchaseDate, newCategoryName);
+      const oldDir = dirFor(req.user.id, existing.purchase_date, oldCategoryName, req.user.financialYearRule);
+      const newDir = dirFor(req.user.id, purchaseDate, newCategoryName, req.user.financialYearRule);
 
       let receiptPath = existing.receipt_path;
       let deleteOldAbsPath = null;
@@ -522,7 +524,7 @@ router.get(
     );
     const row = rows[0];
     if (!row || !row.receipt_path) return res.status(404).json({ error: 'Receipt not found' });
-    const dir = dirFor(req.user.id, row.purchase_date, row.category_name || 'Uncategorised');
+    const dir = dirFor(req.user.id, row.purchase_date, row.category_name || 'Uncategorised', req.user.financialYearRule);
     const filePath = assertWithin(uploadsDir, path.join(dir, row.receipt_path));
     if (req.query.download) {
       const ext = path.extname(row.receipt_path);
@@ -555,7 +557,7 @@ router.delete(
     let receiptDeleted = false;
 
     if (wanted && expense.receipt_path) {
-      const dir = dirFor(req.user.id, expense.purchase_date, expense.category_name || 'Uncategorised');
+      const dir = dirFor(req.user.id, expense.purchase_date, expense.category_name || 'Uncategorised', req.user.financialYearRule);
       // One docket can cover several expenses, so the file only goes if this
       // was the last expense pointing at it.
       const stillUsed = await otherExpensesUsingReceipt(pool, req.user, expense.receipt_path, dir, expense.id);
@@ -614,7 +616,7 @@ router.delete(
 
     await pool.execute('DELETE FROM expenses WHERE id = ? AND user_id = ?', [req.params.id, req.user.id]);
     if (row.receipt_path) {
-      const dir = dirFor(req.user.id, row.purchase_date, row.category_name || 'Uncategorised');
+      const dir = dirFor(req.user.id, row.purchase_date, row.category_name || 'Uncategorised', req.user.financialYearRule);
       const stillUsed = await otherExpensesUsingReceipt(pool, req.user, row.receipt_path, dir, req.params.id);
       if (stillUsed === 0) fs.unlink(path.join(dir, row.receipt_path), () => {});
     }

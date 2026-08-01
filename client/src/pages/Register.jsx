@@ -8,6 +8,7 @@ import { api } from '../lib/api.js';
 import { useAuth } from '../lib/AuthContext.jsx';
 import { useToast } from '../components/Toast.jsx';
 import { playClick, playError, playSuccess } from '../lib/sounds.js';
+import { financialYearSpan } from '../lib/financialYear.js';
 
 const LIMITS = {
   firstName: { max: 60 },
@@ -60,6 +61,11 @@ function Field({ label, hint, error, required, children, span }) {
   );
 }
 
+const MONTH_NAMES = [
+  'January','February','March','April','May','June',
+  'July','August','September','October','November','December',
+];
+
 export default function Register() {
   const { register } = useAuth();
   const toast = useToast();
@@ -80,6 +86,9 @@ export default function Register() {
   const [email, setEmail] = useState('');
   const [confirmEmail, setConfirmEmail] = useState('');
   const [country, setCountry] = useState('');
+  // Only asked when we don't already know the country's tax year.
+  const [fyMonth, setFyMonth] = useState(0);
+  const [fyDay, setFyDay] = useState(1);
   const [state, setState] = useState('');
   const [currency, setCurrency] = useState('AUD');
   const [planType, setPlanType] = useState('individual');
@@ -142,6 +151,12 @@ export default function Register() {
     return () => clearTimeout(emailTimer.current);
   }, [email]);
 
+  // What we already know about this country's tax year, if anything.
+  const knownFinancialYear = useMemo(
+    () => (country && options?.financialYears ? options.financialYears[country] || null : null),
+    [country, options]
+  );
+
   const statesForCountry = useMemo(() => {
     if (!options || !country) return null;
     const match = options.countries.find((c) => c.name === country);
@@ -174,7 +189,9 @@ export default function Register() {
   const stepValid = [
     firstName.trim() && lastName.trim() && dateOfBirth && !errors.dateOfBirth && !errors.phone,
     email.trim() && confirmEmail.trim() && emailStatus.state === 'free' && !errors.confirmEmail,
-    country && state.trim() && currency,
+    // The financial year has to be answered too when we do not know it —
+    // otherwise the server rejects the whole registration at the last step.
+    country && state.trim() && currency && (knownFinancialYear || fyMonth > 0),
     Boolean(planType),
     referralSource && termsAccepted && captchaAnswer.trim(),
   ];
@@ -216,6 +233,7 @@ export default function Register() {
         country,
         state,
         planType,
+        ...(knownFinancialYear ? {} : { financialYearStart: { month: fyMonth, day: fyDay } }),
         promoCode: promoStatus?.ok ? promoCode.trim().toUpperCase() : undefined,
         businessName: businessName.trim() || undefined,
         referralSource,
@@ -543,6 +561,78 @@ export default function Register() {
                       ))}
                     </select>
                   </Field>
+
+                  {/* A financial year is not the same twelve months
+                      everywhere, and everything here is filed into one. Where
+                      we know the country's year we say so; where we don't, we
+                      ask rather than guess — getting it wrong files an entire
+                      history into the wrong years. */}
+                  {country && (
+                    <Field
+                      label="Your financial year"
+                      required
+                      span
+                      hint={
+                        knownFinancialYear
+                          ? 'Set from your country — this decides how everything is filed, and cannot be changed later'
+                          : 'We don’t know this country’s tax year, so please tell us when yours starts'
+                      }
+                    >
+                      {knownFinancialYear ? (
+                        <div
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: 9,
+                            padding: '10px 12px',
+                            borderRadius: 'var(--radius-sm)',
+                            background: 'var(--accent-soft)',
+                            border: '1px solid var(--accent-ring)',
+                            fontSize: 13.5,
+                            fontWeight: 600,
+                          }}
+                        >
+                          <Icon name="check-circle" size={16} style={{ color: 'var(--accent)' }} />
+                          {financialYearSpan(knownFinancialYear)}
+                        </div>
+                      ) : (
+                        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+                          <select
+                            className="input"
+                            aria-label="Financial year start month"
+                            style={{ flex: 1, minWidth: 150 }}
+                            value={fyMonth}
+                            onChange={(e) => setFyMonth(Number(e.target.value))}
+                          >
+                            <option value={0}>Starts in…</option>
+                            {MONTH_NAMES.map((m, i) => (
+                              <option key={m} value={i + 1}>
+                                {m}
+                              </option>
+                            ))}
+                          </select>
+                          <select
+                            className="input"
+                            aria-label="Financial year start day"
+                            style={{ width: 120 }}
+                            value={fyDay}
+                            onChange={(e) => setFyDay(Number(e.target.value))}
+                          >
+                            {Array.from({ length: 28 }, (_, i) => i + 1).map((d) => (
+                              <option key={d} value={d}>
+                                on the {d}
+                              </option>
+                            ))}
+                          </select>
+                          {fyMonth > 0 && (
+                            <div style={{ flexBasis: '100%', fontSize: 12.5, color: 'var(--text-muted)' }}>
+                              Your year will run {financialYearSpan({ startMonth: fyMonth, startDay: fyDay })}.
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </Field>
+                  )}
                 </Grid>
               )}
 

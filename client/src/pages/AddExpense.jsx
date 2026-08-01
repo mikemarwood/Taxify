@@ -8,6 +8,7 @@ import Toggle from '../components/Toggle.jsx';
 import Icon from '../components/Icon.jsx';
 import { financialYearOf } from '../lib/financialYear.js';
 import { onDigitKeyDown } from '../lib/sounds.js';
+import { useAuth } from '../lib/AuthContext.jsx';
 
 const LAST_CATEGORY_KEY = 'taxify:lastCategoryByItem';
 const CURRENCIES = ['AUD', 'USD', 'NZD', 'GBP', 'EUR'];
@@ -21,6 +22,7 @@ function getLastCategoryMap() {
 }
 
 export default function AddExpense() {
+  const { user } = useAuth();
   const navigate = useNavigate();
   const toast = useToast();
 
@@ -51,7 +53,7 @@ export default function AddExpense() {
   // Categories belong to a financial year, so the list follows the date on the
   // form — backdating a receipt into last year offers last year's categories,
   // which is the only set that can file it correctly.
-  const categoryYear = financialYearOf(purchaseDate);
+  const categoryYear = financialYearOf(purchaseDate, user?.financialYearRule);
 
   useEffect(() => {
     api.get(`/categories?financialYear=${encodeURIComponent(categoryYear)}`).then((res) => {

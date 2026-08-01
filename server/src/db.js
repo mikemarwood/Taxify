@@ -94,6 +94,17 @@ export async function ensureSchema() {
   await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS password_reset_expires_at DATETIME NULL`);
   await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS password_reset_requested_at DATETIME NULL`);
 
+  // A financial year is not the same twelve months everywhere, so the rule is
+  // a property of the account. Existing rows are backfilled to 1 July whatever
+  // country they gave: that is what their data was actually filed under, and
+  // re-filing someone's history because we learned their country's real rule
+  // would move receipts and rewrite closed years.
+  await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS fy_start_month TINYINT NULL`);
+  await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS fy_start_day TINYINT NULL`);
+  await pool.query(
+    `UPDATE users SET fy_start_month = 7, fy_start_day = 1 WHERE fy_start_month IS NULL OR fy_start_day IS NULL`
+  );
+
   // A requested email change is held here rather than written to `email`, so
   // the account keeps signing in on the address it has until the new one is
   // proven. An abandoned request expires and costs nothing.

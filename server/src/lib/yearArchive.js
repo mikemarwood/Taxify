@@ -19,8 +19,8 @@ import { financialYearRange } from './financialYear.js';
 const FOLDER = 'Receipts';
 const DOCS_FOLDER = 'Property Documents';
 
-export function archiveName(financialYear) {
-  const range = financialYearRange(financialYear);
+export function archiveName(financialYear, rule) {
+  const range = financialYearRange(financialYear, rule);
   if (!range) return `Taxify Summary ${financialYear}`;
   const fmt = (iso) => {
     const d = new Date(`${iso}T00:00:00Z`);
@@ -160,7 +160,7 @@ function buildPdf(financialYear, expenses, totals) {
 }
 
 // Streams the zip straight to the response.
-export async function streamYearArchive({ res, uploadsDir, userId, financialYear, expenses, categories }) {
+export async function streamYearArchive({ res, uploadsDir, userId, financialYear, expenses, categories, rule }) {
   const totals = { grand: 0, byCategory: new Map() };
   for (const e of expenses) {
     totals.grand += e.amount;
@@ -177,7 +177,7 @@ export async function streamYearArchive({ res, uploadsDir, userId, financialYear
   const takenNames = new Map();
   for (const expense of expenses) {
     if (!expense.receiptFilename) continue;
-    const dir = receiptDirFor(uploadsDir, expense.ownerId, expense.purchaseDate, expense.category);
+    const dir = receiptDirFor(uploadsDir, expense.ownerId, expense.purchaseDate, expense.category, rule);
     const source = path.join(dir, expense.receiptFilename);
     if (!fs.existsSync(source)) continue;
 
@@ -188,7 +188,7 @@ export async function streamYearArchive({ res, uploadsDir, userId, financialYear
     expense._source = source;
   }
 
-  const name = archiveName(financialYear);
+  const name = archiveName(financialYear, rule);
   const archive = new ZipArchive({ zlib: { level: 6 } });
   archive.on('warning', (err) => console.error('Archive warning', err));
   archive.on('error', (err) => {

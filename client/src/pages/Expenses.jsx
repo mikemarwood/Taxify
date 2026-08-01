@@ -9,6 +9,7 @@ import { defaultFinancialYear } from '../lib/financialYear.js';
 import YearDocuments from '../components/YearDocuments.jsx';
 import Icon from '../components/Icon.jsx';
 import { formatMoney } from '../lib/money.js';
+import { useAuth } from '../lib/AuthContext.jsx';
 
 // Lets the one search box take an amount as well as text. A bare number
 // matches by prefix, so "47" finds $47.91 and $47.00 — typing the exact cents
@@ -37,6 +38,7 @@ function matchesAmount(amount, rawQuery) {
 }
 
 export default function Expenses() {
+  const { user } = useAuth();
   const [expenses, setExpenses] = useState(null);
   const [year, setYear] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
@@ -47,7 +49,7 @@ export default function Expenses() {
   function load() {
     api.get('/expenses').then((res) => {
       setExpenses(res.data.expenses);
-      setYear((y) => y || defaultFinancialYear(res.data.expenses));
+      setYear((y) => y || defaultFinancialYear(res.data.expenses, user?.financialYearRule));
     });
   }
 

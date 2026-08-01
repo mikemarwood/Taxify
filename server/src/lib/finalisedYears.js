@@ -36,7 +36,7 @@ export async function finalisedYearsFor(user) {
 // year. Both dates are checked because moving an expense's date across the
 // boundary changes two years at once.
 export async function blockIfFinalised(user, ...dates) {
-  const years = Array.from(new Set(dates.filter(Boolean).map(financialYearOf).filter(Boolean)));
+  const years = Array.from(new Set(dates.filter(Boolean).map((d) => financialYearOf(d, user.financialYearRule)).filter(Boolean)));
   for (const year of years) {
     if (await isYearFinalised(user, year)) {
       return `FY ${year} has been finalised — reopen it from Reports before changing anything in it.`;

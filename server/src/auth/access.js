@@ -1,5 +1,15 @@
 import pool from '../db.js';
 import { financialYearClause } from './accountants.js';
+import { normaliseRule, DEFAULT_RULE } from '../lib/financialYear.js';
+
+// The financial-year rule of a given account. Cached per request by the caller
+// rather than here — this is one small indexed read.
+export async function financialYearRuleFor(userId) {
+  if (!userId) return DEFAULT_RULE;
+  const [rows] = await pool.execute('SELECT fy_start_month, fy_start_day FROM users WHERE id = ?', [userId]);
+  if (!rows[0]) return DEFAULT_RULE;
+  return normaliseRule({ startMonth: rows[0].fy_start_month, startDay: rows[0].fy_start_day });
+}
 
 function isRowActive(row) {
   // An admin can hand an account access without a subscription — a comped

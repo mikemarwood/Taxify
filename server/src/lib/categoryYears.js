@@ -1,10 +1,10 @@
-import { financialYearRange, financialYearOf } from './financialYear.js';
+import { isFinancialYearLabel, financialYearOf } from './financialYear.js';
 
 // An expense must sit on its own year's category, or a 2024-2025 receipt would
 // be counted against this year's books. Rather than rejecting a mismatch — the
 // person picked the right name, just from the wrong year's list — the same
 // category is found or created in the year the expense actually falls in.
-export async function resolveCategoryForYear(pool, userId, categoryId, purchaseDate) {
+export async function resolveCategoryForYear(pool, userId, categoryId, purchaseDate, rule) {
   if (!categoryId) return null;
 
   const [rows] = await pool.execute(
@@ -14,7 +14,7 @@ export async function resolveCategoryForYear(pool, userId, categoryId, purchaseD
   const category = rows[0];
   if (!category) return undefined; // caller reports "Invalid category"
 
-  const year = financialYearOf(purchaseDate);
+  const year = financialYearOf(purchaseDate, rule);
   if (!year || category.financial_year === year) return category.id;
 
   const [existing] = await pool.execute(
@@ -40,7 +40,7 @@ export async function resolveCategoryForYear(pool, userId, categoryId, purchaseD
 // Falls back to the admin-managed defaults for someone whose account has no
 // categories at all.
 export async function ensureCategoriesForYear(pool, userId, financialYear) {
-  if (!financialYearRange(financialYear)) return { created: 0 };
+  if (!isFinancialYearLabel(financialYear)) return { created: 0 };
 
   const [own] = await pool.execute('SELECT COUNT(*) AS n FROM categories WHERE user_id = ? AND financial_year = ?', [
     userId,

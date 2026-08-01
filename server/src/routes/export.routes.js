@@ -7,7 +7,7 @@ import { getVisibleUserIds, expenseScope } from '../auth/access.js';
 import { asyncHandler } from '../lib/asyncHandler.js';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import { financialYearOf, financialYearRange } from '../lib/financialYear.js';
+import { financialYearOf, isFinancialYearLabel } from '../lib/financialYear.js';
 import { addBrandHeader, addFooter, BRAND } from '../lib/pdfBranding.js';
 import { streamYearArchive } from '../lib/yearArchive.js';
 
@@ -33,7 +33,7 @@ async function loadExpenses(req) {
     amount: Number(r.amount),
     currency: r.currency,
     purchaseDate: r.purchase_date,
-    financialYear: financialYearOf(r.purchase_date),
+    financialYear: financialYearOf(r.purchase_date, req.user.financialYearRule),
     category: r.category_name || 'Uncategorised',
     recurring: r.is_recurring ? r.frequency : '',
     notes: r.notes || '',
@@ -330,7 +330,7 @@ router.get(
   '/year/:financialYear.zip',
   asyncHandler(async (req, res) => {
     const { financialYear } = req.params;
-    if (!financialYearRange(financialYear)) {
+    if (!isFinancialYearLabel(financialYear)) {
       return res.status(400).json({ error: 'Expected a financial year like 2025-2026' });
     }
 
@@ -358,7 +358,7 @@ router.get(
         notes: r.notes || '',
         receiptFilename: r.receipt_path || null,
       }))
-      .filter((e) => financialYearOf(e.purchaseDate) === financialYear);
+      .filter((e) => financialYearOf(e.purchaseDate, req.user.financialYearRule) === financialYear);
 
     if (expenses.length === 0) {
       return res.status(404).json({ error: `Nothing recorded in FY ${financialYear} yet` });
@@ -368,7 +368,7 @@ router.get(
       req.user.id,
     ]);
 
-    await streamYearArchive({ res, uploadsDir, userId: req.user.id, financialYear, expenses, categories });
+    await streamYearArchive({ res, uploadsDir, userId: req.user.id, financialYear, expenses, categories, rule: req.user.financialYearRule });
   })
 );
 

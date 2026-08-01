@@ -7,6 +7,7 @@ import ReceiptLightbox from './ReceiptLightbox.jsx';
 import { playSuccess, playError } from '../lib/sounds.js';
 import { currentFinancialYear as defaultFinancialYear } from '../lib/financialYear.js';
 import { useFinancialYears } from '../lib/useFinancialYears.js';
+import { useAuth } from '../lib/AuthContext.jsx';
 
 const MAX_FILE_BYTES = 10 * 1024 * 1024;
 const RECEIPT_EXT = /\.(jpe?g|png|webp|gif|heic|heif|avif|bmp|tiff?|svg|jfif|pdf|docx?)$/i;
@@ -109,11 +110,12 @@ function DocThumb({ doc }) {
 // expense — agent statements, depreciation schedules, the end-of-year summary.
 // Several arrive at once, so this takes a whole selection in one go.
 export default function CategoryDocuments({ category }) {
+  const { user } = useAuth();
   const toast = useToast();
   const inputRef = useRef(null);
   const [years, setYears] = useState(null);
   const [directory, setDirectory] = useState('');
-  const [year, setYear] = useState(() => defaultFinancialYear());
+  const [year, setYear] = useState(() => defaultFinancialYear(null, user?.financialYearRule));
   const [docName, setDocName] = useState('');
   const [uploading, setUploading] = useState(false);
   const [uploadCount, setUploadCount] = useState(0);

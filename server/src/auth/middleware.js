@@ -2,7 +2,7 @@ import { verifyToken, COOKIE_NAME } from './jwt.js';
 import pool, { getMfaMode } from '../db.js';
 import { asyncHandler } from '../lib/asyncHandler.js';
 import { toPublicUser } from './publicUser.js';
-import { computeAccessLocked } from './access.js';
+import { computeAccessLocked, dataOwnerId, financialYearRuleFor } from './access.js';
 import { findAssignment, hasAssignments } from './accountants.js';
 
 export const requireAuth = asyncHandler(async (req, res, next) => {
@@ -13,6 +13,7 @@ export const requireAuth = asyncHandler(async (req, res, next) => {
   const [rows] = await pool.execute(
     `SELECT id, email, name, first_name, last_name, date_of_birth, phone, is_admin, avatar_path,
             otp_enabled, otp_last_prompted_at, role, account_holder_id, plan_type,
+            fy_start_month, fy_start_day,
             currency, country, state, business_name, activated_at, trial_ends_at,
             access_bypass, access_bypass_until,
             subscription_status, stripe_customer_id, stripe_subscription_id, subscription_current_period_end
@@ -57,6 +58,11 @@ export const requireAuth = asyncHandler(async (req, res, next) => {
 
   // Kept for the client, which reads `activeClient`.
   req.user.activeClient = req.user.actingAsClient;
+
+  // Which twelve months count as a year here. It belongs to the account whose
+  // books are open — an Australian accountant reading a British client's
+  // records must see them filed the British way, not their own.
+  req.user.financialYearRule = await financialYearRuleFor(dataOwnerId(req.user));
 
   req.user.accessLocked = await computeAccessLocked(req.user);
 

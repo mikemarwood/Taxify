@@ -57,10 +57,10 @@ export function receiptsRootDir(uploadsRoot, userId) {
 }
 
 // <uploads>/<userId>/receipts/<financial-year>/<category>
-export function receiptDirFor(uploadsRoot, userId, purchaseDate, categoryName) {
+export function receiptDirFor(uploadsRoot, userId, purchaseDate, categoryName, rule) {
   return path.join(
     receiptsRootDir(uploadsRoot, userId),
-    financialYearOf(purchaseDate),
+    financialYearOf(purchaseDate, rule),
     categoryToFolderSegment(categoryName)
   );
 }
@@ -68,11 +68,11 @@ export function receiptDirFor(uploadsRoot, userId, purchaseDate, categoryName) {
 // The same folders as receiptDirFor, but relative to the uploads root and
 // always forward-slashed — this is what gets shown to the user, so it must
 // read the same on Windows and Linux.
-export function receiptRelDirFor(userId, purchaseDate, categoryName) {
+export function receiptRelDirFor(userId, purchaseDate, categoryName, rule) {
   return [
     sanitizeSegment(userId, 'user'),
     RECEIPTS_SEGMENT,
-    financialYearOf(purchaseDate),
+    financialYearOf(purchaseDate, rule),
     categoryToFolderSegment(categoryName),
   ].join('/');
 }

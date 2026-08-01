@@ -35,6 +35,7 @@ import {
 } from '../lib/mailer.js';
 import { ACTIVATION_TOKEN_DAYS, generateActivationToken } from '../auth/activationToken.js';
 import { COUNTRIES, STATES, CURRENCIES, countryByName, countryByCode, isKnownCurrency, isValidState } from '../lib/geoData.js';
+import { financialYearForCountry, normaliseRule, COUNTRY_FINANCIAL_YEARS } from '../lib/financialYear.js';
 import { createCaptcha, verifyCaptcha } from '../lib/captcha.js';
 import { getSignupPlans } from '../lib/stripe.js';
 import { evaluatePromoCode, recordPromoRedemption } from '../lib/promoCodes.js';
@@ -95,6 +96,9 @@ router.get(
       referralSources: REFERRAL_SOURCES,
       detectedCountry: detectCountry(req),
       trialDays: TRIAL_DAYS,
+      // So the form can say "your tax year runs 6 April to 5 April" for a
+      // country we know, and ask when we don't.
+      financialYears: COUNTRY_FINANCIAL_YEARS,
     });
   })
 );
@@ -327,14 +331,31 @@ router.post(
     const otpEnabledAtSignup = mfaMode === 'required' ? 1 : 0;
     const { token, tokenHash, expiresAt } = generateActivationToken();
 
+    // Which twelve months count as a year for this person. Known countries get
+    // it automatically; anywhere we don't know, they must say — guessing would
+    // file their whole history into the wrong years, which is also why country
+    // is not editable afterwards.
+    const knownRule = financialYearForCountry(matchedCountry.name);
+    let fyRule = knownRule;
+    if (!fyRule) {
+      const asked = req.body?.financialYearStart;
+      const month = Number(asked?.month);
+      const day = Number(asked?.day);
+      if (!Number.isInteger(month) || month < 1 || month > 12 || !Number.isInteger(day) || day < 1 || day > 28) {
+        return res.status(400).json({ error: 'financial_year_required', country: matchedCountry.name });
+      }
+      fyRule = normaliseRule({ startMonth: month, startDay: day });
+    }
+
     let userId;
     try {
       const [result] = await pool.execute(
         `INSERT INTO users
            (email, password_hash, name, first_name, last_name, date_of_birth, phone, otp_enabled, otp_prompted,
             role, plan_type, promo_code, currency, country, state, business_name, referral_source,
+            fy_start_month, fy_start_day,
             terms_accepted_at, activation_token_hash, activation_token_expires_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, 'owner', ?, ?, ?, ?, ?, ?, ?, NOW(), ?, ?)`,
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, 'owner', ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), ?, ?)`,
         [
           normalizedEmail,
           placeholderHash,
@@ -351,6 +372,8 @@ router.post(
           String(state).trim(),
           businessName ? String(businessName).trim().slice(0, 120) : null,
           String(referralSource),
+          fyRule.startMonth,
+          fyRule.startDay,
           tokenHash,
           expiresAt,
         ]
@@ -1082,9 +1105,13 @@ router.patch(
     const dob = String(dateOfBirth || '').slice(0, 10);
     if (dob && !/^\d{4}-\d{2}-\d{2}$/.test(dob)) return res.status(400).json({ error: 'Enter a valid date of birth' });
 
-    const matchedCountry = countryByName(country);
-    if (!matchedCountry) return res.status(400).json({ error: 'Choose your country' });
-    if (!isValidState(matchedCountry.name, state)) return res.status(400).json({ error: 'Choose your state or region' });
+    // Country and state are fixed after sign-up. The country decides which
+    // twelve months count as a financial year, and every expense, receipt
+    // folder, category and closed year has already been filed under that
+    // answer — changing it here would silently refile someone's whole history
+    // into years it was never claimed in.
+    const matchedCountry = countryByName(req.user.country);
+    const fixedState = req.user.state;
 
     const finalCurrency = String(currency || '').toUpperCase();
     if (!isKnownCurrency(finalCurrency)) return res.status(400).json({ error: 'Choose your preferred currency' });
@@ -1102,7 +1129,7 @@ router.patch(
     try {
       await pool.execute(
         `UPDATE users SET name = ?, first_name = ?, last_name = ?, date_of_birth = ?, phone = ?, email = ?,
-         currency = ?, country = ?, state = ?, business_name = ? WHERE id = ?`,
+         currency = ?, business_name = ? WHERE id = ?`,
         [
           fullName,
           first,
@@ -1111,8 +1138,6 @@ router.patch(
           cleanedPhone || null,
           normalizedEmail,
           finalCurrency,
-          matchedCountry.name,
-          String(state).trim(),
           trimmedBusinessName,
           req.user.id,
         ]
@@ -1134,8 +1159,8 @@ router.patch(
         phone: cleanedPhone || null,
         email: normalizedEmail,
         currency: finalCurrency,
-        country: matchedCountry.name,
-        state: String(state).trim(),
+        country: matchedCountry?.name || req.user.country,
+        state: fixedState,
         businessName: trimmedBusinessName,
       },
     });

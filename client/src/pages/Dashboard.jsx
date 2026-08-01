@@ -35,7 +35,7 @@ export default function Dashboard() {
   function load() {
     api.get('/expenses').then((res) => {
       setExpenses(res.data.expenses);
-      setYear((y) => y || defaultFinancialYear(res.data.expenses));
+      setYear((y) => y || defaultFinancialYear(res.data.expenses, user?.financialYearRule));
     });
   }
 

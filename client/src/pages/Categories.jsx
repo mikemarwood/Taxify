@@ -9,10 +9,12 @@ import { formatMoney } from '../lib/money.js';
 import { IconPicker, ColourPicker, CategoryPreview, SWATCHES } from '../components/CategoryPickers.jsx';
 import { defaultFinancialYear } from '../lib/financialYear.js';
 import { useFinancialYears } from '../lib/useFinancialYears.js';
+import { useAuth } from '../lib/AuthContext.jsx';
 
 const MAX_NAME_LENGTH = 40;
 
 export default function Categories() {
+  const { user } = useAuth();
   const toast = useToast();
   const [categories, setCategories] = useState(null);
   const [adding, setAdding] = useState(false);
@@ -28,7 +30,7 @@ export default function Categories() {
   const [editColor, setEditColor] = useState('');
   const [editRental, setEditRental] = useState(false);
   const [editBusy, setEditBusy] = useState(false);
-  const [year, setYear] = useState(() => defaultFinancialYear());
+  const [year, setYear] = useState(() => defaultFinancialYear(null, user?.financialYearRule));
   const [years, setYears] = useState([]);
   const { years: expenseYears } = useFinancialYears();
 
