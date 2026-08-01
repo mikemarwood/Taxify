@@ -8,7 +8,8 @@
     "cleartext": false
   },
   "android": {
-    "backgroundColor": "#0a0f18"
+    "backgroundColor": "#0a0f18",
+    "appendUserAgent": "TaxifyAndroid"
   },
   "plugins": {
     "SplashScreen": {

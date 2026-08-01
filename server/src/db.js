@@ -392,6 +392,25 @@ export async function ensureSchema() {
     }
   }
 
+  // Who signed in, when, and from what. Kept because "was that really them?"
+  // is the first question asked when an account looks wrong, and because a
+  // support conversation goes very differently once you can see they have only
+  // ever used the Android app.
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS login_events (
+      id INT PRIMARY KEY AUTO_INCREMENT,
+      user_id INT NOT NULL,
+      at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      device VARCHAR(20) NULL,
+      platform VARCHAR(40) NULL,
+      browser VARCHAR(40) NULL,
+      ip VARCHAR(45) NULL,
+      method VARCHAR(20) NULL,
+      KEY idx_login_events_user (user_id, at),
+      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+  `);
+
   await pool.query(`
     CREATE TABLE IF NOT EXISTS settings (
       \`key\` VARCHAR(64) PRIMARY KEY,

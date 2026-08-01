@@ -12,6 +12,7 @@ import { seedDefaultCategories } from '../seed/defaultCategories.js';
 import { asyncHandler } from '../lib/asyncHandler.js';
 import { generateOtp, hashOtp, OTP_TTL_MINUTES, OTP_MAX_ATTEMPTS, OTP_LOCKOUT_MINUTES } from '../auth/otp.js';
 import { toPublicUser } from '../auth/publicUser.js';
+import { recordLogin } from '../lib/deviceInfo.js';
 import { computeAccessLocked } from '../auth/access.js';
 import {
   listAssignments,
@@ -883,6 +884,7 @@ router.post(
       // they act for anyone as well as whether their own side is active.
       publicUser.isAccountant = await hasAssignments(user.id);
       publicUser.accessLocked = await computeAccessLocked(publicUser);
+      await recordLogin(req, user.id, 'password');
       return res.json({ otpRequired: false, user: publicUser });
     }
 
@@ -1022,6 +1024,7 @@ router.post(
     // arrive. The client decides where to land from this payload.
     publicUser.isAccountant = await hasAssignments(user.id);
     publicUser.accessLocked = await computeAccessLocked(publicUser);
+    await recordLogin(req, user.id, 'otp');
     res.json({ user: publicUser });
   })
 );

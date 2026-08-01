@@ -232,6 +232,168 @@ router.patch(
 
 // Signs the admin in as another account, read-only. requireAuth enforces the
 // read-only part for every route at once; this only mints the token.
+// Everything known about one account, on one screen. The list can then stay a
+// list — the reason it was unreadable on a phone is that every fact and every
+// action was crammed into a row.
+router.get(
+  '/users/:id',
+  asyncHandler(async (req, res) => {
+    const id = Number(req.params.id);
+    const [rows] = await pool.execute(
+      `SELECT u.*, holder.name AS holder_name, holder.email AS holder_email
+       FROM users u LEFT JOIN users holder ON holder.id = u.account_holder_id
+       WHERE u.id = ?`,
+      [id]
+    );
+    const u = rows[0];
+    if (!u) return res.status(404).json({ error: 'User not found' });
+
+    const [[counts]] = await pool.execute(
+      `SELECT
+         (SELECT COUNT(*) FROM expenses WHERE user_id = ? AND deleted_at IS NULL) AS expenses,
+         (SELECT COUNT(*) FROM expenses WHERE user_id = ? AND deleted_at IS NOT NULL) AS in_trash,
+         (SELECT COUNT(*) FROM expenses WHERE user_id = ? AND deleted_at IS NULL AND receipt_path IS NOT NULL) AS with_receipt,
+         (SELECT COALESCE(SUM(amount), 0) FROM expenses WHERE user_id = ? AND deleted_at IS NULL) AS total_amount,
+         (SELECT MIN(purchase_date) FROM expenses WHERE user_id = ? AND deleted_at IS NULL) AS first_expense,
+         (SELECT MAX(purchase_date) FROM expenses WHERE user_id = ? AND deleted_at IS NULL) AS last_expense,
+         (SELECT MAX(created_at) FROM expenses WHERE user_id = ?) AS last_activity,
+         (SELECT COUNT(*) FROM categories WHERE user_id = ?) AS categories,
+         (SELECT COUNT(*) FROM category_documents WHERE user_id = ?) AS documents`,
+      Array(9).fill(id)
+    );
+
+    // Everyone attached to this account, and everyone it is attached to.
+    const [members] = await pool.execute(
+      'SELECT id, name, email, role, activated_at FROM users WHERE account_holder_id = ? ORDER BY role, name',
+      [id]
+    );
+    const [accountants] = await pool.execute(
+      `SELECT a.id, a.financial_years, a.first_login_at, a.expires_at, u.name, u.email
+       FROM accountant_assignments a JOIN users u ON u.id = a.accountant_user_id
+       WHERE a.owner_user_id = ?`,
+      [id]
+    );
+    const [clients] = await pool.execute(
+      `SELECT a.id, a.expires_at, u.name, u.email
+       FROM accountant_assignments a JOIN users u ON u.id = a.owner_user_id
+       WHERE a.accountant_user_id = ?`,
+      [id]
+    );
+    const [taxYears] = await pool.execute(
+      `SELECT financial_year, amount, finalised_at, appointment_at FROM tax_years
+       WHERE user_id = ? ORDER BY financial_year DESC`,
+      [id]
+    );
+
+    // Recent sign-ins and what they came from. Twenty is enough to see a
+    // pattern without turning this into a surveillance log.
+    const [logins] = await pool.execute(
+      'SELECT at, device, platform, browser, ip, method FROM login_events WHERE user_id = ? ORDER BY at DESC LIMIT 20',
+      [id]
+    );
+    const [[loginSummary]] = await pool.execute(
+      'SELECT COUNT(*) AS total, MIN(at) AS first_at, MAX(at) AS last_at FROM login_events WHERE user_id = ?',
+      [id]
+    );
+    const [devices] = await pool.execute(
+      `SELECT device, platform, browser, COUNT(*) AS n, MAX(at) AS last_at
+       FROM login_events WHERE user_id = ?
+       GROUP BY device, platform, browser ORDER BY n DESC LIMIT 8`,
+      [id]
+    );
+
+    res.json({
+      user: {
+        id: u.id,
+        name: u.name,
+        firstName: u.first_name,
+        lastName: u.last_name,
+        email: u.email,
+        pendingEmail: u.pending_email,
+        phone: u.phone,
+        dateOfBirth: u.date_of_birth,
+        avatarUrl: u.avatar_path ? `/api/auth/avatar/${u.id}` : null,
+        country: u.country,
+        state: u.state,
+        currency: u.currency,
+        businessName: u.business_name,
+        referralSource: u.referral_source,
+        promoCode: u.promo_code,
+        role: u.role || 'owner',
+        isAdmin: !!u.is_admin,
+        accountHolder: u.account_holder_id ? { id: u.account_holder_id, name: u.holder_name, email: u.holder_email } : null,
+        planType: u.plan_type,
+        subscriptionStatus: u.subscription_status,
+        trialEndsAt: u.trial_ends_at,
+        subscriptionCurrentPeriodEnd: u.subscription_current_period_end,
+        stripeCustomerId: u.stripe_customer_id,
+        stripeSubscriptionId: u.stripe_subscription_id,
+        accessBypass: !!u.access_bypass,
+        accessBypassUntil: u.access_bypass_until,
+        createdAt: u.created_at,
+        activatedAt: u.activated_at,
+        termsAcceptedAt: u.terms_accepted_at,
+        otpEnabled: !!u.otp_enabled,
+        otpLockedUntil: u.otp_locked_until,
+        storageBytes: directorySize(userRootDir(uploadsDir, u.id)),
+      },
+      stats: {
+        expenses: Number(counts.expenses) || 0,
+        inTrash: Number(counts.in_trash) || 0,
+        withReceipt: Number(counts.with_receipt) || 0,
+        totalAmount: Number(counts.total_amount) || 0,
+        firstExpense: counts.first_expense,
+        lastExpense: counts.last_expense,
+        lastActivity: counts.last_activity,
+        categories: Number(counts.categories) || 0,
+        documents: Number(counts.documents) || 0,
+      },
+      members: members.map((m) => ({
+        id: m.id,
+        name: m.name,
+        email: m.email,
+        role: m.role,
+        active: !!m.activated_at,
+      })),
+      accountants: accountants.map((a) => ({
+        id: a.id,
+        name: a.name,
+        email: a.email,
+        financialYears: a.financial_years ? a.financial_years.split(',') : null,
+        firstLoginAt: a.first_login_at,
+        expiresAt: a.expires_at,
+      })),
+      clients: clients.map((c) => ({ id: c.id, name: c.name, email: c.email, expiresAt: c.expires_at })),
+      taxYears: taxYears.map((t) => ({
+        financialYear: t.financial_year,
+        amount: t.amount === null ? null : Number(t.amount),
+        finalisedAt: t.finalised_at,
+        appointmentAt: t.appointment_at,
+      })),
+      logins: {
+        total: Number(loginSummary?.total) || 0,
+        firstAt: loginSummary?.first_at || null,
+        lastAt: loginSummary?.last_at || null,
+        recent: logins.map((l) => ({
+          at: l.at,
+          device: l.device,
+          platform: l.platform,
+          browser: l.browser,
+          ip: l.ip,
+          method: l.method,
+        })),
+        devices: devices.map((d) => ({
+          device: d.device,
+          platform: d.platform,
+          browser: d.browser,
+          count: Number(d.n),
+          lastAt: d.last_at,
+        })),
+      },
+    });
+  })
+);
+
 router.post(
   '/users/:id/view-as',
   asyncHandler(async (req, res) => {

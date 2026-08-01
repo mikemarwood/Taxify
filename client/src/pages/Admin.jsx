@@ -8,6 +8,8 @@ import { SkeletonList } from '../components/Skeletons.jsx';
 import Icon from '../components/Icon.jsx';
 import PromoCodesTab from '../components/PromoCodesTab.jsx';
 import { IconPicker, ColourPicker, CategoryPreview, SWATCHES } from '../components/CategoryPickers.jsx';
+import Avatar from '../components/Avatar.jsx';
+import AdminUserDetail from '../components/AdminUserDetail.jsx';
 
 
 // Storage figures are for a human deciding whether someone is using a lot, so
@@ -170,11 +172,37 @@ function CreateUserForm({ onCreated }) {
   );
 }
 
+const BADGE_TONES = {
+  red: { color: 'var(--red)', background: 'rgba(239, 68, 68, 0.13)' },
+  amber: { color: 'var(--amber)', background: 'rgba(245, 158, 11, 0.14)' },
+  emerald: { color: 'var(--emerald)', background: 'rgba(12, 115, 67, 0.12)' },
+  accent: { color: 'var(--accent)', background: 'var(--accent-soft)' },
+  muted: { color: 'var(--text-muted)', background: 'var(--bg-inset)' },
+};
+
+function Badge({ tone = 'muted', children }) {
+  return (
+    <span
+      style={{
+        fontSize: 11,
+        fontWeight: 700,
+        padding: '2px 8px',
+        borderRadius: 999,
+        whiteSpace: 'nowrap',
+        ...BADGE_TONES[tone],
+      }}
+    >
+      {children}
+    </span>
+  );
+}
+
 function UsersTab() {
   const { user: me, setUser } = useAuth();
   const navigate = useNavigate();
   const toast = useToast();
   const [users, setUsers] = useState(null);
+  const [detailId, setDetailId] = useState(null);
 
   function load() {
     api.get('/admin/users').then((res) => setUsers(res.data.users));
@@ -273,10 +301,10 @@ function UsersTab() {
     if (!first) return;
 
     const typed = window.prompt(`Type the email address to confirm:\n${u.email}`);
-    if (typed === null) return;
+    if (typed === null) return false;
     if (typed.trim().toLowerCase() !== u.email.toLowerCase()) {
       toast('That didn’t match — nothing was deleted', 'error');
-      return;
+      return false;
     }
 
     try {
@@ -286,8 +314,12 @@ function UsersTab() {
         : '';
       toast(`Deleted ${u.email}${extra}`, 'success');
       load();
+      // Reported back so the detail panel closes rather than reloading an
+      // account that no longer exists.
+      return true;
     } catch (err) {
       toast(err.message, 'error');
+      return false;
     }
   }
 
@@ -298,185 +330,96 @@ function UsersTab() {
         <SkeletonList rows={4} />
       ) : (
         <div className="card" style={{ overflow: 'hidden' }}>
-      <AnimatePresence initial={false}>
-        {users.map((u, i) => (
-          <motion.div
-            key={u.id}
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 14,
-              padding: '14px 18px',
-              borderBottom: i < users.length - 1 ? '1px solid var(--border)' : 'none',
-            }}
-          >
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ fontWeight: 600 }}>
-                {u.name} {u.id === me.id && <span style={{ color: 'var(--text-muted)', fontWeight: 400 }}>(you)</span>}
-              </div>
-              <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>
-                {u.email} · {u.expenseCount} expense{u.expenseCount === 1 ? '' : 's'} · joined{' '}
-                {new Date(u.createdAt).toLocaleDateString()}
-              </div>
-            </div>
-            <div
-              title="Total size of this user's uploaded receipts and property documents"
-              style={{ textAlign: 'right', flexShrink: 0 }}
-            >
-              <div style={{ fontWeight: 700, fontSize: 13.5, fontVariantNumeric: 'tabular-nums' }}>
-                {formatBytes(u.storageBytes)}
-              </div>
-              <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>storage</div>
-            </div>
-            {!u.active && (
-              <span
+          <AnimatePresence initial={false}>
+            {users.map((u, i) => (
+              <motion.button
+                key={u.id}
+                type="button"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                onClick={() => setDetailId(u.id)}
+                className="admin-user-row"
                 style={{
-                  fontSize: 12,
-                  fontWeight: 600,
-                  padding: '4px 10px',
-                  borderRadius: 999,
-                  color: 'var(--amber)',
-                  background: 'rgba(245, 158, 11, 0.15)',
+                  width: '100%',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 12,
+                  padding: '13px 16px',
+                  border: 0,
+                  background: 'none',
+                  font: 'inherit',
+                  color: 'var(--text)',
+                  textAlign: 'left',
+                  cursor: 'pointer',
+                  borderBottom: i < users.length - 1 ? '1px solid var(--border)' : 'none',
                 }}
               >
-                Invite pending
-              </span>
-            )}
-            {u.accessBypass && (
-              <span
-                title={
-                  u.accessBypassUntil
-                    ? `Granted access until ${new Date(u.accessBypassUntil).toLocaleDateString()}`
-                    : 'Granted access, open-ended'
-                }
-                style={{
-                  fontSize: 12,
-                  fontWeight: 600,
-                  padding: '4px 10px',
-                  borderRadius: 999,
-                  color: 'var(--emerald)',
-                  background: 'rgba(12, 115, 67, 0.12)',
-                }}
-              >
-                Access granted
-                {u.accessBypassUntil ? ` · to ${new Date(u.accessBypassUntil).toLocaleDateString()}` : ''}
-              </span>
-            )}
-            {u.isAdmin && (
-              <span
-                style={{
-                  fontSize: 12,
-                  fontWeight: 600,
-                  padding: '4px 10px',
-                  borderRadius: 999,
-                  color: 'var(--red)',
-                  background: 'rgba(239, 68, 68, 0.15)',
-                }}
-              >
-                Administrator
-              </span>
-            )}
-            {/* Whose login this is. A family member can only be removed from
-                here — the two of them can't remove each other — so telling
-                them apart from an account holder matters. */}
-            {u.role && u.role !== 'owner' ? (
-              <span
-                title={
-                  u.role === 'sub_user'
-                    ? `Family member on ${u.accountHolderName || 'another'}'s account — only an administrator can remove them`
-                    : `Accountant login${u.accountHolderName ? ` (invited by ${u.accountHolderName})` : ''}`
-                }
-                style={{
-                  fontSize: 11.5,
-                  fontWeight: 700,
-                  padding: '4px 10px',
-                  borderRadius: 999,
-                  color: 'var(--amber)',
-                  background: 'rgba(245, 158, 11, 0.14)',
-                }}
-              >
-                {u.role === 'sub_user' ? 'Family member' : 'Accountant'}
-                {u.accountHolderName ? ` · ${u.accountHolderName}` : ''}
-              </span>
-            ) : (
-              <span
-                title="Current plan"
-                style={{
-                  fontSize: 11.5,
-                  fontWeight: 700,
-                  padding: '4px 10px',
-                  borderRadius: 999,
-                  color: 'var(--accent)',
-                  background: 'var(--accent-soft)',
-                }}
-              >
-                {u.planType === 'family' ? 'Family' : 'Individual'}
-              </span>
-            )}
+                <Avatar name={u.name} avatarUrl={u.avatarUrl} size={34} />
 
-            {/* Available on your own row too. The self-guard below exists to
-                stop an admin demoting or deleting themselves out of the panel;
-                changing your own plan or access does neither. */}
-            <button
-              className="btn btn-ghost"
-              title={`Move to the ${u.planType === 'family' ? 'Individual' : 'Family'} plan`}
-              style={{ fontSize: 12, padding: '6px 12px' }}
-              onClick={() => changePlan(u)}
-            >
-              Change plan
-            </button>
-
-            <button
-              className="btn btn-ghost"
-              title={
-                u.accessBypass
-                  ? 'Remove the granted access — this account goes back to its subscription'
-                  : 'Give this account full access without a subscription'
-              }
-              style={{ fontSize: 12, padding: '6px 12px', color: u.accessBypass ? 'var(--emerald)' : undefined }}
-              onClick={() => toggleAccess(u)}
-            >
-              {u.accessBypass ? 'Revoke access' : 'Grant access'}
-            </button>
-
-            {u.id !== me.id && (
-              <>
-                <button
-                  className="btn btn-ghost"
-                  title="See their account exactly as they do, read-only"
-                  style={{ fontSize: 12, padding: '6px 12px' }}
-                  onClick={() => viewAs(u)}
-                >
-                  View as
-                </button>
-                <button
-                  className="btn btn-ghost"
-                  style={{ fontSize: 12, padding: '6px 12px' }}
-                  onClick={() => toggleAdmin(u)}
-                >
-                  {u.isAdmin ? 'Demote' : 'Promote'}
-                </button>
-                {/* Admins are never deletable here — losing the last one
-                    locks everyone out of this panel for good. */}
-                {!u.isAdmin && (
-                  <button
-                    className="btn btn-ghost"
-                    title="Permanently delete this account and everything in it"
-                    style={{ fontSize: 12, padding: '6px 12px', color: 'var(--red)' }}
-                    onClick={() => deleteUser(u)}
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div
+                    style={{
+                      fontWeight: 600,
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                      whiteSpace: 'nowrap',
+                    }}
                   >
-                    Delete
-                  </button>
-                )}
-              </>
-            )}
-          </motion.div>
-        ))}
-      </AnimatePresence>
+                    {u.name}{' '}
+                    {u.id === me.id && <span style={{ color: 'var(--text-muted)', fontWeight: 400 }}>(you)</span>}
+                  </div>
+                  <div
+                    style={{
+                      fontSize: 12,
+                      color: 'var(--text-muted)',
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                      whiteSpace: 'nowrap',
+                    }}
+                  >
+                    {u.email}
+                  </div>
+
+                  {/* The badges wrap under the name rather than competing with
+                      it for the same line — which is what made this unreadable
+                      on a phone. */}
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, marginTop: 5 }}>
+                    <Badge tone={u.isAdmin ? 'red' : u.role === 'sub_user' || u.role === 'accountant' ? 'amber' : 'accent'}>
+                      {u.isAdmin
+                        ? 'Administrator'
+                        : u.role === 'sub_user'
+                        ? 'Family member'
+                        : u.role === 'accountant'
+                        ? 'Accountant'
+                        : u.planType === 'family'
+                        ? 'Family'
+                        : 'Individual'}
+                    </Badge>
+                    {!u.active && <Badge tone="amber">Invite pending</Badge>}
+                    {u.accessBypass && <Badge tone="emerald">Access granted</Badge>}
+                    <Badge tone="muted">
+                      {u.expenseCount} expense{u.expenseCount === 1 ? '' : 's'}
+                    </Badge>
+                    <Badge tone="muted">{formatBytes(u.storageBytes)}</Badge>
+                  </div>
+                </div>
+
+                <Icon name="chevron-down" size={16} style={{ color: 'var(--text-muted)', transform: 'rotate(-90deg)' }} />
+              </motion.button>
+            ))}
+          </AnimatePresence>
         </div>
+      )}
+
+      {detailId !== null && (
+        <AdminUserDetail
+          userId={detailId}
+          me={me}
+          onClose={() => setDetailId(null)}
+          onChanged={load}
+          actions={{ changePlan, toggleAccess, viewAs, toggleAdmin, deleteUser }}
+        />
       )}
     </div>
   );

@@ -173,6 +173,10 @@ button, input, select, textarea {
 }
 .icon-btn:hover:not(:disabled) { color: var(--text); }
 
+/* The admin user list is a list of buttons — it needs to feel like one. */
+.admin-user-row:hover { background: var(--bg-elevated) !important; }
+.admin-user-row:active { background: var(--bg-inset) !important; }
+
 .input {
   width: 100%;
   padding: 9px 12px;
