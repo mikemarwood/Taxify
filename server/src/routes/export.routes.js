@@ -20,7 +20,7 @@ router.use(requireAuth, requireActiveAccess);
 async function loadExpenses(req) {
   const scope = await expenseScope(req.user);
   const [rows] = await pool.execute(
-    `SELECT e.item_name, e.amount, e.currency, e.base_amount, e.base_currency, e.purchase_date, e.is_recurring, e.frequency, e.notes,
+    `SELECT e.item_name, e.amount, e.currency, e.base_amount, e.base_currency, e.business_use_pct, e.purchase_date, e.is_recurring, e.frequency, e.notes,
             c.name AS category_name
      FROM expenses e
      LEFT JOIN categories c ON c.id = e.category_id
@@ -33,6 +33,8 @@ async function loadExpenses(req) {
     amount: Number(r.amount),
     baseAmount: r.base_amount === null ? null : Number(r.base_amount),
     baseCurrency: r.base_currency,
+    businessUsePct: r.business_use_pct === null ? 100 : Number(r.business_use_pct),
+    claimable: r.base_amount === null ? null : Math.round(Number(r.base_amount) * (Number(r.business_use_pct ?? 100) / 100) * 100) / 100,
     currency: r.currency,
     purchaseDate: r.purchase_date,
     financialYear: financialYearOf(r.purchase_date, req.user.financialYearRule),
@@ -48,10 +50,10 @@ function buildCategorySummary(expenses) {
   const cells = new Map();
 
   for (const e of expenses) {
-    categoryMap.set(e.category, (categoryMap.get(e.category) || 0) + (e.baseAmount || 0));
+    categoryMap.set(e.category, (categoryMap.get(e.category) || 0) + (e.claimable || 0));
     years.add(e.financialYear);
     const key = `${e.category}|${e.financialYear}`;
-    cells.set(key, (cells.get(key) || 0) + (e.baseAmount || 0));
+    cells.set(key, (cells.get(key) || 0) + (e.claimable || 0));
   }
 
   const sortedCategories = Array.from(categoryMap.keys()).sort((a, b) => categoryMap.get(b) - categoryMap.get(a));
@@ -80,7 +82,7 @@ router.get(
     sheet.getRow(1).height = 26;
 
     sheet.addRow([]);
-    const headerRow = sheet.addRow(['Date', 'Item', 'Category', 'Amount', 'Currency', 'Converted', 'Recurring', 'Notes']);
+    const headerRow = sheet.addRow(['Date', 'Item', 'Category', 'Amount', 'Currency', 'Converted', 'Business use %', 'Claimed', 'Recurring', 'Notes']);
     headerRow.eachCell((cell) => {
       cell.font = { bold: true, color: { argb: 'FFFFFFFF' } };
       cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1E3A8A' } };
@@ -89,7 +91,7 @@ router.get(
 
     let total = 0;
     expenses.forEach((e, i) => {
-      total += e.baseAmount || 0;
+      total += e.claimable || 0;
       const row = sheet.addRow([
         new Date(e.purchaseDate).toLocaleDateString(),
         e.itemName,
@@ -97,11 +99,14 @@ router.get(
         e.amount,
         e.currency,
         e.baseAmount === null ? 'needs a rate' : e.baseAmount,
+        e.businessUsePct,
+        e.claimable === null ? 'needs a rate' : e.claimable,
         e.recurring,
         e.notes,
       ]);
       row.getCell(4).numFmt = '#,##0.00';
       if (e.baseAmount !== null) row.getCell(6).numFmt = '#,##0.00';
+      if (e.claimable !== null) row.getCell(8).numFmt = '#,##0.00';
       if (i % 2 === 1) {
         row.eachCell((cell) => {
           cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF3F4F6' } };
@@ -110,20 +115,25 @@ router.get(
     });
 
     // The total sums the converted column, so it is placed under it.
-    const totalRow = sheet.addRow(['', '', 'Total', '', '', total]);
+    // The total is of what is being claimed, so it sits under that column.
+    const totalRow = sheet.addRow(['', '', 'Total', '', '', '', '', total]);
     totalRow.font = { bold: true };
-    totalRow.getCell(6).numFmt = '#,##0.00';
+    totalRow.getCell(8).numFmt = '#,##0.00';
 
     // Date, Item, Category, Amount, Currency, Converted, Recurring, Notes.
+    // Date, Item, Category, Amount, Currency, Converted, Business use %,
+    // Claimed, Recurring, Notes.
     sheet.columns = [
+      { width: 13 },
+      { width: 30 },
+      { width: 18 },
+      { width: 13 },
+      { width: 9 },
+      { width: 13 },
       { width: 14 },
-      { width: 32 },
-      { width: 20 },
-      { width: 14 },
-      { width: 10 },
-      { width: 14 },
-      { width: 14 },
-      { width: 36 },
+      { width: 13 },
+      { width: 12 },
+      { width: 30 },
     ];
 
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
@@ -150,9 +160,10 @@ router.get(
       { label: 'Category', width: 120 },
       { label: 'Amount', width: 70, align: 'right' },
       { label: 'Cur', width: 34 },
-      { label: 'Converted', width: 78, align: 'right' },
-      { label: 'Recurring', width: 62 },
-      { label: 'Notes', width: 126 },
+      { label: 'Use %', width: 42, align: 'right' },
+      { label: 'Claimed', width: 74, align: 'right' },
+      { label: 'Recurring', width: 56 },
+      { label: 'Notes', width: 106 },
     ];
 
     function drawTableHeader(y) {
@@ -173,7 +184,7 @@ router.get(
     let total = 0;
     doc.font('Helvetica').fontSize(9);
     expenses.forEach((e, i) => {
-      total += e.baseAmount || 0;
+      total += e.claimable || 0;
       if (y > doc.page.height - doc.page.margins.bottom - 30) {
         addFooter(doc);
         doc.addPage();
@@ -192,7 +203,8 @@ router.get(
         e.category,
         e.amount.toFixed(2),
         e.currency,
-        e.baseAmount === null ? 'needs rate' : e.baseAmount.toFixed(2),
+        String(e.businessUsePct ?? 100),
+        e.claimable === null ? 'needs rate' : e.claimable.toFixed(2),
         e.recurring,
         e.notes,
       ];
@@ -345,7 +357,7 @@ router.get(
 
     const scope = await expenseScope(req.user);
     const [rows] = await pool.execute(
-      `SELECT e.id, e.user_id, e.item_name, e.amount, e.currency, e.base_amount, e.base_currency, e.purchase_date, e.receipt_path,
+      `SELECT e.id, e.user_id, e.item_name, e.amount, e.currency, e.base_amount, e.base_currency, e.business_use_pct, e.purchase_date, e.receipt_path,
               e.is_recurring, e.frequency, e.notes, c.name AS category_name
        FROM expenses e
        LEFT JOIN categories c ON c.id = e.category_id
@@ -362,8 +374,14 @@ router.get(
         amount: Number(r.amount),
         baseAmount: r.base_amount === null ? null : Number(r.base_amount),
         baseCurrency: r.base_currency,
+        businessUsePct: r.business_use_pct === null ? 100 : Number(r.business_use_pct),
+        claimable: r.base_amount === null ? null : Math.round(Number(r.base_amount) * (Number(r.business_use_pct ?? 100) / 100) * 100) / 100,
+    businessUsePct: r.business_use_pct === null ? 100 : Number(r.business_use_pct),
+    claimable: r.base_amount === null ? null : Math.round(Number(r.base_amount) * (Number(r.business_use_pct ?? 100) / 100) * 100) / 100,
     baseAmount: r.base_amount === null ? null : Number(r.base_amount),
     baseCurrency: r.base_currency,
+    businessUsePct: r.business_use_pct === null ? 100 : Number(r.business_use_pct),
+    claimable: r.base_amount === null ? null : Math.round(Number(r.base_amount) * (Number(r.business_use_pct ?? 100) / 100) * 100) / 100,
         currency: r.currency,
         purchaseDate: r.purchase_date,
         category: r.category_name || 'Uncategorised',

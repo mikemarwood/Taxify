@@ -7,6 +7,7 @@ import { useToast } from '../components/Toast.jsx';
 import { SkeletonList } from '../components/Skeletons.jsx';
 import Icon from '../components/Icon.jsx';
 import PromoCodesTab from '../components/PromoCodesTab.jsx';
+import TaxRatesTab from '../components/TaxRatesTab.jsx';
 import { IconPicker, ColourPicker, CategoryPreview, SWATCHES } from '../components/CategoryPickers.jsx';
 import Avatar from '../components/Avatar.jsx';
 import AdminUserDetail from '../components/AdminUserDetail.jsx';
@@ -50,6 +51,9 @@ export default function Admin() {
         <button className={tab === 'promos' ? 'btn btn-primary' : 'btn btn-ghost'} onClick={() => setTab('promos')}>
           Promo codes
         </button>
+        <button className={tab === 'rates' ? 'btn btn-primary' : 'btn btn-ghost'} onClick={() => setTab('rates')}>
+          Deduction rates
+        </button>
       </div>
 
       {tab === 'users' && <UsersTab />}
@@ -58,6 +62,7 @@ export default function Admin() {
       {tab === 'email' && <EmailSettingsTab />}
       {tab === 'stripe' && <StripeSettingsTab />}
       {tab === 'promos' && <PromoCodesTab />}
+      {tab === 'rates' && <TaxRatesTab />}
     </div>
   );
 }

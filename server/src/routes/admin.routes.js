@@ -17,6 +17,7 @@ import { getStripeAdminSettings, saveStripeAdminSettings, getStripeSecretKeyForM
 import { hashPassword } from '../auth/password.js';
 import { generateActivationToken } from '../auth/activationToken.js';
 import { seedDefaultCategories } from '../seed/defaultCategories.js';
+import { isFinancialYearLabel } from '../lib/financialYear.js';
 import Stripe from 'stripe';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -447,6 +448,58 @@ router.patch(
 );
 
 // --- Promo codes ---------------------------------------------------------
+
+// Deduction rates, by financial year. Data rather than code because they
+// change annually — a rate compiled into the app goes stale silently and then
+// mis-claims for everybody at once.
+router.get(
+  '/tax-rates',
+  asyncHandler(async (req, res) => {
+    const [rows] = await pool.execute(
+      'SELECT id, financial_year, `key`, value, updated_at FROM tax_rates ORDER BY financial_year DESC, `key`'
+    );
+    res.json({
+      rates: rows.map((r) => ({
+        id: r.id,
+        financialYear: r.financial_year,
+        key: r.key,
+        value: Number(r.value),
+        updatedAt: r.updated_at,
+      })),
+    });
+  })
+);
+
+const ALLOWED_RATE_KEYS = new Set(['vehicle_cents_per_km', 'vehicle_km_cap', 'home_office_per_hour']);
+
+router.put(
+  '/tax-rates',
+  asyncHandler(async (req, res) => {
+    const { financialYear, key, value } = req.body || {};
+    if (!isFinancialYearLabel(financialYear)) return res.status(400).json({ error: 'Invalid financial year' });
+    if (!ALLOWED_RATE_KEYS.has(key)) return res.status(400).json({ error: 'Unknown rate' });
+
+    const amount = Number(value);
+    if (!Number.isFinite(amount) || amount < 0) return res.status(400).json({ error: 'Enter a positive number' });
+
+    await pool.execute(
+      'INSERT INTO tax_rates (financial_year, `key`, value) VALUES (?, ?, ?) ' +
+        'ON DUPLICATE KEY UPDATE value = VALUES(value), updated_at = NOW()',
+      [financialYear, key, amount]
+    );
+    console.log(`[admin] ${req.user.email} set ${key} for ${financialYear} to ${amount}`);
+    res.json({ ok: true });
+  })
+);
+
+router.delete(
+  '/tax-rates/:id',
+  asyncHandler(async (req, res) => {
+    const [result] = await pool.execute('DELETE FROM tax_rates WHERE id = ?', [req.params.id]);
+    if (result.affectedRows === 0) return res.status(404).json({ error: 'Rate not found' });
+    res.json({ ok: true });
+  })
+);
 
 router.get(
   '/promo-codes',

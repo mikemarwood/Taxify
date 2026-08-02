@@ -140,7 +140,7 @@ router.get(
     const [rows] = await pool.execute(
       `SELECT e.id, e.user_id, e.item_name, e.amount, e.currency, e.purchase_date, e.receipt_path,
               e.is_recurring, e.frequency, e.notes, e.created_at, e.updated_at, e.auto_generated,
-              e.base_amount, e.base_currency, e.fx_rate, e.fx_rate_source,
+              e.base_amount, e.base_currency, e.fx_rate, e.fx_rate_source, e.business_use_pct,
               creator.name AS created_by_name, editor.name AS updated_by_name,
               c.id AS category_id, c.name AS category_name, c.color AS category_color, c.icon AS category_icon
        FROM expenses e
@@ -161,6 +161,7 @@ router.get(
       // reported rather than counted at face value.
       baseAmount: r.base_amount === null ? null : Number(r.base_amount),
       baseCurrency: r.base_currency,
+      businessUsePct: r.business_use_pct === null ? 100 : Number(r.business_use_pct),
       fxRate: r.fx_rate === null ? null : Number(r.fx_rate),
       fxRateSource: r.fx_rate_source,
       purchaseDate: r.purchase_date,
@@ -407,6 +408,17 @@ router.post(
         return res.status(400).json({ error: 'That is not a currency we support' });
       }
 
+      // A claim of 0% is not an expense and over 100% is not a thing. Absent
+      // means the whole amount, which is what every existing row is.
+      const businessUsePct =
+        req.body?.businessUsePct === undefined || req.body?.businessUsePct === ''
+          ? 100
+          : Number(req.body.businessUsePct);
+      if (!Number.isFinite(businessUsePct) || businessUsePct <= 0 || businessUsePct > 100) {
+        cleanupUpload();
+        return res.status(400).json({ error: 'Business use must be between 1 and 100 percent' });
+      }
+
       // Anything not in the account's own currency is converted at the rate
       // for the purchase date, so every total is in one currency and means
       // something. Refused rather than guessed when no rate can be had.
@@ -444,8 +456,8 @@ router.post(
       const [result] = await pool.execute(
         `INSERT INTO expenses (user_id, created_by, category_id, item_name, amount, currency, purchase_date,
            receipt_path, is_recurring, frequency, notes, next_due_date,
-           base_currency, base_amount, fx_rate, fx_rate_source, fx_rate_date)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+           base_currency, base_amount, fx_rate, fx_rate_source, fx_rate_date, business_use_pct)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
           req.user.id,
           req.user.id,
@@ -464,6 +476,7 @@ router.post(
           money.rate,
           money.source,
           money.rateDate,
+          businessUsePct,
         ]
       );
 
@@ -543,6 +556,20 @@ router.patch(
       // Re-converted on every edit, because changing the amount, the currency
       // or the date all change what the figure in the account's own currency
       // should be.
+      // A claim of 0% is not an expense and over 100% is not a thing. Absent
+      // means the whole amount, which is what every existing row is.
+      const businessUsePct =
+        req.body?.businessUsePct === undefined || req.body?.businessUsePct === ''
+          ? 100
+          : Number(req.body.businessUsePct);
+      if (!Number.isFinite(businessUsePct) || businessUsePct <= 0 || businessUsePct > 100) {
+        cleanupUpload();
+        return res.status(400).json({ error: 'Business use must be between 1 and 100 percent' });
+      }
+
+      // Anything not in the account's own currency is converted at the rate
+      // for the purchase date, so every total is in one currency and means
+      // something. Refused rather than guessed when no rate can be had.
       const money = await resolveBaseAmount({
         amount: amountNum,
         currency: editCurrency,
@@ -603,7 +630,7 @@ router.patch(
       await pool.execute(
         `UPDATE expenses SET category_id = ?, item_name = ?, amount = ?, currency = ?, purchase_date = ?, receipt_path = ?, is_recurring = ?, frequency = ?, notes = ?, next_due_date = ?,
          base_currency = ?, base_amount = ?, fx_rate = ?, fx_rate_source = ?, fx_rate_date = ?,
-         updated_by = ?, updated_at = NOW()
+         business_use_pct = ?, updated_by = ?, updated_at = NOW()
          WHERE id = ? AND user_id = ?`,
         [
           resolvedCategoryId,
@@ -621,6 +648,7 @@ router.patch(
           money.rate,
           money.source,
           money.rateDate,
+          businessUsePct,
           req.user.id,
           req.params.id,
           req.user.id,

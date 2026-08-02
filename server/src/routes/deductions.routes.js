@@ -1,0 +1,188 @@
+import { Router } from 'express';
+import pool from '../db.js';
+import { requireAuth, requireActiveAccess } from '../auth/middleware.js';
+import { asyncHandler } from '../lib/asyncHandler.js';
+import { dataOwnerId } from '../auth/access.js';
+import { financialYearOf, isFinancialYearLabel } from '../lib/financialYear.js';
+import { blockIfFinalised } from '../lib/finalisedYears.js';
+import { ratesFor, vehicleClaim, homeOfficeClaim, RATE_KEYS } from '../lib/deductions.js';
+
+const router = Router();
+router.use(requireAuth, requireActiveAccess);
+
+// The two deductions that are not expenses: kilometres driven for work and
+// hours worked from home. Both are logged as they happen, because both are
+// claimed at a rate that only works if the record is contemporaneous.
+
+function ownerOf(req) {
+  return dataOwnerId(req.user);
+}
+
+// Everything for one year, with what it is worth. Kept in one response because
+// the summary is the point — three separate calls to assemble one table is
+// three chances for it to disagree with itself.
+router.get(
+  '/:financialYear',
+  asyncHandler(async (req, res) => {
+    const { financialYear } = req.params;
+    if (!isFinancialYearLabel(financialYear)) return res.status(400).json({ error: 'Invalid financial year' });
+
+    const userId = ownerOf(req);
+    const [trips] = await pool.execute(
+      `SELECT id, trip_date, vehicle, km, purpose FROM vehicle_trips
+       WHERE user_id = ? AND financial_year = ? ORDER BY trip_date DESC, id DESC`,
+      [userId, financialYear]
+    );
+    const [hours] = await pool.execute(
+      `SELECT id, entry_date, hours, note FROM home_office_hours
+       WHERE user_id = ? AND financial_year = ? ORDER BY entry_date DESC, id DESC`,
+      [userId, financialYear]
+    );
+
+    const rates = await ratesFor(financialYear);
+    const vehicle = vehicleClaim(trips.map((t) => ({ vehicle: t.vehicle, km: Number(t.km) })), {
+      centsPerKm: rates[RATE_KEYS.vehicleCentsPerKm] ?? null,
+      kmCap: rates[RATE_KEYS.vehicleKmCap] ?? null,
+    });
+    const homeOffice = homeOfficeClaim(hours.map((h) => ({ hours: Number(h.hours) })), {
+      perHour: rates[RATE_KEYS.homeOfficePerHour] ?? null,
+    });
+
+    res.json({
+      financialYear,
+      // Said explicitly so the client can explain a null claim as "no rate has
+      // been set for this year" rather than showing a confident zero.
+      rates: {
+        centsPerKm: rates[RATE_KEYS.vehicleCentsPerKm] ?? null,
+        kmCap: rates[RATE_KEYS.vehicleKmCap] ?? null,
+        perHour: rates[RATE_KEYS.homeOfficePerHour] ?? null,
+      },
+      vehicle: {
+        ...vehicle,
+        trips: trips.map((t) => ({
+          id: t.id,
+          date: t.trip_date,
+          vehicle: t.vehicle,
+          km: Number(t.km),
+          purpose: t.purpose || '',
+        })),
+      },
+      homeOffice: {
+        ...homeOffice,
+        entries: hours.map((h) => ({
+          id: h.id,
+          date: h.entry_date,
+          hours: Number(h.hours),
+          note: h.note || '',
+        })),
+      },
+    });
+  })
+);
+
+// Writes are refused inside a client's books and inside a finalised year, the
+// same as expenses — a deduction added after a return was assessed changes what
+// was claimed.
+async function assertWritable(req, res, date) {
+  if (req.user.actingAsClient) {
+    res.status(403).json({ error: 'Accountant access is read-only' });
+    return false;
+  }
+  const closed = await blockIfFinalised(req.user, date);
+  if (closed) {
+    res.status(409).json({ error: closed });
+    return false;
+  }
+  return true;
+}
+
+router.post(
+  '/vehicle-trips',
+  asyncHandler(async (req, res) => {
+    const { date, vehicle, km, purpose } = req.body || {};
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(String(date || ''))) return res.status(400).json({ error: 'Enter the trip date' });
+    if (!vehicle || !String(vehicle).trim()) return res.status(400).json({ error: 'Name the vehicle' });
+
+    const distance = Number(km);
+    if (!Number.isFinite(distance) || distance <= 0) return res.status(400).json({ error: 'Enter the kilometres driven' });
+    if (distance > 100000) return res.status(400).json({ error: 'That distance is too large' });
+
+    if (!(await assertWritable(req, res, date))) return;
+
+    const [result] = await pool.execute(
+      `INSERT INTO vehicle_trips (user_id, financial_year, trip_date, vehicle, km, purpose, created_by)
+       VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      [
+        ownerOf(req),
+        financialYearOf(date, req.user.financialYearRule),
+        date,
+        String(vehicle).trim().slice(0, 80),
+        distance,
+        purpose ? String(purpose).trim().slice(0, 255) : null,
+        req.user.id,
+      ]
+    );
+    res.status(201).json({ id: result.insertId });
+  })
+);
+
+router.delete(
+  '/vehicle-trips/:id',
+  asyncHandler(async (req, res) => {
+    const [rows] = await pool.execute('SELECT trip_date FROM vehicle_trips WHERE id = ? AND user_id = ?', [
+      req.params.id,
+      ownerOf(req),
+    ]);
+    if (!rows[0]) return res.status(404).json({ error: 'Trip not found' });
+    if (!(await assertWritable(req, res, rows[0].trip_date))) return;
+
+    await pool.execute('DELETE FROM vehicle_trips WHERE id = ? AND user_id = ?', [req.params.id, ownerOf(req)]);
+    res.json({ ok: true });
+  })
+);
+
+router.post(
+  '/home-office',
+  asyncHandler(async (req, res) => {
+    const { date, hours, note } = req.body || {};
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(String(date || ''))) return res.status(400).json({ error: 'Enter the date' });
+
+    const worked = Number(hours);
+    if (!Number.isFinite(worked) || worked <= 0) return res.status(400).json({ error: 'Enter the hours worked' });
+    // More than a day's worth in a day is a typo, not a claim.
+    if (worked > 24) return res.status(400).json({ error: 'That is more than 24 hours' });
+
+    if (!(await assertWritable(req, res, date))) return;
+
+    const [result] = await pool.execute(
+      `INSERT INTO home_office_hours (user_id, financial_year, entry_date, hours, note, created_by)
+       VALUES (?, ?, ?, ?, ?, ?)`,
+      [
+        ownerOf(req),
+        financialYearOf(date, req.user.financialYearRule),
+        date,
+        worked,
+        note ? String(note).trim().slice(0, 255) : null,
+        req.user.id,
+      ]
+    );
+    res.status(201).json({ id: result.insertId });
+  })
+);
+
+router.delete(
+  '/home-office/:id',
+  asyncHandler(async (req, res) => {
+    const [rows] = await pool.execute('SELECT entry_date FROM home_office_hours WHERE id = ? AND user_id = ?', [
+      req.params.id,
+      ownerOf(req),
+    ]);
+    if (!rows[0]) return res.status(404).json({ error: 'Entry not found' });
+    if (!(await assertWritable(req, res, rows[0].entry_date))) return;
+
+    await pool.execute('DELETE FROM home_office_hours WHERE id = ? AND user_id = ?', [req.params.id, ownerOf(req)]);
+    res.json({ ok: true });
+  })
+);
+
+export default router;

@@ -45,12 +45,31 @@ export function formatMoney(value, currency) {
 }
 
 // What an expense contributes to a total: the amount converted into the
-// account's own currency. Null means it could not be converted honestly, and
-// such a row is excluded rather than counted at face value — see
-// `unconvertedCount` for how that is then reported instead of hidden.
+// account's own currency, then apportioned by how much of it was business use.
+// A laptop bought for $2,000 and used 60% for work contributes $1,200 — the
+// receipt still says $2,000, and both figures matter.
+//
+// Null baseAmount means it could not be converted honestly, and such a row is
+// excluded rather than counted at face value — see `unconvertedCount` for how
+// that is reported instead of hidden.
 export function claimable(expense) {
   const value = expense?.baseAmount;
+  if (typeof value !== 'number' || !Number.isFinite(value)) return 0;
+  const pct = Number(expense?.businessUsePct);
+  const share = Number.isFinite(pct) && pct > 0 && pct <= 100 ? pct : 100;
+  return Math.round(value * (share / 100) * 100) / 100;
+}
+
+// The full amount before apportionment, in the account's currency. Shown
+// beside the claim so the two are never confused for one another.
+export function fullAmount(expense) {
+  const value = expense?.baseAmount;
   return typeof value === 'number' && Number.isFinite(value) ? value : 0;
+}
+
+export function isApportioned(expense) {
+  const pct = Number(expense?.businessUsePct);
+  return Number.isFinite(pct) && pct > 0 && pct < 100;
 }
 
 export function sumClaimable(expenses) {

@@ -65,6 +65,8 @@ async function buildWorkbook(financialYear, expenses, entries, totals) {
     { header: 'Category', key: 'category', width: 22 },
     { header: 'Amount', key: 'amount', width: 14 },
     { header: 'Converted', key: 'converted', width: 14 },
+    { header: 'Business use %', key: 'usePct', width: 14 },
+    { header: 'Claimed', key: 'claimed', width: 14 },
     { header: 'Currency', key: 'currency', width: 10 },
     { header: 'Recurring', key: 'recurring', width: 12 },
     { header: 'Notes', key: 'notes', width: 36 },
@@ -81,6 +83,8 @@ async function buildWorkbook(financialYear, expenses, entries, totals) {
       category: expense.category,
       amount: expense.amount,
       converted: expense.baseAmount === null ? 'needs a rate' : expense.baseAmount,
+      usePct: expense.businessUsePct ?? 100,
+      claimed: expense.claimable === null ? 'needs a rate' : expense.claimable,
       currency: expense.currency || 'AUD',
       recurring: expense.recurring || '',
       notes: expense.notes || '',
@@ -88,6 +92,7 @@ async function buildWorkbook(financialYear, expenses, entries, totals) {
     });
     row.getCell('amount').numFmt = '#,##0.00';
     if (expense.baseAmount !== null) row.getCell('converted').numFmt = '#,##0.00';
+    if (expense.claimable !== null) row.getCell('claimed').numFmt = '#,##0.00';
 
     // A relative hyperlink, so it resolves against wherever the zip was
     // extracted. An absolute path would only work on the machine that made it.
@@ -102,9 +107,9 @@ async function buildWorkbook(financialYear, expenses, entries, totals) {
   sheet.addRow({});
   // The total is of the converted column — the only one that can be summed
   // when more than one currency is present.
-  const totalRow = sheet.addRow({ item: 'TOTAL', converted: totals.grand });
+  const totalRow = sheet.addRow({ item: 'TOTAL', claimed: totals.grand });
   totalRow.font = { bold: true };
-  totalRow.getCell('converted').numFmt = '#,##0.00';
+  totalRow.getCell('claimed').numFmt = '#,##0.00';
   sheet.autoFilter = { from: 'A1', to: 'H1' };
   sheet.views = [{ state: 'frozen', ySplit: 1 }];
 
@@ -156,16 +161,20 @@ function buildPdf(financialYear, expenses, totals) {
       doc.fillColor('#6b7280').text(`${date}  `, { continued: true });
       doc.fillColor('#111827').text(expense.itemName, { continued: true });
       doc.fillColor('#6b7280').text(`  ${expense.category}`, { continued: true });
-      // The converted figure, since that is what the totals above are. The
-      // original is called out only when it differs, so a page of domestic
-      // expenses doesn't gain a column of noise.
+      // What is being claimed, since that is what the totals above are. The
+      // original currency and any apportionment are noted only when they
+      // differ, so a page of ordinary domestic expenses doesn't gain columns
+      // of noise.
       const foreign = expense.baseCurrency && expense.currency && expense.currency !== expense.baseCurrency;
+      const pct = expense.businessUsePct ?? 100;
+      const notes = [
+        foreign ? `${expense.amount.toFixed(2)} ${expense.currency}` : null,
+        pct < 100 ? `${pct}% of ${Number(expense.baseAmount ?? 0).toFixed(2)}` : null,
+      ].filter(Boolean);
       const shown =
-        expense.baseAmount === null
+        expense.claimable === null || expense.claimable === undefined
           ? `${expense.amount.toFixed(2)} ${expense.currency} (needs a rate)`
-          : foreign
-          ? `${expense.baseAmount.toFixed(2)}  (${expense.amount.toFixed(2)} ${expense.currency})`
-          : expense.baseAmount.toFixed(2);
+          : `${expense.claimable.toFixed(2)}${notes.length ? `  (${notes.join(', ')})` : ''}`;
       doc.fillColor('#111827').text(`  ${shown}`, { align: 'right' });
     }
 
@@ -178,9 +187,9 @@ function buildPdf(financialYear, expenses, totals) {
 export async function streamYearArchive({ res, uploadsDir, userId, financialYear, expenses, categories, rule }) {
   const totals = { grand: 0, byCategory: new Map() };
   for (const e of expenses) {
-    totals.grand += e.baseAmount || 0;
+    totals.grand += e.claimable || 0;
     const figures = totals.byCategory.get(e.category) || { total: 0, count: 0 };
-    figures.total += e.baseAmount || 0;
+    figures.total += e.claimable || 0;
     figures.count += 1;
     totals.byCategory.set(e.category, figures);
   }

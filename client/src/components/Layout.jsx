@@ -30,6 +30,7 @@ const navGroups = [
       { to: '/add', label: 'Add expense', icon: 'plus-circle' },
       { to: '/expenses', label: 'All expenses', icon: 'list' },
       { to: '/categories', label: 'Categories', icon: 'tag' },
+      { to: '/deductions', label: 'Other deductions', icon: 'car' },
       { to: '/recycle-bin', label: 'Recycle bin', icon: 'trash' },
     ],
   },

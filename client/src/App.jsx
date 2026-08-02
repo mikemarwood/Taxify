@@ -19,6 +19,7 @@ import Expenses from './pages/Expenses.jsx';
 import AddExpense from './pages/AddExpense.jsx';
 import Categories from './pages/Categories.jsx';
 import Reports from './pages/Reports.jsx';
+import Deductions from './pages/Deductions.jsx';
 import Admin from './pages/Admin.jsx';
 import Account from './pages/Account.jsx';
 import RecycleBin from './pages/RecycleBin.jsx';
@@ -106,6 +107,7 @@ export default function App() {
       <Route path="/add" element={<Protected><AddExpense /></Protected>} />
       <Route path="/categories" element={<Protected><Categories /></Protected>} />
       <Route path="/reports" element={<Protected><Reports /></Protected>} />
+      <Route path="/deductions" element={<Protected><Deductions /></Protected>} />
       <Route path="/account" element={<Protected><Account /></Protected>} />
       <Route path="/recycle-bin" element={<Protected><RecycleBin /></Protected>} />
       <Route path="/admin" element={<Protected adminOnly><Admin /></Protected>} />

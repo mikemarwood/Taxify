@@ -29,6 +29,7 @@ export default function AddExpense() {
   // A rate the person states themselves, which beats the fetched one — it may
   // be what their bank actually charged.
   const [manualRate, setManualRate] = useState('');
+  const [businessUsePct, setBusinessUsePct] = useState('100');
   const [conversion, setConversion] = useState({ loading: false, error: null, baseAmount: null, rate: null });
   const [categoryTouched, setCategoryTouched] = useState(false);
   const [isRecurring, setIsRecurring] = useState(false);
@@ -148,6 +149,7 @@ export default function AddExpense() {
     form.append('amount', amount);
     form.append('currency', currency);
     if (manualRate) form.append('fxRate', manualRate);
+    form.append('businessUsePct', businessUsePct || '100');
     form.append('purchaseDate', purchaseDate);
     form.append('categoryId', categoryId);
     form.append('isRecurring', isRecurring);
@@ -290,6 +292,49 @@ export default function AddExpense() {
                     {currency} → {baseCurrency}
                   </span>
                 </label>
+              </div>
+            )}
+          </div>
+          <div>
+            <label className="label">Business use</label>
+            {/* Everything used to be all-or-nothing, so a 60%-business laptop
+                had to be entered at 60% of its price — which threw away both
+                the real amount and the audit trail. The receipt keeps its full
+                value; only the claim is apportioned. */}
+            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+              {[100, 80, 50, 20].map((pct) => (
+                <button
+                  key={pct}
+                  type="button"
+                  onClick={() => setBusinessUsePct(String(pct))}
+                  style={{
+                    fontSize: 12.5,
+                    fontWeight: 600,
+                    padding: '7px 12px',
+                    borderRadius: 8,
+                    cursor: 'pointer',
+                    color: Number(businessUsePct) === pct ? '#fff' : 'var(--text-muted)',
+                    background: Number(businessUsePct) === pct ? 'var(--accent)' : 'var(--bg-card)',
+                    border: `1px solid ${Number(businessUsePct) === pct ? 'var(--accent)' : 'var(--border)'}`,
+                  }}
+                >
+                  {pct}%
+                </button>
+              ))}
+              <input
+                className="input"
+                inputMode="numeric"
+                aria-label="Business use percentage"
+                value={businessUsePct}
+                onChange={(e) => setBusinessUsePct(e.target.value.replace(/[^0-9]/g, '').slice(0, 3))}
+                onKeyDown={onDigitKeyDown}
+                style={{ width: 70, padding: '6px 9px', fontSize: 12.5 }}
+              />
+            </div>
+            {Number(businessUsePct) > 0 && Number(businessUsePct) < 100 && Number(amount) > 0 && (
+              <div style={{ marginTop: 6, fontSize: 12, color: 'var(--text-muted)' }}>
+                Claiming <strong style={{ color: 'var(--text)' }}>{formatMoney((Number(amount) * Number(businessUsePct)) / 100, currency)}</strong>{' '}
+                of {formatMoney(Number(amount), currency)}
               </div>
             )}
           </div>

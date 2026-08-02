@@ -400,6 +400,14 @@ export async function ensureSchema() {
   await pool.query(`ALTER TABLE expenses ADD COLUMN IF NOT EXISTS fx_rate_source VARCHAR(20) NULL`);
   await pool.query(`ALTER TABLE expenses ADD COLUMN IF NOT EXISTS fx_rate_date DATE NULL`);
 
+  // Partial business use. A laptop used 60% for work is a $2,000 receipt and a
+  // $1,200 claim; both are true, and an auditor needs to see both. Without this
+  // the only way to record it was to type 60% of the price, which destroyed the
+  // real amount and the audit trail with it.
+  await pool.query(
+    `ALTER TABLE expenses ADD COLUMN IF NOT EXISTS business_use_pct DECIMAL(5, 2) NOT NULL DEFAULT 100.00`
+  );
+
   // `expenses` carried a single index on user_id, so every list query filtered
   // on it and then sorted the result by hand, and the per-category totals
   // scanned the table once per category. Column order matters below:
@@ -419,6 +427,58 @@ export async function ensureSchema() {
   await pool.query(
     `ALTER TABLE expenses ADD INDEX IF NOT EXISTS idx_expenses_recurring_due (is_recurring, next_due_date)`
   );
+
+  // Deduction rates that change every year — cents per kilometre, the
+  // kilometre cap, the home-office hourly rate. Held as data and edited in the
+  // admin panel rather than written into the code, because a hard-coded rate
+  // goes stale silently and then quietly under- or over-claims for everyone.
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS tax_rates (
+      id INT PRIMARY KEY AUTO_INCREMENT,
+      financial_year VARCHAR(9) NOT NULL,
+      \`key\` VARCHAR(40) NOT NULL,
+      value DECIMAL(10, 3) NOT NULL,
+      updated_at DATETIME NULL,
+      UNIQUE KEY uniq_tax_rate (financial_year, \`key\`)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+  `);
+
+  // A car log. The kilometre cap is per vehicle per year, which is why the
+  // vehicle is a column and not a note in the purpose — a two-car household
+  // claiming the cap on each is legitimate and must not be silently merged.
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS vehicle_trips (
+      id INT PRIMARY KEY AUTO_INCREMENT,
+      user_id INT NOT NULL,
+      financial_year VARCHAR(9) NOT NULL,
+      trip_date DATE NOT NULL,
+      vehicle VARCHAR(80) NOT NULL,
+      km DECIMAL(8, 1) NOT NULL,
+      purpose VARCHAR(255) NULL,
+      created_by INT NULL,
+      created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      KEY idx_vehicle_trips_user_year (user_id, financial_year),
+      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+  `);
+
+  // Hours worked from home. The fixed-rate method requires a contemporaneous
+  // record, so the value of this is precisely that it is a dated log rather
+  // than one number remembered at year end.
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS home_office_hours (
+      id INT PRIMARY KEY AUTO_INCREMENT,
+      user_id INT NOT NULL,
+      financial_year VARCHAR(9) NOT NULL,
+      entry_date DATE NOT NULL,
+      hours DECIMAL(5, 2) NOT NULL,
+      note VARCHAR(255) NULL,
+      created_by INT NULL,
+      created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      KEY idx_home_office_user_year (user_id, financial_year),
+      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+  `);
 
   // Rates, kept permanently. Partly so the same day is never fetched twice,
   // and partly because it is the record of which rate a figure was actually

@@ -13,6 +13,7 @@ import TaxYears from '../components/TaxYears.jsx';
 import { formatDateShort } from '../lib/dates.js';
 import Amount from '../components/Amount.jsx';
 import UnconvertedNotice from '../components/UnconvertedNotice.jsx';
+import DeductionSummary from '../components/DeductionSummary.jsx';
 
 export default function Reports() {
   const [expenses, setExpenses] = useState(null);
@@ -139,6 +140,10 @@ export default function Reports() {
 
           {/* What each year actually came back as, beside what it claimed —
               the only two numbers a year is really judged on. */}
+          {/* What is actually being claimed, from all three sources, for
+              the year selected for the archive. */}
+          <DeductionSummary financialYear={archiveYear} expenseClaim={yearTotals.get(archiveYear) || 0} />
+
           <TaxYears years={years} spendByYear={yearTotals} />
 
           {/* Filed paperwork belongs with the year it covers, not buried under
