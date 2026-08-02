@@ -18,7 +18,7 @@ import { hashPassword } from '../auth/password.js';
 import { generateActivationToken } from '../auth/activationToken.js';
 import { seedDefaultCategories } from '../seed/defaultCategories.js';
 import { isFinancialYearLabel } from '../lib/financialYear.js';
-import { notify } from '../lib/notify.js';
+import { notify, verifyFcm } from '../lib/notify.js';
 import Stripe from 'stripe';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -900,6 +900,40 @@ router.patch(
     }
     await setSetting('fcm_service_account', JSON.stringify(parsed));
     res.json({ ok: true, configured: true, projectId: parsed.project_id });
+  })
+);
+
+// Checks the connection itself, with no phone involved. Slow enough (two calls
+// to Google) that it is a button rather than something the page does on load.
+router.post(
+  '/push-settings/verify',
+  asyncHandler(async (req, res) => {
+    res.json(await verifyFcm());
+  })
+);
+
+// Which devices would actually receive anything. Mostly useful for answering
+// "why didn't I get it" — usually the answer is that nothing is registered.
+router.get(
+  '/push-settings/devices',
+  asyncHandler(async (req, res) => {
+    const [rows] = await pool.query(
+      `SELECT d.token, d.platform, d.created_at, d.last_seen_at, u.email, u.name
+       FROM device_tokens d JOIN users u ON u.id = d.user_id
+       ORDER BY d.last_seen_at IS NULL, d.last_seen_at DESC LIMIT 100`
+    );
+    res.json({
+      devices: rows.map((r) => ({
+        // Enough to tell two devices apart, not enough to push from a leaked
+        // log. The token is a credential for reaching someone's phone.
+        token: `${r.token.slice(0, 12)}…`,
+        platform: r.platform,
+        email: r.email,
+        name: r.name,
+        registeredAt: r.created_at,
+        lastSeenAt: r.last_seen_at,
+      })),
+    });
   })
 );
 

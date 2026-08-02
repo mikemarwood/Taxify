@@ -56,7 +56,7 @@ export default function Admin() {
           Deduction rates
         </button>
         <button className={tab === 'push' ? 'btn btn-primary' : 'btn btn-ghost'} onClick={() => setTab('push')}>
-          Push notifications
+          Firebase
         </button>
       </div>
 

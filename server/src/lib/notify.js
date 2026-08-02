@@ -29,8 +29,19 @@ async function fcmCredentials() {
 // a network round trip we would otherwise pay on every single notification.
 let cachedToken = null;
 
+// Which credential the cached token belongs to. Without this, replacing the
+// service account in admin settings would keep pushing with the old one for up
+// to an hour — the most confusing possible outcome of an action whose entire
+// purpose was to change the credential.
+function credentialFingerprint(creds) {
+  return crypto.createHash('sha256').update(`${creds.client_email}:${creds.private_key}`).digest('hex').slice(0, 16);
+}
+
 async function accessTokenFor(creds) {
-  if (cachedToken && cachedToken.expires > Date.now() + 60_000) return cachedToken.value;
+  const fingerprint = credentialFingerprint(creds);
+  if (cachedToken && cachedToken.fingerprint === fingerprint && cachedToken.expires > Date.now() + 60_000) {
+    return cachedToken.value;
+  }
 
   const now = Math.floor(Date.now() / 1000);
   const header = { alg: 'RS256', typ: 'JWT' };
@@ -56,13 +67,16 @@ async function accessTokenFor(creds) {
   });
 
   if (!res.ok) {
-    console.error('FCM token exchange failed', res.status, (await res.text()).slice(0, 200));
-    return null;
+    const detail = (await res.text()).slice(0, 300);
+    console.error('FCM token exchange failed', res.status, detail);
+    const err = new Error(`Google refused the service account (HTTP ${res.status})`);
+    err.detail = detail;
+    throw err;
   }
 
   const data = await res.json();
-  if (!data.access_token) return null;
-  cachedToken = { value: data.access_token, expires: Date.now() + (data.expires_in || 3600) * 1000 };
+  if (!data.access_token) throw new Error('Google returned no access token');
+  cachedToken = { value: data.access_token, fingerprint, expires: Date.now() + (data.expires_in || 3600) * 1000 };
   return cachedToken.value;
 }
 
@@ -79,7 +93,10 @@ async function pushToDevices(userId, { title, body, url }) {
   const [devices] = await pool.execute('SELECT token FROM device_tokens WHERE user_id = ?', [userId]);
   if (devices.length === 0) return { pushed: 0, reason: 'no_devices' };
 
-  const accessToken = await accessTokenFor(creds);
+  const accessToken = await accessTokenFor(creds).catch((err) => {
+    console.error('FCM auth failed', err.message);
+    return null;
+  });
   if (!accessToken) return { pushed: 0, reason: 'no_token' };
 
   let pushed = 0;
@@ -132,4 +149,76 @@ export async function notify(userId, { title, body = null, url = null, kind = nu
 
 export async function isPushConfigured() {
   return (await fcmCredentials()) !== null;
+}
+
+// Proving the connection works, without needing a phone in the room.
+//
+// Three separate things have to be true and they fail for completely different
+// reasons, so each is reported separately rather than as one "it works" light:
+//
+//   1. The credential is stored and readable.
+//   2. Google accepts it and issues a token — wrong here means the key was
+//      revoked, or the clock is wrong, or the file was truncated on paste.
+//   3. The messaging API answers for that project — wrong here means the API
+//      was never enabled, or the service account has no role on the project.
+//
+// Step 3 sends a deliberately invalid device token with validate_only set.
+// Nothing is delivered and no phone is involved: being told the *token* is
+// wrong is proof that everything in front of the token is right.
+export async function verifyFcm() {
+  const steps = [];
+  const step = (name, ok, detail = null) => {
+    steps.push({ name, ok, detail });
+    return ok;
+  };
+
+  const creds = await fcmCredentials();
+  if (!creds) {
+    step('credential', false, 'No readable service account is saved.');
+    return { ok: false, steps, projectId: null };
+  }
+  step('credential', true, creds.client_email);
+
+  let accessToken;
+  try {
+    accessToken = await accessTokenFor(creds);
+    step('auth', true, 'Google issued an access token.');
+  } catch (err) {
+    step('auth', false, err.detail || err.message);
+    return { ok: false, steps, projectId: creds.project_id };
+  }
+
+  try {
+    const res = await fetch(`https://fcm.googleapis.com/v1/projects/${creds.project_id}/messages:send`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        validate_only: true,
+        message: { token: 'connectivity-check-not-a-real-token', notification: { title: 'check', body: 'check' } },
+      }),
+    });
+
+    if (res.status === 400) {
+      // The token was rejected, which is the expected answer and means auth,
+      // the project and the API are all fine.
+      step('messaging', true, `Firebase project ${creds.project_id} is reachable.`);
+      return { ok: true, steps, projectId: creds.project_id };
+    }
+    if (res.ok) {
+      step('messaging', true, `Firebase project ${creds.project_id} is reachable.`);
+      return { ok: true, steps, projectId: creds.project_id };
+    }
+
+    const body = (await res.text()).slice(0, 300);
+    const explain = {
+      403: 'The Firebase Cloud Messaging API is not enabled for this project, or this service account has no role on it.',
+      404: `No Firebase project called ${creds.project_id}. Check the file came from the right project.`,
+      401: 'Google rejected the token. Generate a new private key and paste it again.',
+    };
+    step('messaging', false, explain[res.status] || `Firebase answered HTTP ${res.status}. ${body}`);
+    return { ok: false, steps, projectId: creds.project_id };
+  } catch (err) {
+    step('messaging', false, `Could not reach Firebase: ${err.message}. Check the server has outbound HTTPS.`);
+    return { ok: false, steps, projectId: creds.project_id };
+  }
 }
