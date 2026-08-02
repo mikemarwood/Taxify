@@ -1,10 +1,28 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- The Taxify mark, badge and all, for use inside the app rather than as the
+     launcher icon. Kept in step with client/public/logo.svg by hand — if one
+     changes, change the other. -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="128dp"
     android:height="128dp"
-    android:viewportHeight="128"
-    android:viewportWidth="128">
-    <path android:fillColor="#f8fafc" android:pathData="M36,38 h56 a6.5,6.5 0 0 1 0,13 h-56 a6.5,6.5 0 0 1 0,-13 z" />
-    <path android:fillColor="#f8fafc" android:pathData="M57.5,38 h13 a6.5,6.5 0 0 1 6.5,6.5 v41 a6.5,6.5 0 0 1 -13,0 v-41 a6.5,6.5 0 0 1 6.5,-6.5 z" />
-    <path android:fillColor="#67e8f9" android:pathData="M82,90 m-7,0 a7,7 0 1,0 14,0 a7,7 0 1,0 -14,0" />
+    android:viewportWidth="128"
+    android:viewportHeight="128">
+
+    <path android:pathData="M26,0h76a26,26 0 0 1 26,26v76a26,26 0 0 1 -26,26h-76a26,26 0 0 1 -26,-26v-76a26,26 0 0 1 26,-26z">
+        <aapt:attr xmlns:aapt="http://schemas.android.com/aapt" name="android:fillColor">
+            <gradient
+                android:startX="0" android:startY="0"
+                android:endX="128" android:endY="128"
+                android:type="linear">
+                <item android:offset="0" android:color="#FF1E6AD4"/>
+                <item android:offset="0.55" android:color="#FF1559B8"/>
+                <item android:offset="1" android:color="#FF0F3F8A"/>
+            </gradient>
+        </aapt:attr>
+    </path>
+
+    <path android:fillColor="#7cb8ff" android:pathData="M36.5,40 h37 a6.5,6.5 0 0 1 0,13 h-37 a6.5,6.5 0 0 1 0,-13 z" />
+    <path android:fillColor="#7cb8ff" android:pathData="M74,30 L100,46.5 L74,63 Z" />
+    <path android:fillColor="#ffffff" android:pathData="M54.5,76 h37 a6.5,6.5 0 0 1 0,13 h-37 a6.5,6.5 0 0 1 0,-13 z" />
+    <path android:fillColor="#ffffff" android:pathData="M54,66 L28,82.5 L54,99 Z" />
 </vector>

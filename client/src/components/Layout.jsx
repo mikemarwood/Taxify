@@ -8,6 +8,9 @@ import Avatar from './Avatar.jsx';
 import Icon from './Icon.jsx';
 import ViewAsBanner from './ViewAsBanner.jsx';
 import ClientBanner from './ClientBanner.jsx';
+import AppUpdateBanner from './AppUpdateBanner.jsx';
+import NotificationBell from './NotificationBell.jsx';
+import { registerForPush } from '../lib/pushNotifications.js';
 import OtpOnboardingModal from './OtpOnboardingModal.jsx';
 import { playClick } from '../lib/sounds.js';
 import { formatMoney } from '../lib/money.js';
@@ -110,6 +113,10 @@ export default function Layout({ children }) {
   const billing = describeSubscription(user);
 
   useEffect(() => {
+    if (user) registerForPush();
+  }, [user]);
+
+  useEffect(() => {
     setNavOpen(false);
   }, [location.pathname]);
 
@@ -136,6 +143,7 @@ export default function Layout({ children }) {
 
   return (
     <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
+      <AppUpdateBanner />
       <ViewAsBanner />
       <ClientBanner />
 
@@ -348,6 +356,8 @@ export default function Layout({ children }) {
               </Link>
             )}
           </div>
+
+          <NotificationBell />
 
           <button
             className="btn nav-btn"

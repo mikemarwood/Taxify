@@ -1,19 +1,19 @@
-<svg width="128" height="128" viewBox="0 0 128 128" xmlns="http://www.w3.org/2000/svg">
+<svg width="128" height="128" viewBox="0 0 128 128" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Taxify">
   <defs>
-    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#2563eb"/>
-      <stop offset="55%" stop-color="#3b82f6"/>
-      <stop offset="100%" stop-color="#06b6d4"/>
+    <linearGradient id="taxify-bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#1e6ad4"/>
+      <stop offset="55%" stop-color="#1559b8"/>
+      <stop offset="100%" stop-color="#0f3f8a"/>
     </linearGradient>
   </defs>
 
-  <rect x="4" y="4" width="120" height="120" rx="26" fill="#0a0f18"/>
-  <rect x="4" y="4" width="120" height="120" rx="26" fill="url(#bg)" fill-opacity="0.95"/>
+  <rect width="128" height="128" rx="26" fill="url(#taxify-bg)"/>
 
-  <!-- T monogram -->
-  <rect x="36" y="38" width="56" height="13" rx="6.5" fill="#f8fafc"/>
-  <rect x="57.5" y="38" width="13" height="54" rx="6.5" fill="#f8fafc"/>
+  <!-- Money out, money back. The two arrows are a 180° rotation of each other
+       about the centre, so the mark is balanced either way up. -->
+  <rect x="30" y="40" width="50" height="13" rx="6.5" fill="#7cb8ff"/>
+  <path d="M74 30 100 46.5 74 63Z" fill="#7cb8ff"/>
 
-  <!-- accent -->
-  <circle cx="82" cy="90" r="7" fill="#67e8f9"/>
+  <rect x="48" y="76" width="50" height="13" rx="6.5" fill="#ffffff"/>
+  <path d="M54 66 28 82.5 54 99Z" fill="#ffffff"/>
 </svg>

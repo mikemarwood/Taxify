@@ -120,10 +120,44 @@ Then open `client/android` in Android Studio and **Build → Generate Signed Bun
 always point at the same file, so releasing is just:
 
 1. Bump `versionCode`/`versionName` in `client/android/app/build.gradle`
-2. Bump the matching values in `server/src/app-version.json`
+2. Bump the matching values in `server/src/app-version.json`, **and** `appendUserAgent` in
+   `client/capacitor.config.json` (`TaxifyAndroid/<versionCode>`) — that string is how a running app
+   knows which build it is, so an update prompt that never appears is almost always this step missed
 3. Build + sign the release APK in Android Studio
 4. Copy it to `client/public/downloads/taxify.apk` (overwrite)
 5. `npm run build` (client) and deploy as usual — both the button and in-app checker pick it up automatically, and `/downloads/*` is served with `Cache-Control: no-store` so nothing caches a stale build.
+
+Only ever one APK exists on the server. The filename never changes, so there is no old build to
+serve by mistake and nothing to clean up; `app-version.json` is the only thing that says which build
+that file is.
+
+There are two independent update paths, and the difference matters:
+
+- **The web app inside the shell updates itself.** `capacitor.config.json` points at the live site, so
+  every launch loads whatever was last deployed. Almost all changes ship this way, with nothing for
+  anyone to install.
+- **The native shell prompts.** Android does not let a sideloaded app install over itself silently —
+  a new APK always requires the person to confirm. `AppUpdateBanner.jsx` compares the running build
+  against `/api/app/version` every six hours and offers the download; "Later" is remembered per
+  version so the same prompt is not asked twice.
+
+### Push notifications
+
+Every notification is written to the `notifications` table and shown in the app's bell, whether or not
+push is configured — the record is the notification, and push is only how it gets someone's attention.
+
+To also raise them in the Android notification tray:
+
+1. Create a Firebase project and add an Android app with the id `com.mikesapphub.taxify`.
+2. Download `google-services.json` into `client/android/app/`. **Not currently present** — the Google
+   Services Gradle plugin is applied conditionally (`client/android/app/build.gradle`), so the build
+   works without it and simply has no push.
+3. In Firebase, **Project settings → Service accounts → Generate new private key**, then paste the
+   downloaded JSON into **Administration → Push notifications** in the app. "Send myself a test" runs
+   the whole chain and says exactly which part is missing.
+
+The device token is registered by `client/src/lib/pushNotifications.js` after login and stored in
+`device_tokens`; tokens Google reports as dead are deleted rather than retried.
 
 ## Notes
 

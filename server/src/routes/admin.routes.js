@@ -18,6 +18,7 @@ import { hashPassword } from '../auth/password.js';
 import { generateActivationToken } from '../auth/activationToken.js';
 import { seedDefaultCategories } from '../seed/defaultCategories.js';
 import { isFinancialYearLabel } from '../lib/financialYear.js';
+import { notify } from '../lib/notify.js';
 import Stripe from 'stripe';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -833,6 +834,99 @@ router.post(
     } catch (err) {
       res.status(502).json({ error: err.message || 'Failed to connect to Stripe' });
     }
+  })
+);
+
+// Push notifications. The credential is a Firebase service-account JSON, pasted
+// whole — it is the only thing Google gives you, and splitting it into fields
+// here would just be a way to get one of them wrong.
+router.get(
+  '/push-settings',
+  asyncHandler(async (req, res) => {
+    const raw = await getSetting('fcm_service_account');
+    let projectId = null;
+    let clientEmail = null;
+    if (raw) {
+      try {
+        const parsed = JSON.parse(raw);
+        projectId = parsed.project_id || null;
+        clientEmail = parsed.client_email || null;
+      } catch {
+        // Stored but unreadable. Reported as configured-but-broken below rather
+        // than as not configured, which would send someone looking in the wrong
+        // place.
+      }
+    }
+    const [[counts]] = await pool.query(
+      'SELECT COUNT(*) AS devices, COUNT(DISTINCT user_id) AS users FROM device_tokens'
+    );
+    res.json({
+      // Never the private key, in either direction. It is write-only.
+      configured: !!raw,
+      valid: !!projectId,
+      projectId,
+      clientEmail,
+      devices: Number(counts.devices || 0),
+      users: Number(counts.users || 0),
+    });
+  })
+);
+
+router.patch(
+  '/push-settings',
+  asyncHandler(async (req, res) => {
+    const { serviceAccount } = req.body || {};
+    if (serviceAccount === null || serviceAccount === '') {
+      await setSetting('fcm_service_account', '');
+      return res.json({ ok: true, configured: false });
+    }
+    if (typeof serviceAccount !== 'string') {
+      return res.status(400).json({ error: 'serviceAccount must be the JSON file as text' });
+    }
+    let parsed;
+    try {
+      parsed = JSON.parse(serviceAccount);
+    } catch {
+      return res.status(400).json({ error: 'That is not valid JSON — paste the whole downloaded file' });
+    }
+    // Checked now rather than at 3am when the first notification silently fails.
+    for (const field of ['project_id', 'client_email', 'private_key']) {
+      if (typeof parsed[field] !== 'string' || !parsed[field]) {
+        return res.status(400).json({ error: `The file is missing ${field} — that is not a service-account key` });
+      }
+    }
+    if (!parsed.private_key.includes('BEGIN PRIVATE KEY')) {
+      return res.status(400).json({ error: 'private_key does not look like a key — check the file copied in full' });
+    }
+    await setSetting('fcm_service_account', JSON.stringify(parsed));
+    res.json({ ok: true, configured: true, projectId: parsed.project_id });
+  })
+);
+
+// Sends a real notification to the administrator's own devices. The only way to
+// know the whole chain works is to make it carry something.
+router.post(
+  '/push-settings/test',
+  asyncHandler(async (req, res) => {
+    const result = await notify(req.user.id, {
+      title: 'Taxify test notification',
+      body: 'Push notifications are working.',
+      kind: 'test',
+    });
+    const explain = {
+      not_configured: 'Saved in the notification list, but not pushed — no Firebase service account has been saved.',
+      no_devices: 'Saved in the notification list, but not pushed — you have not opened the Android app on a device yet.',
+      no_token: 'Saved in the notification list, but Google refused the service account. Check the key is current.',
+      error: 'The notification could not be recorded.',
+    };
+    if (!result.pushed) {
+      return res.status(result.recorded ? 200 : 500).json({
+        ok: result.recorded,
+        delivered: 0,
+        warning: explain[result.reason] || 'Nothing was delivered.',
+      });
+    }
+    res.json({ ok: true, delivered: result.pushed });
   })
 );
 

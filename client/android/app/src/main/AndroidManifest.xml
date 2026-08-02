@@ -31,6 +31,21 @@
             android:exported="false">
         </activity>
 
+        <!--
+          What a pushed notification looks like when the app is not running.
+          Without these Android draws the launcher icon squashed into the status
+          bar, which comes out as a grey square.
+        -->
+        <meta-data
+            android:name="com.google.firebase.messaging.default_notification_icon"
+            android:resource="@drawable/ic_stat_taxify" />
+        <meta-data
+            android:name="com.google.firebase.messaging.default_notification_color"
+            android:resource="@color/brand_blue" />
+        <meta-data
+            android:name="com.google.firebase.messaging.default_notification_channel_id"
+            android:value="taxify_default" />
+
         <provider
             android:name="androidx.core.content.FileProvider"
             android:authorities="${applicationId}.fileprovider"

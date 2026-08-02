@@ -8,6 +8,7 @@ import { SkeletonList } from '../components/Skeletons.jsx';
 import Icon from '../components/Icon.jsx';
 import PromoCodesTab from '../components/PromoCodesTab.jsx';
 import TaxRatesTab from '../components/TaxRatesTab.jsx';
+import PushSettingsTab from '../components/PushSettingsTab.jsx';
 import { IconPicker, ColourPicker, CategoryPreview, SWATCHES } from '../components/CategoryPickers.jsx';
 import Avatar from '../components/Avatar.jsx';
 import AdminUserDetail from '../components/AdminUserDetail.jsx';
@@ -32,7 +33,7 @@ export default function Admin() {
       <h1 style={{ margin: '0 0 4px', fontSize: 26 }}>Administration</h1>
       <p style={{ color: 'var(--text-muted)', margin: '0 0 24px' }}>Manage user accounts and the default category template.</p>
 
-      <div style={{ display: 'flex', gap: 8, marginBottom: 20 }}>
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 20 }}>
         <button className={tab === 'users' ? 'btn btn-primary' : 'btn btn-ghost'} onClick={() => setTab('users')}>
           Users
         </button>
@@ -54,6 +55,9 @@ export default function Admin() {
         <button className={tab === 'rates' ? 'btn btn-primary' : 'btn btn-ghost'} onClick={() => setTab('rates')}>
           Deduction rates
         </button>
+        <button className={tab === 'push' ? 'btn btn-primary' : 'btn btn-ghost'} onClick={() => setTab('push')}>
+          Push notifications
+        </button>
       </div>
 
       {tab === 'users' && <UsersTab />}
@@ -63,6 +67,7 @@ export default function Admin() {
       {tab === 'stripe' && <StripeSettingsTab />}
       {tab === 'promos' && <PromoCodesTab />}
       {tab === 'rates' && <TaxRatesTab />}
+      {tab === 'push' && <PushSettingsTab />}
     </div>
   );
 }

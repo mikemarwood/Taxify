@@ -1,8 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- The navy the app's own navigation rail uses, so the launch screen and the
+     first painted frame are the same colour and the handover is invisible. -->
 <shape xmlns:android="http://schemas.android.com/apk/res/android">
     <gradient
-        android:startColor="#2563eb"
-        android:centerColor="#3b82f6"
-        android:endColor="#06b6d4"
-        android:angle="315" />
+        android:startColor="#10294c"
+        android:centerColor="#143257"
+        android:endColor="#0d2444"
+        android:angle="270" />
 </shape>

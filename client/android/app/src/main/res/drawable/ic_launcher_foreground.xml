@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  The Taxify mark for the adaptive launcher icon.
+
+  Adaptive icons crop the outer ~18% on every edge — the system decides the
+  shape, so anything near the border is at risk. The mark is therefore drawn
+  inside the safe 66dp circle rather than at the edges of the 108dp canvas.
+
+  A vector, not a set of PNGs: one file, sharp at every density, and it cannot
+  drift out of step with the web logo the way five bitmaps quietly do.
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <!-- Money out. -->
+    <path
+        android:fillColor="#7cb8ff"
+        android:pathData="M36,44.5 h24 a5.5,5.5 0 0 1 0,11 h-24 a5.5,5.5 0 0 1 0,-11 z" />
+    <path
+        android:fillColor="#7cb8ff"
+        android:pathData="M55.5,39 L77,50 L55.5,61 Z" />
+
+    <!-- Money back. -->
+    <path
+        android:fillColor="#ffffff"
+        android:pathData="M48,52.5 h24 a5.5,5.5 0 0 1 0,11 h-24 a5.5,5.5 0 0 1 0,-11 z" />
+    <path
+        android:fillColor="#ffffff"
+        android:pathData="M52.5,47 L31,58 L52.5,69 Z" />
+</vector>

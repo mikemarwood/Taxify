@@ -518,6 +518,39 @@ export async function ensureSchema() {
     }
   }
 
+  // Things worth telling someone about, kept rather than shouted once. A toast
+  // that vanishes in three seconds is not a notification — if the app has
+  // something to say, it should still be there when you come back.
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS notifications (
+      id INT PRIMARY KEY AUTO_INCREMENT,
+      user_id INT NOT NULL,
+      title VARCHAR(160) NOT NULL,
+      body VARCHAR(500) NULL,
+      url VARCHAR(255) NULL,
+      kind VARCHAR(40) NULL,
+      read_at DATETIME NULL,
+      created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      KEY idx_notifications_user (user_id, read_at, created_at),
+      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+  `);
+
+  // Where to push them. One row per install — the same person may have the app
+  // on a phone and a tablet, and a token changes whenever Android decides it
+  // should, so the token itself is the key rather than the user.
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS device_tokens (
+      token VARCHAR(255) PRIMARY KEY,
+      user_id INT NOT NULL,
+      platform VARCHAR(20) NULL,
+      created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      last_seen_at DATETIME NULL,
+      KEY idx_device_tokens_user (user_id),
+      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+  `);
+
   // Who signed in, when, and from what. Kept because "was that really them?"
   // is the first question asked when an account looks wrong, and because a
   // support conversation goes very differently once you can see they have only

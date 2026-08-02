@@ -15,6 +15,7 @@ import billingRoutes from './routes/billing.routes.js';
 import exportRoutes from './routes/export.routes.js';
 import taxYearRoutes from './routes/taxYears.routes.js';
 import deductionRoutes from './routes/deductions.routes.js';
+import notificationRoutes from './routes/notifications.routes.js';
 import { purgeUnactivatedAccounts, runBillingReminders } from './jobs/billingJobs.js';
 import { runRecurringExpenses } from './jobs/expenseJobs.js';
 import { runTaxReminders } from './jobs/taxReminders.js';
@@ -97,6 +98,7 @@ app.use('/api/billing', billingRoutes);
 app.use('/api/export', exportRoutes);
 app.use('/api/tax-years', taxYearRoutes);
 app.use('/api/deductions', deductionRoutes);
+app.use('/api/notifications', notificationRoutes);
 
 // eslint-disable-next-line no-unused-vars
 app.use((err, req, res, next) => {

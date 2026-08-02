@@ -3,6 +3,7 @@ import { useAuth } from './lib/AuthContext.jsx';
 import { homePathFor } from './lib/home.js';
 import Layout from './components/Layout.jsx';
 import ErrorBoundary from './components/ErrorBoundary.jsx';
+import StartupScreen from './components/StartupScreen.jsx';
 import Landing from './pages/Landing.jsx';
 import Login from './pages/Login.jsx';
 import Register from './pages/Register.jsx';
@@ -26,12 +27,7 @@ import RecycleBin from './pages/RecycleBin.jsx';
 import SubscriptionRequired from './pages/SubscriptionRequired.jsx';
 
 function Splash() {
-  return (
-    <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: 16 }}>
-      <img src="/logo.svg" alt="Taxify" width="56" height="56" style={{ animation: 'pulseGlow 1.4s ease-in-out infinite' }} />
-      <span className="spinner" />
-    </div>
-  );
+  return <StartupScreen />;
 }
 
 // Inside a client's books an accountant reads, and reads only these.

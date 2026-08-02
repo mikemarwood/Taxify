@@ -706,6 +706,18 @@ router.post(
     const assignment = await openAssignment(req.user.id, ownerId);
     if (!assignment) return res.status(404).json({ error: 'That access has been removed or has expired.' });
 
+    // Somebody opening your books is worth knowing about at the time, not when
+    // you next happen to look. The 24-hour window starts now, which makes this
+    // also the moment a client could still cut it short if it wasn't expected.
+    if (assignment.firstOpen) {
+      await notify(ownerId, {
+        title: 'Your accountant opened your books',
+        body: `${req.user.name || req.user.email} has access for the next ${ACCOUNTANT_WINDOW_HOURS} hours. You can remove it at any time.`,
+        url: '/account',
+        kind: 'accountant',
+      });
+    }
+
     res.cookie(
       COOKIE_NAME,
       signAccountantToken(req.user, ownerId, ACCOUNTANT_WINDOW_HOURS),

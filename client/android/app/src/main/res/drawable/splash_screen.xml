@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  The native launch screen. It shows for the fraction of a second between the
+  launcher tap and the web view painting, so it deliberately matches the
+  animated startup screen's background exactly — no flash between the two.
+
+  Built from the vector mark rather than a bitmap, so it is sharp on every
+  density without shipping five PNGs that can drift out of step.
+-->
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:drawable="@drawable/splash_bg" />
+    <item
+        android:drawable="@drawable/ic_logo_full"
+        android:width="112dp"
+        android:height="112dp"
+        android:gravity="center" />
+</layer-list>

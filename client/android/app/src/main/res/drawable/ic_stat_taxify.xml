@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  The status bar icon. Android masks these to a flat silhouette, so the colours
+  and the badge are dropped on purpose — anything but white on transparent comes
+  out as a grey blob. The tint in the push payload is what puts the brand colour
+  behind it in the shade.
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="128"
+    android:viewportHeight="128">
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M30,40 L74,40 A6.5,6.5 0 0 1 74,53 L30,53 A6.5,6.5 0 0 1 30,40 Z" />
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M74,30 L100,46.5 L74,63 Z" />
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M54,76 L98,76 A6.5,6.5 0 0 1 98,89 L54,89 A6.5,6.5 0 0 1 54,76 Z" />
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M54,66 L28,82.5 L54,99 Z" />
+</vector>

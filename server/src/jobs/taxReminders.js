@@ -1,5 +1,6 @@
 import { sendBookTaxReminderEmail, sendTaxAppointmentReminderEmail } from '../lib/mailer.js';
 import { financialYearOf, financialYearRange } from '../lib/financialYear.js';
+import { notify } from '../lib/notify.js';
 
 // Two emails, at most, per financial year — and only when there is something
 // worth saying. The restraint is the feature: a reminder that arrives every
@@ -89,6 +90,14 @@ export async function runTaxReminders(pool) {
          ON DUPLICATE KEY UPDATE booking_reminder_sent_at = NOW()`,
         [user.id, financialYear]
       );
+      // The same thing in the app, so it is still findable after the email has
+      // been archived — which is where tax reminders usually end up.
+      await notify(user.id, {
+        title: `${financialYear} ends in ${daysLeft} day${daysLeft === 1 ? '' : 's'}`,
+        body: `You have ${user.expense_count} expense${Number(user.expense_count) === 1 ? '' : 's'} recorded. Book your appointment and set the date in Tax years.`,
+        url: '/reports',
+        kind: 'tax-year',
+      });
     } catch (err) {
       console.error(`Failed to send tax booking reminder to ${user.email}`, err.message);
     }
@@ -98,7 +107,7 @@ export async function runTaxReminders(pool) {
   // Anything in the next 48 hours that hasn't been reminded about yet. The
   // window is wide enough that a job running once a day cannot skip one.
   const [appointments] = await pool.execute(
-    `SELECT t.id, t.financial_year, t.appointment_at, t.appointment_company, t.appointment_accountant,
+    `SELECT t.id, t.user_id, t.financial_year, t.appointment_at, t.appointment_company, t.appointment_accountant,
             u.email, u.first_name, u.name
      FROM tax_years t
      JOIN users u ON u.id = t.user_id
@@ -119,8 +128,43 @@ export async function runTaxReminders(pool) {
         row.appointment_accountant
       );
       await pool.execute('UPDATE tax_years SET appointment_reminder_sent_at = NOW() WHERE id = ?', [row.id]);
+      await notify(row.user_id, {
+        title: 'Your tax appointment is coming up',
+        body: `${formatDateTime(row.appointment_at)} with ${row.appointment_company || 'your accountant'}.`,
+        url: '/reports',
+        kind: 'appointment',
+      });
     } catch (err) {
       console.error(`Failed to send tax appointment reminder to ${row.email}`, err.message);
     }
+  }
+
+  // --- 3. Your free trial is ending ---------------------------------------
+  // Sent once, three days out. Losing access to your own records because a
+  // trial quietly lapsed is the kind of surprise that costs a customer, and
+  // three days is enough time to do something about it.
+  const [trials] = await pool.execute(
+    `SELECT u.id, u.trial_ends_at
+     FROM users u
+     WHERE u.subscription_status = 'trialing'
+       AND u.access_bypass = 0
+       AND u.trial_ends_at IS NOT NULL
+       AND u.trial_ends_at > NOW()
+       AND u.trial_ends_at <= DATE_ADD(NOW(), INTERVAL 3 DAY)
+       AND NOT EXISTS (
+         SELECT 1 FROM notifications n
+         WHERE n.user_id = u.id AND n.kind = 'trial'
+           AND n.created_at > DATE_SUB(NOW(), INTERVAL 14 DAY)
+       )`
+  );
+
+  for (const user of trials) {
+    const daysLeft = Math.max(1, daysBetween(now, new Date(user.trial_ends_at)));
+    await notify(user.id, {
+      title: `Your free trial ends in ${daysLeft} day${daysLeft === 1 ? '' : 's'}`,
+      body: 'Choose a plan to keep adding expenses and running reports. Everything you have recorded stays where it is.',
+      url: '/account',
+      kind: 'trial',
+    });
   }
 }

@@ -77,10 +77,13 @@ export async function openAssignment(accountantUserId, ownerUserId) {
     const [fresh] = await pool.execute('SELECT first_login_at, expires_at FROM accountant_assignments WHERE id = ?', [
       row.id,
     ]);
-    return { ...row, ...fresh[0], financialYears: parseYears(row.financial_years) };
+    // Flagged so the caller can tell the client their books have been opened.
+    // Only on the first look — an accountant coming back four times in a day
+    // should not send four notifications.
+    return { ...row, ...fresh[0], financialYears: parseYears(row.financial_years), firstOpen: true };
   }
 
-  return { ...row, financialYears: parseYears(row.financial_years) };
+  return { ...row, financialYears: parseYears(row.financial_years), firstOpen: false };
 }
 
 // Whether this login acts for anybody. Being an accountant is no longer a role
