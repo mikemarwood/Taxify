@@ -26,6 +26,10 @@ export default function AddExpense() {
   const [purchaseDate, setPurchaseDate] = useState(new Date().toISOString().slice(0, 10));
   const [categoryId, setCategoryId] = useState('');
   const [suggestion, setSuggestion] = useState(null);
+  // A rate the person states themselves, which beats the fetched one — it may
+  // be what their bank actually charged.
+  const [manualRate, setManualRate] = useState('');
+  const [conversion, setConversion] = useState({ loading: false, error: null, baseAmount: null, rate: null });
   const [categoryTouched, setCategoryTouched] = useState(false);
   const [isRecurring, setIsRecurring] = useState(false);
   const [frequency, setFrequency] = useState('monthly');
@@ -100,6 +104,35 @@ export default function AddExpense() {
     return () => clearTimeout(id);
   }, [itemName, categoryTouched, categories]);
 
+  const baseCurrency = user?.currency || 'AUD';
+  const foreignCurrency = currency !== baseCurrency;
+
+  // Quoted by the server so the preview and the save can never disagree. Only
+  // asked when there is something to convert.
+  useEffect(() => {
+    if (!foreignCurrency || !(Number(amount) > 0) || !purchaseDate) {
+      setConversion({ loading: false, error: null, baseAmount: null, rate: null });
+      return undefined;
+    }
+    setConversion((c) => ({ ...c, loading: true }));
+    const id = setTimeout(() => {
+      const params = new URLSearchParams({ amount: String(amount), currency, purchaseDate });
+      if (manualRate) params.set('fxRate', manualRate);
+      api
+        .get(`/expenses/fx-quote?${params.toString()}`)
+        .then((res) =>
+          setConversion({
+            loading: false,
+            error: res.data.error || null,
+            baseAmount: res.data.baseAmount ?? null,
+            rate: res.data.rate ?? null,
+          })
+        )
+        .catch((err) => setConversion({ loading: false, error: err.message, baseAmount: null, rate: null }));
+    }, 400);
+    return () => clearTimeout(id);
+  }, [foreignCurrency, amount, currency, purchaseDate, manualRate]);
+
   const formComplete = itemName.trim().length > 0 && Number(amount) > 0 && !!purchaseDate;
 
   async function onSubmit(e) {
@@ -114,6 +147,7 @@ export default function AddExpense() {
     form.append('itemName', itemName);
     form.append('amount', amount);
     form.append('currency', currency);
+    if (manualRate) form.append('fxRate', manualRate);
     form.append('purchaseDate', purchaseDate);
     form.append('categoryId', categoryId);
     form.append('isRecurring', isRecurring);
@@ -207,6 +241,57 @@ export default function AddExpense() {
                 ))}
               </select>
             </div>
+
+            {/* Only when it differs from the account's own currency. The rate
+                used is the one for the purchase date, which is what a revenue
+                office asks for — overridable with the rate the bank actually
+                charged, which is more defensible still. */}
+            {foreignCurrency && (
+              <div
+                style={{
+                  marginTop: 8,
+                  padding: 11,
+                  borderRadius: 'var(--radius-sm)',
+                  background: 'var(--bg-inset)',
+                  border: '1px solid var(--border)',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: 8,
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12.5 }}>
+                  <Icon name="globe" size={14} style={{ color: 'var(--accent)', flexShrink: 0 }} />
+                  {conversion.loading ? (
+                    <span style={{ color: 'var(--text-muted)' }}>Looking up the {currency} rate…</span>
+                  ) : conversion.error ? (
+                    <span style={{ color: 'var(--amber)' }}>{conversion.error}</span>
+                  ) : conversion.baseAmount !== null ? (
+                    <span>
+                      <strong>{formatMoney(conversion.baseAmount, baseCurrency)}</strong>{' '}
+                      <span style={{ color: 'var(--text-muted)' }}>at {conversion.rate}</span>
+                    </span>
+                  ) : (
+                    <span style={{ color: 'var(--text-muted)' }}>Enter an amount to see the conversion</span>
+                  )}
+                </div>
+
+                <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, flexWrap: 'wrap' }}>
+                  <span style={{ color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>Use my own rate</span>
+                  <input
+                    className="input"
+                    inputMode="decimal"
+                    placeholder={conversion.rate ? String(conversion.rate) : '0.0000'}
+                    value={manualRate}
+                    onChange={(e) => setManualRate(e.target.value.replace(/[^0-9.]/g, ''))}
+                    onKeyDown={onDigitKeyDown}
+                    style={{ width: 120, padding: '5px 9px', fontSize: 12.5 }}
+                  />
+                  <span style={{ color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>
+                    {currency} → {baseCurrency}
+                  </span>
+                </label>
+              </div>
+            )}
           </div>
           <div>
             <label className="label">Date</label>

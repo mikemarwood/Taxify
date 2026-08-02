@@ -20,6 +20,7 @@ import { runTaxReminders } from './jobs/taxReminders.js';
 import pool, { ensureSchema } from './db.js';
 import { migrateReceiptFolders } from './migrations/receiptFolders.js';
 import { migrateCategoriesByYear } from './migrations/categoriesByYear.js';
+import { migrateCurrencyBase } from './migrations/currencyBase.js';
 import { purgeExpiredAssignments } from './auth/accountants.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -148,6 +149,15 @@ try {
   await migrateCategoriesByYear(pool);
 } catch (err) {
   console.error('Failed to split categories by financial year');
+  console.error(err);
+}
+
+// Totals read the converted column, so every existing row needs one before
+// anything sums them.
+try {
+  await migrateCurrencyBase(pool);
+} catch (err) {
+  console.error('Failed to backfill expense currency conversion');
   console.error(err);
 }
 

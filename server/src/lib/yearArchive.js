@@ -64,6 +64,7 @@ async function buildWorkbook(financialYear, expenses, entries, totals) {
     { header: 'Item', key: 'item', width: 40 },
     { header: 'Category', key: 'category', width: 22 },
     { header: 'Amount', key: 'amount', width: 14 },
+    { header: 'Converted', key: 'converted', width: 14 },
     { header: 'Currency', key: 'currency', width: 10 },
     { header: 'Recurring', key: 'recurring', width: 12 },
     { header: 'Notes', key: 'notes', width: 36 },
@@ -79,12 +80,14 @@ async function buildWorkbook(financialYear, expenses, entries, totals) {
       item: expense.itemName,
       category: expense.category,
       amount: expense.amount,
+      converted: expense.baseAmount === null ? 'needs a rate' : expense.baseAmount,
       currency: expense.currency || 'AUD',
       recurring: expense.recurring || '',
       notes: expense.notes || '',
       receipt: entries.get(expense.id) ? 'View Receipt' : '',
     });
     row.getCell('amount').numFmt = '#,##0.00';
+    if (expense.baseAmount !== null) row.getCell('converted').numFmt = '#,##0.00';
 
     // A relative hyperlink, so it resolves against wherever the zip was
     // extracted. An absolute path would only work on the machine that made it.
@@ -97,9 +100,11 @@ async function buildWorkbook(financialYear, expenses, entries, totals) {
   }
 
   sheet.addRow({});
-  const totalRow = sheet.addRow({ item: 'TOTAL', amount: totals.grand });
+  // The total is of the converted column — the only one that can be summed
+  // when more than one currency is present.
+  const totalRow = sheet.addRow({ item: 'TOTAL', converted: totals.grand });
   totalRow.font = { bold: true };
-  totalRow.getCell('amount').numFmt = '#,##0.00';
+  totalRow.getCell('converted').numFmt = '#,##0.00';
   sheet.autoFilter = { from: 'A1', to: 'H1' };
   sheet.views = [{ state: 'frozen', ySplit: 1 }];
 
@@ -151,7 +156,17 @@ function buildPdf(financialYear, expenses, totals) {
       doc.fillColor('#6b7280').text(`${date}  `, { continued: true });
       doc.fillColor('#111827').text(expense.itemName, { continued: true });
       doc.fillColor('#6b7280').text(`  ${expense.category}`, { continued: true });
-      doc.fillColor('#111827').text(`  ${expense.amount.toFixed(2)}`, { align: 'right' });
+      // The converted figure, since that is what the totals above are. The
+      // original is called out only when it differs, so a page of domestic
+      // expenses doesn't gain a column of noise.
+      const foreign = expense.baseCurrency && expense.currency && expense.currency !== expense.baseCurrency;
+      const shown =
+        expense.baseAmount === null
+          ? `${expense.amount.toFixed(2)} ${expense.currency} (needs a rate)`
+          : foreign
+          ? `${expense.baseAmount.toFixed(2)}  (${expense.amount.toFixed(2)} ${expense.currency})`
+          : expense.baseAmount.toFixed(2);
+      doc.fillColor('#111827').text(`  ${shown}`, { align: 'right' });
     }
 
     addFooter(doc);
@@ -163,9 +178,9 @@ function buildPdf(financialYear, expenses, totals) {
 export async function streamYearArchive({ res, uploadsDir, userId, financialYear, expenses, categories, rule }) {
   const totals = { grand: 0, byCategory: new Map() };
   for (const e of expenses) {
-    totals.grand += e.amount;
+    totals.grand += e.baseAmount || 0;
     const figures = totals.byCategory.get(e.category) || { total: 0, count: 0 };
-    figures.total += e.amount;
+    figures.total += e.baseAmount || 0;
     figures.count += 1;
     totals.byCategory.set(e.category, figures);
   }

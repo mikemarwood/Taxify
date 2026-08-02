@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useState, useCallback } from 'react';
 import { api } from './api.js';
 import { setDateLocale } from './dates.js';
+import { setBaseCurrency } from './money.js';
 
 const AuthContext = createContext(null);
 
@@ -28,7 +29,8 @@ export function AuthProvider({ children }) {
   // the user, so the account's locale is published once, here.
   useEffect(() => {
     setDateLocale(user?.locale);
-  }, [user?.locale]);
+    setBaseCurrency(user?.currency);
+  }, [user?.locale, user?.currency]);
 
   const login = useCallback(async (email, password, publicDevice) => {
     const res = await api.post('/auth/login', { email: email.trim().toLowerCase(), password, publicDevice });

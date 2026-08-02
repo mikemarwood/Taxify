@@ -8,9 +8,11 @@ import ReceiptLightbox from '../components/ReceiptLightbox.jsx';
 import { defaultFinancialYear } from '../lib/financialYear.js';
 import YearDocuments from '../components/YearDocuments.jsx';
 import Icon from '../components/Icon.jsx';
-import { formatMoney } from '../lib/money.js';
+import { formatMoney, claimable } from '../lib/money.js';
 import { useAuth } from '../lib/AuthContext.jsx';
 import { formatDayMonth } from '../lib/dates.js';
+import Amount from '../components/Amount.jsx';
+import UnconvertedNotice from '../components/UnconvertedNotice.jsx';
 
 // Lets the one search box take an amount as well as text. A bare number
 // matches by prefix, so "47" finds $47.91 and $47.00 — typing the exact cents
@@ -97,7 +99,7 @@ export default function Expenses() {
       const key = e.category?.name || 'Uncategorised';
       const entry =
         map.get(key) || { name: key, color: e.category?.color || '#9198b0', icon: e.category?.icon, total: 0, items: [] };
-      entry.total += e.amount;
+      entry.total += claimable(e);
       entry.items.push(e);
       map.set(key, entry);
     }
@@ -109,7 +111,7 @@ export default function Expenses() {
   }, [searched]);
 
   const loading = expenses === null;
-  const total = searched.reduce((sum, e) => sum + e.amount, 0);
+  const total = searched.reduce((sum, e) => sum + claimable(e), 0);
 
   return (
     <div>
@@ -137,6 +139,8 @@ export default function Expenses() {
           </motion.div>
         </div>
       )}
+
+      <UnconvertedNotice expenses={expenses} />
 
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 18, flexWrap: 'wrap' }}>
         <select className="input" value={year || ''} onChange={(e) => setYear(e.target.value)} style={{ width: 150, padding: '8px 10px', fontSize: 13 }}>
@@ -258,7 +262,7 @@ export default function Expenses() {
                           <Icon name="receipt" size={15} />
                         </button>
                       )}
-                      <span style={{ width: 80, textAlign: 'right', fontWeight: 700 }}>{formatMoney(e.amount)}</span>
+                      <Amount expense={e} style={{ width: 96 }} />
                     </motion.div>
                   ))}
                 </AnimatePresence>

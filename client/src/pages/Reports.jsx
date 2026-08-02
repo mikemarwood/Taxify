@@ -3,7 +3,7 @@ import { motion } from 'framer-motion';
 import { api } from '../lib/api.js';
 import { SkeletonList, SkeletonStat } from '../components/Skeletons.jsx';
 import Icon from '../components/Icon.jsx';
-import { formatMoney } from '../lib/money.js';
+import { formatMoney, claimable } from '../lib/money.js';
 import CategoryBadge from '../components/CategoryBadge.jsx';
 import ExpenseModal from '../components/ExpenseModal.jsx';
 import ExportMenu from '../components/ExportMenu.jsx';
@@ -11,6 +11,8 @@ import YearArchiveButton from '../components/YearArchiveButton.jsx';
 import YearDocuments from '../components/YearDocuments.jsx';
 import TaxYears from '../components/TaxYears.jsx';
 import { formatDateShort } from '../lib/dates.js';
+import Amount from '../components/Amount.jsx';
+import UnconvertedNotice from '../components/UnconvertedNotice.jsx';
 
 export default function Reports() {
   const [expenses, setExpenses] = useState(null);
@@ -44,10 +46,10 @@ export default function Reports() {
       yearSet.add(e.financialYear);
 
       const key = `${categoryName}|${e.financialYear}`;
-      cells.set(key, (cells.get(key) || 0) + e.amount);
-      catTotals.set(categoryName, (catTotals.get(categoryName) || 0) + e.amount);
-      yrTotals.set(e.financialYear, (yrTotals.get(e.financialYear) || 0) + e.amount);
-      grand += e.amount;
+      cells.set(key, (cells.get(key) || 0) + claimable(e));
+      catTotals.set(categoryName, (catTotals.get(categoryName) || 0) + claimable(e));
+      yrTotals.set(e.financialYear, (yrTotals.get(e.financialYear) || 0) + claimable(e));
+      grand += claimable(e);
     }
 
     const sortedCategories = Array.from(categoryMap.values()).sort(
@@ -105,6 +107,8 @@ export default function Reports() {
           </div>
         </div>
       </div>
+
+      <UnconvertedNotice expenses={expenses} />
 
       {loading ? (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 16, marginBottom: 24 }}>
@@ -262,7 +266,7 @@ export default function Reports() {
                         {e.itemName}
                       </span>
                       <CategoryBadge category={e.category} />
-                      <span style={{ width: 80, textAlign: 'right', fontWeight: 700 }}>{formatMoney(e.amount)}</span>
+                      <Amount expense={e} style={{ width: 96 }} />
                     </div>
                   ))}
                 </div>

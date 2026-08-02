@@ -14,6 +14,8 @@ import { blockIfFinalised, finalisedYearsFor } from '../lib/finalisedYears.js';
 import { viewableCopy } from '../lib/heicPreview.js';
 import { MAX_UPLOAD_BYTES, isAllowedUpload, UPLOAD_REJECTED_MESSAGE } from '../lib/uploadRules.js';
 import { advanceDate } from '../lib/recurrence.js';
+import { resolveBaseAmount } from '../lib/fx.js';
+import { isKnownCurrency } from '../lib/geoData.js';
 import { suggestCategory } from '../lib/categorySuggest.js';
 import { receiptDirFor, receiptRelDirFor, assertWithin, uniqueFilenameIn } from '../lib/receiptStorage.js';
 
@@ -137,6 +139,7 @@ router.get(
     const [rows] = await pool.execute(
       `SELECT e.id, e.user_id, e.item_name, e.amount, e.currency, e.purchase_date, e.receipt_path,
               e.is_recurring, e.frequency, e.notes, e.created_at, e.updated_at, e.auto_generated,
+              e.base_amount, e.base_currency, e.fx_rate, e.fx_rate_source,
               creator.name AS created_by_name, editor.name AS updated_by_name,
               c.id AS category_id, c.name AS category_name, c.color AS category_color, c.icon AS category_icon
        FROM expenses e
@@ -153,6 +156,12 @@ router.get(
       itemName: r.item_name,
       amount: Number(r.amount),
       currency: r.currency,
+      // What every total sums. Null when the row could not be converted —
+      // reported rather than counted at face value.
+      baseAmount: r.base_amount === null ? null : Number(r.base_amount),
+      baseCurrency: r.base_currency,
+      fxRate: r.fx_rate === null ? null : Number(r.fx_rate),
+      fxRateSource: r.fx_rate_source,
       purchaseDate: r.purchase_date,
       financialYear: financialYearOf(r.purchase_date, req.user.financialYearRule),
       receiptUrl: r.receipt_path ? `/api/expenses/${r.id}/receipt` : null,
@@ -242,6 +251,32 @@ router.get(
           lastUsed: r.last_used,
         }))
       ),
+    });
+  })
+);
+
+// Quotes the conversion without saving anything, so the form can show what an
+// expense will be worth before it is committed. Same code path as the save, so
+// the preview cannot disagree with the result.
+router.get(
+  '/fx-quote',
+  asyncHandler(async (req, res) => {
+    const amount = Number(req.query.amount);
+    const money = await resolveBaseAmount({
+      amount: Number.isFinite(amount) ? amount : 0,
+      currency: req.query.currency,
+      baseCurrency: req.user.currency || 'AUD',
+      purchaseDate: req.query.purchaseDate,
+      manualRate: req.query.fxRate || undefined,
+    });
+
+    if (money.error) return res.json({ error: money.error, needsRate: !!money.needsRate });
+    res.json({
+      baseAmount: money.baseAmount,
+      baseCurrency: money.baseCurrency,
+      rate: money.rate,
+      source: money.source,
+      rateDate: money.rateDate,
     });
   })
 );
@@ -363,6 +398,29 @@ router.post(
         return res.status(409).json({ error: closed });
       }
 
+      // Currency was written straight through with no validation at all —
+      // any ten characters were accepted into a column every total reads.
+      const finalCurrency = isKnownCurrency(currency) ? String(currency).toUpperCase() : null;
+      if (currency && !finalCurrency) {
+        cleanupUpload();
+        return res.status(400).json({ error: 'That is not a currency we support' });
+      }
+
+      // Anything not in the account's own currency is converted at the rate
+      // for the purchase date, so every total is in one currency and means
+      // something. Refused rather than guessed when no rate can be had.
+      const money = await resolveBaseAmount({
+        amount: amountNum,
+        currency: finalCurrency || req.user.currency || 'AUD',
+        baseCurrency: req.user.currency || 'AUD',
+        purchaseDate,
+        manualRate: req.body?.fxRate,
+      });
+      if (money.error) {
+        cleanupUpload();
+        return res.status(422).json({ error: money.error, needsRate: !!money.needsRate });
+      }
+
       let newCategoryName = 'Uncategorised';
       let resolvedCategoryId = null;
       if (categoryId) {
@@ -383,21 +441,28 @@ router.post(
       const nextDueDate = recurring ? advanceDate(purchaseDate, frequency) : null;
 
       const [result] = await pool.execute(
-        `INSERT INTO expenses (user_id, created_by, category_id, item_name, amount, currency, purchase_date, receipt_path, is_recurring, frequency, notes, next_due_date)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        `INSERT INTO expenses (user_id, created_by, category_id, item_name, amount, currency, purchase_date,
+           receipt_path, is_recurring, frequency, notes, next_due_date,
+           base_currency, base_amount, fx_rate, fx_rate_source, fx_rate_date)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
           req.user.id,
           req.user.id,
           resolvedCategoryId,
           String(itemName).trim(),
           amountNum,
-          currency || 'AUD',
+          finalCurrency || req.user.currency || 'AUD',
           purchaseDate,
           receiptPath,
           recurring ? 1 : 0,
           frequency || null,
           notes || null,
           nextDueDate,
+          money.baseCurrency,
+          money.baseAmount,
+          money.rate,
+          money.source,
+          money.rateDate,
         ]
       );
 
@@ -464,6 +529,31 @@ router.patch(
         return res.status(409).json({ error: closed });
       }
 
+      const editCurrency = currency
+        ? isKnownCurrency(currency)
+          ? String(currency).toUpperCase()
+          : null
+        : existing.currency || req.user.currency || 'AUD';
+      if (!editCurrency) {
+        cleanupUpload();
+        return res.status(400).json({ error: 'That is not a currency we support' });
+      }
+
+      // Re-converted on every edit, because changing the amount, the currency
+      // or the date all change what the figure in the account's own currency
+      // should be.
+      const money = await resolveBaseAmount({
+        amount: amountNum,
+        currency: editCurrency,
+        baseCurrency: req.user.currency || 'AUD',
+        purchaseDate,
+        manualRate: req.body?.fxRate,
+      });
+      if (money.error) {
+        cleanupUpload();
+        return res.status(422).json({ error: money.error, needsRate: !!money.needsRate });
+      }
+
       let newCategoryName = 'Uncategorised';
       let resolvedCategoryId = null;
       if (categoryId) {
@@ -511,19 +601,25 @@ router.patch(
 
       await pool.execute(
         `UPDATE expenses SET category_id = ?, item_name = ?, amount = ?, currency = ?, purchase_date = ?, receipt_path = ?, is_recurring = ?, frequency = ?, notes = ?, next_due_date = ?,
+         base_currency = ?, base_amount = ?, fx_rate = ?, fx_rate_source = ?, fx_rate_date = ?,
          updated_by = ?, updated_at = NOW()
          WHERE id = ? AND user_id = ?`,
         [
           resolvedCategoryId,
           String(itemName).trim(),
           amountNum,
-          currency || existing.currency || 'AUD',
+          editCurrency,
           purchaseDate,
           receiptPath,
           recurring ? 1 : 0,
           frequency || null,
           notes || null,
           nextDueDate,
+          money.baseCurrency,
+          money.baseAmount,
+          money.rate,
+          money.source,
+          money.rateDate,
           req.user.id,
           req.params.id,
           req.user.id,

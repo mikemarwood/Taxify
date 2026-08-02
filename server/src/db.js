@@ -387,6 +387,34 @@ export async function ensureSchema() {
   await pool.query(`ALTER TABLE expenses ADD COLUMN IF NOT EXISTS updated_by INT NULL`);
   await pool.query(`ALTER TABLE expenses ADD COLUMN IF NOT EXISTS updated_at DATETIME NULL`);
 
+  // Every total in the app used to sum `amount` and ignore `currency`, so a
+  // EUR 500 expense added 500 to an AUD figure. The converted amount lives
+  // here and is what everything sums; `amount` and `currency` stay exactly as
+  // entered, because the receipt says what the receipt says.
+  //
+  // base_amount is deliberately NULLable: a row we cannot honestly convert is
+  // excluded from totals and reported, rather than counted at face value.
+  await pool.query(`ALTER TABLE expenses ADD COLUMN IF NOT EXISTS base_currency VARCHAR(3) NULL`);
+  await pool.query(`ALTER TABLE expenses ADD COLUMN IF NOT EXISTS base_amount DECIMAL(12, 2) NULL`);
+  await pool.query(`ALTER TABLE expenses ADD COLUMN IF NOT EXISTS fx_rate DECIMAL(18, 8) NULL`);
+  await pool.query(`ALTER TABLE expenses ADD COLUMN IF NOT EXISTS fx_rate_source VARCHAR(20) NULL`);
+  await pool.query(`ALTER TABLE expenses ADD COLUMN IF NOT EXISTS fx_rate_date DATE NULL`);
+
+  // Rates, kept permanently. Partly so the same day is never fetched twice,
+  // and partly because it is the record of which rate a figure was actually
+  // built from — an accountant asking "where did this number come from" is
+  // entitled to an answer.
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS fx_rates (
+      rate_date DATE NOT NULL,
+      base VARCHAR(3) NOT NULL,
+      quote VARCHAR(3) NOT NULL,
+      rate DECIMAL(18, 8) NOT NULL,
+      fetched_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      PRIMARY KEY (rate_date, base, quote)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+  `);
+
   // Existing rows predate the column; the owner is the best guess available.
   await pool.query(`UPDATE expenses SET created_by = user_id WHERE created_by IS NULL`);
 

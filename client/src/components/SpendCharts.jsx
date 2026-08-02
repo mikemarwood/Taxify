@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { motion } from 'framer-motion';
-import { formatMoney } from '../lib/money.js';
+import { formatMoney, claimable } from '../lib/money.js';
 import { formatDateLong } from '../lib/dates.js';
 
 // Two charts and a countdown, all reading from the same filtered expense list.
@@ -123,7 +123,7 @@ export function MonthlySpendChart({ expenses, financialYear }) {
           const d = new Date(e.purchaseDate);
           return d.getMonth() === m.month && d.getFullYear() === calendarYear;
         })
-        .reduce((sum, e) => sum + e.amount, 0);
+        .reduce((sum, e) => sum + claimable(e), 0);
       return { ...m, calendarYear, total };
     });
     return totals;

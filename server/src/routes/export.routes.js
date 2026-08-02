@@ -20,7 +20,7 @@ router.use(requireAuth, requireActiveAccess);
 async function loadExpenses(req) {
   const scope = await expenseScope(req.user);
   const [rows] = await pool.execute(
-    `SELECT e.item_name, e.amount, e.currency, e.purchase_date, e.is_recurring, e.frequency, e.notes,
+    `SELECT e.item_name, e.amount, e.currency, e.base_amount, e.base_currency, e.purchase_date, e.is_recurring, e.frequency, e.notes,
             c.name AS category_name
      FROM expenses e
      LEFT JOIN categories c ON c.id = e.category_id
@@ -31,6 +31,8 @@ async function loadExpenses(req) {
   return rows.map((r) => ({
     itemName: r.item_name,
     amount: Number(r.amount),
+    baseAmount: r.base_amount === null ? null : Number(r.base_amount),
+    baseCurrency: r.base_currency,
     currency: r.currency,
     purchaseDate: r.purchase_date,
     financialYear: financialYearOf(r.purchase_date, req.user.financialYearRule),
@@ -46,10 +48,10 @@ function buildCategorySummary(expenses) {
   const cells = new Map();
 
   for (const e of expenses) {
-    categoryMap.set(e.category, (categoryMap.get(e.category) || 0) + e.amount);
+    categoryMap.set(e.category, (categoryMap.get(e.category) || 0) + (e.baseAmount || 0));
     years.add(e.financialYear);
     const key = `${e.category}|${e.financialYear}`;
-    cells.set(key, (cells.get(key) || 0) + e.amount);
+    cells.set(key, (cells.get(key) || 0) + (e.baseAmount || 0));
   }
 
   const sortedCategories = Array.from(categoryMap.keys()).sort((a, b) => categoryMap.get(b) - categoryMap.get(a));
@@ -78,7 +80,7 @@ router.get(
     sheet.getRow(1).height = 26;
 
     sheet.addRow([]);
-    const headerRow = sheet.addRow(['Date', 'Item', 'Category', 'Amount', 'Currency', 'Recurring', 'Notes']);
+    const headerRow = sheet.addRow(['Date', 'Item', 'Category', 'Amount', 'Currency', 'Converted', 'Recurring', 'Notes']);
     headerRow.eachCell((cell) => {
       cell.font = { bold: true, color: { argb: 'FFFFFFFF' } };
       cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1E3A8A' } };
@@ -87,17 +89,19 @@ router.get(
 
     let total = 0;
     expenses.forEach((e, i) => {
-      total += e.amount;
+      total += e.baseAmount || 0;
       const row = sheet.addRow([
         new Date(e.purchaseDate).toLocaleDateString(),
         e.itemName,
         e.category,
         e.amount,
         e.currency,
+        e.baseAmount === null ? 'needs a rate' : e.baseAmount,
         e.recurring,
         e.notes,
       ]);
       row.getCell(4).numFmt = '#,##0.00';
+      if (e.baseAmount !== null) row.getCell(6).numFmt = '#,##0.00';
       if (i % 2 === 1) {
         row.eachCell((cell) => {
           cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF3F4F6' } };
@@ -105,16 +109,19 @@ router.get(
       }
     });
 
-    const totalRow = sheet.addRow(['', '', 'Total', total]);
+    // The total sums the converted column, so it is placed under it.
+    const totalRow = sheet.addRow(['', '', 'Total', '', '', total]);
     totalRow.font = { bold: true };
-    totalRow.getCell(4).numFmt = '#,##0.00';
+    totalRow.getCell(6).numFmt = '#,##0.00';
 
+    // Date, Item, Category, Amount, Currency, Converted, Recurring, Notes.
     sheet.columns = [
       { width: 14 },
       { width: 32 },
       { width: 20 },
       { width: 14 },
       { width: 10 },
+      { width: 14 },
       { width: 14 },
       { width: 36 },
     ];
@@ -141,10 +148,11 @@ router.get(
       { label: 'Date', width: 70 },
       { label: 'Item', width: 190 },
       { label: 'Category', width: 120 },
-      { label: 'Amount', width: 80, align: 'right' },
-      { label: 'Currency', width: 60 },
-      { label: 'Recurring', width: 70 },
-      { label: 'Notes', width: 150 },
+      { label: 'Amount', width: 70, align: 'right' },
+      { label: 'Cur', width: 34 },
+      { label: 'Converted', width: 78, align: 'right' },
+      { label: 'Recurring', width: 62 },
+      { label: 'Notes', width: 126 },
     ];
 
     function drawTableHeader(y) {
@@ -165,7 +173,7 @@ router.get(
     let total = 0;
     doc.font('Helvetica').fontSize(9);
     expenses.forEach((e, i) => {
-      total += e.amount;
+      total += e.baseAmount || 0;
       if (y > doc.page.height - doc.page.margins.bottom - 30) {
         addFooter(doc);
         doc.addPage();
@@ -184,6 +192,7 @@ router.get(
         e.category,
         e.amount.toFixed(2),
         e.currency,
+        e.baseAmount === null ? 'needs rate' : e.baseAmount.toFixed(2),
         e.recurring,
         e.notes,
       ];
@@ -336,7 +345,7 @@ router.get(
 
     const scope = await expenseScope(req.user);
     const [rows] = await pool.execute(
-      `SELECT e.id, e.user_id, e.item_name, e.amount, e.currency, e.purchase_date, e.receipt_path,
+      `SELECT e.id, e.user_id, e.item_name, e.amount, e.currency, e.base_amount, e.base_currency, e.purchase_date, e.receipt_path,
               e.is_recurring, e.frequency, e.notes, c.name AS category_name
        FROM expenses e
        LEFT JOIN categories c ON c.id = e.category_id
@@ -351,6 +360,10 @@ router.get(
         ownerId: r.user_id,
         itemName: r.item_name,
         amount: Number(r.amount),
+        baseAmount: r.base_amount === null ? null : Number(r.base_amount),
+        baseCurrency: r.base_currency,
+    baseAmount: r.base_amount === null ? null : Number(r.base_amount),
+    baseCurrency: r.base_currency,
         currency: r.currency,
         purchaseDate: r.purchase_date,
         category: r.category_name || 'Uncategorised',

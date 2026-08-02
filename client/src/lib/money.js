@@ -6,13 +6,66 @@ const grouped = new Intl.NumberFormat(undefined, {
   maximumFractionDigits: 2,
 });
 
+// The currency the account keeps its books in. Published once when the user
+// loads, for the same reason the date locale is: money is shown in dozens of
+// places that have no business knowing about the user.
+let baseCurrency = 'AUD';
+
+export function setBaseCurrency(code) {
+  if (code) baseCurrency = String(code).toUpperCase();
+}
+
+export function getBaseCurrency() {
+  return baseCurrency;
+}
+
 // "1,234.50" — no symbol, for places that draw their own.
 export function formatAmount(value) {
   const n = Number(value);
   return grouped.format(Number.isFinite(n) ? n : 0);
 }
 
-// "$1,234.50"
-export function formatMoney(value) {
-  return `$${formatAmount(value)}`;
+// "$1,234.50", "€1,234.50", "£1,234.50". The symbol used to be a hard-coded
+// dollar sign, which quietly mislabelled every foreign amount in the app.
+export function formatMoney(value, currency) {
+  const n = Number(value);
+  const safe = Number.isFinite(n) ? n : 0;
+  const code = String(currency || baseCurrency).toUpperCase();
+  try {
+    return new Intl.NumberFormat(undefined, {
+      style: 'currency',
+      currency: code,
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    }).format(safe);
+  } catch {
+    // An unknown code should still print a number rather than throwing.
+    return `${code} ${grouped.format(safe)}`;
+  }
+}
+
+// What an expense contributes to a total: the amount converted into the
+// account's own currency. Null means it could not be converted honestly, and
+// such a row is excluded rather than counted at face value — see
+// `unconvertedCount` for how that is then reported instead of hidden.
+export function claimable(expense) {
+  const value = expense?.baseAmount;
+  return typeof value === 'number' && Number.isFinite(value) ? value : 0;
+}
+
+export function sumClaimable(expenses) {
+  return (expenses || []).reduce((total, e) => total + claimable(e), 0);
+}
+
+// Rows that are in a foreign currency and have no conversion. Shown as a
+// warning wherever a total is, because a total quietly missing three expenses
+// is worse than one that says so.
+export function unconvertedCount(expenses) {
+  return (expenses || []).filter((e) => e && e.baseAmount === null).length;
+}
+
+// True when this expense was entered in something other than the account's
+// currency, and so has an original worth showing alongside the converted one.
+export function isForeign(expense) {
+  return !!expense?.baseCurrency && !!expense?.currency && expense.currency !== expense.baseCurrency;
 }

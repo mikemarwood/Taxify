@@ -8,13 +8,15 @@ import CategoryBadge from '../components/CategoryBadge.jsx';
 import ExpenseModal from '../components/ExpenseModal.jsx';
 import ReceiptLightbox from '../components/ReceiptLightbox.jsx';
 import ExportMenu from '../components/ExportMenu.jsx';
-import { defaultFinancialYear } from '../lib/financialYear.js';
+import { defaultFinancialYear, financialYearSpan } from '../lib/financialYear.js';
 import Icon from '../components/Icon.jsx';
-import { formatMoney } from '../lib/money.js';
+import { formatMoney, claimable } from '../lib/money.js';
 import { FinancialYearCountdown, MonthlySpendChart, CategorySpendChart } from '../components/SpendCharts.jsx';
 import { useAuth } from '../lib/AuthContext.jsx';
 import { describeSubscription, toneColor } from '../lib/subscription.js';
 import { formatDayMonth } from '../lib/dates.js';
+import Amount from '../components/Amount.jsx';
+import UnconvertedNotice from '../components/UnconvertedNotice.jsx';
 
 const COLLAPSED_ROW_COUNT = 8;
 
@@ -42,13 +44,23 @@ export default function Dashboard() {
 
   useEffect(load, []);
 
+  // The years this account actually has, newest first, plus whichever one is
+  // selected so the dropdown can never show a value that isn't among its
+  // options — a select whose value matches nothing silently displays the first
+  // one instead, and then the page disagrees with its own filter.
+  const years = useMemo(() => {
+    const found = new Set((expenses || []).map((e) => e.financialYear).filter(Boolean));
+    if (year) found.add(year);
+    return Array.from(found).sort().reverse();
+  }, [expenses, year]);
+
   const filtered = useMemo(() => {
     if (!expenses) return [];
     if (!year) return expenses;
     return expenses.filter((e) => e.financialYear === year);
   }, [expenses, year]);
 
-  const total = filtered.reduce((sum, e) => sum + e.amount, 0);
+  const total = filtered.reduce((sum, e) => sum + claimable(e), 0);
 
   const thisMonthTotal = useMemo(() => {
     if (!expenses) return 0;
@@ -58,7 +70,7 @@ export default function Dashboard() {
         const d = new Date(e.purchaseDate);
         return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
       })
-      .reduce((sum, e) => sum + e.amount, 0);
+      .reduce((sum, e) => sum + claimable(e), 0);
   }, [expenses]);
 
   const byCategory = useMemo(() => {
@@ -66,7 +78,7 @@ export default function Dashboard() {
     for (const e of filtered) {
       const key = e.category?.name || 'Uncategorised';
       const entry = map.get(key) || { name: key, color: e.category?.color || '#9198b0', icon: e.category?.icon, total: 0, count: 0 };
-      entry.total += e.amount;
+      entry.total += claimable(e);
       entry.count += 1;
       map.set(key, entry);
     }
@@ -122,20 +134,59 @@ export default function Dashboard() {
 
   return (
     <div>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24 }}>
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          gap: 14,
+          flexWrap: 'wrap',
+          marginBottom: 24,
+        }}
+      >
         <div>
           <h1 style={{ margin: 0, fontSize: 26 }}>Dashboard</h1>
-          <p style={{ color: 'var(--text-muted)', margin: '4px 0 0' }}>Your deductions at a glance.</p>
+          {/* Which year everything below is about. It was only ever implied,
+              which is a poor thing to leave to inference on a page of totals. */}
+          <p style={{ color: 'var(--text-muted)', margin: '4px 0 0' }}>
+            {year ? (
+              <>
+                Your deductions for <strong style={{ color: 'var(--text)' }}>FY {year}</strong>
+                <span style={{ opacity: 0.8 }}> · {financialYearSpan(user?.financialYearRule)}</span>
+              </>
+            ) : (
+              'Your deductions at a glance.'
+            )}
+          </p>
         </div>
-        <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+        <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+          {/* Switching year is the most common thing anyone does here at tax
+              time, so it sits with the heading rather than further down. */}
+          {years.length > 0 && (
+            <select
+              className="input"
+              aria-label="Financial year"
+              value={year || ''}
+              onChange={(e) => setYear(e.target.value)}
+              style={{ width: 150, padding: '9px 10px', fontSize: 13 }}
+            >
+              {years.map((y) => (
+                <option key={y} value={y}>
+                  FY {y}
+                </option>
+              ))}
+            </select>
+          )}
           <ExportMenu baseUrl="/api/export/expenses" label="Export & download" archiveYear={year} />
-          {user?.role !== 'accountant' && (
+          {user?.role !== 'accountant' && !user?.actingAsClient && (
             <Link to="/add" className="btn btn-primary">
               + Add expense
             </Link>
           )}
         </div>
       </div>
+
+      <UnconvertedNotice expenses={expenses} />
 
       {loading ? (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 16, marginBottom: 24 }}>
@@ -365,7 +416,7 @@ export default function Dashboard() {
                       <Icon name="receipt" size={15} />
                     </button>
                   )}
-                  <span style={{ width: 80, textAlign: 'right', fontWeight: 700 }}>{formatMoney(e.amount)}</span>
+                  <Amount expense={e} style={{ width: 96 }} />
                 </motion.div>
               ))}
             </AnimatePresence>
