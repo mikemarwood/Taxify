@@ -22,7 +22,6 @@ export const ALLOWED_UPLOAD_EXT = new Set([
   '.bmp',
   '.tif',
   '.tiff',
-  '.svg',
   '.jfif',
   '.pdf',
   '.doc',
@@ -35,14 +34,34 @@ const ALLOWED_DOC_MIME = new Set([
   'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
 ]);
 
-export const UPLOAD_REJECTED_MESSAGE = 'Only images, PDFs and Word documents can be attached';
+// SVG is an image by MIME type and a script host by nature. Receipts are
+// served back inline from the app's own origin, so one uploaded here would run
+// in the owner's session — and in an administrator's, if they ever used "view
+// as" on that account.
+//
+// This has to be a deny-list checked FIRST, not an omission from the allow
+// list: `image/svg+xml` satisfies the `startsWith('image/')` branch below and
+// never reaches the extension check, so removing '.svg' from the list above
+// would have changed nothing at all.
+const BLOCKED_MIME = new Set(['image/svg+xml', 'image/svg+xml-compressed']);
+const BLOCKED_EXT = new Set(['.svg', '.svgz']);
+
+export const UPLOAD_REJECTED_MESSAGE =
+  'Only images, PDFs and Word documents can be attached (SVG files are not accepted)';
 
 // iPhone photos often arrive with no useful MIME type — Windows and some
 // browsers report .heic as application/octet-stream or an empty string, and a
 // .doc off a network share often arrives as octet-stream too — so the
 // extension is the fallback when the reported type says nothing useful.
 export function isAllowedUpload(file) {
-  if (ALLOWED_DOC_MIME.has(file.mimetype)) return true;
-  if (typeof file.mimetype === 'string' && file.mimetype.startsWith('image/')) return true;
-  return ALLOWED_UPLOAD_EXT.has(path.extname(file.originalname).toLowerCase());
+  const ext = path.extname(file?.originalname || '').toLowerCase();
+  const mime = typeof file?.mimetype === 'string' ? file.mimetype.toLowerCase() : '';
+
+  // Either signal being blocked is enough; a .png name on an SVG payload is
+  // exactly the case a naive fix leaves open.
+  if (BLOCKED_EXT.has(ext) || BLOCKED_MIME.has(mime)) return false;
+
+  if (ALLOWED_DOC_MIME.has(mime)) return true;
+  if (mime.startsWith('image/')) return true;
+  return ALLOWED_UPLOAD_EXT.has(ext);
 }

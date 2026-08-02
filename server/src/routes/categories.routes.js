@@ -19,6 +19,7 @@ import {
 import { financialYearRange, defaultFinancialYear } from '../lib/financialYear.js';
 import { ensureCategoriesForYear } from '../lib/categoryYears.js';
 import { viewableCopy } from '../lib/heicPreview.js';
+import { serveAttachment } from '../lib/serveAttachment.js';
 import { MAX_UPLOAD_BYTES, isAllowedUpload, UPLOAD_REJECTED_MESSAGE } from '../lib/uploadRules.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -526,7 +527,9 @@ router.get(
     if (!fs.existsSync(filePath)) return res.status(404).json({ error: 'File not found' });
 
     if (req.query.download) return res.download(filePath, rows[0].original_name || rows[0].filename);
-    res.sendFile((await viewableCopy(uploadsDir, filePath)) || filePath);
+    return serveAttachment(res, (await viewableCopy(uploadsDir, filePath)) || filePath, {
+      originalName: rows[0].original_name || rows[0].filename,
+    });
   })
 );
 

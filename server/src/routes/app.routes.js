@@ -43,4 +43,21 @@ router.get(
   })
 );
 
+// Where the client error boundary reports to. Until now a white screen in
+// production was completely invisible — there is no client error tracking, so
+// the only signal was a customer mentioning it.
+router.post(
+  '/client-error',
+  asyncHandler(async (req, res) => {
+    const { message, stack, componentStack, path: at } = req.body || {};
+    console.error(
+      `[client] ${String(message || 'unknown').slice(0, 500)} at ${String(at || '?').slice(0, 200)}\n` +
+        `${String(stack || componentStack || '').slice(0, 2000)}`
+    );
+    // Always 204: a failure to log must never become a second error on a page
+    // that is already broken.
+    res.status(204).end();
+  })
+);
+
 export default router;

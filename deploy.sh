@@ -17,6 +17,19 @@ npm install --prefix client
 echo "==> npm run build (client)"
 npm run build
 
+echo "==> npm test (server)"
+npm test --prefix server
+
+# The single highest-value line here. `pm2 restart` is exactly when
+# ensureSchema runs its ALTERs and the data migrations rewrite rows — the
+# category split repoints expenses, the currency backfill writes to every one
+# of them, and receiptFolders renames whole upload trees. Before this, a bad
+# migration was unrecoverable; now it costs one gunzip.
+#
+# set -e means a failed snapshot, or a failed test, stops the deploy.
+echo "==> pre-deploy database snapshot"
+./ops/backup.sh --db-only --tag "predeploy-$(git rev-parse --short HEAD)"
+
 echo "==> pm2 restart taxify"
 pm2 restart taxify
 

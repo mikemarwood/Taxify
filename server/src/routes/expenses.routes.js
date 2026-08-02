@@ -12,6 +12,7 @@ import { financialYearOf } from '../lib/financialYear.js';
 import { resolveCategoryForYear } from '../lib/categoryYears.js';
 import { blockIfFinalised, finalisedYearsFor } from '../lib/finalisedYears.js';
 import { viewableCopy } from '../lib/heicPreview.js';
+import { serveAttachment } from '../lib/serveAttachment.js';
 import { MAX_UPLOAD_BYTES, isAllowedUpload, UPLOAD_REJECTED_MESSAGE } from '../lib/uploadRules.js';
 import { advanceDate } from '../lib/recurrence.js';
 import { resolveBaseAmount } from '../lib/fx.js';
@@ -674,7 +675,9 @@ router.get(
       const safeName = row.item_name.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
       return res.download(filePath, `receipt-${safeName || 'expense'}${ext}`);
     }
-    res.sendFile((await viewableCopy(uploadsDir, filePath)) || filePath);
+    return serveAttachment(res, (await viewableCopy(uploadsDir, filePath)) || filePath, {
+      originalName: row.receipt_path || row.original_name,
+    });
   })
 );
 

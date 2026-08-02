@@ -400,6 +400,26 @@ export async function ensureSchema() {
   await pool.query(`ALTER TABLE expenses ADD COLUMN IF NOT EXISTS fx_rate_source VARCHAR(20) NULL`);
   await pool.query(`ALTER TABLE expenses ADD COLUMN IF NOT EXISTS fx_rate_date DATE NULL`);
 
+  // `expenses` carried a single index on user_id, so every list query filtered
+  // on it and then sorted the result by hand, and the per-category totals
+  // scanned the table once per category. Column order matters below:
+  // deleted_at second is effectively an equality on NULL, which leaves
+  // purchase_date usable for the ORDER BY and removes the filesort.
+  await pool.query(
+    `ALTER TABLE expenses ADD INDEX IF NOT EXISTS idx_expenses_user_deleted_date (user_id, deleted_at, purchase_date)`
+  );
+  // Trailing base_amount makes the COUNT and SUM subqueries in the categories
+  // route index-only — they never touch the row itself.
+  await pool.query(
+    `ALTER TABLE expenses ADD INDEX IF NOT EXISTS idx_expenses_category_deleted (category_id, deleted_at, base_amount)`
+  );
+  // The hourly trash purge and the hourly recurring-expense job both used to
+  // full-scan.
+  await pool.query(`ALTER TABLE expenses ADD INDEX IF NOT EXISTS idx_expenses_deleted_at (deleted_at)`);
+  await pool.query(
+    `ALTER TABLE expenses ADD INDEX IF NOT EXISTS idx_expenses_recurring_due (is_recurring, next_due_date)`
+  );
+
   // Rates, kept permanently. Partly so the same day is never fetched twice,
   // and partly because it is the record of which rate a figure was actually
   // built from — an accountant asking "where did this number come from" is

@@ -1,0 +1,9 @@
+# The repository is edited on Windows and runs on Linux. A shell script that
+# gets checked out with CRLF line endings fails with "bad interpreter" — the
+# carriage return becomes part of the shebang path — so these are pinned to LF
+# regardless of anyone's core.autocrlf setting.
+*.sh text eol=lf
+deploy.sh text eol=lf
+
+# The APK is a binary; never let it be line-ending converted.
+*.apk binary

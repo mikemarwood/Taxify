@@ -2,6 +2,7 @@ import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from './lib/AuthContext.jsx';
 import { homePathFor } from './lib/home.js';
 import Layout from './components/Layout.jsx';
+import ErrorBoundary from './components/ErrorBoundary.jsx';
 import Landing from './pages/Landing.jsx';
 import Login from './pages/Login.jsx';
 import Register from './pages/Register.jsx';
@@ -60,7 +61,11 @@ function Protected({ children, adminOnly }) {
       </Layout>
     );
   }
-  return <Layout>{children}</Layout>;
+  return (
+    <Layout>
+      <ErrorBoundary key={location.pathname}>{children}</ErrorBoundary>
+    </Layout>
+  );
 }
 
 function PublicOnly({ children }) {
