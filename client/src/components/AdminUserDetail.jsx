@@ -5,7 +5,7 @@ import { useToast } from './Toast.jsx';
 import Icon from './Icon.jsx';
 import Avatar from './Avatar.jsx';
 import { formatMoney } from '../lib/money.js';
-import { formatDateShort } from '../lib/dates.js';
+import { formatDateShort, formatDateTime } from '../lib/dates.js';
 
 function formatBytes(bytes) {
   if (!bytes) return '0 MB';

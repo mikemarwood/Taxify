@@ -6,7 +6,7 @@ import { useAuth } from '../lib/AuthContext.jsx';
 import Icon from './Icon.jsx';
 import { formatMoney } from '../lib/money.js';
 import { playSuccess, playError } from '../lib/sounds.js';
-import { formatDateShort } from '../lib/dates.js';
+import { formatDateShort, formatAppointmentTime } from '../lib/dates.js';
 
 function formatWhen(value) {
   if (!value) return null;

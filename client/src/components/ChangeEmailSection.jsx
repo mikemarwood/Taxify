@@ -3,6 +3,7 @@ import { AnimatePresence, motion } from 'framer-motion';
 import { api } from '../lib/api.js';
 import { useToast } from './Toast.jsx';
 import Icon from './Icon.jsx';
+import { formatDateTime } from '../lib/dates.js';
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 

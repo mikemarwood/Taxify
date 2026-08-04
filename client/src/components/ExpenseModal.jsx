@@ -12,6 +12,7 @@ import { formatAmount } from '../lib/money.js';
 import { onDigitKeyDown, playOpen, playClose } from '../lib/sounds.js';
 import { useAuth } from '../lib/AuthContext.jsx';
 import { financialYearOf } from '../lib/financialYear.js';
+import { formatDateShort, formatDateLong } from '../lib/dates.js';
 
 const CURRENCIES = ['AUD', 'USD', 'NZD', 'GBP', 'EUR'];
 
