@@ -20,15 +20,15 @@ npm run build
 echo "==> npm test (server)"
 npm test --prefix server
 
-# The single highest-value line here. `pm2 restart` is exactly when
-# ensureSchema runs its ALTERs and the data migrations rewrite rows — the
-# category split repoints expenses, the currency backfill writes to every one
-# of them, and receiptFolders renames whole upload trees. Before this, a bad
-# migration was unrecoverable; now it costs one gunzip.
+# Deploying no longer snapshots the database first. `ops/backup.sh` is still
+# here and still works — run it by hand if you ever want one:
 #
-# set -e means a failed snapshot, or a failed test, stops the deploy.
-echo "==> pre-deploy database snapshot"
-./ops/backup.sh --db-only --tag "predeploy-$(git rev-parse --short HEAD)"
+#   ./ops/backup.sh --db-only
+#
+# Worth knowing what that trades away: `pm2 restart` is exactly when
+# ensureSchema runs its ALTERs and the data migrations rewrite rows. The
+# category split repoints expenses, the currency backfill writes to every one
+# of them, and receiptFolders renames whole upload trees.
 
 echo "==> pm2 restart taxify"
 pm2 restart taxify
