@@ -456,22 +456,27 @@ export async function sendAccountantAccessEmail(to, name, clientName, loginUrl, 
   });
 }
 
-// Sent once per financial year, in the last three months of it, and only to
-// someone who hasn't already booked. One email a year is a reminder; more than
-// that is nagging, so the send is recorded and never repeated.
-export async function sendBookTaxReminderEmail(to, name, financialYear, endsOn, daysLeft, expenseCount) {
+// Sent once per lodgement — a whole year for an individual, a quarter for a
+// business that reports quarterly — and only to someone who hasn't already
+// booked. One email per lodgement is a reminder; more than that is nagging, so
+// the send is recorded and never repeated.
+//
+// `periodLabel` arrives ready to read ("FY 2025-2026", "Jul – Sep 2025"),
+// because the caller is the only thing that knows which of those this is.
+export async function sendBookTaxReminderEmail(to, name, periodLabel, endsOn, daysLeft, expenseCount, entityName) {
   const reportsUrl = `${process.env.CLIENT_ORIGIN || 'http://localhost:5173'}/reports`;
+  const whose = entityName ? ` for ${entityName}` : '';
   await sendMail({
     to,
-    subject: `${financialYear} ends in ${daysLeft} days — time to book your tax appointment`,
+    subject: `${periodLabel} ends in ${daysLeft} days — time to book your tax appointment`,
     title: 'Time to book your tax appointment',
-    heading: `Hi${name ? ` ${name}` : ''}, FY ${financialYear} closes on ${endsOn}.`,
+    heading: `Hi${name ? ` ${name}` : ''}, ${periodLabel}${whose} closes on ${endsOn}.`,
     bodyHtml: `
       <p style="font-size:14px;color:#1f2937;margin:0 0 16px;line-height:1.55;">
-        Good accountants fill up in the weeks after 30 June, so booking now tends to mean a better time slot rather
-        than a better outcome later. You have <strong>${expenseCount} ${
+        Good accountants fill up in the weeks after a period closes, so booking now tends to mean a better time slot
+        rather than a better outcome later. You have <strong>${expenseCount} ${
           expenseCount === 1 ? 'expense' : 'expenses'
-        }</strong> recorded for this year so far.
+        }</strong> recorded${whose} so far.
       </p>
       <p style="font-size:14px;color:#1f2937;margin:0 0 16px;line-height:1.55;">
         Once you have a date, add it in Taxify and we'll count down to it — and stop sending this.
@@ -479,7 +484,7 @@ export async function sendBookTaxReminderEmail(to, name, financialYear, endsOn, 
       ${button(reportsUrl, 'Add my appointment')}
       ${linkFallback(reportsUrl)}
       <p style="font-size:13px;color:#4b5563;margin:0;line-height:1.55;">
-        This is the only reminder we'll send about booking ${financialYear}.
+        This is the only reminder we'll send about booking ${periodLabel}.
       </p>
     `,
   });

@@ -8,6 +8,7 @@ import CategoryBadge from '../components/CategoryBadge.jsx';
 import Toggle from '../components/Toggle.jsx';
 import Icon from '../components/Icon.jsx';
 import { financialYearOf } from '../lib/financialYear.js';
+import { useEntities } from '../lib/EntityContext.jsx';
 import { onDigitKeyDown, playSuccess } from '../lib/sounds.js';
 import { formatMoney } from '../lib/money.js';
 import { useAuth } from '../lib/AuthContext.jsx';
@@ -30,6 +31,19 @@ export default function AddExpense() {
   // be what their bank actually charged.
   const [manualRate, setManualRate] = useState('');
   const [businessUsePct, setBusinessUsePct] = useState('100');
+  const { entities, entity: selectedEntity, fallbackId, isAll, showSwitcher } = useEntities();
+  const [entityId, setEntityId] = useState('');
+
+  // Everything is a way of looking, not a place to file — so when no books are
+  // selected the form asks, defaulting to the account's own.
+  useEffect(() => {
+    setEntityId((current) => current || (fallbackId ? String(fallbackId) : ''));
+  }, [fallbackId]);
+
+  const filingInto = entities.find((e) => String(e.id) === String(entityId)) || selectedEntity || null;
+  // Business use is only a question for a business. Somebody with no business
+  // should never be asked what percentage of their groceries was work.
+  const asksBusinessUse = filingInto?.kind === 'business';
   const [conversion, setConversion] = useState({ loading: false, error: null, baseAmount: null, rate: null });
   const [categoryTouched, setCategoryTouched] = useState(false);
   const [isRecurring, setIsRecurring] = useState(false);
@@ -149,7 +163,10 @@ export default function AddExpense() {
     form.append('amount', amount);
     form.append('currency', currency);
     if (manualRate) form.append('fxRate', manualRate);
-    form.append('businessUsePct', businessUsePct || '100');
+    // Sent explicitly rather than relying on the server reading absent as 100.
+    // No write about money should be ambiguous.
+    form.append('businessUsePct', asksBusinessUse ? businessUsePct || '100' : '100');
+    if (entityId) form.append('entityId', entityId);
     form.append('purchaseDate', purchaseDate);
     form.append('categoryId', categoryId);
     form.append('isRecurring', isRecurring);
@@ -205,6 +222,28 @@ export default function AddExpense() {
       <p style={{ color: 'var(--text-muted)', margin: '0 0 24px' }}>Log a purchase and attach the receipt.</p>
 
       <form onSubmit={onSubmit} className="card" style={{ padding: 24, display: 'flex', flexDirection: 'column', gap: 18 }}>
+        {/* Shown only once there is more than one set of books to choose
+            between. Asking is more honest than hiding the form: "Everything" is
+            a way of looking at records, not a place to put one. */}
+        {showSwitcher && (
+          <div>
+            <label className="label">Which books</label>
+            <select className="input" value={entityId} onChange={(e) => setEntityId(e.target.value)}>
+              {entities.map((e) => (
+                <option key={e.id} value={e.id}>
+                  {e.name}
+                  {e.kind === 'business' ? ' — business' : ''}
+                </option>
+              ))}
+            </select>
+            {isAll && (
+              <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 6 }}>
+                You're viewing everything, so choose where this one belongs.
+              </div>
+            )}
+          </div>
+        )}
+
         <div>
           <label className="label">What did you buy?</label>
           <input
@@ -295,12 +334,13 @@ export default function AddExpense() {
               </div>
             )}
           </div>
-          <div>
+          <div style={{ display: asksBusinessUse ? 'block' : 'none' }}>
             <label className="label">Business use</label>
-            {/* Everything used to be all-or-nothing, so a 60%-business laptop
-                had to be entered at 60% of its price — which threw away both
-                the real amount and the audit trail. The receipt keeps its full
-                value; only the claim is apportioned. */}
+            {/* Only asked of a business. Everything used to be all-or-nothing,
+                so a 60%-business laptop had to be entered at 60% of its price —
+                which threw away both the real amount and the audit trail. The
+                receipt keeps its full value; only the claim is apportioned.
+                Someone filing personal records is never asked at all. */}
             <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
               {[100, 80, 50, 20].map((pct) => (
                 <button

@@ -5,6 +5,7 @@ import { asyncHandler } from '../lib/asyncHandler.js';
 import { dataOwnerId } from '../auth/access.js';
 import { financialYearOf, isFinancialYearLabel } from '../lib/financialYear.js';
 import { blockIfFinalised } from '../lib/finalisedYears.js';
+import { writeEntityId } from '../lib/entities.js';
 import { ratesFor, vehicleClaim, homeOfficeClaim, RATE_KEYS } from '../lib/deductions.js';
 
 const router = Router();
@@ -28,15 +29,21 @@ router.get(
     if (!isFinancialYearLabel(financialYear)) return res.status(400).json({ error: 'Invalid financial year' });
 
     const userId = ownerOf(req);
+    // Narrowed to the selected books when there are some, and every set of
+    // books when there are not — the same rule reads use everywhere else.
+    const entityId = req.user.entityId || null;
+    const scope = entityId ? ' AND entity_id = ?' : '';
+    const params = entityId ? [userId, financialYear, entityId] : [userId, financialYear];
+
     const [trips] = await pool.execute(
       `SELECT id, trip_date, vehicle, km, purpose FROM vehicle_trips
-       WHERE user_id = ? AND financial_year = ? ORDER BY trip_date DESC, id DESC`,
-      [userId, financialYear]
+       WHERE user_id = ? AND financial_year = ?${scope} ORDER BY trip_date DESC, id DESC`,
+      params
     );
     const [hours] = await pool.execute(
       `SELECT id, entry_date, hours, note FROM home_office_hours
-       WHERE user_id = ? AND financial_year = ? ORDER BY entry_date DESC, id DESC`,
-      [userId, financialYear]
+       WHERE user_id = ? AND financial_year = ?${scope} ORDER BY entry_date DESC, id DESC`,
+      params
     );
 
     const rates = await ratesFor(financialYear);
@@ -83,12 +90,12 @@ router.get(
 // Writes are refused inside a client's books and inside a finalised year, the
 // same as expenses — a deduction added after a return was assessed changes what
 // was claimed.
-async function assertWritable(req, res, date) {
+async function assertWritable(req, res, date, entityId) {
   if (req.user.actingAsClient) {
     res.status(403).json({ error: 'Accountant access is read-only' });
     return false;
   }
-  const closed = await blockIfFinalised(req.user, date);
+  const closed = await blockIfFinalised(req.user, { entityId, dates: [date] });
   if (closed) {
     res.status(409).json({ error: closed });
     return false;
@@ -107,13 +114,15 @@ router.post(
     if (!Number.isFinite(distance) || distance <= 0) return res.status(400).json({ error: 'Enter the kilometres driven' });
     if (distance > 100000) return res.status(400).json({ error: 'That distance is too large' });
 
-    if (!(await assertWritable(req, res, date))) return;
+    const entityId = writeEntityId(req.user);
+    if (!(await assertWritable(req, res, date, entityId))) return;
 
     const [result] = await pool.execute(
-      `INSERT INTO vehicle_trips (user_id, financial_year, trip_date, vehicle, km, purpose, created_by)
-       VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO vehicle_trips (user_id, entity_id, financial_year, trip_date, vehicle, km, purpose, created_by)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         ownerOf(req),
+        entityId,
         financialYearOf(date, req.user.financialYearRule),
         date,
         String(vehicle).trim().slice(0, 80),
@@ -129,12 +138,12 @@ router.post(
 router.delete(
   '/vehicle-trips/:id',
   asyncHandler(async (req, res) => {
-    const [rows] = await pool.execute('SELECT trip_date FROM vehicle_trips WHERE id = ? AND user_id = ?', [
+    const [rows] = await pool.execute('SELECT trip_date, entity_id FROM vehicle_trips WHERE id = ? AND user_id = ?', [
       req.params.id,
       ownerOf(req),
     ]);
     if (!rows[0]) return res.status(404).json({ error: 'Trip not found' });
-    if (!(await assertWritable(req, res, rows[0].trip_date))) return;
+    if (!(await assertWritable(req, res, rows[0].trip_date, rows[0].entity_id))) return;
 
     await pool.execute('DELETE FROM vehicle_trips WHERE id = ? AND user_id = ?', [req.params.id, ownerOf(req)]);
     res.json({ ok: true });
@@ -152,13 +161,15 @@ router.post(
     // More than a day's worth in a day is a typo, not a claim.
     if (worked > 24) return res.status(400).json({ error: 'That is more than 24 hours' });
 
-    if (!(await assertWritable(req, res, date))) return;
+    const entityId = writeEntityId(req.user);
+    if (!(await assertWritable(req, res, date, entityId))) return;
 
     const [result] = await pool.execute(
-      `INSERT INTO home_office_hours (user_id, financial_year, entry_date, hours, note, created_by)
-       VALUES (?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO home_office_hours (user_id, entity_id, financial_year, entry_date, hours, note, created_by)
+       VALUES (?, ?, ?, ?, ?, ?, ?)`,
       [
         ownerOf(req),
+        entityId,
         financialYearOf(date, req.user.financialYearRule),
         date,
         worked,
@@ -173,12 +184,12 @@ router.post(
 router.delete(
   '/home-office/:id',
   asyncHandler(async (req, res) => {
-    const [rows] = await pool.execute('SELECT entry_date FROM home_office_hours WHERE id = ? AND user_id = ?', [
+    const [rows] = await pool.execute('SELECT entry_date, entity_id FROM home_office_hours WHERE id = ? AND user_id = ?', [
       req.params.id,
       ownerOf(req),
     ]);
     if (!rows[0]) return res.status(404).json({ error: 'Entry not found' });
-    if (!(await assertWritable(req, res, rows[0].entry_date))) return;
+    if (!(await assertWritable(req, res, rows[0].entry_date, rows[0].entity_id))) return;
 
     await pool.execute('DELETE FROM home_office_hours WHERE id = ? AND user_id = ?', [req.params.id, ownerOf(req)]);
     res.json({ ok: true });

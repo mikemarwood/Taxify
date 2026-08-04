@@ -11,6 +11,7 @@ import { asyncHandler } from '../lib/asyncHandler.js';
 import { financialYearOf } from '../lib/financialYear.js';
 import { resolveCategoryForYear } from '../lib/categoryYears.js';
 import { blockIfFinalised, finalisedYearsFor } from '../lib/finalisedYears.js';
+import { writeEntityId } from '../lib/entities.js';
 import { viewableCopy } from '../lib/heicPreview.js';
 import { serveAttachment } from '../lib/serveAttachment.js';
 import { MAX_UPLOAD_BYTES, isAllowedUpload, UPLOAD_REJECTED_MESSAGE } from '../lib/uploadRules.js';
@@ -27,10 +28,28 @@ if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir, { recursive: true });
 // Receipt uploads follow the shared rules in lib/uploadRules.js, so what an
 // expense accepts and what a category document accepts can't drift apart.
 
-// The account's financial-year rule decides which year folder a receipt
-// lands in, so it travels with every path built here.
-function dirFor(userId, purchaseDate, categoryName, rule) {
-  return receiptDirFor(uploadsDir, userId, purchaseDate, categoryName, rule);
+// The account's financial-year rule decides which year folder a receipt lands
+// in, and the set of books decides whether there is a folder above that — so
+// both travel with every path built here. The default books have no segment, so
+// their paths are byte-for-byte what they were before entities existed.
+function dirFor(userId, purchaseDate, categoryName, rule, entitySegment = null) {
+  return receiptDirFor(uploadsDir, userId, purchaseDate, categoryName, rule, entitySegment);
+}
+
+// The folder segment for the books a request is about. Read from the row rather
+// than derived from the name, because the name can change and a receipt must
+// never move because somebody renamed their business.
+function entitySegmentOf(user) {
+  return user?.entity?.path_segment || null;
+}
+
+// The segment for a specific set of books, whichever ones a row belongs to —
+// not whichever ones happen to be selected. Needed wherever a path is built for
+// an existing expense rather than for the request.
+async function segmentForEntity(entityId) {
+  if (!entityId) return null;
+  const [rows] = await pool.execute('SELECT path_segment FROM entities WHERE id = ?', [entityId]);
+  return rows[0]?.path_segment || null;
 }
 
 async function categoryNameFor(userId, categoryId) {
@@ -44,7 +63,15 @@ const storage = multer.diskStorage({
     try {
       const categoryName = await categoryNameFor(req.user.id, req.body?.categoryId);
       const purchaseDate = req.body?.purchaseDate || new Date().toISOString();
-      const dir = dirFor(req.user.id, purchaseDate, categoryName, req.user.financialYearRule);
+      // The form's own entity wins over the selected one, because a receipt can
+      // be added from the combined view where nothing is selected. This works
+      // only because the client appends entityId before the file — multer runs
+      // this callback mid-stream, so it can only see fields that came first.
+      // The same reason the category upload appends financialYear first.
+      const segment = req.body?.entityId
+        ? await segmentForEntity(Number(req.body.entityId))
+        : entitySegmentOf(req.user);
+      const dir = dirFor(req.user.id, purchaseDate, categoryName, req.user.financialYearRule, segment);
       fs.mkdirSync(dir, { recursive: true });
       req._uploadDir = dir;
       cb(null, dir);
@@ -78,22 +105,34 @@ const upload = multer({
 // too, not just the name.
 async function otherExpensesUsingReceipt(dbPool, user, receiptPath, dir, excludeExpenseId) {
   if (!receiptPath) return 0;
+  // Each row's own set of books, not the request's. Two entities can hold the
+  // same filename in the same category name, and without joining out the
+  // segment this would compare one of them against the other's directory —
+  // concluding nothing else uses the file, and deleting one that is still in
+  // use. The join is what stops that.
   const [rows] = await dbPool.execute(
-    `SELECT e.id, e.purchase_date, c.name AS category_name
-     FROM expenses e LEFT JOIN categories c ON c.id = e.category_id
+    `SELECT e.id, e.purchase_date, c.name AS category_name, en.path_segment
+     FROM expenses e
+     LEFT JOIN categories c ON c.id = e.category_id
+     LEFT JOIN entities en ON en.id = e.entity_id
      WHERE e.user_id = ? AND e.receipt_path = ? AND e.deleted_at IS NULL AND e.id <> ?`,
     [user.id, receiptPath, excludeExpenseId || 0]
   );
-  return rows.filter((r) => dirFor(user.id, r.purchase_date, r.category_name || 'Uncategorised', user.financialYearRule) === dir).length;
+  return rows.filter(
+    (r) =>
+      dirFor(user.id, r.purchase_date, r.category_name || 'Uncategorised', user.financialYearRule, r.path_segment) ===
+      dir
+  ).length;
 }
 
 const TRASH_RETENTION_DAYS = 30;
 
 export async function purgeExpiredTrash(dbPool) {
   const [rows] = await dbPool.execute(
-    `SELECT e.id, e.user_id, e.receipt_path, e.purchase_date, c.name AS category_name
+    `SELECT e.id, e.user_id, e.receipt_path, e.purchase_date, c.name AS category_name, en.path_segment
      FROM expenses e
      LEFT JOIN categories c ON c.id = e.category_id
+     LEFT JOIN entities en ON en.id = e.entity_id
      WHERE e.deleted_at IS NOT NULL AND e.deleted_at < DATE_SUB(NOW(), INTERVAL ${TRASH_RETENTION_DAYS} DAY)`
   );
   if (rows.length === 0) return;
@@ -110,7 +149,7 @@ export async function purgeExpiredTrash(dbPool) {
   for (const row of rows) {
     if (row.receipt_path) {
       const rule = await ruleFor(row.user_id);
-      const dir = receiptDirFor(uploadsDir, row.user_id, row.purchase_date, row.category_name, rule);
+      const dir = receiptDirFor(uploadsDir, row.user_id, row.purchase_date, row.category_name, rule, row.path_segment);
       // Keep the file if a live expense still shares it.
       const stillUsed = await otherExpensesUsingReceipt(
         dbPool,
@@ -142,9 +181,11 @@ router.get(
               e.is_recurring, e.frequency, e.notes, e.created_at, e.updated_at, e.auto_generated,
               e.base_amount, e.base_currency, e.fx_rate, e.fx_rate_source, e.business_use_pct,
               creator.name AS created_by_name, editor.name AS updated_by_name,
-              c.id AS category_id, c.name AS category_name, c.color AS category_color, c.icon AS category_icon
+              c.id AS category_id, c.name AS category_name, c.color AS category_color, c.icon AS category_icon,
+              en.id AS entity_id, en.name AS entity_name, en.kind AS entity_kind, en.is_default AS entity_is_default
        FROM expenses e
        LEFT JOIN categories c ON c.id = e.category_id
+       LEFT JOIN entities en ON en.id = e.entity_id
        LEFT JOIN users creator ON creator.id = e.created_by
        LEFT JOIN users editor ON editor.id = e.updated_by
        WHERE ${scope.clause} AND e.deleted_at IS NULL
@@ -154,6 +195,12 @@ router.get(
 
     const expenses = rows.map((r) => ({
       id: r.id,
+      // Carried on every row so a combined list can say which books each one is
+      // in. Two businesses can each have a Tooling category, and without this
+      // they are indistinguishable in a list that shows both.
+      entity: r.entity_id
+        ? { id: r.entity_id, name: r.entity_name, kind: r.entity_kind, isDefault: !!r.entity_is_default }
+        : null,
       itemName: r.item_name,
       amount: Number(r.amount),
       currency: r.currency,
@@ -323,6 +370,17 @@ router.post(
     try {
       const { itemName, amount, currency, purchaseDate, categoryId, notes, isRecurring, frequency } = req.body || {};
 
+      // Which set of books this belongs to. The combined view is a way of
+      // looking, not a place to file, so it is refused here rather than guessed
+      // at — the form sends an entity explicitly when nothing is selected.
+      let entityId;
+      try {
+        entityId = writeEntityId({ entityId: Number(req.body?.entityId) || req.user.entityId });
+      } catch (err) {
+        cleanupUpload();
+        return res.status(400).json({ error: err.message });
+      }
+
       if (!itemName || !String(itemName).trim()) {
         cleanupUpload();
         return res.status(400).json({ error: 'Item name is required' });
@@ -349,7 +407,7 @@ router.post(
         return res.status(400).json({ error: 'Notes must be 1000 characters or fewer' });
       }
 
-      const closed = await blockIfFinalised(req.user, purchaseDate);
+      const closed = await blockIfFinalised(req.user, { entityId, dates: [purchaseDate] });
       if (closed) {
         cleanupUpload();
         return res.status(409).json({ error: closed });
@@ -395,7 +453,7 @@ router.post(
         // Categories belong to a financial year, so the one that gets saved is
         // the one for the year this expense falls in — not whichever year's
         // list it happened to be picked from.
-        resolvedCategoryId = await resolveCategoryForYear(pool, req.user.id, categoryId, purchaseDate, req.user.financialYearRule);
+        resolvedCategoryId = await resolveCategoryForYear(pool, req.user.id, entityId, categoryId, purchaseDate, req.user.financialYearRule);
         if (resolvedCategoryId === undefined) {
           cleanupUpload();
           return res.status(400).json({ error: 'Invalid category' });
@@ -409,12 +467,13 @@ router.post(
       const nextDueDate = recurring ? advanceDate(purchaseDate, frequency) : null;
 
       const [result] = await pool.execute(
-        `INSERT INTO expenses (user_id, created_by, category_id, item_name, amount, currency, purchase_date,
+        `INSERT INTO expenses (user_id, entity_id, created_by, category_id, item_name, amount, currency, purchase_date,
            receipt_path, is_recurring, frequency, notes, next_due_date,
            base_currency, base_amount, fx_rate, fx_rate_source, fx_rate_date, business_use_pct)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
           req.user.id,
+          entityId,
           req.user.id,
           resolvedCategoryId,
           String(itemName).trim(),
@@ -464,6 +523,16 @@ router.patch(
 
       const { itemName, amount, currency, purchaseDate, categoryId, notes, isRecurring, frequency, removeReceipt } = req.body || {};
 
+      // An expense stays where it is unless the request says otherwise. It may
+      // move between sets of books — filed against the wrong business is a
+      // mistake worth being able to correct — and the receipt follows it,
+      // through the same relocation the category and date changes already use.
+      const entityId = Number(req.body?.entityId) || existing.entity_id;
+      if (!entityId) {
+        cleanupUpload();
+        return res.status(400).json({ error: 'Choose which business this belongs to' });
+      }
+
       if (!itemName || !String(itemName).trim()) {
         cleanupUpload();
         return res.status(400).json({ error: 'Item name is required' });
@@ -492,7 +561,7 @@ router.patch(
 
       // Both dates: moving an expense across the boundary changes two years,
       // and either being closed is a reason to refuse.
-      const closed = await blockIfFinalised(req.user, purchaseDate, existing.purchase_date);
+      const closed = await blockIfFinalised(req.user, { entityId, dates: [purchaseDate, existing.purchase_date] });
       if (closed) {
         cleanupUpload();
         return res.status(409).json({ error: closed });
@@ -543,7 +612,7 @@ router.patch(
         // Moving an expense into another financial year moves it onto that
         // year's category too, so the year it is counted in and the category
         // it is counted under never disagree.
-        resolvedCategoryId = await resolveCategoryForYear(pool, req.user.id, categoryId, purchaseDate, req.user.financialYearRule);
+        resolvedCategoryId = await resolveCategoryForYear(pool, req.user.id, entityId, categoryId, purchaseDate, req.user.financialYearRule);
         if (resolvedCategoryId === undefined) {
           cleanupUpload();
           return res.status(400).json({ error: 'Invalid category' });
@@ -553,8 +622,13 @@ router.patch(
       }
 
       const oldCategoryName = await categoryNameFor(req.user.id, existing.category_id);
-      const oldDir = dirFor(req.user.id, existing.purchase_date, oldCategoryName, req.user.financialYearRule);
-      const newDir = dirFor(req.user.id, purchaseDate, newCategoryName, req.user.financialYearRule);
+      // Each side reads its own set of books. Moving an expense from one
+      // business to another changes the folder above the year, and using the
+      // same segment for both would leave the file behind while the row moved.
+      const oldSegment = await segmentForEntity(existing.entity_id);
+      const newSegment = await segmentForEntity(entityId);
+      const oldDir = dirFor(req.user.id, existing.purchase_date, oldCategoryName, req.user.financialYearRule, oldSegment);
+      const newDir = dirFor(req.user.id, purchaseDate, newCategoryName, req.user.financialYearRule, newSegment);
 
       let receiptPath = existing.receipt_path;
       let deleteOldAbsPath = null;
@@ -583,11 +657,12 @@ router.patch(
       const nextDueDate = recurring ? advanceDate(purchaseDate, frequency) : null;
 
       await pool.execute(
-        `UPDATE expenses SET category_id = ?, item_name = ?, amount = ?, currency = ?, purchase_date = ?, receipt_path = ?, is_recurring = ?, frequency = ?, notes = ?, next_due_date = ?,
+        `UPDATE expenses SET entity_id = ?, category_id = ?, item_name = ?, amount = ?, currency = ?, purchase_date = ?, receipt_path = ?, is_recurring = ?, frequency = ?, notes = ?, next_due_date = ?,
          base_currency = ?, base_amount = ?, fx_rate = ?, fx_rate_source = ?, fx_rate_date = ?,
          business_use_pct = ?, updated_by = ?, updated_at = NOW()
          WHERE id = ? AND user_id = ?`,
         [
+          entityId,
           resolvedCategoryId,
           String(itemName).trim(),
           amountNum,
@@ -644,14 +719,18 @@ router.get(
   '/:id/receipt',
   asyncHandler(async (req, res) => {
     const [rows] = await pool.execute(
-      `SELECT e.receipt_path, e.item_name, e.purchase_date, c.name AS category_name
-       FROM expenses e LEFT JOIN categories c ON c.id = e.category_id
+      `SELECT e.receipt_path, e.item_name, e.purchase_date, c.name AS category_name, en.path_segment
+       FROM expenses e
+       LEFT JOIN categories c ON c.id = e.category_id
+       LEFT JOIN entities en ON en.id = e.entity_id
        WHERE e.id = ? AND e.user_id = ?`,
       [req.params.id, req.user.id]
     );
     const row = rows[0];
     if (!row || !row.receipt_path) return res.status(404).json({ error: 'Receipt not found' });
-    const dir = dirFor(req.user.id, row.purchase_date, row.category_name || 'Uncategorised', req.user.financialYearRule);
+    // The expense's own books, not whichever ones are selected — a receipt has
+    // to open from the combined view too, where nothing is selected at all.
+    const dir = dirFor(req.user.id, row.purchase_date, row.category_name || 'Uncategorised', req.user.financialYearRule, row.path_segment);
     const filePath = assertWithin(uploadsDir, path.join(dir, row.receipt_path));
     if (req.query.download) {
       const ext = path.extname(row.receipt_path);
@@ -677,22 +756,24 @@ router.delete(
   '/:id',
   asyncHandler(async (req, res) => {
     const [rows] = await pool.execute(
-      `SELECT e.id, e.receipt_path, e.purchase_date, c.name AS category_name
-       FROM expenses e LEFT JOIN categories c ON c.id = e.category_id
+      `SELECT e.id, e.entity_id, e.receipt_path, e.purchase_date, c.name AS category_name, en.path_segment
+       FROM expenses e
+       LEFT JOIN categories c ON c.id = e.category_id
+       LEFT JOIN entities en ON en.id = e.entity_id
        WHERE e.id = ? AND e.user_id = ? AND e.deleted_at IS NULL`,
       [req.params.id, req.user.id]
     );
     const expense = rows[0];
     if (!expense) return res.status(404).json({ error: 'Expense not found' });
 
-    const closed = await blockIfFinalised(req.user, expense.purchase_date);
+    const closed = await blockIfFinalised(req.user, { entityId: expense.entity_id, dates: [expense.purchase_date] });
     if (closed) return res.status(409).json({ error: closed });
 
     const wanted = req.query.deleteReceipt === 'true' || req.body?.deleteReceipt === true;
     let receiptDeleted = false;
 
     if (wanted && expense.receipt_path) {
-      const dir = dirFor(req.user.id, expense.purchase_date, expense.category_name || 'Uncategorised', req.user.financialYearRule);
+      const dir = dirFor(req.user.id, expense.purchase_date, expense.category_name || 'Uncategorised', req.user.financialYearRule, expense.path_segment);
       // One docket can cover several expenses, so the file only goes if this
       // was the last expense pointing at it.
       const stillUsed = await otherExpensesUsingReceipt(pool, req.user, expense.receipt_path, dir, expense.id);

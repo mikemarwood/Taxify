@@ -1,7 +1,17 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import path from 'path';
-import { assertWithin, categoryToFolderSegment, receiptRelDirFor } from './receiptStorage.js';
+import {
+  assertWithin,
+  categoryToFolderSegment,
+  receiptRelDirFor,
+  receiptDirFor,
+  categoryDocumentDir,
+  categoryDocumentRelDir,
+  entityReceiptsRootDir,
+} from './receiptStorage.js';
+import { entityPathSegment, writeEntityId } from './entities.js';
+import { isFinancialYearLabel } from './financialYear.js';
 
 // assertWithin is the path-traversal guard on every receipt and document read
 // in the app. If it ever stops rejecting, a crafted category name or filename
@@ -65,4 +75,97 @@ test('the relative path follows the account financial year rule', () => {
   const us = receiptRelDirFor(1, '2025-05-01', 'Tooling', { startMonth: 1, startDay: 1 });
   assert.ok(au.includes('2024-2025'), au);
   assert.ok(us.includes('2025'), us);
+});
+
+// --- Entities do not move a single existing file --------------------------
+
+test('the default entity produces exactly the paths it always did', () => {
+  // The most important test in this file. Every account that exists today has
+  // one entity, it is the default, and its path_segment is NULL — so if these
+  // three assertions hold, adding entities cannot have orphaned a receipt.
+  const AU = { startMonth: 7, startDay: 1 };
+
+  assert.equal(
+    receiptDirFor(ROOT, 12, '2025-08-01', 'Tooling', AU, null),
+    path.join(ROOT, '12', 'receipts', '2025-2026', 'tooling')
+  );
+  // ...and the same call written the way every existing caller writes it,
+  // with no entity argument at all.
+  assert.equal(receiptDirFor(ROOT, 12, '2025-08-01', 'Tooling', AU), receiptDirFor(ROOT, 12, '2025-08-01', 'Tooling', AU, null));
+
+  assert.equal(receiptRelDirFor(12, '2025-08-01', 'Tooling', AU, null), '12/receipts/2025-2026/tooling');
+  assert.equal(receiptRelDirFor(12, '2025-08-01', 'Tooling', AU), '12/receipts/2025-2026/tooling');
+
+  assert.equal(
+    categoryDocumentDir(ROOT, 12, 'Home Rental', '2025-2026', null),
+    path.join(ROOT, '12', 'documents', 'home rental', '2025-2026')
+  );
+  assert.equal(
+    categoryDocumentDir(ROOT, 12, 'Home Rental', '2025-2026'),
+    categoryDocumentDir(ROOT, 12, 'Home Rental', '2025-2026', null)
+  );
+  assert.equal(categoryDocumentRelDir(12, 'Home Rental', '2025-2026'), '12/documents/home rental/2025-2026');
+
+  assert.equal(entityReceiptsRootDir(ROOT, 12, null), path.join(ROOT, '12', 'receipts'));
+});
+
+test('another entity adds exactly one folder, above the year', () => {
+  const AU = { startMonth: 7, startDay: 1 };
+  assert.equal(
+    receiptDirFor(ROOT, 12, '2025-08-01', 'Tooling', AU, 'acme'),
+    path.join(ROOT, '12', 'receipts', 'acme', '2025-2026', 'tooling')
+  );
+  assert.equal(receiptRelDirFor(12, '2025-08-01', 'Tooling', AU, 'acme'), '12/receipts/acme/2025-2026/tooling');
+  assert.equal(
+    categoryDocumentDir(ROOT, 12, 'Tooling', '2025-2026', 'acme'),
+    path.join(ROOT, '12', 'documents', 'acme', 'tooling', '2025-2026')
+  );
+  assert.equal(entityReceiptsRootDir(ROOT, 12, 'acme'), path.join(ROOT, '12', 'receipts', 'acme'));
+});
+
+test('two entities never share a category folder', () => {
+  // The whole point. Without this, renaming one business's "Tooling" moves the
+  // other's receipts and repoints only its own rows, and the files become
+  // unreachable at any path the app will look at.
+  const AU = { startMonth: 7, startDay: 1 };
+  const a = receiptDirFor(ROOT, 12, '2025-08-01', 'Tooling', AU, null);
+  const b = receiptDirFor(ROOT, 12, '2025-08-01', 'Tooling', AU, 'acme');
+  assert.notEqual(a, b);
+});
+
+test('a hostile entity segment cannot escape the uploads root', () => {
+  const AU = { startMonth: 7, startDay: 1 };
+  for (const nasty of ['../../etc', '..', '../', '/etc/passwd', 'C:\Windows', '..\..\secrets']) {
+    const dir = receiptDirFor(ROOT, 12, '2025-08-01', 'Tooling', AU, nasty);
+    assert.equal(assertWithin(ROOT, dir), dir, `"${nasty}" escaped`);
+    const docs = categoryDocumentDir(ROOT, 12, 'Tooling', '2025-2026', nasty);
+    assert.equal(assertWithin(ROOT, docs), docs, `"${nasty}" escaped via documents`);
+  }
+});
+
+test('an entity folder is never mistakable for a year folder', () => {
+  // categories.routes reads every child of receipts/ that is not _inbox as a
+  // financial year, and a category delete rmSyncs those folders. A business
+  // named after a year would be caught by that scan.
+  assert.notEqual(entityPathSegment('2025-2026', 9), '2025-2026');
+  assert.notEqual(entityPathSegment('2025', 9), '2025');
+  assert.notEqual(entityPathSegment('_inbox', 9), '_inbox');
+  assert.equal(isFinancialYearLabel(entityPathSegment('2025-2026', 9)), false);
+});
+
+test('entity segments are disambiguated and never empty', () => {
+  assert.equal(entityPathSegment('Acme Plumbing', 3), 'acme plumbing');
+  // A second business of the same name gets the id rather than colliding.
+  assert.equal(entityPathSegment('Acme Plumbing', 7, ['acme plumbing']), 'acme plumbing-e7');
+  for (const awkward of ['', '///', '...', ':::', '   ']) {
+    const segment = entityPathSegment(awkward, 4);
+    assert.ok(segment && segment.length > 0, `"${awkward}" produced nothing`);
+  }
+});
+
+test('writeEntityId refuses the combined view rather than guessing', () => {
+  assert.equal(writeEntityId({ entityId: 5 }), 5);
+  for (const user of [{ entityId: null }, {}, null, undefined]) {
+    assert.throws(() => writeEntityId(user), (err) => err.status === 400);
+  }
 });

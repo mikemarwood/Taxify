@@ -52,6 +52,20 @@ for (const file of walk(srcDir)) {
   // A file is free to declare its own function of the same name.
   for (const m of src.matchAll(/(?:function|const|let|var)\s+([A-Za-z0-9_$]+)/g)) known.add(m[1]);
 
+  // ...including by destructuring, which is how every useState setter is
+  // declared. Without this, `const [entityId, setEntityId] = useState()` looked
+  // undeclared and every such setter sharing a name with a lib export was
+  // reported as a missing import — a false alarm that would eventually train
+  // somebody to ignore this check.
+  for (const m of src.matchAll(/(?:const|let|var)\s*[[{]([^\]}]*)[\]}]\s*=/g)) {
+    for (const part of m[1].split(',')) {
+      // `{ a: b }` binds b, not a; `a = 1` binds a.
+      const name = part.includes(':') ? part.split(':').pop() : part.split('=')[0];
+      const clean = name.replace(/[^A-Za-z0-9_$]/g, '');
+      if (clean) known.add(clean);
+    }
+  }
+
   for (const name of exported) {
     // In call position only, and not preceded by a dot — obj.formatDate() is
     // somebody else's method, not this one.

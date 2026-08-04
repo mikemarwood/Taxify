@@ -56,10 +56,34 @@ export function receiptsRootDir(uploadsRoot, userId) {
   return path.join(userRootDir(uploadsRoot, userId), RECEIPTS_SEGMENT);
 }
 
-// <uploads>/<userId>/receipts/<financial-year>/<category>
-export function receiptDirFor(uploadsRoot, userId, purchaseDate, categoryName, rule) {
+// The extra folder a non-default set of books gets.
+//
+// The default entity has no segment at all, so every path it produces is
+// character-for-character what it was before entities existed — which is what
+// means not one receipt on disk has to move. Only additional businesses sit in
+// a folder of their own, alongside the year folders they used to share.
+export function entityToFolderSegment(pathSegment) {
+  return pathSegment ? sanitizeSegment(pathSegment, 'entity').toLowerCase() : null;
+}
+
+// Where an entity's financial-year folders begin. The receipts root itself for
+// the default entity, one level in for any other.
+//
+// This is what a category rename or delete scans, and the reason it is worth
+// having: two businesses can each hold a "Tooling" in the same year, and
+// without the split, renaming one would move the other's files while updating
+// only its own rows — leaving receipts that no longer exist at any path the
+// app will ever look at.
+export function entityReceiptsRootDir(uploadsRoot, userId, entitySegment) {
+  const root = receiptsRootDir(uploadsRoot, userId);
+  const segment = entityToFolderSegment(entitySegment);
+  return segment ? path.join(root, segment) : root;
+}
+
+// <uploads>/<userId>/receipts[/<entity>]/<financial-year>/<category>
+export function receiptDirFor(uploadsRoot, userId, purchaseDate, categoryName, rule, entitySegment = null) {
   return path.join(
-    receiptsRootDir(uploadsRoot, userId),
+    entityReceiptsRootDir(uploadsRoot, userId, entitySegment),
     financialYearOf(purchaseDate, rule),
     categoryToFolderSegment(categoryName)
   );
@@ -68,10 +92,12 @@ export function receiptDirFor(uploadsRoot, userId, purchaseDate, categoryName, r
 // The same folders as receiptDirFor, but relative to the uploads root and
 // always forward-slashed — this is what gets shown to the user, so it must
 // read the same on Windows and Linux.
-export function receiptRelDirFor(userId, purchaseDate, categoryName, rule) {
+export function receiptRelDirFor(userId, purchaseDate, categoryName, rule, entitySegment = null) {
+  const segment = entityToFolderSegment(entitySegment);
   return [
     sanitizeSegment(userId, 'user'),
     RECEIPTS_SEGMENT,
+    ...(segment ? [segment] : []),
     financialYearOf(purchaseDate, rule),
     categoryToFolderSegment(categoryName),
   ].join('/');
@@ -94,13 +120,22 @@ export const DOCUMENTS_SEGMENT = 'documents';
 // Rental paperwork is filed by year the same way receipts are — an agent
 // statement or a depreciation schedule only means anything against the year it
 // covers, and at tax time you want one year's documents together.
-export function categoryDocumentDir(uploadsRoot, userId, categoryName, financialYear) {
-  const base = path.join(userRootDir(uploadsRoot, userId), DOCUMENTS_SEGMENT, categoryToFolderSegment(categoryName));
+export function categoryDocumentDir(uploadsRoot, userId, categoryName, financialYear, entitySegment = null) {
+  const segment = entityToFolderSegment(entitySegment);
+  const base = path.join(
+    userRootDir(uploadsRoot, userId),
+    DOCUMENTS_SEGMENT,
+    ...(segment ? [segment] : []),
+    categoryToFolderSegment(categoryName)
+  );
   return financialYear ? path.join(base, financialYear) : base;
 }
 
-export function categoryDocumentRelDir(userId, categoryName, financialYear) {
-  const parts = [sanitizeSegment(userId, 'user'), DOCUMENTS_SEGMENT, categoryToFolderSegment(categoryName)];
+export function categoryDocumentRelDir(userId, categoryName, financialYear, entitySegment = null) {
+  const segment = entityToFolderSegment(entitySegment);
+  const parts = [sanitizeSegment(userId, 'user'), DOCUMENTS_SEGMENT];
+  if (segment) parts.push(segment);
+  parts.push(categoryToFolderSegment(categoryName));
   if (financialYear) parts.push(financialYear);
   return parts.join('/');
 }

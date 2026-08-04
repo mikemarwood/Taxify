@@ -100,10 +100,25 @@ export async function getVisibleUserIds(publicUser) {
 // plus, for an accountant given only some financial years, the date ranges
 // those years cover. Built in one place so a query written later can't
 // accidentally hand an accountant a year they were never given.
-export async function expenseScope(publicUser, column = 'e.user_id', dateColumn = 'e.purchase_date') {
+export async function expenseScope(
+  publicUser,
+  column = 'e.user_id',
+  dateColumn = 'e.purchase_date',
+  entityColumn = 'e.entity_id'
+) {
   const ids = await getVisibleUserIds(publicUser);
   const parts = [`${column} IN (${ids.map(() => '?').join(',')})`];
   const params = [...ids];
+
+  // A chosen set of books narrows the request to it. Because requireAuth put
+  // the choice on req.user, every caller of this function became entity-aware
+  // without changing a line — including ones written after this comment.
+  // Absent means the combined view, which is a way of looking rather than a
+  // place to file, so reads allow it and writes do not.
+  if (publicUser.entityId) {
+    parts.push(`${entityColumn} = ?`);
+    params.push(publicUser.entityId);
+  }
 
   const years = publicUser.actingAsClient ? publicUser.allowedFinancialYears : null;
   // The rule is the data owner's, set on req.user by requireAuth — so a year

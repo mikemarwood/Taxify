@@ -16,6 +16,7 @@ import exportRoutes from './routes/export.routes.js';
 import taxYearRoutes from './routes/taxYears.routes.js';
 import deductionRoutes from './routes/deductions.routes.js';
 import notificationRoutes from './routes/notifications.routes.js';
+import entityRoutes from './routes/entities.routes.js';
 import { purgeUnactivatedAccounts, runBillingReminders } from './jobs/billingJobs.js';
 import { runRecurringExpenses } from './jobs/expenseJobs.js';
 import { runTaxReminders } from './jobs/taxReminders.js';
@@ -23,6 +24,7 @@ import pool, { ensureSchema } from './db.js';
 import { migrateReceiptFolders } from './migrations/receiptFolders.js';
 import { migrateCategoriesByYear } from './migrations/categoriesByYear.js';
 import { migrateCurrencyBase } from './migrations/currencyBase.js';
+import { migrateEntities } from './migrations/entities.js';
 import { purgeExpiredAssignments } from './auth/accountants.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -99,6 +101,7 @@ app.use('/api/export', exportRoutes);
 app.use('/api/tax-years', taxYearRoutes);
 app.use('/api/deductions', deductionRoutes);
 app.use('/api/notifications', notificationRoutes);
+app.use('/api/entities', entityRoutes);
 
 // eslint-disable-next-line no-unused-vars
 app.use((err, req, res, next) => {
@@ -162,6 +165,16 @@ try {
   await migrateCurrencyBase(pool);
 } catch (err) {
   console.error('Failed to backfill expense currency conversion');
+  console.error(err);
+}
+
+// Every row has to belong to a set of books before anything is scoped to one.
+// Awaited before the first request for the same reason the others are: entity
+// is derived on every read, and half an answer is worse than a slow start.
+try {
+  await migrateEntities(pool);
+} catch (err) {
+  console.error('Failed to place records into entities');
   console.error(err);
 }
 

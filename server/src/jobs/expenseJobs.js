@@ -39,12 +39,14 @@ export async function runRecurringExpenses(pool) {
       });
 
       await pool.execute(
-        `INSERT INTO expenses (user_id, created_by, category_id, item_name, amount, currency, purchase_date,
+        `INSERT INTO expenses (user_id, entity_id, created_by, category_id, item_name, amount, currency, purchase_date,
            is_recurring, frequency, notes, auto_generated,
            base_currency, base_amount, fx_rate, fx_rate_source, fx_rate_date, business_use_pct)
-         VALUES (?, ?, ?, ?, ?, ?, ?, 0, NULL, ?, 1, ?, ?, ?, ?, ?, ?)`,
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, NULL, ?, 1, ?, ?, ?, ?, ?, ?)`,
         [
           t.user_id,
+          // The template's books, carried forward like everything else on it.
+          t.entity_id,
           t.created_by || t.user_id,
           t.category_id,
           t.item_name,

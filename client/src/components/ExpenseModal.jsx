@@ -11,6 +11,7 @@ import Icon from './Icon.jsx';
 import { formatAmount, formatMoney } from '../lib/money.js';
 import { onDigitKeyDown, playOpen, playClose } from '../lib/sounds.js';
 import { useAuth } from '../lib/AuthContext.jsx';
+import { useEntities } from '../lib/EntityContext.jsx';
 import { financialYearOf } from '../lib/financialYear.js';
 import { formatDateShort, formatDateLong } from '../lib/dates.js';
 
@@ -135,6 +136,11 @@ export default function ExpenseModal({ expense, onClose, onSaved, onDeleted }) {
   // made every edit of a part-business expense quietly reset it to a full
   // claim: the save sent no percentage, and the server reads "absent" as 100.
   const [businessUsePct, setBusinessUsePct] = useState(String(expense.businessUsePct ?? 100));
+  const { entities, showSwitcher } = useEntities();
+  const [entityId, setEntityId] = useState(expense.entity ? String(expense.entity.id) : '');
+  const filingInto = entities.find((e) => String(e.id) === String(entityId)) || expense.entity || null;
+  // Only a business is asked. An individual's records are always claimed whole.
+  const asksBusinessUse = filingInto?.kind === 'business';
   const [file, setFile] = useState(null);
   const [removeReceipt, setRemoveReceipt] = useState(false);
   const [progress, setProgress] = useState(0);
@@ -197,7 +203,8 @@ export default function ExpenseModal({ expense, onClose, onSaved, onDeleted }) {
     form.append('isRecurring', isRecurring);
     form.append('frequency', isRecurring ? frequency : '');
     form.append('notes', notes);
-    form.append('businessUsePct', businessUsePct || '100');
+    form.append('businessUsePct', asksBusinessUse ? businessUsePct || '100' : '100');
+    if (entityId) form.append('entityId', entityId);
     if (file) form.append('receipt', file);
     if (removeReceipt) form.append('removeReceipt', 'true');
 
@@ -308,7 +315,24 @@ export default function ExpenseModal({ expense, onClose, onSaved, onDeleted }) {
                   <input className="input" required type="date" value={purchaseDate} onChange={(e) => setPurchaseDate(e.target.value)} />
                 </div>
               </div>
-              <div>
+              {showSwitcher && (
+                <div>
+                  <label className="label">Which books</label>
+                  <select className="input" value={entityId} onChange={(e) => setEntityId(e.target.value)}>
+                    {entities.map((e) => (
+                      <option key={e.id} value={e.id}>
+                        {e.name}
+                        {e.kind === 'business' ? ' — business' : ''}
+                      </option>
+                    ))}
+                  </select>
+                  <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 6 }}>
+                    Moving this to another set of books takes its receipt with it.
+                  </div>
+                </div>
+              )}
+
+              <div style={{ display: asksBusinessUse ? 'block' : 'none' }}>
                 <label className="label">Business use</label>
                 <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
                   {[100, 80, 50, 20].map((pct) => (

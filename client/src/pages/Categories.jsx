@@ -4,6 +4,7 @@ import { api } from '../lib/api.js';
 import { useToast } from '../components/Toast.jsx';
 import { SkeletonList } from '../components/Skeletons.jsx';
 import Icon from '../components/Icon.jsx';
+import EntityManager from '../components/EntityManager.jsx';
 import CategoryDocuments from '../components/CategoryDocuments.jsx';
 import { formatMoney } from '../lib/money.js';
 import { IconPicker, ColourPicker, CategoryPreview, SWATCHES } from '../components/CategoryPickers.jsx';
@@ -115,6 +116,10 @@ export default function Categories() {
 
   return (
     <div style={{ maxWidth: 940 }}>
+      {/* Which books, then which year, then the categories in it — the order
+          the questions actually depend on each other. */}
+      <EntityManager />
+
       <div style={{ display: 'flex', alignItems: 'flex-end', gap: 16, flexWrap: 'wrap', marginBottom: 22 }}>
         <div style={{ flex: 1, minWidth: 240 }}>
           <h1 style={{ margin: '0 0 4px', fontSize: 26 }}>Categories</h1>

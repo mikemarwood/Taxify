@@ -4,6 +4,7 @@ import { asyncHandler } from '../lib/asyncHandler.js';
 import { toPublicUser } from './publicUser.js';
 import { computeAccessLocked, dataOwnerId, financialYearRuleFor } from './access.js';
 import { findAssignment, hasAssignments } from './accountants.js';
+import { resolveRequestEntity } from '../lib/entityScope.js';
 
 export const requireAuth = asyncHandler(async (req, res, next) => {
   const token = req.cookies?.[COOKIE_NAME];
@@ -63,6 +64,18 @@ export const requireAuth = asyncHandler(async (req, res, next) => {
   // books are open — an Australian accountant reading a British client's
   // records must see them filed the British way, not their own.
   req.user.financialYearRule = await financialYearRuleFor(dataOwnerId(req.user));
+
+  // Which set of books. Resolved here, beside the year rule, for the same
+  // reason: one place, so a query written next year is scoped whether or not
+  // its author thought about entities.
+  const books = await resolveRequestEntity(req);
+  if (books.invalid) {
+    // Never quietly widened to "everything". A stale id from a previous account
+    // must fail loudly enough for the client to clear it.
+    return res.status(403).json({ error: 'entity_not_yours' });
+  }
+  req.user.entityId = books.id;
+  req.user.entity = books.entity;
 
   req.user.accessLocked = await computeAccessLocked(req.user);
 

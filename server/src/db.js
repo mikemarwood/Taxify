@@ -190,10 +190,60 @@ export async function ensureSchema() {
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
   `);
 
+  // A set of books. An account has one Individual and any number of small
+  // businesses, and an expense belongs to exactly one of them — which is what
+  // makes "what percentage of this was business use?" a question worth asking
+  // of some expenses and nobody's business on the rest.
+  //
+  // user_id is the ACCOUNT HOLDER, not the login. On a Family plan both people
+  // must see one set of books, so every join from expenses or categories —
+  // whose user_id is the login — goes through COALESCE(account_holder_id, id).
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS entities (
+      id INT PRIMARY KEY AUTO_INCREMENT,
+      user_id INT NOT NULL,
+      name VARCHAR(120) NOT NULL,
+      kind VARCHAR(20) NOT NULL DEFAULT 'individual',
+      lodgement_cadence VARCHAR(12) NOT NULL DEFAULT 'annual',
+      is_default TINYINT(1) NOT NULL DEFAULT 0,
+      path_segment VARCHAR(80) NULL,
+      color VARCHAR(20) NULL,
+      archived_at DATETIME NULL,
+      created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      updated_at DATETIME NULL,
+      UNIQUE KEY uniq_entities_user_name (user_id, name),
+      UNIQUE KEY uniq_entities_user_segment (user_id, path_segment),
+      KEY idx_entities_user_default (user_id, is_default),
+      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+  `);
+
+  // Repeated explicitly, because CREATE TABLE IF NOT EXISTS does not reach an
+  // install that made this table one release ago. That has already caused two
+  // bugs in this codebase; it is not going to cause a third.
+  for (const column of [
+    `name VARCHAR(120) NOT NULL`,
+    `kind VARCHAR(20) NOT NULL DEFAULT 'individual'`,
+    `lodgement_cadence VARCHAR(12) NOT NULL DEFAULT 'annual'`,
+    `is_default TINYINT(1) NOT NULL DEFAULT 0`,
+    // NULL for the default entity, and that is the whole receipt-path
+    // guarantee: there is nothing to append, so its folders are byte-for-byte
+    // what they were before entities existed and not one file has to move.
+    // Generated once and never changed, so renaming an entity cannot move a
+    // file either — which is exactly the bug category renames still have.
+    `path_segment VARCHAR(80) NULL`,
+    `color VARCHAR(20) NULL`,
+    `archived_at DATETIME NULL`,
+    `updated_at DATETIME NULL`,
+  ]) {
+    await pool.query(`ALTER TABLE entities ADD COLUMN IF NOT EXISTS ${column}`);
+  }
+
   await pool.query(`
     CREATE TABLE IF NOT EXISTS categories (
       id INT PRIMARY KEY AUTO_INCREMENT,
       user_id INT NOT NULL,
+      entity_id INT NULL,
       name VARCHAR(255) NOT NULL,
       color VARCHAR(20) NOT NULL,
       icon VARCHAR(50) NOT NULL DEFAULT 'tag',
@@ -481,6 +531,37 @@ export async function ensureSchema() {
       FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
   `);
+
+  // Which set of books each row belongs to.
+  //
+  // Deliberately NULL-able, and it stays that way. ADD COLUMN ... NOT NULL on a
+  // populated table fills 0, which is not a valid foreign key target, so the FK
+  // could then never be created; tightening it afterwards is a full rebuild of
+  // the largest table. More usefully, NULL is a tripwire — migrations/entities
+  // counts what is left and refuses to swap the unique keys while any remain.
+  // A partial backfill and a finished one have to look different.
+  for (const table of ['expenses', 'categories', 'vehicle_trips', 'home_office_hours', 'tax_years']) {
+    await pool.query(`ALTER TABLE ${table} ADD COLUMN IF NOT EXISTS entity_id INT NULL`);
+  }
+
+  // Which lodgement within the year. 'FY' for an entity that lodges annually,
+  // 'Q1'..'Q4' for one that lodges quarterly.
+  //
+  // The DEFAULT is what preserves every existing row for free: each becomes the
+  // annual lodgement of the account's default entity, which is precisely what
+  // it already was. Nothing moves, so the finalisation lock, the appointment
+  // and both reminder markers keep working untouched.
+  await pool.query(`ALTER TABLE tax_years ADD COLUMN IF NOT EXISTS period VARCHAR(8) NOT NULL DEFAULT 'FY'`);
+
+  await pool.query(
+    `ALTER TABLE expenses ADD INDEX IF NOT EXISTS idx_expenses_user_entity_deleted_date (user_id, entity_id, deleted_at, purchase_date)`
+  );
+  await pool.query(
+    `ALTER TABLE vehicle_trips ADD INDEX IF NOT EXISTS idx_vehicle_trips_entity_year (user_id, entity_id, financial_year)`
+  );
+  await pool.query(
+    `ALTER TABLE home_office_hours ADD INDEX IF NOT EXISTS idx_home_office_entity_year (user_id, entity_id, financial_year)`
+  );
 
   // Rates, kept permanently. Partly so the same day is never fetched twice,
   // and partly because it is the record of which rate a figure was actually

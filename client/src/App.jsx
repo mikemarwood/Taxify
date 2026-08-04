@@ -1,5 +1,6 @@
 import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from './lib/AuthContext.jsx';
+import { useEntities } from './lib/EntityContext.jsx';
 import { homePathFor } from './lib/home.js';
 import Layout from './components/Layout.jsx';
 import ErrorBoundary from './components/ErrorBoundary.jsx';
@@ -34,6 +35,7 @@ const CLIENT_VIEW_PATHS = ['/', '/expenses', '/reports', '/account'];
 
 function Protected({ children, adminOnly }) {
   const { user, loading } = useAuth();
+  const { selectedId } = useEntities();
   const location = useLocation();
   if (loading) return <Splash />;
   if (!user) return <Navigate to="/login" replace />;
@@ -59,7 +61,11 @@ function Protected({ children, adminOnly }) {
   }
   return (
     <Layout>
-      <ErrorBoundary key={location.pathname}>{children}</ErrorBoundary>
+      {/* Keyed on the books as well as the path, so switching between them
+          remounts the page and it refetches. One line, rather than every page
+          having to remember to watch for the change — including pages written
+          after this one. */}
+      <ErrorBoundary key={`${location.pathname}|${selectedId ?? 'all'}`}>{children}</ErrorBoundary>
     </Layout>
   );
 }

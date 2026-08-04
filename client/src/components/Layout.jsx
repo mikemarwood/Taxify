@@ -10,6 +10,7 @@ import ViewAsBanner from './ViewAsBanner.jsx';
 import ClientBanner from './ClientBanner.jsx';
 import AppUpdateBanner from './AppUpdateBanner.jsx';
 import NotificationBell from './NotificationBell.jsx';
+import EntitySwitcher from './EntitySwitcher.jsx';
 import { registerForPush } from '../lib/pushNotifications.js';
 import OtpOnboardingModal from './OtpOnboardingModal.jsx';
 import { playClick } from '../lib/sounds.js';
@@ -185,6 +186,9 @@ export default function Layout({ children }) {
         </button>
         <img src="/logo.svg" alt="" width="26" height="26" />
         <span style={{ fontWeight: 700, fontSize: 16.5, letterSpacing: -0.3 }}>Taxify</span>
+        <div style={{ marginLeft: 'auto', maxWidth: 190, minWidth: 0 }}>
+          <EntitySwitcher compact />
+        </div>
       </div>
 
       <div style={{ flex: 1, display: 'flex', minHeight: 0 }}>
@@ -225,6 +229,10 @@ export default function Layout({ children }) {
           <img src="/logo.svg" alt="Taxify" width="34" height="34" />
           <span style={{ fontWeight: 700, fontSize: 19, letterSpacing: -0.4, color: 'var(--nav-text-active)' }}>Taxify</span>
         </div>
+
+        {/* A scope control for everything below it, so it sits above the nav
+            rather than in the account card at the foot. */}
+        <EntitySwitcher />
 
         <nav style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
           {navGroups

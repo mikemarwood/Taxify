@@ -9,6 +9,7 @@ import { asyncHandler } from '../lib/asyncHandler.js';
 import { toTitleCase } from '../lib/text.js';
 import {
   receiptsRootDir,
+  entityReceiptsRootDir,
   categoryToFolderSegment,
   categoryDocumentDir,
   uniqueFilenameIn,
@@ -18,6 +19,7 @@ import {
 } from '../lib/receiptStorage.js';
 import { financialYearRange, defaultFinancialYear } from '../lib/financialYear.js';
 import { ensureCategoriesForYear } from '../lib/categoryYears.js';
+import { writeEntityId } from '../lib/entities.js';
 import { viewableCopy } from '../lib/heicPreview.js';
 import { serveAttachment } from '../lib/serveAttachment.js';
 import { MAX_UPLOAD_BYTES, isAllowedUpload, UPLOAD_REJECTED_MESSAGE } from '../lib/uploadRules.js';
@@ -32,8 +34,12 @@ router.use(requireAuth, requireActiveAccess);
 // has a subfolder for this category — used by both rename (to move) and
 // delete (to check for leftover files / remove). The inbox sits beside the
 // year folders and is organised by its own slugs, so it's skipped.
-function categoryFoldersFor(userId, categorySegment) {
-  const root = receiptsRootDir(uploadsDir, userId);
+function categoryFoldersFor(userId, entitySegment, categorySegment) {
+  // Rooted at this set of books, not at the whole account. Two businesses can
+  // each have a Tooling in the same year, and scanning from the account root
+  // would move — or delete — the other one's receipts while repointing only
+  // these rows, leaving files at a path nothing will ever look at again.
+  const root = entityReceiptsRootDir(uploadsDir, userId, entitySegment);
   let yearDirs = [];
   try {
     yearDirs = fs
@@ -86,6 +92,19 @@ function validateName(name) {
 // Which financial year the request is about. Anything unrecognised falls back
 // to the current one rather than erroring — a caller with no opinion means
 // "now", not "nothing".
+// The set of books a category request is about. Categories belong to one, so
+// every path and every query here needs it — including the folder scans,
+// which would otherwise reach another business’s receipts.
+function requestedEntity(req) {
+  return writeEntityId(req.user);
+}
+
+async function entitySegmentFor(entityId) {
+  if (!entityId) return null;
+  const [rows] = await pool.execute('SELECT path_segment FROM entities WHERE id = ?', [entityId]);
+  return rows[0]?.path_segment || null;
+}
+
 function requestedYear(req) {
   const asked = req.query?.financialYear || req.body?.financialYear;
   return isFinancialYearLabel(asked) ? String(asked) : defaultFinancialYear(req.user.financialYearRule);
@@ -95,12 +114,13 @@ router.get(
   '/',
   asyncHandler(async (req, res) => {
     const financialYear = requestedYear(req);
+    const entityId = requestedEntity(req);
 
     // Opening a year you haven't used yet carries last year's set forward, so
     // July doesn't start with an empty page. An accountant only ever reads, so
     // their visit never creates anything.
     if (!req.user.actingAsClient) {
-      await ensureCategoriesForYear(pool, req.user.id, financialYear);
+      await ensureCategoriesForYear(pool, req.user.id, entityId, financialYear);
     }
 
     // How much has gone through a category is what makes the list worth
@@ -112,17 +132,17 @@ router.get(
               (SELECT COALESCE(SUM(e.amount), 0) FROM expenses e
                 WHERE e.category_id = c.id AND e.deleted_at IS NULL) AS total_amount
        FROM categories c
-       WHERE c.user_id = ? AND (c.financial_year = ? OR c.financial_year IS NULL)
+       WHERE c.user_id = ? AND c.entity_id = ? AND (c.financial_year = ? OR c.financial_year IS NULL)
        ORDER BY c.name`,
-      [req.user.id, financialYear]
+      [req.user.id, entityId, financialYear]
     );
 
     // Every year this account has categories for, so the page can offer them
     // without guessing.
     const [years] = await pool.execute(
       `SELECT DISTINCT financial_year FROM categories
-       WHERE user_id = ? AND financial_year IS NOT NULL ORDER BY financial_year DESC`,
-      [req.user.id]
+       WHERE user_id = ? AND entity_id = ? AND financial_year IS NOT NULL ORDER BY financial_year DESC`,
+      [req.user.id, entityId]
     );
 
     res.json({
@@ -154,8 +174,8 @@ router.post(
     const finalColor = color || PALETTE[Math.floor(Math.random() * PALETTE.length)];
     try {
       const [result] = await pool.execute(
-        'INSERT INTO categories (user_id, name, color, icon, financial_year) VALUES (?, ?, ?, ?, ?)',
-        [req.user.id, toTitleCase(String(name).trim()), finalColor, icon || 'tag', financialYear]
+        'INSERT INTO categories (user_id, entity_id, name, color, icon, financial_year) VALUES (?, ?, ?, ?, ?, ?)',
+        [req.user.id, writeEntityId(req.user), toTitleCase(String(name).trim()), finalColor, icon || 'tag', financialYear]
       );
       const [rows] = await pool.execute(
         'SELECT id, name, color, icon, financial_year FROM categories WHERE id = ?',
@@ -177,11 +197,14 @@ router.patch(
     const { name, color, icon, isPropertyRental } = req.body || {};
 
     const [existingRows] = await pool.execute(
-      'SELECT id, name, color, icon, is_property_rental FROM categories WHERE id = ? AND user_id = ?',
+      'SELECT id, name, color, icon, is_property_rental, entity_id FROM categories WHERE id = ? AND user_id = ?',
       [req.params.id, req.user.id]
     );
     const existing = existingRows[0];
     if (!existing) return res.status(404).json({ error: 'Category not found' });
+
+    // The category's own books, so a rename can only ever reach its own folders.
+    const entitySegment = await entitySegmentFor(existing.entity_id);
 
     let finalName = existing.name;
     if (name !== undefined) {
@@ -208,7 +231,7 @@ router.patch(
       if (finalName !== existing.name) {
         const oldSeg = categoryToFolderSegment(existing.name);
         const newSeg = categoryToFolderSegment(finalName);
-        for (const oldDir of categoryFoldersFor(req.user.id, oldSeg)) {
+        for (const oldDir of categoryFoldersFor(req.user.id, entitySegment, oldSeg)) {
           const newDir = path.join(path.dirname(oldDir), newSeg);
           try {
             if (!fs.existsSync(newDir)) {
@@ -239,8 +262,8 @@ router.patch(
       // Documents are filed under the category name too, so they move with a
       // rename for the same reason receipts do.
       if (finalName !== existing.name) {
-        const from = categoryDocumentDir(uploadsDir, req.user.id, existing.name);
-        const to = categoryDocumentDir(uploadsDir, req.user.id, finalName);
+        const from = categoryDocumentDir(uploadsDir, req.user.id, existing.name, null, entitySegment);
+        const to = categoryDocumentDir(uploadsDir, req.user.id, finalName, null, entitySegment);
         if (fs.existsSync(from) && from !== to) {
           try {
             fs.mkdirSync(path.dirname(to), { recursive: true });
@@ -274,11 +297,15 @@ router.patch(
 router.delete(
   '/:id',
   asyncHandler(async (req, res) => {
-    const [categoryRows] = await pool.execute('SELECT name FROM categories WHERE id = ? AND user_id = ?', [
-      req.params.id,
-      req.user.id,
-    ]);
+    const [categoryRows] = await pool.execute(
+      'SELECT name, entity_id FROM categories WHERE id = ? AND user_id = ?',
+      [req.params.id, req.user.id]
+    );
     if (!categoryRows[0]) return res.status(404).json({ error: 'Category not found' });
+
+    // Its own books. Deleting a category removes folders from disk, and doing
+    // that from the account root would take another business's receipts with it.
+    const entitySegment = await entitySegmentFor(categoryRows[0].entity_id);
 
     const [[{ count }]] = await pool.execute(
       'SELECT COUNT(*) AS count FROM expenses WHERE category_id = ? AND user_id = ?',
@@ -291,7 +318,7 @@ router.delete(
     }
 
     const categorySeg = categoryToFolderSegment(categoryRows[0].name);
-    const folders = categoryFoldersFor(req.user.id, categorySeg);
+    const folders = categoryFoldersFor(req.user.id, entitySegment, categorySeg);
     if (folders.some(dirHasFiles)) {
       return res.status(400).json({
         error: 'This category still has unassigned receipt files — remove them first.',
@@ -322,7 +349,7 @@ router.delete(
 
 async function loadRentalCategory(req, res) {
   const [rows] = await pool.execute(
-    'SELECT id, name, is_property_rental FROM categories WHERE id = ? AND user_id = ?',
+    'SELECT id, name, is_property_rental, entity_id FROM categories WHERE id = ? AND user_id = ?',
     [req.params.id, req.user.id]
   );
   const category = rows[0];
@@ -346,12 +373,12 @@ const documentUpload = multer({
         const year = req.body?.financialYear;
         if (!isFinancialYearLabel(year)) return cb(Object.assign(new Error('A financial year is required'), { status: 400 }));
 
-        const [rows] = await pool.execute('SELECT name FROM categories WHERE id = ? AND user_id = ?', [
+        const [rows] = await pool.execute('SELECT name, entity_id FROM categories WHERE id = ? AND user_id = ?', [
           req.params.id,
           req.user.id,
         ]);
         if (!rows[0]) return cb(Object.assign(new Error('Category not found'), { status: 404 }));
-        const dir = categoryDocumentDir(uploadsDir, req.user.id, rows[0].name, year);
+        const dir = categoryDocumentDir(uploadsDir, req.user.id, rows[0].name, year, await entitySegmentFor(rows[0].entity_id));
         fs.mkdirSync(dir, { recursive: true });
         req._uploadDir = assertWithin(uploadsDir, dir);
         cb(null, req._uploadDir);
@@ -455,7 +482,7 @@ router.get(
 
     res.json({
       years: Array.from(byYear.entries()).map(([year, documents]) => ({ year, documents })),
-      directory: categoryDocumentDir(uploadsDir, req.user.id, category.name),
+      directory: categoryDocumentDir(uploadsDir, req.user.id, category.name, null, await entitySegmentFor(category.entity_id)),
     });
   })
 );
@@ -517,7 +544,7 @@ router.get(
     );
     if (!rows[0]) return res.status(404).json({ error: 'Document not found' });
 
-    const dir = categoryDocumentDir(uploadsDir, req.user.id, category.name, rows[0].financial_year);
+    const dir = categoryDocumentDir(uploadsDir, req.user.id, category.name, rows[0].financial_year, await entitySegmentFor(category.entity_id));
     let filePath;
     try {
       filePath = assertWithin(uploadsDir, path.join(dir, rows[0].filename));
@@ -547,7 +574,7 @@ router.delete(
 
     await pool.execute('DELETE FROM category_documents WHERE id = ?', [rows[0].id]);
     try {
-      const dir = categoryDocumentDir(uploadsDir, req.user.id, category.name, rows[0].financial_year);
+      const dir = categoryDocumentDir(uploadsDir, req.user.id, category.name, rows[0].financial_year, await entitySegmentFor(category.entity_id));
       fs.unlinkSync(path.join(dir, rows[0].filename));
     } catch {
       // already gone from disk — the row is what mattered

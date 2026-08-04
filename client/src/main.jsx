@@ -3,6 +3,7 @@ import ReactDOM from 'react-dom/client';
 import { BrowserRouter } from 'react-router-dom';
 import App from './App.jsx';
 import { AuthProvider } from './lib/AuthContext.jsx';
+import { EntityProvider } from './lib/EntityContext.jsx';
 import { ToastProvider } from './components/Toast.jsx';
 import './theme.css';
 
@@ -11,7 +12,11 @@ ReactDOM.createRoot(document.getElementById('root')).render(
     <BrowserRouter>
       <ToastProvider>
         <AuthProvider>
-          <App />
+          {/* Inside AuthProvider, because which sets of books exist depends on
+              who is signed in — and on whose books an accountant has open. */}
+          <EntityProvider>
+            <App />
+          </EntityProvider>
         </AuthProvider>
       </ToastProvider>
     </BrowserRouter>
