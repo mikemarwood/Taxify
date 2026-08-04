@@ -1,0 +1,20 @@
+<svg width="128" height="128" viewBox="0 0 128 128" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Taxify">
+  <!--
+    The same mark as logo.svg, cut for a browser tab.
+
+    A favicon is drawn at 16 pixels. At that size the app logo's 13px-tall bars
+    are under two pixels and its gradient is one flat colour anyway, so the two
+    arrows blur into a smudge. This version is the same drawing with everything
+    scaled for legibility: fatter bars, bigger heads, no gradient, and the pair
+    sitting tighter in the square so they use the full width.
+
+    Still a 180° rotation of itself about the centre — money out, money back.
+  -->
+  <rect width="128" height="128" rx="28" fill="#1559b8"/>
+
+  <rect x="22" y="34" width="52" height="20" rx="10" fill="#9ecbff"/>
+  <path d="M68 20 110 44 68 68Z" fill="#9ecbff"/>
+
+  <rect x="54" y="74" width="52" height="20" rx="10" fill="#ffffff"/>
+  <path d="M60 60 18 84 60 108Z" fill="#ffffff"/>
+</svg>

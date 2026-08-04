@@ -8,7 +8,7 @@ import Toggle from './Toggle.jsx';
 import ReceiptLightbox from './ReceiptLightbox.jsx';
 import ReceiptPreview from './ReceiptPreview.jsx';
 import Icon from './Icon.jsx';
-import { formatAmount } from '../lib/money.js';
+import { formatAmount, formatMoney } from '../lib/money.js';
 import { onDigitKeyDown, playOpen, playClose } from '../lib/sounds.js';
 import { useAuth } from '../lib/AuthContext.jsx';
 import { financialYearOf } from '../lib/financialYear.js';
@@ -131,6 +131,10 @@ export default function ExpenseModal({ expense, onClose, onSaved, onDeleted }) {
   const [isRecurring, setIsRecurring] = useState(!!expense.isRecurring);
   const [frequency, setFrequency] = useState(expense.frequency || 'monthly');
   const [notes, setNotes] = useState(expense.notes || '');
+  // Seeded from the expense, because this field not being here at all is what
+  // made every edit of a part-business expense quietly reset it to a full
+  // claim: the save sent no percentage, and the server reads "absent" as 100.
+  const [businessUsePct, setBusinessUsePct] = useState(String(expense.businessUsePct ?? 100));
   const [file, setFile] = useState(null);
   const [removeReceipt, setRemoveReceipt] = useState(false);
   const [progress, setProgress] = useState(0);
@@ -193,6 +197,7 @@ export default function ExpenseModal({ expense, onClose, onSaved, onDeleted }) {
     form.append('isRecurring', isRecurring);
     form.append('frequency', isRecurring ? frequency : '');
     form.append('notes', notes);
+    form.append('businessUsePct', businessUsePct || '100');
     if (file) form.append('receipt', file);
     if (removeReceipt) form.append('removeReceipt', 'true');
 
@@ -224,7 +229,7 @@ export default function ExpenseModal({ expense, onClose, onSaved, onDeleted }) {
       const res = await api.delete(`/expenses/${expense.id}`, {
         params: alsoDeleteReceipt ? { deleteReceipt: 'true' } : undefined,
       });
-      toast(res.data?.receiptDeleted ? 'Moved to Recycle Bin, receipt deleted' : 'Moved to Recycle Bin', 'success');
+      toast(res.data?.receiptDeleted ? 'Expense and receipt deleted' : 'Expense deleted', 'success');
       onDeleted();
     } catch (err) {
       toast(err.message, 'error');
@@ -302,6 +307,38 @@ export default function ExpenseModal({ expense, onClose, onSaved, onDeleted }) {
                   <label className="label">Date</label>
                   <input className="input" required type="date" value={purchaseDate} onChange={(e) => setPurchaseDate(e.target.value)} />
                 </div>
+              </div>
+              <div>
+                <label className="label">Business use</label>
+                <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
+                  {[100, 80, 50, 20].map((pct) => (
+                    <button
+                      key={pct}
+                      type="button"
+                      className={Number(businessUsePct) === pct ? 'btn btn-primary' : 'btn btn-ghost'}
+                      style={{ padding: '6px 12px', fontSize: 12.5 }}
+                      onClick={() => setBusinessUsePct(String(pct))}
+                    >
+                      {pct}%
+                    </button>
+                  ))}
+                  <input
+                    className="input"
+                    inputMode="numeric"
+                    aria-label="Business use percentage"
+                    value={businessUsePct}
+                    onChange={(e) => setBusinessUsePct(e.target.value.replace(/[^0-9]/g, '').slice(0, 3))}
+                    onKeyDown={onDigitKeyDown}
+                    style={{ width: 74 }}
+                  />
+                </div>
+                {Number(businessUsePct) > 0 && Number(businessUsePct) < 100 && Number(amount) > 0 && (
+                  <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 6 }}>
+                    Claiming{' '}
+                    <strong>{formatMoney((Number(amount) * Number(businessUsePct)) / 100, currency)}</strong> of{' '}
+                    {formatMoney(Number(amount), currency)}
+                  </div>
+                )}
               </div>
               <div>
                 <label className="label">Category</label>
@@ -451,8 +488,7 @@ export default function ExpenseModal({ expense, onClose, onSaved, onDeleted }) {
               {confirmingDelete ? (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 4, paddingTop: 16, borderTop: '1px solid var(--border)' }}>
                   <span style={{ fontSize: 13, color: 'var(--text-muted)' }}>
-                    Move this expense to the Recycle Bin? You can restore it any time within 30 days, after which it's
-                    deleted permanently.
+                    Delete this expense? It will be removed from your records and from every report and total.
                   </span>
 
                   {expense.receiptUrl && (
@@ -480,7 +516,7 @@ export default function ExpenseModal({ expense, onClose, onSaved, onDeleted }) {
                         <span style={{ display: 'block', color: 'var(--text-muted)', marginTop: 2 }}>
                           {alsoDeleteReceipt
                             ? `“${expense.receiptFilename}” is removed from disk now — restoring this expense won't bring it back. Kept if another expense still uses it.`
-                            : 'The file stays on disk until the expense is purged from the Recycle Bin in 30 days.'}
+                            : 'The receipt file is kept for now and removed with the expense in 30 days.'}
                         </span>
                       </span>
                     </label>
@@ -489,7 +525,7 @@ export default function ExpenseModal({ expense, onClose, onSaved, onDeleted }) {
                   <div style={{ display: 'flex', gap: 10 }}>
                     <button className="btn btn-primary" style={{ background: 'var(--red)', fontSize: 13, flex: 1 }} disabled={busy} onClick={onDelete}>
                       {busy && <span className="spinner" />}
-                      Move to Recycle Bin
+                      Delete expense
                     </button>
                     <button className="btn btn-ghost" style={{ fontSize: 13 }} onClick={() => setConfirmingDelete(false)}>
                       Cancel

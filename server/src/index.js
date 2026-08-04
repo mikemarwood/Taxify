@@ -165,9 +165,9 @@ try {
   console.error(err);
 }
 
-purgeExpiredTrash(pool).catch((err) => console.error('Failed to purge expired recycle bin entries', err));
+purgeExpiredTrash(pool).catch((err) => console.error('Failed to purge deleted expenses', err));
 setInterval(() => {
-  purgeExpiredTrash(pool).catch((err) => console.error('Failed to purge expired recycle bin entries', err));
+  purgeExpiredTrash(pool).catch((err) => console.error('Failed to purge deleted expenses', err));
 }, 60 * 60 * 1000);
 
 purgeUnactivatedAccounts(pool).catch((err) => console.error('Failed to purge unactivated accounts', err));

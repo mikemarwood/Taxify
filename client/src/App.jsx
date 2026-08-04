@@ -23,7 +23,6 @@ import Reports from './pages/Reports.jsx';
 import Deductions from './pages/Deductions.jsx';
 import Admin from './pages/Admin.jsx';
 import Account from './pages/Account.jsx';
-import RecycleBin from './pages/RecycleBin.jsx';
 import SubscriptionRequired from './pages/SubscriptionRequired.jsx';
 
 function Splash() {
@@ -105,7 +104,6 @@ export default function App() {
       <Route path="/reports" element={<Protected><Reports /></Protected>} />
       <Route path="/deductions" element={<Protected><Deductions /></Protected>} />
       <Route path="/account" element={<Protected><Account /></Protected>} />
-      <Route path="/recycle-bin" element={<Protected><RecycleBin /></Protected>} />
       <Route path="/admin" element={<Protected adminOnly><Admin /></Protected>} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>

@@ -1,5 +1,5 @@
 import pool from '../db.js';
-import { financialYearRange } from '../lib/financialYear.js';
+import { financialYearRange, isFinancialYearLabel } from '../lib/financialYear.js';
 
 // An accountant's window opens when they first open that client's books, not
 // when the client granted access — someone invited on a Friday shouldn't find
@@ -18,7 +18,11 @@ function parseYears(value) {
 
 export function serialiseYears(years) {
   if (!Array.isArray(years) || years.length === 0) return null;
-  const cleaned = Array.from(new Set(years.map((y) => String(y).trim()).filter((y) => /^\d{4}-\d{4}$/.test(y))));
+  // isFinancialYearLabel, not a hyphenated-only pattern. A country whose tax
+  // year is the calendar year labels it "2025", and the stricter test silently
+  // dropped every year an American or Irish client tried to grant — leaving an
+  // accountant with an empty list, which means no restriction at all.
+  const cleaned = Array.from(new Set(years.map((y) => String(y).trim()).filter(isFinancialYearLabel)));
   return cleaned.length > 0 ? cleaned.join(',') : null;
 }
 
@@ -117,9 +121,15 @@ export async function findAssignment(accountantUserId, ownerUserId) {
 // A SQL fragment restricting rows to the financial years an accountant was
 // given. Returns null when there is nothing to restrict, so callers can leave
 // their query alone rather than appending a clause that is always true.
-export function financialYearClause(years, column = 'e.purchase_date') {
+export function financialYearClause(years, column = 'e.purchase_date', rule = undefined) {
   if (!years || years.length === 0) return null;
-  const ranges = years.map(financialYearRange).filter(Boolean);
+  // The client's own rule, not Australia's. Granted "2025" on a calendar-year
+  // account, this used to hand back 1 July 2025 – 30 June 2026: half a year the
+  // accountant was never given, and half the year they were, missing.
+  //
+  // Also note the explicit arrow. `years.map(financialYearRange)` passed the
+  // array index as the second argument, so element 2 asked for a rule of `2`.
+  const ranges = years.map((y) => financialYearRange(y, rule)).filter(Boolean);
   // A scope that was set but parsed to nothing means something is wrong with
   // the stored value. Showing everything would be the worst possible reading
   // of "they were only given 2024-2025", so it shows nothing instead.

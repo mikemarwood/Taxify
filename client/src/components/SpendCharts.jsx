@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { motion } from 'framer-motion';
 import { formatMoney, claimable } from '../lib/money.js';
 import { formatDateLong } from '../lib/dates.js';
+import { financialYearRange } from '../lib/financialYear.js';
 
 // Two charts and a countdown, all reading from the same filtered expense list.
 //
@@ -52,11 +53,15 @@ function Panel({ title, subtitle, children, action }) {
 
 // --- Days to the end of the financial year -------------------------------
 
-export function FinancialYearCountdown({ financialYear }) {
+export function FinancialYearCountdown({ financialYear, rule }) {
   const { daysLeft, elapsed, endLabel } = useMemo(() => {
+    // Taken from the account's own rule rather than assumed. This used to be
+    // hard-coded to 1 July – 30 June, so a UK account counting down to 5 April
+    // was told it had ten more weeks than it did.
+    const range = financialYearRange(financialYear, rule);
     const startYear = Number(String(financialYear || '').slice(0, 4)) || new Date().getFullYear();
-    const start = new Date(Date.UTC(startYear, 6, 1));
-    const end = new Date(Date.UTC(startYear + 1, 5, 30));
+    const start = range ? new Date(`${range.start}T00:00:00Z`) : new Date(Date.UTC(startYear, 0, 1));
+    const end = range ? new Date(`${range.end}T00:00:00Z`) : new Date(Date.UTC(startYear, 11, 31));
     const now = new Date();
     const day = 24 * 60 * 60 * 1000;
 
@@ -67,7 +72,7 @@ export function FinancialYearCountdown({ financialYear }) {
       elapsed: Math.min(100, Math.max(0, (gone / total) * 100)),
       endLabel: formatDateLong(end),
     };
-  }, [financialYear]);
+  }, [financialYear, rule?.startMonth, rule?.startDay]);
 
   const past = daysLeft === 0;
 

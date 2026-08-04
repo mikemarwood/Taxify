@@ -225,7 +225,7 @@ export default function AdminUserDetail({ userId, me, onClose, onChanged, action
                       </span>
                     )}
                   </Field>
-                  <Field label="In recycle bin">{s.inTrash}</Field>
+                  <Field label="Deleted">{s.inTrash}</Field>
                   <Field label="Total tracked">{formatMoney(s.totalAmount)}</Field>
                   <Field label="Categories">{s.categories}</Field>
                   <Field label="Documents">{s.documents}</Field>

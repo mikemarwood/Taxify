@@ -219,7 +219,7 @@ export default function Dashboard() {
           </motion.div>
 
           <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}>
-            <FinancialYearCountdown financialYear={year} />
+            <FinancialYearCountdown financialYear={year} rule={user?.financialYearRule} />
           </motion.div>
 
           {user?.role === 'owner' && (

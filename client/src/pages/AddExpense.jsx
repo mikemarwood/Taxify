@@ -351,8 +351,10 @@ export default function AddExpense() {
             value={categoryId}
             onChange={(e) => {
               setCategoryId(e.target.value);
+              // This is the whole of it — the suggestion note below is gated on
+              // !categoryTouched. A second setter here was never declared
+              // anywhere, so picking a category by hand threw a ReferenceError.
               setCategoryTouched(true);
-              setCategoryAutoSuggested(false);
             }}
           >
             {categories.map((c) => (

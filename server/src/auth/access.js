@@ -106,7 +106,9 @@ export async function expenseScope(publicUser, column = 'e.user_id', dateColumn 
   const params = [...ids];
 
   const years = publicUser.actingAsClient ? publicUser.allowedFinancialYears : null;
-  const restriction = financialYearClause(years, dateColumn);
+  // The rule is the data owner's, set on req.user by requireAuth — so a year
+  // grant is converted to dates using the client's own tax year, not ours.
+  const restriction = financialYearClause(years, dateColumn, publicUser.financialYearRule);
   if (restriction) {
     parts.push(restriction.clause);
     params.push(...restriction.params);

@@ -34,7 +34,6 @@ const navGroups = [
       { to: '/expenses', label: 'All expenses', icon: 'list' },
       { to: '/categories', label: 'Categories', icon: 'tag' },
       { to: '/deductions', label: 'Other deductions', icon: 'car' },
-      { to: '/recycle-bin', label: 'Recycle bin', icon: 'trash' },
     ],
   },
   {
@@ -215,6 +214,11 @@ export default function Layout({ children }) {
           position: 'sticky',
           top: 0,
           height: '100vh',
+          // The rail is a fixed-height column, so anything taller than the
+          // screen was simply clipped — and on a phone that was the account
+          // card at the bottom, which is where Log out lives. `scrollbar-slim`
+          // only styles a scrollbar; it never made one appear.
+          overflowY: 'auto',
         }}
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '0 8px' }}>
@@ -265,7 +269,22 @@ export default function Layout({ children }) {
             ))}
         </nav>
 
-        <div style={{ marginTop: 'auto', display: 'flex', flexDirection: 'column', gap: 8 }}>
+        {/* Pinned to the foot of the rail rather than sitting at the end of it.
+            On a phone the nav is taller than the screen, so scrolling alone
+            would still leave Log out somewhere below several groups of links.
+            The nav scrolls underneath this; it never leaves. */}
+        <div
+          style={{
+            marginTop: 'auto',
+            position: 'sticky',
+            bottom: 0,
+            background: 'var(--nav-bg)',
+            paddingTop: 10,
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 8,
+          }}
+        >
           {/* One bordered block instead of loose rows: the avatar, who you are,
               which plan, and how long it lasts read as a single card rather
               than four things stacked at the bottom of the rail. */}

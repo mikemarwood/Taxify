@@ -58,3 +58,46 @@ test('serialiseYears rejects anything not a year label', () => {
 test('serialiseYears removes duplicates', () => {
   assert.equal(serialiseYears(['2025-2026', '2025-2026']), '2025-2026');
 });
+
+// --- The client's own tax year, not ours ---------------------------------
+
+test('a calendar-year account can be granted its year', () => {
+  // "2025" is a whole, valid financial year in the United States, Canada,
+  // Ireland and most of Europe. The old hyphen-only pattern dropped it, which
+  // left the accountant with an empty list — and an empty list means no
+  // restriction at all, so refusing the label handed over the whole history.
+  assert.equal(serialiseYears(['2025']), '2025');
+  assert.equal(serialiseYears(['2025', '2026']), '2025,2026');
+  assert.equal(serialiseYears(['2025', '2024-2025']), '2025,2024-2025');
+});
+
+test('a year grant is converted using the account rule', () => {
+  const calendar = { startMonth: 1, startDay: 1 };
+  const { params } = financialYearClause(['2025'], 'e.purchase_date', calendar);
+  assert.deepEqual(params, ['2025-01-01', '2025-12-31']);
+});
+
+test('the same label means different dates under different rules', () => {
+  const au = financialYearClause(['2025-2026'], 'e.purchase_date', { startMonth: 7, startDay: 1 });
+  const uk = financialYearClause(['2025-2026'], 'e.purchase_date', { startMonth: 4, startDay: 6 });
+  assert.deepEqual(au.params, ['2025-07-01', '2026-06-30']);
+  assert.deepEqual(uk.params, ['2025-04-06', '2026-04-05']);
+});
+
+test('no rule still behaves as it always did', () => {
+  // Existing callers that pass nothing must be unchanged.
+  const { params } = financialYearClause(['2025-2026']);
+  assert.deepEqual(params, ['2025-07-01', '2026-06-30']);
+});
+
+test('every year uses the rule, not its position in the list', () => {
+  // years.map(financialYearRange) handed the array index to the rule
+  // parameter, so the second and third labels asked for a rule of 1 and 2.
+  const calendar = { startMonth: 1, startDay: 1 };
+  const { params } = financialYearClause(['2023', '2024', '2025'], 'e.purchase_date', calendar);
+  assert.deepEqual(params, [
+    '2023-01-01', '2023-12-31',
+    '2024-01-01', '2024-12-31',
+    '2025-01-01', '2025-12-31',
+  ]);
+});

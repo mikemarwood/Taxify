@@ -353,8 +353,10 @@ export async function ensureSchema() {
       FOREIGN KEY (category_id) REFERENCES categories(id) ON DELETE SET NULL
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
   `);
-  // Soft-delete support: a non-null deleted_at moves an expense into the
-  // recycle bin instead of removing it immediately.
+  // Soft delete. A non-null deleted_at takes the expense out of the app
+  // immediately; purgeExpiredTrash removes the row for good 30 days later.
+  // There is no bin to browse — the window exists so that deleting the wrong
+  // thing is a database query rather than an apology.
   await pool.query(`
     ALTER TABLE expenses ADD COLUMN IF NOT EXISTS deleted_at DATETIME NULL
   `);
