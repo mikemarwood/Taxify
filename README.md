@@ -162,4 +162,8 @@ The device token is registered by `client/src/lib/pushNotifications.js` after lo
 ## Notes
 
 - `server/src/scripts/importLegacy.js` depends on the `xlsx` package, which has a known unpatched advisory (prototype pollution / ReDoS). It's only used for this offline import of trusted local files, never on the request path of the running server.
+- `npm audit` reports two things that are deliberately left alone, so they aren't mistaken for oversights:
+  - **`xlsx`** — no fixed version exists. See above; it never touches a request.
+  - **`react-router`** — the advisory is an RSC-mode CSRF bypass. This app is a Vite SPA using `BrowserRouter` with no React Server Components and no router actions, so the affected code never runs. `npm audit fix` can't resolve it either: the advisory covers 7.12.0–8.2.0 and the latest published `react-router-dom` is 7.18.2, so there is nothing to upgrade to. Revisit when one ships.
+- `server/package.json` overrides `uuid` to 11 because the version `exceljs` asks for carries an advisory. exceljs only calls `v4()`, whose signature is unchanged — and `src/lib/spreadsheet.test.js` round-trips a real workbook so the override can't break the export quietly.
 - The server refuses to start if it can't reach the database — check `DB_HOST`/`DB_PORT`/`DB_USER`/`DB_PASSWORD`/`DB_NAME` in `server/.env` if you see a connection error on startup.
