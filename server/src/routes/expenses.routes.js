@@ -795,3 +795,5 @@ router.delete(
     res.json({ ok: true, receiptDeleted });
   })
 );
+
+export default router;

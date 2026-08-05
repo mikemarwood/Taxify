@@ -374,10 +374,24 @@ export async function ensureSchema() {
   );
   if (indexCols.length > 0 && !indexCols.some((c) => c.COLUMN_NAME === 'financial_year')) {
     try {
-      await pool.query(`ALTER TABLE category_documents DROP INDEX uniq_category_document`);
-      await pool.query(
-        `ALTER TABLE category_documents ADD UNIQUE KEY uniq_category_document (category_id, financial_year, filename)`
+      // Built before the old one is dropped, and that order is the whole fix.
+      // category_id has a foreign key, InnoDB requires an index to enforce it,
+      // and uniq_category_document was the only one covering that column — so
+      // dropping it first failed with "needed in a foreign key constraint",
+      // every single boot, for months. The replacement leads with category_id,
+      // so once it exists the foreign key has what it needs and the old index
+      // is free to go.
+      const [replacement] = await pool.query(
+        `SELECT 1 FROM information_schema.STATISTICS
+         WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'category_documents'
+           AND INDEX_NAME = 'uniq_category_document_year' LIMIT 1`
       );
+      if (replacement.length === 0) {
+        await pool.query(
+          `ALTER TABLE category_documents ADD UNIQUE KEY uniq_category_document_year (category_id, financial_year, filename)`
+        );
+      }
+      await pool.query(`ALTER TABLE category_documents DROP INDEX uniq_category_document`);
       console.log('[schema] rebuilt category document index to include the financial year');
     } catch (err) {
       console.error('Could not rebuild the category document index', err.message);
