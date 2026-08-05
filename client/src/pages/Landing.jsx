@@ -349,7 +349,7 @@ export default function Landing() {
               Simple, honest pricing
             </h2>
             <p style={{ color: 'var(--text-muted)', fontSize: 15, maxWidth: 520, margin: '0 auto' }}>
-              Start with a {trialDays}-day free trial on either plan. Billed once a year — no surprises.
+              Every plan starts with the same {trialDays}-day free trial. No card needed to begin, and billing is once a year — no surprises.
             </p>
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 20, maxWidth: 640, margin: '0 auto' }}>
@@ -407,6 +407,27 @@ export default function Landing() {
                 <div style={{ margin: '10px 0 4px' }}>
                   <span style={{ fontSize: 32, fontWeight: 800 }}>{p.price}</span>
                   <span style={{ fontSize: 14, color: 'var(--text-muted)' }}>{p.period}</span>
+                </div>
+                {/* On every card, not only in the line above them. Somebody
+                    comparing two prices is looking at the cards, and "does this
+                    one have a trial too?" should not need a scroll to answer. */}
+                <div
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: 6,
+                    fontSize: 12,
+                    fontWeight: 700,
+                    letterSpacing: 0.3,
+                    padding: '4px 10px',
+                    borderRadius: 999,
+                    color: 'var(--emerald)',
+                    background: 'rgba(16, 185, 129, 0.13)',
+                    marginBottom: 12,
+                  }}
+                >
+                  <span aria-hidden="true">✓</span>
+                  {trialDays}-day free trial
                 </div>
                 <p style={{ fontSize: 13, color: 'var(--text-muted)', margin: '0 0 18px', lineHeight: 1.5 }}>{p.text}</p>
                 <ul style={{ margin: 0, padding: 0, listStyle: 'none', display: 'flex', flexDirection: 'column', gap: 10 }}>
