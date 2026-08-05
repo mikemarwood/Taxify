@@ -159,6 +159,40 @@ To also raise them in the Android notification tray:
 The device token is registered by `client/src/lib/pushNotifications.js` after login and stored in
 `device_tokens`; tokens Google reports as dead are deleted rather than retried.
 
+## Sets of books
+
+An account holds one **Individual** and any number of **small businesses**. An expense belongs to
+exactly one of them, and that is what decides whether it is asked for a business-use percentage —
+personal records never are.
+
+- Managed on the **Categories** page, and switched from the picker at the top of the nav. The picker
+  is hidden entirely while an account has only one set of books, so an account that has never made a
+  business sees nothing new.
+- **Everything** is a combined view. It is a way of looking, not a place to file, so reads allow it
+  and writes refuse it — the expense form asks which books instead.
+- The selection travels as an `X-Taxify-Entity` header on every request. Downloads carry
+  `?entityId=` instead, because an `<a href>` cannot set a header, and the year archive refuses to
+  build without it when there is more than one set of books.
+
+**Lodgement.** Each set of books files either annually or quarterly. Quarters derive from the
+account's own financial-year start, so an Australian business gets Jul–Sep / Oct–Dec / Jan–Mar /
+Apr–Jun and a British one gets 6 Apr–5 Jul. Nothing hard-codes a deadline: an AU BAS due date is 28
+days after quarter end *except* Q2, and the UK differs again, so if deadlines are ever wanted they
+belong in admin-managed data like `tax_rates` rather than in code that goes stale silently.
+
+**Receipts do not move.** The default entity's `path_segment` is NULL, so every path it produces is
+byte-for-byte what it was before entities existed — asserted by the first test in
+`receiptStorage.test.js`. Only additional businesses get a folder of their own:
+
+```
+uploads/<userId>/receipts/2025-2026/tooling/          ← Individual, unchanged
+uploads/<userId>/receipts/marwood-plumbing/2025-2026/tooling/
+```
+
+A business's segment is fixed when it is created and never changed, so renaming a business cannot
+move a file. The split also fixes a real bug: two businesses could each hold a "Tooling" in one
+year, and renaming one would have moved the other's receipts while repointing only its own rows.
+
 ## Notes
 
 - `server/src/scripts/importLegacy.js` depends on the `xlsx` package, which has a known unpatched advisory (prototype pollution / ReDoS). It's only used for this offline import of trusted local files, never on the request path of the running server.
