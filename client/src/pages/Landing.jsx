@@ -499,6 +499,11 @@ export default function Landing() {
       </main>
 
       <footer style={{ textAlign: 'center', fontSize: 12, color: 'var(--text-muted)', padding: '16px 20px' }}>
+        <div style={{ marginBottom: 6 }}>
+          <Link to="/terms" style={{ color: 'var(--blue)' }}>Terms of Service</Link>
+          <span style={{ margin: '0 8px', opacity: 0.5 }}>·</span>
+          <Link to="/privacy" style={{ color: 'var(--blue)' }}>Privacy Policy</Link>
+        </div>
         © {new Date().getFullYear()} Taxify · Powered by{' '}
         <a href="https://mikesapphub.com" target="_blank" rel="noreferrer" style={{ color: 'var(--blue)' }}>
           Mikes App Hub
