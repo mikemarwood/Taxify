@@ -10,12 +10,14 @@ import ExportMenu from '../components/ExportMenu.jsx';
 import YearArchiveButton from '../components/YearArchiveButton.jsx';
 import YearDocuments from '../components/YearDocuments.jsx';
 import TaxYears from '../components/TaxYears.jsx';
+import { useEntities } from '../lib/EntityContext.jsx';
 import { formatDateShort } from '../lib/dates.js';
 import Amount from '../components/Amount.jsx';
 import UnconvertedNotice from '../components/UnconvertedNotice.jsx';
 import DeductionSummary from '../components/DeductionSummary.jsx';
 
 export default function Reports() {
+  const { isAll, showSwitcher } = useEntities();
   const [expenses, setExpenses] = useState(null);
   const [categoryFilter, setCategoryFilter] = useState(null);
   const [selectedExpense, setSelectedExpense] = useState(null);
@@ -109,6 +111,19 @@ export default function Reports() {
         </div>
       </div>
 
+      {/* In the combined view a category name is not enough to tell two sets
+          of books apart, and merging them into one row would make the report
+          wrong rather than merely unclear: they are different returns. */}
+      {isAll && showSwitcher && (
+        <div
+          className="card"
+          style={{ padding: '10px 14px', marginBottom: 16, fontSize: 12.5, color: 'var(--text-muted)', display: 'flex', gap: 8, alignItems: 'center' }}
+        >
+          <Icon name="info" size={14} />
+          Showing every set of books together. Pick one from the switcher to report on it alone.
+        </div>
+      )}
+
       <UnconvertedNotice expenses={expenses} />
 
       {loading ? (
@@ -144,7 +159,7 @@ export default function Reports() {
               the year selected for the archive. */}
           <DeductionSummary financialYear={archiveYear} expenseClaim={yearTotals.get(archiveYear) || 0} />
 
-          <TaxYears years={years} spendByYear={yearTotals} />
+          <TaxYears years={years} spendByYear={yearTotals} expenses={expenses} />
 
           {/* Filed paperwork belongs with the year it covers, not buried under
               the category it happened to be uploaded to — one collapsed panel

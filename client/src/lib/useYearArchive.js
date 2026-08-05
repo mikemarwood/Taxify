@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useToast } from '../components/Toast.jsx';
 import { playSuccess, playError, playClick } from './sounds.js';
+import { getEntityId } from './api.js';
 
 // A year's archive can be hundreds of megabytes and takes real time to build,
 // so callers report what's happening rather than looking broken. The stages are
@@ -32,9 +33,11 @@ export function useYearArchive() {
     setTotal(0);
 
     try {
-      const res = await fetch(`/api/export/year/${encodeURIComponent(financialYear)}.zip`, {
-        credentials: 'include',
-      });
+      const entityId = getEntityId();
+      const res = await fetch(
+        `/api/export/year/${encodeURIComponent(financialYear)}.zip${entityId ? `?entityId=${entityId}` : ''}`,
+        { credentials: 'include' }
+      );
 
       if (!res.ok) {
         // The failure body is JSON; the success body is a zip.

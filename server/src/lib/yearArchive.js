@@ -19,14 +19,17 @@ import { financialYearRange } from './financialYear.js';
 const FOLDER = 'Receipts';
 const DOCS_FOLDER = 'Property Documents';
 
-export function archiveName(financialYear, rule) {
+// The default set of books produces the filename it always did — only a named
+// business adds itself, because that is the case where the name matters.
+export function archiveName(financialYear, rule, entity) {
+  const whose = entity && !entity.is_default ? ` ${safeFileSegment(entity.name)}` : '';
   const range = financialYearRange(financialYear, rule);
-  if (!range) return `Taxify Summary ${financialYear}`;
+  if (!range) return `Taxify Summary${whose} ${financialYear}`;
   const fmt = (iso) => {
     const d = new Date(`${iso}T00:00:00Z`);
     return `${String(d.getUTCDate()).padStart(2, '0')}-${String(d.getUTCMonth() + 1).padStart(2, '0')}-${d.getUTCFullYear()}`;
   };
-  return `Taxify Summary ${fmt(range.start)} to ${fmt(range.end)}`;
+  return `Taxify Summary${whose} ${fmt(range.start)} to ${fmt(range.end)}`;
 }
 
 // Windows and Excel both dislike these in a path, and a hyperlink to a file
@@ -184,7 +187,19 @@ function buildPdf(financialYear, expenses, totals) {
 }
 
 // Streams the zip straight to the response.
-export async function streamYearArchive({ res, uploadsDir, userId, financialYear, expenses, categories, rule }) {
+export async function streamYearArchive({
+  res,
+  uploadsDir,
+  userId,
+  financialYear,
+  expenses,
+  categories,
+  rule,
+  entity = null,
+}) {
+  // Null for the default books, which is what keeps their receipt paths — and
+  // so this whole function — exactly as they were.
+  const entitySegment = entity?.path_segment || null;
   const totals = { grand: 0, byCategory: new Map() };
   for (const e of expenses) {
     totals.grand += e.claimable || 0;
@@ -201,7 +216,7 @@ export async function streamYearArchive({ res, uploadsDir, userId, financialYear
   const takenNames = new Map();
   for (const expense of expenses) {
     if (!expense.receiptFilename) continue;
-    const dir = receiptDirFor(uploadsDir, expense.ownerId, expense.purchaseDate, expense.category, rule);
+    const dir = receiptDirFor(uploadsDir, expense.ownerId, expense.purchaseDate, expense.category, rule, entitySegment);
     const source = path.join(dir, expense.receiptFilename);
     if (!fs.existsSync(source)) continue;
 
@@ -212,7 +227,7 @@ export async function streamYearArchive({ res, uploadsDir, userId, financialYear
     expense._source = source;
   }
 
-  const name = archiveName(financialYear, rule);
+  const name = archiveName(financialYear, rule, entity);
   const archive = new ZipArchive({ zlib: { level: 6 } });
   archive.on('warning', (err) => console.error('Archive warning', err));
   archive.on('error', (err) => {
@@ -235,7 +250,7 @@ export async function streamYearArchive({ res, uploadsDir, userId, financialYear
   // Property-rental paperwork for the same year, kept beside the receipts.
   for (const category of categories) {
     if (!category.is_property_rental) continue;
-    const dir = categoryDocumentDir(uploadsDir, userId, category.name, financialYear);
+    const dir = categoryDocumentDir(uploadsDir, userId, category.name, financialYear, entitySegment);
     if (!fs.existsSync(dir)) continue;
     for (const file of fs.readdirSync(dir)) {
       const full = path.join(dir, file);

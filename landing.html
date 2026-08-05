@@ -147,6 +147,34 @@
   .plans-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 20px; max-width: 640px; margin: 0 auto; }
   .plan-card { padding: 28px; position: relative; border: 1px solid var(--border); }
   .plan-card.highlight { border-color: var(--violet); box-shadow: 0 0 0 1px var(--violet); }
+
+  /* The cards are buttons, because they behave like a choice. Reset first —
+     a <button> brings its own font, colour and alignment. */
+  button.plan-card {
+    font: inherit;
+    color: inherit;
+    text-align: left;
+    width: 100%;
+    background: var(--bg-card);
+    cursor: pointer;
+    transition: transform 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+  }
+  button.plan-card:hover { transform: translateY(-2px); border-color: var(--violet); }
+  button.plan-card:focus-visible { outline: 2px solid var(--violet); outline-offset: 3px; }
+  button.plan-card[aria-pressed='true'] {
+    border-color: var(--violet);
+    box-shadow: 0 0 0 2px var(--violet);
+    transform: translateY(-2px);
+  }
+  /* Dimming the one you did not pick is what makes the choice read as a
+     choice rather than as two cards that happen to look different. */
+  .plans-grid[data-chosen] button.plan-card[aria-pressed='false'] { opacity: 0.62; }
+  .plan-chosen { display: none; font-size: 12px; font-weight: 700; color: var(--violet); margin-top: 14px; }
+  button.plan-card[aria-pressed='true'] .plan-chosen { display: block; }
+
+  @media (prefers-reduced-motion: reduce) {
+    button.plan-card, button.plan-card:hover { transition: none; transform: none; }
+  }
   .plan-badge {
     position: absolute;
     top: -12px;
@@ -315,8 +343,8 @@
         <h2>Simple, honest pricing</h2>
         <p>Start with a 14-day free trial on either plan. Billed once a year — no surprises.</p>
       </div>
-      <div class="plans-grid">
-        <div class="card plan-card">
+      <div class="plans-grid" id="plans">
+        <button type="button" class="card plan-card" aria-pressed="false" data-plan="individual">
           <div class="plan-name">Individual</div>
           <div class="plan-price"><span class="amount">$49</span><span class="period">/year</span></div>
           <p class="plan-text">Everything you need to track your own deductions, year round.</p>
@@ -326,8 +354,9 @@
             <li><span class="check">✓</span><span>Full reports &amp; search</span></li>
             <li><span class="check">✓</span><span>Optional read-only accountant access</span></li>
           </ul>
-        </div>
-        <div class="card plan-card highlight">
+          <div class="plan-chosen">Selected — start your free trial below</div>
+        </button>
+        <button type="button" class="card plan-card highlight" aria-pressed="false" data-plan="family">
           <div class="plan-badge">MOST POPULAR</div>
           <div class="plan-name">Family</div>
           <div class="plan-price"><span class="amount">$79</span><span class="period">/year</span></div>
@@ -338,20 +367,57 @@
             <li><span class="check">✓</span><span>Optional read-only accountant access</span></li>
             <li><span class="check">✓</span><span>Manage both users from one place</span></li>
           </ul>
-        </div>
+          <div class="plan-chosen">Selected — start your free trial below</div>
+        </button>
       </div>
     </section>
 
     <section class="card cta-card">
       <h2>Ready to stop losing receipts?</h2>
       <p>Start your 14-day free trial and have your first expense logged before your coffee's cold.</p>
-      <a href="/register" class="btn btn-primary btn-lg">Start free trial</a>
+      <a href="/register" class="btn btn-primary btn-lg" id="cta">Start free trial</a>
     </section>
   </main>
 
   <footer>
     © <span id="year"></span> Taxify · Powered by <a href="https://mikesapphub.com" target="_blank" rel="noreferrer">Mikes App Hub</a>
   </footer>
+
+  <script>
+    // Picking a plan here carries through to signup, so nobody has to make the
+    // same decision twice. Clicking the chosen one again clears it — a choice
+    // you cannot undo is a trap.
+    (function () {
+      var grid = document.getElementById('plans');
+      var cta = document.getElementById('cta');
+      if (!grid || !cta) return;
+
+      var cards = grid.querySelectorAll('.plan-card');
+      var labels = { individual: 'Start free trial — Individual', family: 'Start free trial — Family' };
+
+      function choose(plan) {
+        cards.forEach(function (card) {
+          card.setAttribute('aria-pressed', String(card.dataset.plan === plan));
+        });
+        if (plan) {
+          grid.setAttribute('data-chosen', plan);
+          cta.textContent = labels[plan];
+          cta.href = '/register?plan=' + plan;
+        } else {
+          grid.removeAttribute('data-chosen');
+          cta.textContent = 'Start free trial';
+          cta.href = '/register';
+        }
+      }
+
+      cards.forEach(function (card) {
+        card.addEventListener('click', function () {
+          var already = card.getAttribute('aria-pressed') === 'true';
+          choose(already ? null : card.dataset.plan);
+        });
+      });
+    })();
+  </script>
 
   <script>
     document.getElementById('year').textContent = new Date().getFullYear();

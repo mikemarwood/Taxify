@@ -3,7 +3,7 @@ import ExcelJS from 'exceljs';
 import PDFDocument from 'pdfkit';
 import pool from '../db.js';
 import { requireAuth, requireActiveAccess } from '../auth/middleware.js';
-import { getVisibleUserIds, expenseScope } from '../auth/access.js';
+import { getVisibleUserIds, expenseScope, dataOwnerId } from '../auth/access.js';
 import { asyncHandler } from '../lib/asyncHandler.js';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -355,6 +355,22 @@ router.get(
       return res.status(400).json({ error: 'Expected a financial year like 2025-2026' });
     }
 
+    // A zip is handed to an accountant, so it has to be for one set of books.
+    // The header cannot reach here — a download is an <a href> — so the link
+    // carries ?entityId=, and its absence is refused rather than read as
+    // "everything". A file labelled for one business that quietly contained
+    // three would be the worst thing this route could do.
+    const entityId = req.user.entityId;
+    if (!entityId) {
+      const [available] = await pool.execute(
+        'SELECT COUNT(*) AS n FROM entities WHERE user_id = ? AND archived_at IS NULL',
+        [dataOwnerId(req.user)]
+      );
+      if (Number(available[0]?.n) > 1) {
+        return res.status(400).json({ error: 'Choose which business this archive is for, then download it again.' });
+      }
+    }
+
     const scope = await expenseScope(req.user);
     const [rows] = await pool.execute(
       `SELECT e.id, e.user_id, e.item_name, e.amount, e.currency, e.base_amount, e.base_currency, e.business_use_pct, e.purchase_date, e.receipt_path,
@@ -389,11 +405,23 @@ router.get(
       return res.status(404).json({ error: `Nothing recorded in FY ${financialYear} yet` });
     }
 
-    const [categories] = await pool.execute('SELECT name, is_property_rental FROM categories WHERE user_id = ?', [
-      req.user.id,
-    ]);
+    // Scoped, where before it read every category the account had ever had.
+    const [categories] = await pool.execute(
+      `SELECT name, is_property_rental FROM categories WHERE user_id = ?${entityId ? ' AND entity_id = ?' : ''}`,
+      entityId ? [req.user.id, entityId] : [req.user.id]
+    );
 
-    await streamYearArchive({ res, uploadsDir, userId: req.user.id, financialYear, expenses, categories, rule: req.user.financialYearRule });
+    await streamYearArchive({
+      res,
+      uploadsDir,
+      userId: req.user.id,
+      financialYear,
+      expenses,
+      categories,
+      rule: req.user.financialYearRule,
+      // The default books keep the filename and the paths they always had.
+      entity: req.user.entity || null,
+    });
   })
 );
 

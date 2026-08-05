@@ -91,7 +91,13 @@ export default function Register() {
   const [fyDay, setFyDay] = useState(1);
   const [state, setState] = useState('');
   const [currency, setCurrency] = useState('AUD');
-  const [planType, setPlanType] = useState('individual');
+  // Honours ?plan= from the landing page, so a plan picked there is already
+  // chosen here rather than being asked for a second time. Anything unknown
+  // falls back rather than leaving the step blank.
+  const [planType, setPlanType] = useState(() => {
+    const asked = new URLSearchParams(window.location.search).get('plan');
+    return asked === 'family' || asked === 'individual' ? asked : 'individual';
+  });
   const [promoCode, setPromoCode] = useState('');
   const [referralSource, setReferralSource] = useState('');
   const [termsAccepted, setTermsAccepted] = useState(false);

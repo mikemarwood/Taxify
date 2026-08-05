@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import Icon from './Icon.jsx';
+import { useEntities } from '../lib/EntityContext.jsx';
 import ArchiveProgress from './ArchiveProgress.jsx';
 import { useYearArchive } from '../lib/useYearArchive.js';
 
@@ -21,6 +22,12 @@ const itemStyle = {
 };
 
 export default function ExportMenu({ baseUrl, label = 'Export', archiveYear }) {
+  // An <a href> cannot set a header, so the download carries the books it is
+  // for in the query string instead. The routes refuse to guess: an accountant
+  // handed a file labelled for one business that quietly held all of them is
+  // the worst outcome available here.
+  const { selectedId } = useEntities();
+  const scoped = (url) => (selectedId ? `${url}?entityId=${selectedId}` : url);
   const [open, setOpen] = useState(false);
   const ref = useRef(null);
   const archive = useYearArchive();
@@ -59,11 +66,11 @@ export default function ExportMenu({ baseUrl, label = 'Export', archiveYear }) {
             gap: 2,
           }}
         >
-          <a href={`${baseUrl}.xlsx`} onClick={() => setOpen(false)} style={itemStyle} className="export-menu-item">
+          <a href={scoped(`${baseUrl}.xlsx`)} onClick={() => setOpen(false)} style={itemStyle} className="export-menu-item">
             <Icon name="chart" size={14} />
             Excel (.xlsx)
           </a>
-          <a href={`${baseUrl}.pdf`} onClick={() => setOpen(false)} style={itemStyle} className="export-menu-item">
+          <a href={scoped(`${baseUrl}.pdf`)} onClick={() => setOpen(false)} style={itemStyle} className="export-menu-item">
             <Icon name="file-text" size={14} />
             PDF (.pdf)
           </a>

@@ -7,6 +7,8 @@ import Icon from './Icon.jsx';
 import { formatMoney } from '../lib/money.js';
 import { playSuccess, playError } from '../lib/sounds.js';
 import { formatDateShort, formatAppointmentTime } from '../lib/dates.js';
+import { lodgementPeriodsFor } from '../lib/lodgementPeriods.js';
+import { claimable } from '../lib/money.js';
 
 function formatWhen(value) {
   if (!value) return null;
@@ -59,7 +61,9 @@ const EMPTY_APPOINTMENT = { date: '', time: '09:00', company: '', accountant: ''
 // The admin side of each financial year: when the return is being done and with
 // whom, what came back, and whether the year is closed. Kept together because
 // they are one story told in order.
-export default function TaxYears({ years, spendByYear, onFinalisedChange }) {
+// expenses are needed to work out what a single quarter claimed — the year
+// totals the page already has cannot be divided into quarters after the fact.
+export default function TaxYears({ years, spendByYear, expenses, onFinalisedChange }) {
   const toast = useToast();
   const { user } = useAuth();
   const [data, setData] = useState(null);
@@ -84,38 +88,95 @@ export default function TaxYears({ years, spendByYear, onFinalisedChange }) {
     api
       .get('/tax-years')
       .then((res) => {
-        setData(res.data.years);
+        setData(res.data.entities || []);
         setCanEdit(res.data.canEdit);
         setCanReopen(res.data.canReopen);
-        onFinalisedChange?.(res.data.years.filter((y) => y.finalisedAt).map((y) => y.financialYear));
+        // A year is only closed once every one of its lodgements is. A business
+        // that has filed one quarter has not finished its year.
+        onFinalisedChange?.(
+          (res.data.years || []).filter((y) => y.finalisedAt).map((y) => y.financialYear)
+        );
       })
       .catch(() => setData([]));
   }
 
   useEffect(load, []);
 
-  const byYear = new Map((data || []).map((y) => [y.financialYear, y]));
-
   // Years an accountant wasn't given aren't theirs to record against.
   const allowed = user?.role === 'accountant' ? user.activeClient?.financialYears : null;
   const listed = (allowed ? years.filter((y) => allowed.includes(y)) : years).slice().reverse();
 
-  async function saveRefund(year) {
+  // One row per lodgement rather than per year. Books that lodge annually
+  // produce exactly one row per year and look precisely as they always did;
+  // books that lodge quarterly produce four.
+  const rule = user?.financialYearRule;
+  const namePeriods = (data || []).length > 1;
+
+  const rows = [];
+  for (const books of data || []) {
+    const recorded = new Map();
+    for (const y of books.years || []) {
+      for (const period of y.periods || []) {
+        recorded.set(`${y.financialYear}|${period.period}`, period);
+      }
+    }
+
+    for (const financialYear of listed) {
+      for (const period of lodgementPeriodsFor(financialYear, rule, books.cadence)) {
+        const entry = recorded.get(`${financialYear}|${period.period}`) || null;
+        rows.push({
+          key: `${books.id}|${financialYear}|${period.period}`,
+          entityId: books.id,
+          entityName: books.name,
+          financialYear,
+          period: period.period,
+          // "FY 2025-2026" for a whole year, "Jul – Sep 2025" for a quarter.
+          label: period.period === 'FY' ? `FY ${financialYear}` : period.label,
+          start: period.start,
+          end: period.end,
+          entry,
+          finalised: !!entry?.finalisedAt,
+          appointment: entry?.appointment || null,
+          // The claim for this period, not the year — computed here from the
+          // dates each period covers, which is the whole payoff for keeping the
+          // period maths in a module both sides share.
+          spent:
+            period.period === 'FY'
+              ? spendByYear?.get(financialYear) || 0
+              : (expenses || [])
+                  .filter((e) => {
+                    const day = String(e.purchaseDate || '').slice(0, 10);
+                    return (
+                      day >= period.start &&
+                      day <= period.end &&
+                      (!e.entity || e.entity.id === books.id)
+                    );
+                  })
+                  .reduce((sum, e) => sum + claimable(e), 0),
+        });
+      }
+    }
+  }
+
+  const byKey = new Map(rows.map((r) => [r.key, r]));
+
+  async function saveRefund(key) {
+    const row = byKey.get(key);
+    if (!row) return;
     const value = Number(amount);
     if (!Number.isFinite(value) || value < 0) {
       toast('Enter the refund as a positive amount', 'error');
       return;
     }
 
-    const existing = byYear.get(year);
-    const alreadyFinalised = !!existing?.finalisedAt;
+    const alreadyFinalised = row.finalised;
 
     // Closing the year stops anyone editing what it contained, so it is asked
     // plainly beforehand rather than discovered afterwards.
     if (!alreadyFinalised) {
       const confirmed = window.confirm(
-        `Record ${formatMoney(value)} as the refund for FY ${year}?\n\n` +
-          'This finalises the year. Its expenses and receipts become read-only, so nothing can change what was ' +
+        `Record ${formatMoney(value)} as the refund for ${row.label}?\n\n` +
+          'This finalises it. Its expenses and receipts become read-only, so nothing can change what was ' +
           'claimed after the return was assessed.\n\n' +
           (canReopen
             ? 'You can reopen the year from this page if you need to correct something.'
@@ -126,9 +187,14 @@ export default function TaxYears({ years, spendByYear, onFinalisedChange }) {
 
     setBusy(true);
     try {
-      await api.put(`/tax-years/${encodeURIComponent(year)}/refund`, { amount: value, notes });
+      await api.put(`/tax-years/${encodeURIComponent(row.financialYear)}/refund`, {
+        amount: value,
+        notes,
+        period: row.period,
+        entityId: row.entityId,
+      });
       playSuccess();
-      toast(alreadyFinalised ? `FY ${year} refund updated` : `FY ${year} finalised`, 'success');
+      toast(alreadyFinalised ? `${row.label} refund updated` : `${row.label} finalised`, 'success');
       setRefundYear(null);
       load();
     } catch (err) {
@@ -139,10 +205,16 @@ export default function TaxYears({ years, spendByYear, onFinalisedChange }) {
     }
   }
 
-  async function saveAppointment(year) {
+  async function saveAppointment(key) {
+    const row = byKey.get(key);
+    if (!row) return;
     setBusy(true);
     try {
-      await api.put(`/tax-years/${encodeURIComponent(year)}/appointment`, booking);
+      await api.put(`/tax-years/${encodeURIComponent(row.financialYear)}/appointment`, {
+        ...booking,
+        period: row.period,
+        entityId: row.entityId,
+      });
       playSuccess();
       toast('Appointment saved — we’ll remind you the day before', 'success');
       setBookingYear(null);
@@ -155,10 +227,14 @@ export default function TaxYears({ years, spendByYear, onFinalisedChange }) {
     }
   }
 
-  async function clearAppointment(year) {
-    if (!window.confirm(`Remove the ${year} tax appointment?`)) return;
+  async function clearAppointment(key) {
+    const row = byKey.get(key);
+    if (!row) return;
+    if (!window.confirm(`Remove the ${row.label} tax appointment?`)) return;
     try {
-      await api.delete(`/tax-years/${encodeURIComponent(year)}/appointment`);
+      await api.delete(
+        `/tax-years/${encodeURIComponent(row.financialYear)}/appointment?period=${row.period}&entityId=${row.entityId}`
+      );
       toast('Appointment removed', 'info');
       load();
     } catch (err) {
@@ -166,16 +242,21 @@ export default function TaxYears({ years, spendByYear, onFinalisedChange }) {
     }
   }
 
-  async function reopen(year) {
+  async function reopen(key) {
+    const row = byKey.get(key);
+    if (!row) return;
     if (
-      !window.confirm(`Reopen FY ${year}?\n\nIts expenses and receipts become editable again. The refund is kept.`)
+      !window.confirm(`Reopen ${row.label}?\n\nIts expenses and receipts become editable again. The refund is kept.`)
     ) {
       return;
     }
     setBusy(true);
     try {
-      await api.post(`/tax-years/${encodeURIComponent(year)}/reopen`);
-      toast(`FY ${year} reopened`, 'success');
+      await api.post(`/tax-years/${encodeURIComponent(row.financialYear)}/reopen`, {
+        period: row.period,
+        entityId: row.entityId,
+      });
+      toast(`${row.label} reopened`, 'success');
       load();
     } catch (err) {
       toast(err.message, 'error');
@@ -184,9 +265,9 @@ export default function TaxYears({ years, spendByYear, onFinalisedChange }) {
     }
   }
 
-  if (data === null || listed.length === 0) return null;
+  if (data === null || rows.length === 0) return null;
 
-  const totalRefunded = (data || []).reduce((sum, y) => sum + (y.amount || 0), 0);
+  const totalRefunded = rows.reduce((sum, r) => sum + (r.entry?.amount || 0), 0);
 
   return (
     <div className="card" style={{ padding: 0, overflow: 'hidden', marginBottom: 24 }}>
@@ -204,28 +285,32 @@ export default function TaxYears({ years, spendByYear, onFinalisedChange }) {
       </div>
 
       <div>
-        {listed.map((year, i) => {
-          const entry = byYear.get(year);
-          const spent = spendByYear?.get(year) || 0;
-          const finalised = !!entry?.finalisedAt;
-          const appointment = entry?.appointment;
+        {rows.map((row, i) => {
+          // The row's own key stands in for what used to be the year, so every
+          // comparison below still reads the same while the unit underneath it
+          // is now a lodgement rather than a whole year.
+          const year = row.key;
+          const { entry, spent, finalised, appointment } = row;
           const left = appointment && !finalised ? countdown(appointment.at) : null;
 
           return (
             <div
-              key={year}
+              key={row.key}
               style={{
                 padding: '13px 18px',
-                borderBottom: i < listed.length - 1 ? '1px solid var(--border)' : 'none',
+                borderBottom: i < rows.length - 1 ? '1px solid var(--border)' : 'none',
                 background: finalised ? 'var(--bg-inset)' : 'transparent',
               }}
             >
               <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
-                <span style={{ fontWeight: 700, fontSize: 13.5, minWidth: 92 }}>FY {year}</span>
+                <span style={{ fontWeight: 700, fontSize: 13.5, minWidth: 92 }}>{row.label}</span>
+                {namePeriods && (
+                  <span style={{ fontSize: 11.5, color: 'var(--text-muted)' }}>{row.entityName}</span>
+                )}
 
                 {finalised && (
                   <span
-                    title={`Finalised ${formatWhen(entry.finalisedAt)} — this year's records are read-only`}
+                    title={`Finalised ${formatWhen(entry.finalisedAt)} — these records are read-only`}
                     style={{
                       display: 'inline-flex',
                       alignItems: 'center',

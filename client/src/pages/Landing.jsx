@@ -73,6 +73,7 @@ const FEATURES = [
 const PLANS = [
   {
     name: 'Individual',
+    planType: 'individual',
     price: '$49',
     period: '/year',
     text: 'Everything you need to track your own deductions, year round.',
@@ -81,6 +82,7 @@ const PLANS = [
   },
   {
     name: 'Family',
+    planType: 'family',
     price: '$79',
     period: '/year',
     text: 'The same full feature set, shared across two people.',
@@ -133,6 +135,10 @@ export default function Landing() {
   // shape and the wording — they are the fallback if the call fails, which is
   // better than a pricing section that renders empty.
   const [livePlans, setLivePlans] = useState(null);
+  // Picking a plan here carries through to signup, so the same decision is not
+  // asked for twice. Clicking the chosen one again clears it — a choice you
+  // cannot undo is a trap.
+  const [chosenPlan, setChosenPlan] = useState(null);
   const [trialDays, setTrialDays] = useState(14);
 
   useEffect(() => {
@@ -150,6 +156,9 @@ export default function Landing() {
         const fallback = PLANS.find((f) => f.name.toLowerCase() === plan.planType) || PLANS[0];
         return {
           name: plan.name,
+          // The link to signup is keyed on this, not on the display name — an
+          // administrator renaming a plan must not break the handover.
+          planType: plan.planType,
           price:
             plan.amountPerYear === null || plan.amountPerYear === undefined
               ? fallback.price
@@ -345,18 +354,36 @@ export default function Landing() {
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 20, maxWidth: 640, margin: '0 auto' }}>
             {plans.map((p, i) => (
-              <motion.div
+              <motion.button
                 key={p.name}
+                type="button"
                 className="card"
+                aria-pressed={chosenPlan === p.name}
+                onClick={() => setChosenPlan((current) => (current === p.name ? null : p.name))}
                 initial={{ opacity: 0, y: 16 }}
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true, margin: '-60px' }}
                 transition={{ duration: 0.35, delay: i * 0.08, ease: 'easeOut' }}
+                whileHover={{ y: -2 }}
                 style={{
                   padding: 28,
-                  border: p.highlight ? '1px solid var(--violet)' : '1px solid var(--border)',
-                  boxShadow: p.highlight ? '0 0 0 1px var(--violet)' : undefined,
+                  border:
+                    chosenPlan === p.name || p.highlight ? '1px solid var(--violet)' : '1px solid var(--border)',
+                  boxShadow:
+                    chosenPlan === p.name
+                      ? '0 0 0 2px var(--violet)'
+                      : p.highlight
+                        ? '0 0 0 1px var(--violet)'
+                        : undefined,
+                  // Dimming the one not picked is what makes this read as a
+                  // choice rather than two cards that happen to differ.
+                  opacity: chosenPlan && chosenPlan !== p.name ? 0.62 : 1,
                   position: 'relative',
+                  font: 'inherit',
+                  color: 'inherit',
+                  textAlign: 'left',
+                  width: '100%',
+                  cursor: 'pointer',
                 }}
               >
                 {p.highlight && (
@@ -391,13 +418,19 @@ export default function Landing() {
                   ))}
                 </ul>
                 <Link
-                  to="/register"
-                  className={p.highlight ? 'btn btn-primary' : 'btn btn-ghost'}
+                  to={`/register?plan=${p.planType || p.name.toLowerCase()}`}
+                  className={chosenPlan === p.name || p.highlight ? 'btn btn-primary' : 'btn btn-ghost'}
                   style={{ marginTop: 20, width: '100%', fontSize: 13.5 }}
+                  onClick={(e) => e.stopPropagation()}
                 >
                   Start my {trialDays}-day free trial
                 </Link>
-              </motion.div>
+                {chosenPlan === p.name && (
+                  <div style={{ marginTop: 12, fontSize: 12, fontWeight: 700, color: 'var(--violet)' }}>
+                    Selected
+                  </div>
+                )}
+              </motion.button>
             ))}
           </div>
 
