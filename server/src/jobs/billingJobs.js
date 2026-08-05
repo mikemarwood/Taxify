@@ -14,12 +14,22 @@ const UNACTIVATED_LIFETIME_DAYS = 5;
 //
 // Reminders go out with days remaining, not days elapsed — "expires in 1 day"
 // is the part that matters to the reader.
+//
+// Accountants are excluded from both halves, and that is not tidying-up. An
+// invited accountant's row is unactivated through no fault of their own — their
+// client created it — and deleting it took the client's grant with it by
+// cascade, silently, with the client never told their accountant had vanished
+// from the list. The reminder was wrong for them too: it links to /activate,
+// which is not the page an invitation leads to.
+const NOT_AN_ACCOUNTANT = `role <> 'accountant'`;
+
 export async function purgeUnactivatedAccounts(pool) {
   for (const daysLeft of [2, 1]) {
     const elapsed = UNACTIVATED_LIFETIME_DAYS - daysLeft;
     const [rows] = await pool.execute(
       `SELECT id, email, name, first_name FROM users
        WHERE activated_at IS NULL
+         AND ${NOT_AN_ACCOUNTANT}
          AND created_at BETWEEN DATE_SUB(NOW(), INTERVAL ${elapsed + 1} DAY) AND DATE_SUB(NOW(), INTERVAL ${elapsed} DAY)`
     );
 
@@ -49,7 +59,9 @@ export async function purgeUnactivatedAccounts(pool) {
 
   const [result] = await pool.query(
     `DELETE FROM users
-     WHERE activated_at IS NULL AND created_at < DATE_SUB(NOW(), INTERVAL ${UNACTIVATED_LIFETIME_DAYS} DAY)`
+     WHERE activated_at IS NULL
+       AND ${NOT_AN_ACCOUNTANT}
+       AND created_at < DATE_SUB(NOW(), INTERVAL ${UNACTIVATED_LIFETIME_DAYS} DAY)`
   );
   if (result.affectedRows > 0) {
     console.log(`[cleanup] removed ${result.affectedRows} account(s) that were never activated`);

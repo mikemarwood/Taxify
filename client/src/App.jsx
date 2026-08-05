@@ -82,7 +82,7 @@ function PublicOnly({ children }) {
 function AccountantOnly({ children }) {
   const { user, loading } = useAuth();
   if (loading) return <Splash />;
-  if (!user) return <Navigate to="/login?accountant=1" replace />;
+  if (!user) return <Navigate to="/login" replace />;
   // Anyone who acts for a client can be here, including account holders who
   // keep their own books as well.
   if (!user.isAccountant && user.role !== 'accountant') return <Navigate to="/" replace />;

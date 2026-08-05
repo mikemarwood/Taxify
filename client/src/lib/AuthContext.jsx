@@ -35,7 +35,14 @@ export function AuthProvider({ children }) {
   const login = useCallback(async (email, password, publicDevice) => {
     const res = await api.post('/auth/login', { email: email.trim().toLowerCase(), password, publicDevice });
     if (res.data.otpRequired) {
-      return { otpRequired: true, userId: res.data.userId, expiresAt: res.data.expiresAt };
+      // expiresInSeconds is what the countdown runs on — it was dropped here,
+      // so the code screen silently fell back to a hard-coded five minutes.
+      return {
+        otpRequired: true,
+        userId: res.data.userId,
+        expiresAt: res.data.expiresAt,
+        expiresInSeconds: res.data.expiresInSeconds,
+      };
     }
     setUser(res.data.user);
     return { otpRequired: false, user: res.data.user };

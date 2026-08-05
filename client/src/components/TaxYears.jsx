@@ -102,8 +102,12 @@ export default function TaxYears({ years, spendByYear, expenses, onFinalisedChan
 
   useEffect(load, []);
 
-  // Years an accountant wasn't given aren't theirs to record against.
-  const allowed = user?.role === 'accountant' ? user.activeClient?.financialYears : null;
+  // Years an accountant wasn't given aren't theirs to record against. Keyed on
+  // having a client open rather than on the role, so an account holder who also
+  // does someone's books sees the same restriction the server enforces. It was
+  // display-only either way, but offering years the save will refuse is a
+  // promise the app then breaks.
+  const allowed = user?.activeClient?.financialYears ?? null;
   const listed = (allowed ? years.filter((y) => allowed.includes(y)) : years).slice().reverse();
 
   // One row per lodgement rather than per year. Books that lodge annually

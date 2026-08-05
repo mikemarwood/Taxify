@@ -5,7 +5,12 @@ if (!JWT_SECRET) {
   throw new Error('JWT_SECRET is not set. Copy .env.example to .env and set a strong secret.');
 }
 
-const TOKEN_TTL = '90d';
+// How long a signed-in session lasts. One number for both the token and the
+// cookie, because they were written separately and could drift — and a cookie
+// that outlives its token is a login that silently stops working.
+const SESSION_DAYS = 30;
+const TOKEN_TTL = `${SESSION_DAYS}d`;
+export const SESSION_MAX_AGE_MS = SESSION_DAYS * 24 * 60 * 60 * 1000;
 export const COOKIE_NAME = 'taxify_token';
 
 export function signToken(user) {
@@ -44,7 +49,7 @@ export function cookieOptions(persistent = true) {
     secure: process.env.NODE_ENV === 'production',
     // A "public device" login omits maxAge so the cookie is a browser session
     // cookie and disappears as soon as the window/browser is closed.
-    ...(persistent ? { maxAge: 90 * 24 * 60 * 60 * 1000 } : {}),
+    ...(persistent ? { maxAge: SESSION_MAX_AGE_MS } : {}),
     path: '/',
   };
 }

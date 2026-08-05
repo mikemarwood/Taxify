@@ -1103,6 +1103,16 @@ router.patch(
     const { enabled } = req.body || {};
     if (typeof enabled !== 'boolean') return res.status(400).json({ error: 'enabled must be a boolean' });
 
+    // Holding someone else's books is a higher bar than an ordinary login, so
+    // two-factor cannot be switched off while any client is assigned. Turning
+    // it on to get through the door and straight back off again would leave
+    // nothing standing.
+    if (!enabled && (await hasAssignments(req.user.id))) {
+      return res.status(400).json({
+        error: 'Two-factor login is required while you act for clients. Ask them to remove your access first.',
+      });
+    }
+
     await pool.execute(
       'UPDATE users SET otp_enabled = ?, otp_last_prompted_at = NOW() WHERE id = ?',
       [enabled ? 1 : 0, req.user.id]

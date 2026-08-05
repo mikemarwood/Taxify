@@ -37,7 +37,12 @@ export default function ClientBanner() {
     return () => clearInterval(id);
   }, [expiresAt]);
 
-  if (user?.role !== 'accountant' || !user.activeClient) return null;
+  // Having a client open is the whole condition. It used to also require
+  // role === 'accountant', which meant an account holder who keeps their own
+  // books *and* does someone else's got no banner, no countdown, and — since
+  // this is the only place that calls /auth/clients/exit — no way back to their
+  // own records until the token expired on its own.
+  if (!user?.activeClient) return null;
 
   const client = user.activeClient;
   const expiring = left && (left === 'expired' || /^\d+m left$/.test(left));

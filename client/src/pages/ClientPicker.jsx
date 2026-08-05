@@ -99,7 +99,7 @@ export default function ClientPicker() {
             style={{ fontSize: 13 }}
             onClick={async () => {
               await logout();
-              navigate('/login?accountant=1');
+              navigate('/login');
             }}
           >
             Sign out
