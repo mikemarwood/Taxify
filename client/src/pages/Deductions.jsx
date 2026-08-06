@@ -205,8 +205,12 @@ export default function Deductions() {
             )}
 
             {!readOnly && (
-              <form onSubmit={addTrip} style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'flex-end' }}>
-                <div style={{ flex: '1 1 148px', minWidth: 140 }}>
+              <form
+                onSubmit={addTrip}
+                className="deduction-form"
+                style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'flex-end' }}
+              >
+                <div style={{ flex: '1 1 165px', minWidth: 165 }}>
                   <label className="label">Date</label>
                   <input
                     className="input"
@@ -305,8 +309,12 @@ export default function Deductions() {
             }
           >
             {!readOnly && (
-              <form onSubmit={addHours} style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'flex-end' }}>
-                <div style={{ flex: '1 1 148px', minWidth: 140 }}>
+              <form
+                onSubmit={addHours}
+                className="deduction-form"
+                style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'flex-end' }}
+              >
+                <div style={{ flex: '1 1 165px', minWidth: 165 }}>
                   <label className="label">Date</label>
                   <input
                     className="input"

@@ -227,6 +227,26 @@ router.patch(
     if (req.body?.kind !== undefined) {
       const kind = normaliseKind(req.body.kind);
       if (!ENTITY_KINDS.includes(kind)) return res.status(400).json({ error: 'Unknown kind' });
+
+      // Turning a set of books into a business is creating one as far as the
+      // plan is concerned. Without this, Individual — which allows no
+      // businesses at all — was two clicks away from the entire business
+      // feature set: open the only set of books there is, press Small business.
+      // The same check keeps the one-individual rule from being walked around
+      // in the other direction.
+      //
+      // Checked only when the kind actually changes, so saving a name on a
+      // grandfathered account is never refused for a value it already had.
+      if (kind !== normaliseKind(entity.kind)) {
+        const siblings = (await listEntities(ownerId, { includeArchived: true }))
+          .filter((e) => e.id !== entity.id)
+          .map((e) => ({ kind: normaliseKind(e.kind) }));
+        const allowed = canAddEntity({ planType: req.user.planType, kind, existing: siblings });
+        if (!allowed.ok) {
+          return res.status(403).json({ error: allowed.message, reason: allowed.reason, needsPlan: allowed.needsPlan });
+        }
+      }
+
       if (kind === 'individual' && entity.kind === 'business') {
         // The business-use field disappears for an individual, and hiding a
         // field that is still apportioning money would make the app lie about

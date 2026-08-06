@@ -488,6 +488,13 @@ input[type="date"].input::-webkit-calendar-picker-indicator:hover { opacity: 1; 
      far down, which is why the page felt tighter than every other one. */
   .deduction-panel { padding: 14px !important; }
 
+  /* A native date control has a floor: it must fit "dd/mm/yyyy" plus the
+     calendar button, and the 16px rule below raises that floor further. Shared
+     with a second field on a 360px screen it lands under its own minimum and
+     the browser clips the text rather than shrinking it. One field to a line
+     below this width — the form is four fields, so it costs nothing. */
+  .deduction-form > * { flex-basis: 100% !important; min-width: 0 !important; }
+
   /* Below 16px, iOS Safari zooms the viewport the moment a field takes focus,
      and then leaves the page scrolled sideways. On a page that is almost
      entirely inputs that is most of the "it doesn't fit" feeling. */

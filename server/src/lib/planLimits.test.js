@@ -80,3 +80,27 @@ test('the plan names are the ones the customer sees', () => {
   assert.equal(planLabel('family'), 'Individual');
   assert.equal(Object.keys(PLAN_LIMITS).length, 2);
 });
+
+test('converting a set of books counts as creating one', () => {
+  // The route asks this question by passing every entity *except* the one
+  // being changed. On Individual, flipping the only set of books to a business
+  // was the whole business feature set for free — and it was two clicks in the
+  // UI, not a crafted request.
+  const asBusiness = canAddEntity({ planType: 'individual', kind: 'business', existing: [] });
+  assert.equal(asBusiness.ok, false);
+  assert.equal(asBusiness.needsPlan, 'business');
+
+  // Small Business with both businesses already used has no room to convert a
+  // third either.
+  assert.equal(
+    canAddEntity({ planType: 'business', kind: 'business', existing: [individual, business, business] }).ok,
+    false
+  );
+
+  // And the same call refuses walking around the one-individual rule from the
+  // other side.
+  assert.equal(canAddEntity({ planType: 'business', kind: 'individual', existing: [individual] }).ok, false);
+
+  // Converting the second business on Small Business is fine — one sibling.
+  assert.equal(canAddEntity({ planType: 'business', kind: 'business', existing: [individual, business] }).ok, true);
+});

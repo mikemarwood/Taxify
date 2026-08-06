@@ -183,7 +183,14 @@ export default function EntityManager() {
                     exit={{ opacity: 0, height: 0 }}
                     style={{ overflow: 'hidden' }}
                   >
-                    <EditRow entity={e} busy={busy} onSave={save} onArchive={archive} onDelete={remove} />
+                    <EditRow
+                      entity={e}
+                      busy={busy}
+                      canBecomeBusiness={atLimit ? e.kind === 'business' : true}
+                      onSave={save}
+                      onArchive={archive}
+                      onDelete={remove}
+                    />
                   </motion.div>
                 )}
               </AnimatePresence>
@@ -314,7 +321,7 @@ export default function EntityManager() {
   );
 }
 
-function EditRow({ entity, busy, onSave, onArchive, onDelete }) {
+function EditRow({ entity, busy, canBecomeBusiness, onSave, onArchive, onDelete }) {
   const [name, setName] = useState(entity.name);
 
   return (
@@ -327,7 +334,10 @@ function EditRow({ entity, busy, onSave, onArchive, onDelete }) {
         style={{ fontSize: 12.5 }}
       />
       <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-        {KINDS.map((k) => (
+        {/* The plan caps businesses, and switching a set of books to one is a
+            business as far as that cap goes. Offering the button and refusing
+            the click would be worse than not offering it. */}
+        {KINDS.filter((k) => k.value !== 'business' || canBecomeBusiness).map((k) => (
           <button
             key={k.value}
             type="button"
