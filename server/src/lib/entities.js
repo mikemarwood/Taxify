@@ -86,7 +86,7 @@ export function shapeEntity(row) {
 export async function listEntities(ownerId, { includeArchived = false } = {}) {
   const [rows] = await pool.execute(
     `SELECT * FROM entities WHERE user_id = ?${includeArchived ? '' : ' AND archived_at IS NULL'}
-     ORDER BY is_default DESC, name`,
+     ORDER BY kind = 'individual' DESC, is_default DESC, name`,
     [ownerId]
   );
   return rows;
@@ -108,6 +108,20 @@ export async function defaultEntityFor(ownerId) {
 // Nobody may be without one. Called at registration and defensively whenever
 // the list is read, so an account created between two releases — or one the
 // migration could not see — still has somewhere to file.
+// What somebody's own tax is called: their first name, possessive. "Mike's
+// Tax" reads as theirs in a list beside "Acme Plumbing"; "Individual" reads as
+// a category. Falls back when there is no name to use — an account created by
+// an import, or one being repaired before its profile is filled in.
+export async function personalBooksName(ownerId) {
+  const [rows] = await pool.execute('SELECT first_name, name FROM users WHERE id = ?', [ownerId]);
+  const row = rows[0];
+  // first_name when it exists, otherwise the first word of the display name.
+  const first = String(row?.first_name || row?.name || '').trim().split(/\s+/)[0];
+  if (!first) return 'My Tax';
+  // "Chris" -> "Chris' Tax", not "Chris's Tax".
+  return /s$/i.test(first) ? `${first}' Tax` : `${first}'s Tax`;
+}
+
 export async function ensureDefaultEntity(ownerId) {
   const existing = await defaultEntityFor(ownerId);
   if (existing) return existing;
@@ -123,8 +137,8 @@ export async function ensureDefaultEntity(ownerId) {
   try {
     await pool.execute(
       `INSERT INTO entities (user_id, name, kind, lodgement_cadence, is_default, path_segment)
-       VALUES (?, 'Individual', 'individual', 'annual', 1, NULL)`,
-      [ownerId]
+       VALUES (?, ?, 'individual', 'annual', 1, NULL)`,
+      [ownerId, await personalBooksName(ownerId)]
     );
   } catch (err) {
     // Two requests arriving together both find nothing and both insert. The

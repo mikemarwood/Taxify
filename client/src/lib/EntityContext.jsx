@@ -87,7 +87,7 @@ export function EntityProvider({ children }) {
       isAll: selected === ALL_ENTITIES,
       // One set of books needs no switcher, and that is what keeps this
       // invisible for every account that has never made a second one.
-      showSwitcher: entities.length > 1,
+      showSwitcher: entities.length > 0,
       choose,
       reload: load,
     };

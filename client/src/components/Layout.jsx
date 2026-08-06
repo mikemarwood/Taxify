@@ -16,6 +16,7 @@ import OtpOnboardingModal from './OtpOnboardingModal.jsx';
 import { playClick } from '../lib/sounds.js';
 import { formatMoney } from '../lib/money.js';
 import { describeSubscription } from '../lib/subscription.js';
+import { currentPlanType, planLabel as labelForPlan } from '../lib/plans.js';
 
 // Eight equal-weight links in one column give no sense of where anything is.
 // Grouping them under headings means the eye lands on a section first and a
@@ -371,7 +372,7 @@ export default function Layout({ children }) {
                   {user?.actingAsClient
                     ? `Acting as accountant · ${user.actingAsClient.businessName || user.actingAsClient.name}`
                     : user?.role === 'owner'
-                    ? `${user.planType === 'business' ? 'Small Business' : 'Individual'} plan${
+                    ? `${labelForPlan(currentPlanType(user))} plan${
                         user.isAccountant ? ' · accountant' : ''
                       }`
                     : user?.role === 'accountant'

@@ -456,16 +456,26 @@ export default function Register() {
           }}
         >
           <div style={{ width: '100%', maxWidth: 560, margin: '0 auto', display: 'flex', flexDirection: 'column', flex: 1, justifyContent: 'center' }}>
-          <AnimatePresence mode="wait" custom={direction}>
-            <motion.div
-              key={step}
-              custom={direction}
-              initial={{ opacity: 0, x: direction * 28 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: direction * -28 }}
-              transition={{ duration: 0.26, ease: [0.16, 1, 0.3, 1] }}
-              style={{ display: 'flex', flexDirection: 'column', gap: 4, minHeight: 0 }}
-            >
+          {/* No AnimatePresence here, deliberately.
+              
+              This was `mode="wait"`, which holds the incoming step back until
+              the outgoing one has finished animating out. Press Next or Back
+              again while that is still running — which people do, because the
+              form is quick — and the exit never resolves, so the step being
+              waited for is never mounted. The result is a blank panel with the
+              progress bar and buttons still around it, on whichever step you
+              happened to land on, and only sometimes.
+              
+              A keyed motion.div remounts and plays its entry on its own. The
+              exit animation is what is lost, and a step that always appears is
+              worth more than one that slides away prettily. */}
+          <motion.div
+            key={step}
+            initial={{ opacity: 0, x: direction * 28 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ duration: 0.26, ease: [0.16, 1, 0.3, 1] }}
+            style={{ display: 'flex', flexDirection: 'column', gap: 4, minHeight: 0 }}
+          >
               <h1 style={{ margin: 0, fontSize: 'clamp(22px, 2.4vw, 28px)', letterSpacing: -0.5 }}>{HEADINGS[stepKey].title}</h1>
               <p style={{ margin: '0 0 18px', fontSize: 14, color: 'var(--text-muted)' }}>{HEADINGS[stepKey].sub}</p>
 
@@ -559,13 +569,12 @@ export default function Register() {
                       autoComplete="email"
                     />
                   </Field>
-                  <Field label="Confirm email" required span error={errors.confirmEmail} hint="Typed again, not pasted">
+                  <Field label="Confirm email" required span error={errors.confirmEmail} hint="So a typo cannot lock you out">
                     <input
                       type="email"
                       className="input"
                       value={confirmEmail}
                       maxLength={LIMITS.email.max}
-                      onPaste={(e) => e.preventDefault()}
                       onChange={(e) => setConfirmEmail(e.target.value.toLowerCase())}
                       autoComplete="off"
                     />
@@ -853,8 +862,7 @@ export default function Register() {
                   </label>
                 </Grid>
               )}
-            </motion.div>
-          </AnimatePresence>
+          </motion.div>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 22, paddingTop: 18, borderTop: '1px solid var(--border)' }}>
             <button

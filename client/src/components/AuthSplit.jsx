@@ -1,7 +1,6 @@
 import { motion } from 'framer-motion';
 import Icon from './Icon.jsx';
 import SignupArtwork from './SignupArtwork.jsx';
-import AndroidDownloadButton from './AndroidDownloadButton.jsx';
 
 // The shared frame for every signed-out page: a navy brand side running edge
 // to edge, and the form on paper beside it. Full bleed rather than a centred
@@ -123,9 +122,6 @@ export function ProductPanel({ headline = 'Every receipt where you left it, come
       </div>
 
       <div style={{ marginTop: 'auto', display: 'flex', flexDirection: 'column', gap: 14 }}>
-        <div className="signup-art">
-          <AndroidDownloadButton />
-        </div>
         <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap' }}>
           {[
             { icon: 'gift', label: '14-day free trial' },

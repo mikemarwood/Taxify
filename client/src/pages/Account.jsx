@@ -15,6 +15,7 @@ import PlanComparison from '../components/PlanComparison.jsx';
 // accountant's own name is theirs to spell, and rewriting the row would make
 // this page the thing that changed it.
 import { titleCase, lowerEmail } from '../lib/textCase.js';
+import { currentPlanType, planLabel as labelForPlan } from '../lib/plans.js';
 
 // The window a date of birth may fall in — matches the sign-up form, so an
 // account cannot be edited into a state it could never have been created in.
@@ -226,7 +227,7 @@ function BillingSection({ user }) {
     }
   }
 
-  const planLabel = user.planType === 'business' ? 'Small Business' : 'Individual';
+  const planLabel = labelForPlan(currentPlanType(user));
 
   return (
     <div className="card" style={{ padding: 20, display: 'flex', flexDirection: 'column', gap: 14 }}>

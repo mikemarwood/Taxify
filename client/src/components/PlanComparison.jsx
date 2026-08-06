@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import { api } from '../lib/api.js';
 import { usePlanChange } from '../lib/usePlanChange.js';
+import { currentPlanType } from '../lib/plans.js';
 import Icon from './Icon.jsx';
 
 // Both plans in full, with the current one marked. Prices come from Stripe
@@ -33,7 +34,9 @@ export default function PlanComparison({ user, onChoose, chooseLabel }) {
   return (
     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: 14, marginTop: 4 }}>
       {plans.map((plan) => {
-        const current = user.planType === plan.planType;
+        // Through the shared resolver, not a raw ===. A NULL plan_type used to
+        // match neither card while the heading above said Individual.
+        const current = currentPlanType(user) === plan.planType;
         // The plan you already have is not something to pick again — the whole
         // card goes inert and says so, rather than offering a button that
         // would do nothing.

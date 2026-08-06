@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { AnimatePresence, motion } from 'framer-motion';
 import { Link } from 'react-router-dom';
 import { api } from '../lib/api.js';
@@ -18,6 +19,9 @@ export default function NotificationBell() {
   const [data, setData] = useState(null);
   const [open, setOpen] = useState(false);
   const ref = useRef(null);
+  const panelRef = useRef(null);
+  // Where to draw the panel, in viewport coordinates.
+  const [anchor, setAnchor] = useState(null);
 
   function load() {
     api
@@ -34,11 +38,39 @@ export default function NotificationBell() {
 
   useEffect(() => {
     function onClickOutside(e) {
+      if (panelRef.current && panelRef.current.contains(e.target)) return;
       if (ref.current && !ref.current.contains(e.target)) setOpen(false);
     }
     document.addEventListener('mousedown', onClickOutside);
     return () => document.removeEventListener('mousedown', onClickOutside);
   }, []);
+
+  // Measured from the button rather than positioned relative to it, because
+  // the panel is drawn outside the sidebar now — see the portal below.
+  const place = useCallback(() => {
+    const button = ref.current;
+    if (!button) return;
+    const r = button.getBoundingClientRect();
+    const width = Math.max(r.width, 300);
+    const margin = 8;
+    // Kept on screen. Anchored to the button's left edge normally, pulled back
+    // when that would push it off the right of a narrow window.
+    const left = Math.max(margin, Math.min(r.left, window.innerWidth - width - margin));
+    setAnchor({ left, width, bottom: window.innerHeight - r.top + 8 });
+  }, []);
+
+  // Before paint, so it never shows up in the wrong place for a frame.
+  useLayoutEffect(() => {
+    if (!open) return undefined;
+    place();
+    window.addEventListener('resize', place);
+    // The sidebar scrolls, and the button moves with it.
+    window.addEventListener('scroll', place, true);
+    return () => {
+      window.removeEventListener('resize', place);
+      window.removeEventListener('scroll', place, true);
+    };
+  }, [open, place]);
 
   const unread = data?.unread || 0;
   const items = data?.notifications || [];
@@ -85,25 +117,33 @@ export default function NotificationBell() {
         )}
       </button>
 
-      <AnimatePresence>
-        {open && (
-          <motion.div
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 8 }}
-            className="card"
-            style={{
-              position: 'absolute',
-              bottom: '112%',
-              left: 0,
-              right: 0,
-              minWidth: 260,
-              maxHeight: 380,
-              overflowY: 'auto',
-              padding: 0,
-              zIndex: 1300,
-            }}
-          >
+      {/* Rendered into the body, not into the sidebar.
+
+          The sidebar scrolls, which makes it a clipping context: a panel wider
+          than the sidebar was cut off at its edge, and one taller than the
+          remaining space was cut off at the bottom. No z-index fixes that —
+          the only fix is to not be inside it. */}
+      {createPortal(
+        <AnimatePresence>
+          {open && anchor && (
+            <motion.div
+              ref={panelRef}
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 8 }}
+              className="card"
+              style={{
+                position: 'fixed',
+                left: anchor.left,
+                bottom: anchor.bottom,
+                width: anchor.width,
+                // Never taller than the space above the button.
+                maxHeight: `min(380px, calc(100vh - ${anchor.bottom}px - 16px))`,
+                overflowY: 'auto',
+                padding: 0,
+                zIndex: 1300,
+              }}
+            >
             {items.length === 0 ? (
               <div style={{ padding: 22, textAlign: 'center', fontSize: 12.5, color: 'var(--text-muted)' }}>
                 Nothing yet. Recurring expenses, accountant access and tax reminders will appear here.
@@ -140,9 +180,11 @@ export default function NotificationBell() {
                 );
               })
             )}
-          </motion.div>
-        )}
-      </AnimatePresence>
+            </motion.div>
+          )}
+        </AnimatePresence>,
+        document.body
+      )}
     </div>
   );
 }
