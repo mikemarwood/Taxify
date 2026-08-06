@@ -150,22 +150,41 @@ export default function AndroidDownloadButton({ variant = 'button' }) {
     );
   }
 
+  // The card is the pitch, so it is built like one: a coloured band that says
+  // what it is at a glance, then the three things worth knowing, then the
+  // download. It used to be a plain bordered box with a bullet list, which read
+  // as a footnote next to the plan cards above it.
   return (
     <div
       className="card"
       style={{
-        padding: 24,
-        display: 'flex',
-        flexDirection: 'column',
-        gap: 16,
-        maxWidth: 480,
+        padding: 0,
+        overflow: 'hidden',
+        width: '100%',
+        maxWidth: 520,
+        textAlign: 'left',
+        // Android's own green, kept to the rim rather than filling the card, so
+        // it identifies the thing without fighting the page's blue.
+        border: '1px solid var(--border)',
+        boxShadow: unavailable ? 'var(--shadow-sm)' : '0 18px 44px -22px rgba(47, 158, 86, 0.55)',
       }}
     >
-      <div style={{ display: 'flex', alignItems: 'center', gap: 13 }}>
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 14,
+          padding: '18px 22px',
+          background: unavailable
+            ? 'var(--bg-inset)'
+            : 'linear-gradient(135deg, rgba(31, 111, 63, 0.22), rgba(61, 220, 132, 0.14))',
+          borderBottom: '1px solid var(--border)',
+        }}
+      >
         <span
           style={{
-            width: 48,
-            height: 48,
+            width: 46,
+            height: 46,
             borderRadius: 13,
             display: 'flex',
             alignItems: 'center',
@@ -173,46 +192,83 @@ export default function AndroidDownloadButton({ variant = 'button' }) {
             background: 'linear-gradient(135deg, #1f6f3f, #3ddc84)',
             color: '#fff',
             flexShrink: 0,
+            boxShadow: '0 4px 14px rgba(47, 158, 86, 0.4)',
           }}
         >
           {ANDROID_MARK}
         </span>
-        <div>
-          <div style={{ fontWeight: 800, fontSize: 17 }}>Taxify for Android</div>
-          <div style={{ fontSize: 12.5, color: 'var(--text-muted)' }}>
+        <div style={{ minWidth: 0 }}>
+          <div style={{ fontWeight: 800, fontSize: 17, lineHeight: 1.25 }}>Taxify for Android</div>
+          <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 2 }}>
             {[version?.versionName ? `Version ${version.versionName}` : null, size, updated ? `updated ${updated}` : null]
               .filter(Boolean)
               .join(' · ') || 'Free download'}
           </div>
         </div>
+        {!unavailable && (
+          <span
+            style={{
+              marginLeft: 'auto',
+              flexShrink: 0,
+              fontSize: 10.5,
+              fontWeight: 800,
+              letterSpacing: 0.6,
+              textTransform: 'uppercase',
+              padding: '4px 9px',
+              borderRadius: 999,
+              color: '#3ddc84',
+              background: 'rgba(61, 220, 132, 0.12)',
+              border: '1px solid rgba(61, 220, 132, 0.3)',
+            }}
+          >
+            Free
+          </span>
+        )}
       </div>
 
-      <ul style={{ margin: 0, padding: 0, listStyle: 'none', display: 'flex', flexDirection: 'column', gap: 9 }}>
-        {[
-          ['camera', 'Photograph a receipt the moment you get it, straight from your phone'],
-          ['lock', 'Your account, your receipts — the same data as the website, instantly'],
-          ['download', 'Free with your subscription. No extra cost, no separate account'],
-        ].map(([icon, text]) => (
-          <li key={text} style={{ display: 'flex', gap: 10, fontSize: 13, lineHeight: 1.5 }}>
-            <span style={{ color: 'var(--emerald)', marginTop: 1, flexShrink: 0 }}>
-              <Icon name={icon} size={15} />
-            </span>
-            {text}
-          </li>
-        ))}
-      </ul>
+      <div style={{ padding: 22, display: 'flex', flexDirection: 'column', gap: 16 }}>
+        <ul style={{ margin: 0, padding: 0, listStyle: 'none', display: 'flex', flexDirection: 'column', gap: 11 }}>
+          {[
+            ['camera', 'Photograph a receipt the moment you get it', 'Straight from your phone, at the counter'],
+            ['repeat', 'The same account, the same receipts', 'Everything you add here is on the website instantly'],
+            ['lock', 'Included with your subscription', 'No extra cost and no second account to keep'],
+          ].map(([icon, title, sub]) => (
+            <li key={title} style={{ display: 'flex', gap: 11 }}>
+              <span
+                style={{
+                  width: 26,
+                  height: 26,
+                  borderRadius: 8,
+                  flexShrink: 0,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  background: 'rgba(61, 220, 132, 0.12)',
+                  color: '#3ddc84',
+                }}
+              >
+                <Icon name={icon} size={14} />
+              </span>
+              <span style={{ minWidth: 0 }}>
+                <span style={{ display: 'block', fontSize: 13.5, fontWeight: 600, lineHeight: 1.35 }}>{title}</span>
+                <span style={{ display: 'block', fontSize: 12, color: 'var(--text-muted)', lineHeight: 1.45 }}>{sub}</span>
+              </span>
+            </li>
+          ))}
+        </ul>
 
-      {button}
-      {notice}
+        {button}
+        {notice}
 
-      {/* Sideloaded rather than from Play, so the extra step is stated up front
-          instead of being discovered as a scary warning mid-install. */}
-      {!unavailable && (
-        <p style={{ fontSize: 11.5, color: 'var(--text-muted)', margin: 0, lineHeight: 1.55 }}>
-          Installed directly rather than through the Play Store, so Android will ask you to allow it once. Requires
-          Android 6.0 or newer.
-        </p>
-      )}
+        {/* Sideloaded rather than from Play, so the extra step is stated up
+            front instead of being met as a scary warning mid-install. */}
+        {!unavailable && (
+          <p style={{ fontSize: 11.5, color: 'var(--text-muted)', margin: 0, lineHeight: 1.55 }}>
+            Installed directly rather than through the Play Store, so Android will ask you to allow it once. Requires
+            Android 6.0 or newer.
+          </p>
+        )}
+      </div>
     </div>
   );
 }

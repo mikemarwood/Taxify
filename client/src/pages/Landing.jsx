@@ -222,7 +222,7 @@ export default function Landing() {
               marginBottom: 24,
             }}
           >
-            Built for freelancers, tradies &amp; small business owners
+            Built for workers, tradies &amp; small business owners
           </div>
           <h1
             style={{
@@ -234,7 +234,7 @@ export default function Landing() {
               marginInline: 'auto',
             }}
           >
-            Track every tax deduction, without the spreadsheet.
+            Track every deduction, cleanly and simply.
           </h1>
           <p
             style={{
@@ -252,44 +252,116 @@ export default function Landing() {
             <Link to="/register" className="btn btn-primary" style={{ padding: '13px 28px', fontSize: 15 }}>
               Get started — it's free
             </Link>
-            <Link to="/login" className="btn btn-ghost" style={{ padding: '13px 28px', fontSize: 15 }}>
-              I already have an account
-            </Link>
           </div>
           <p style={{ fontSize: 12.5, color: 'var(--text-muted)', marginTop: 18 }}>
+            Fast, simple and effective · Works on any device
+          </p>
+          <p style={{ fontSize: 12.5, color: 'var(--text-muted)', marginTop: 6 }}>
             {trialDays}-day free trial · No credit card required
           </p>
+
+          {/* It runs in a browser, so it runs on whatever somebody already
+              owns. Said plainly — "web app" means nothing to most people. */}
+          <div
+            style={{
+              display: 'flex',
+              flexWrap: 'wrap',
+              justifyContent: 'center',
+              gap: 10,
+              marginTop: 26,
+            }}
+          >
+            {[
+              ['phone', 'Phone'],
+              ['file', 'Tablet'],
+              ['cpu', 'Laptop'],
+              ['dashboard', 'Desktop'],
+              ['download', 'Android app'],
+            ].map(([icon, label]) => (
+              <span
+                key={label}
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 8,
+                  padding: '9px 15px',
+                  borderRadius: 999,
+                  border: '1px solid var(--border)',
+                  background: 'var(--bg-elevated)',
+                  fontSize: 13,
+                  fontWeight: 600,
+                  color: 'var(--text-muted)',
+                }}
+              >
+                <Icon name={icon} size={15} style={{ color: 'var(--blue)' }} />
+                {label}
+              </span>
+            ))}
+          </div>
         </motion.section>
 
-        <motion.section
-          initial={{ opacity: 0, y: 20 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true, margin: '-60px' }}
-          transition={{ duration: 0.4, ease: 'easeOut' }}
-          className="card"
-          style={{
-            padding: '28px clamp(20px, 4vw, 40px)',
-            marginBottom: 'clamp(48px, 8vw, 88px)',
-            display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))',
-            gap: 20,
-            textAlign: 'center',
-          }}
-        >
-          {[
-            ['14-day', 'Free trial, no card required'],
-            ['2', 'Plans — Individual or Small Business'],
-            ['bcrypt', 'Password hashing'],
-            ['2FA', 'Email login codes'],
-          ].map(([stat, label]) => (
-            <div key={label}>
-              <div style={{ fontSize: 24, fontWeight: 800, background: 'var(--gradient-brand)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
-                {stat}
+        {/* The whole product in five steps, of which you do two. */}
+        <section style={{ marginBottom: 'clamp(48px, 8vw, 88px)' }}>
+          <div style={{ textAlign: 'center', marginBottom: 36 }}>
+            <h2 style={{ fontSize: 'clamp(24px, 4vw, 32px)', margin: '0 0 12px', fontWeight: 800 }}>
+              From the counter to your accountant
+            </h2>
+            <p style={{ color: 'var(--text-muted)', fontSize: 15, maxWidth: 520, margin: '0 auto' }}>
+              Five steps, and you only do the first two.
+            </p>
+          </div>
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(190px, 1fr))',
+              gap: 12,
+            }}
+          >
+            {[
+              ['cash', 'Step 1', 'You buy something', 'A tool, fuel, materials — anything you can claim.'],
+              ['camera', 'Step 2', 'Photograph the receipt', 'One tap on your phone, before it goes in your pocket.'],
+              ['folder', 'Step 3', 'Taxify files it', 'The right category, the right year, the right set of books.'],
+              ['chart', 'Step 4', 'Your totals keep themselves', 'Reports, comparisons, vehicle and home-office claims.'],
+              ['users', 'Step 5', 'Your accountant reads it', 'Read-only for as long as you choose, then it closes itself.'],
+            ].map(([icon, num, title, text]) => (
+              <div
+                key={num}
+                className="card"
+                style={{ padding: '20px 16px', textAlign: 'center' }}
+              >
+                <span
+                  style={{
+                    width: 42,
+                    height: 42,
+                    margin: '0 auto 12px',
+                    borderRadius: 12,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    background: 'linear-gradient(135deg, rgba(59, 130, 246, 0.18), rgba(6, 182, 212, 0.14))',
+                    color: 'var(--blue)',
+                  }}
+                >
+                  <Icon name={icon} size={19} />
+                </span>
+                <div
+                  style={{
+                    fontSize: 10.5,
+                    fontWeight: 800,
+                    letterSpacing: 0.7,
+                    textTransform: 'uppercase',
+                    color: 'var(--text-muted)',
+                    marginBottom: 5,
+                  }}
+                >
+                  {num}
+                </div>
+                <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 5 }}>{title}</div>
+                <div style={{ fontSize: 12.5, color: 'var(--text-muted)', lineHeight: 1.5 }}>{text}</div>
               </div>
-              <div style={{ fontSize: 12.5, color: 'var(--text-muted)', marginTop: 4 }}>{label}</div>
-            </div>
-          ))}
-        </motion.section>
+            ))}
+          </div>
+        </section>
 
         <section style={{ marginBottom: 'clamp(48px, 8vw, 88px)' }}>
           <div style={{ textAlign: 'center', marginBottom: 40 }}>
