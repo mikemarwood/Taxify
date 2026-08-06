@@ -7,6 +7,15 @@
 <meta name="description" content="Taxify logs your expenses, sorts them into categories, and builds year-over-year reports — so tax time takes minutes, not weekends.">
 <meta name="theme-color" content="#0a0f18">
 <link rel="icon" type="image/svg+xml" href="/logo.svg">
+<!-- This page is served two ways: directly by Taxify, and wrapped inside
+     Mike's App Hub, which fetches it and serves it from its own domain. On the
+     hub, a link written as "/register" resolves to the hub's own /register,
+     which does not exist — so every button on the page did nothing.
+
+     The origin is named here and the script at the foot rewrites the links
+     when, and only when, the page is not already on it. Locally it is left
+     alone, so a dev server still links to itself. -->
+<meta name="taxify-origin" content="https://taxify.mikesapphub.com">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -575,12 +584,46 @@
   </footer>
 
   <script>
+    // Absolute when the page is somewhere other than Taxify, relative when it
+    // is already there. Everything on the page that navigates goes through it.
+    function taxifyUrl(path) {
+      var meta = document.querySelector('meta[name="taxify-origin"]');
+      var origin = meta && meta.content ? meta.content.replace(/\/$/, '') : '';
+      if (!origin) return path;
+
+      var host = window.location.host;
+      // A dev server is serving its own copy of this page, so its links belong
+      // to it. Without this, every button on a local build would walk the
+      // developer out to production.
+      if (/^(localhost|127\.0\.0\.1|\[::1\])(:\d+)?$/.test(host)) return path;
+
+      try {
+        if (new URL(origin).host === host) return path;
+      } catch (e) {
+        return path;
+      }
+      return origin + path;
+    }
+
+    // Rewrites what is already in the markup. Done on load rather than written
+    // absolute by hand, so the page still works when it is served by Taxify
+    // itself and nothing points at another domain unnecessarily.
+    (function () {
+      var links = document.querySelectorAll('a[href^="/"]');
+      Array.prototype.forEach.call(links, function (a) {
+        a.setAttribute('href', taxifyUrl(a.getAttribute('href')));
+      });
+    })();
+
+  </script>
+
+  <script>
     // The prices come from Stripe, the same as everywhere else in the app. The
     // figures in the HTML above are the fallback and nothing more — this page
     // used to hard-code them with no fetch at all, so the one page a stranger
     // sees first was the one page that could quietly be wrong about the price.
     (function () {
-      fetch('/api/auth/plans')
+      fetch(taxifyUrl('/api/auth/plans'))
         .then(function (res) { return res.ok ? res.json() : null; })
         .then(function (data) {
           if (!data || !data.plans) return;
@@ -620,11 +663,11 @@
         if (plan) {
           grid.setAttribute('data-chosen', plan);
           cta.textContent = labels[plan];
-          cta.href = '/register?plan=' + plan;
+          cta.href = taxifyUrl('/register?plan=' + plan);
         } else {
           grid.removeAttribute('data-chosen');
           cta.textContent = 'Start free trial';
-          cta.href = '/register';
+          cta.href = taxifyUrl('/register');
         }
       }
 
@@ -635,7 +678,7 @@
       cards.forEach(function (card) {
         card.addEventListener('click', function () {
           choose(card.dataset.plan);
-          window.location.href = '/register?plan=' + card.dataset.plan;
+          window.location.href = taxifyUrl('/register?plan=' + card.dataset.plan);
         });
       });
     })();
@@ -650,7 +693,7 @@
       var video = document.getElementById('demo-video');
       if (!section || !video) return;
 
-      fetch('/media/taxify-demo.mp4', { method: 'HEAD' })
+      fetch(taxifyUrl('/media/taxify-demo.mp4'), { method: 'HEAD' })
         .then(function (res) {
           // The SPA fallback used to answer 200 with HTML for anything missing,
           // so the type is checked as well as the status.
