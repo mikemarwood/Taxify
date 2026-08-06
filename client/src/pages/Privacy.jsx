@@ -12,7 +12,7 @@ const SECTIONS = [
   'Who else sees it',
   'Cookies',
   'Where it is kept, and for how long',
-  'Your accountant and your family',
+  'Your accountant',
   'Keeping it safe',
   'Your rights',
   'Children',
@@ -99,7 +99,7 @@ export default function Privacy() {
               expense leaves the server.
             </>,
             <>
-              <strong>Anyone you invite</strong> — an accountant, or a second person on a Family plan. See section 7.
+              <strong>An accountant you invite</strong>. See section 7.
             </>,
           ]}
         />
@@ -138,15 +138,15 @@ export default function Privacy() {
         </P>
       </Section>
 
-      <Section n={7} title="Your accountant and your family">
+      <Section n={7} title="Your accountant">
         <P>
           When you invite an accountant you are choosing to show them your records. Their access is read-only, limited
           to the financial years you pick, and lasts only for the window you choose — after which it is removed
           automatically. You can revoke it at any time, and we tell you the first time they open your books.
         </P>
         <P>
-          A second person on a Family plan is different: they share the account fully and permanently, and neither of
-          you can remove the other. Only we can, at the account holder’s request.
+          Nobody else ever sees your records. An account belongs to one person, and there is no way to share it beyond
+          the accountant access described above.
         </P>
       </Section>
 

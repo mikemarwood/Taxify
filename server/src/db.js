@@ -328,19 +328,35 @@ export async function ensureSchema() {
   // row that predates the split and has not been placed yet.
   await pool.query(`ALTER TABLE categories ADD COLUMN IF NOT EXISTS financial_year VARCHAR(9) NULL`);
 
-  // The old unique key was (user_id, name), which now has to admit the same
-  // name once per year. Rebuilt from information_schema because ALTER ... DROP
-  // KEY has no IF EXISTS in older MariaDB.
+  // The unique key on categories has been rebuilt twice: (user_id, name) first
+  // gained the financial year, then the set of books, so two businesses can each
+  // have a "Tooling" in the same year.
+  //
+  // The entity-aware key is added by migrations/entities.js, which runs *after*
+  // this function on every boot — so the check below must not re-add the
+  // year-only key once the entity one exists. It used to, unconditionally, which
+  // meant that from the second boot after that migration both keys were present
+  // and the older one quietly re-imposed one category name per user per year
+  // across every set of books. Creating the second business's "Tooling" then
+  // failed with a duplicate-key error nobody could explain.
   const [categoryIndexes] = await pool.query(
     `SELECT DISTINCT INDEX_NAME FROM information_schema.STATISTICS
      WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'categories'
-       AND INDEX_NAME IN ('uniq_categories_user_name', 'uniq_categories_user_name_year')`
+       AND INDEX_NAME IN ('uniq_categories_user_name', 'uniq_categories_user_name_year',
+                          'uniq_categories_user_entity_name_year')`
   );
   const indexNames = categoryIndexes.map((r) => r.INDEX_NAME);
   if (indexNames.includes('uniq_categories_user_name')) {
     await pool.query(`ALTER TABLE categories DROP INDEX uniq_categories_user_name`);
   }
-  if (!indexNames.includes('uniq_categories_user_name_year')) {
+  // Already superseded — leave it alone, and remove it if a previous boot put it
+  // back alongside the key that replaced it.
+  if (indexNames.includes('uniq_categories_user_entity_name_year')) {
+    if (indexNames.includes('uniq_categories_user_name_year')) {
+      await pool.query(`ALTER TABLE categories DROP INDEX uniq_categories_user_name_year`);
+      console.log('[schema] removed the superseded category key that was blocking two businesses sharing a name');
+    }
+  } else if (!indexNames.includes('uniq_categories_user_name_year')) {
     await pool.query(
       `ALTER TABLE categories ADD UNIQUE KEY uniq_categories_user_name_year (user_id, name, financial_year)`
     );

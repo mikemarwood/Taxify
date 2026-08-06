@@ -22,7 +22,7 @@ const CADENCES = [
 
 export default function EntityManager() {
   const toast = useToast();
-  const { entities, selected, selectedId, choose, reload } = useEntities();
+  const { entities, allowance, selected, selectedId, choose, reload } = useEntities();
   const [adding, setAdding] = useState(false);
   const [editing, setEditing] = useState(null);
   const [busy, setBusy] = useState(false);
@@ -30,6 +30,10 @@ export default function EntityManager() {
   const [name, setName] = useState('');
   const [kind, setKind] = useState('business');
   const [cadence, setCadence] = useState('quarterly');
+
+  // Archived books count against the plan, which is why this comes from the
+  // server rather than from the visible list.
+  const atLimit = !!allowance && allowance.businessesLeft <= 0;
 
   function resetForm() {
     setName('');
@@ -187,6 +191,30 @@ export default function EntityManager() {
           );
         })}
 
+        {atLimit ? (
+          <div
+            className="card"
+            style={{
+              padding: 12,
+              minWidth: 190,
+              flex: '1 1 190px',
+              display: 'flex',
+              alignItems: 'center',
+              gap: 9,
+              border: '1px dashed var(--border-strong)',
+              fontSize: 12.5,
+              color: 'var(--text-muted)',
+              lineHeight: 1.5,
+            }}
+          >
+            <Icon name="lock" size={15} style={{ flexShrink: 0 }} />
+            <span>
+              {allowance?.businesses === 0
+                ? 'Small Business lets you add up to two businesses alongside your own tax.'
+                : `You have all ${allowance?.businesses} businesses your plan covers.`}
+            </span>
+          </div>
+        ) : (
         <button
           type="button"
           className="card"
@@ -209,10 +237,11 @@ export default function EntityManager() {
           <Icon name={adding ? 'x' : 'plus'} size={15} />
           {adding ? 'Cancel' : 'New business'}
         </button>
+        )}
       </div>
 
       <AnimatePresence>
-        {adding && (
+        {adding && !atLimit && (
           <motion.form
             initial={{ opacity: 0, height: 0 }}
             animate={{ opacity: 1, height: 'auto' }}

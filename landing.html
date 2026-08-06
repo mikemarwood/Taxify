@@ -250,7 +250,7 @@
       </div>
       <div>
         <div class="stat-num">2</div>
-        <div class="stat-label">Plans — Individual or Family</div>
+        <div class="stat-label">Plans — Individual or Small Business</div>
       </div>
       <div>
         <div class="stat-num">bcrypt</div>
@@ -321,7 +321,7 @@
         <div class="card feature-card">
           <div class="feature-icon">👥</div>
           <div class="feature-title">Share it with your partner</div>
-          <div class="feature-text">The Family plan adds a second full login. Same expenses, same receipts, two people keeping them up to date.</div>
+          <div class="feature-text">Small Business keeps your own tax and up to two businesses side by side — separate categories, separate reports, separate lodgement, one login.</div>
         </div>
         <div class="card feature-card">
           <div class="feature-icon">🔒</div>
@@ -362,28 +362,28 @@
       <div class="plans-grid" id="plans">
         <button type="button" class="card plan-card" aria-pressed="false" data-plan="individual">
           <div class="plan-name">Individual</div>
-          <div class="plan-price"><span class="amount">$49</span><span class="period">/year</span></div>
+          <div class="plan-price"><span class="amount" data-price="individual">$49</span><span class="period">/year</span></div>
           <div class="plan-trial">✓ 14-day free trial</div>
           <p class="plan-text">Everything you need to track your own deductions, year round.</p>
           <ul class="plan-features">
-            <li><span class="check">✓</span><span>1 user account</span></li>
+            <li><span class="check">✓</span><span>Your own tax, one set of books</span></li>
             <li><span class="check">✓</span><span>Unlimited expenses &amp; receipts</span></li>
             <li><span class="check">✓</span><span>Full reports &amp; search</span></li>
             <li><span class="check">✓</span><span>Optional read-only accountant access</span></li>
           </ul>
           <div class="plan-chosen">Selected — start your free trial below</div>
         </button>
-        <button type="button" class="card plan-card highlight" aria-pressed="false" data-plan="family">
+        <button type="button" class="card plan-card highlight" aria-pressed="false" data-plan="business">
           <div class="plan-badge">MOST POPULAR</div>
-          <div class="plan-name">Family</div>
-          <div class="plan-price"><span class="amount">$79</span><span class="period">/year</span></div>
+          <div class="plan-name">Small Business</div>
+          <div class="plan-price"><span class="amount" data-price="business">$79</span><span class="period">/year</span></div>
           <div class="plan-trial">✓ 14-day free trial</div>
-          <p class="plan-text">The same full feature set, shared across two people.</p>
+          <p class="plan-text">For a sole trader running a business or two alongside their own tax.</p>
           <ul class="plan-features">
-            <li><span class="check">✓</span><span>Account holder + 1 extra full user</span></li>
-            <li><span class="check">✓</span><span>Each person tracks their own expenses</span></li>
+            <li><span class="check">✓</span><span>Your own tax, plus up to 2 businesses</span></li>
+            <li><span class="check">✓</span><span>Each business kept separately, with its own reports</span></li>
+            <li><span class="check">✓</span><span>Quarterly or yearly lodgement per business</span></li>
             <li><span class="check">✓</span><span>Optional read-only accountant access</span></li>
-            <li><span class="check">✓</span><span>Manage both users from one place</span></li>
           </ul>
           <div class="plan-chosen">Selected — start your free trial below</div>
         </button>
@@ -403,6 +403,33 @@
   </footer>
 
   <script>
+    // The prices come from Stripe, the same as everywhere else in the app. The
+    // figures in the HTML above are the fallback and nothing more — this page
+    // used to hard-code them with no fetch at all, so the one page a stranger
+    // sees first was the one page that could quietly be wrong about the price.
+    (function () {
+      fetch('/api/auth/plans')
+        .then(function (res) { return res.ok ? res.json() : null; })
+        .then(function (data) {
+          if (!data || !data.plans) return;
+          data.plans.forEach(function (plan) {
+            if (plan.amountPerYear === null || plan.amountPerYear === undefined) return;
+            var el = document.querySelector('[data-price="' + plan.planType + '"]');
+            if (!el) return;
+            el.textContent = new Intl.NumberFormat(undefined, {
+              style: 'currency',
+              currency: plan.currency || 'AUD',
+              minimumFractionDigits: plan.amountPerYear % 100 === 0 ? 0 : 2,
+            }).format(plan.amountPerYear / 100);
+          });
+        })
+        .catch(function () {
+          // Offline, or Stripe not configured. The printed figures stand.
+        });
+    })();
+  </script>
+
+  <script>
     // Picking a plan here carries through to signup, so nobody has to make the
     // same decision twice. Clicking the chosen one again clears it — a choice
     // you cannot undo is a trap.
@@ -412,7 +439,7 @@
       if (!grid || !cta) return;
 
       var cards = grid.querySelectorAll('.plan-card');
-      var labels = { individual: 'Start free trial — Individual', family: 'Start free trial — Family' };
+      var labels = { individual: 'Start free trial — Individual', business: 'Start free trial — Small Business' };
 
       function choose(plan) {
         cards.forEach(function (card) {

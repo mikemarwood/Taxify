@@ -22,6 +22,7 @@ import xlsx from 'xlsx';
 import pool, { ensureSchema } from '../db.js';
 import { hashPassword } from '../auth/password.js';
 import { seedDefaultCategories } from '../seed/defaultCategories.js';
+import { ensureDefaultEntity } from '../lib/entities.js';
 import {
   SKIP_SHEETS,
   categoryForSheet,
@@ -45,7 +46,8 @@ async function resolveUser(email, name, password) {
     passwordHash,
     name,
   ]);
-  await seedDefaultCategories(pool, result.insertId);
+  const books = await ensureDefaultEntity(result.insertId);
+  await seedDefaultCategories(pool, result.insertId, books?.id ?? null);
   const [rows] = await pool.execute('SELECT * FROM users WHERE id = ?', [result.insertId]);
   console.log(`Created new account for ${normalizedEmail}`);
   return rows[0];

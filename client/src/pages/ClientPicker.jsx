@@ -211,7 +211,7 @@ export default function ClientPicker() {
             </div>
             <div style={{ fontWeight: 700, marginBottom: 6 }}>No clients have shared their books with you</div>
             <p style={{ color: 'var(--text-muted)', fontSize: 13.5, margin: '0 0 6px', lineHeight: 1.6 }}>
-              Access is granted from the client's own account, under Family &amp; access. It also ends on its own{' '}
+              Access is granted from the client's own account, under Accountant access. It also ends on its own{' '}
               {windowHours} hours after you first open it, so an old client may simply need to share it again.
             </p>
             <p style={{ color: 'var(--text-muted)', fontSize: 13.5, margin: '0 0 18px', lineHeight: 1.6 }}>

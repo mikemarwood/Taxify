@@ -465,3 +465,33 @@ input[type="date"].input::-webkit-calendar-picker-indicator:hover { opacity: 1; 
   .expense-row > button { order: 4; }
   .expense-row > .category-badge { flex-basis: 100%; }
 }
+
+/* A deduction row is date / vehicle / kilometres / purpose, and the purpose is
+   the one that loses. Everything before it has a width, so at 360px the purpose
+   was allotted whatever was left — about sixteen pixels — and rendered as one
+   word per line. Given a line of its own it reads normally, and the row costs
+   two lines instead of five. */
+@media (max-width: 700px) {
+  .deduction-row { row-gap: 2px; }
+  .deduction-row > .deduction-note {
+    flex-basis: 100%;
+    order: 5;
+    font-size: 12.5px;
+  }
+  /* Nothing to show, so nothing to make room for. */
+  .deduction-row > .deduction-note:empty { display: none; }
+}
+
+@media (max-width: 520px) {
+  /* 18px each side is 36px out of a 298px budget once the shell and the card
+     border have taken theirs. Nothing else in the app trims card padding this
+     far down, which is why the page felt tighter than every other one. */
+  .deduction-panel { padding: 14px !important; }
+
+  /* Below 16px, iOS Safari zooms the viewport the moment a field takes focus,
+     and then leaves the page scrolled sideways. On a page that is almost
+     entirely inputs that is most of the "it doesn't fit" feeling. */
+  .input,
+  select.input,
+  textarea.input { font-size: 16px; }
+}

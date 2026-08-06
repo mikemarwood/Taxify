@@ -226,7 +226,7 @@ function bullet(text) {
 
 export async function sendActivationEmail(to, name, activationUrl, options = {}) {
   const { planType = 'individual', trialDays = 14, expiryDays = 5 } = options;
-  const planLabel = planType === 'family' ? 'Family' : 'Individual';
+  const planLabel = planType === 'business' ? 'Small Business' : 'Individual';
 
   await sendMail({
     to,
@@ -287,7 +287,7 @@ export async function sendActivationReminderEmail(to, name, activationUrl, daysL
 
 export async function sendAccountActivatedEmail(to, name, options = {}) {
   const { planType = 'individual', trialEndsAt = null } = options;
-  const planLabel = planType === 'family' ? 'Family' : 'Individual';
+  const planLabel = planType === 'business' ? 'Small Business' : 'Individual';
   const loginUrl = `${process.env.CLIENT_ORIGIN || 'http://localhost:5173'}/login`;
   const trialLine = trialEndsAt
     ? new Date(trialEndsAt).toLocaleDateString('en-AU', { day: '2-digit', month: 'long', year: 'numeric' })

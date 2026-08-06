@@ -197,7 +197,7 @@ function BillingSection({ user }) {
     }
   }
 
-  const planLabel = user.planType === 'family' ? 'Family' : 'Individual';
+  const planLabel = user.planType === 'business' ? 'Small Business' : 'Individual';
 
   return (
     <div className="card" style={{ padding: 20, display: 'flex', flexDirection: 'column', gap: 14 }}>
@@ -436,13 +436,13 @@ function ManageAccess({ accountant, years, windowChoices, onDone }) {
   );
 }
 
-function FamilySection({ user }) {
+function AccountantSection({ user }) {
   const toast = useToast();
   const { changePlan, busy: planBusy } = usePlanChange();
   // Only the years this account actually has — offering an accountant a year
   // with nothing in it is offering them nothing.
   const { years: grantableYears } = useFinancialYears();
-  const [members, setMembers] = useState(null);
+
   const [accountants, setAccountants] = useState(null);
   const [windowHours, setWindowHours] = useState(24);
   const [windowChoices, setWindowChoices] = useState([24, 48, 72, 96]);
@@ -455,13 +455,13 @@ function FamilySection({ user }) {
   const [invites, setInvites] = useState([]);
   const [inviteName, setInviteName] = useState('');
   const [inviteEmail, setInviteEmail] = useState('');
-  const [inviteRole, setInviteRole] = useState(user.planType === 'family' ? 'sub_user' : 'accountant');
+
   const [allYears, setAllYears] = useState(true);
   const [pickedYears, setPickedYears] = useState([]);
   const [busy, setBusy] = useState(false);
 
   function load() {
-    api.get('/auth/family').then((res) => setMembers(res.data.members));
+
     api.get('/auth/accountant-access').then((res) => {
       setAccountants(res.data.accountants);
       setWindowHours(res.data.windowHours || 24);
@@ -472,8 +472,7 @@ function FamilySection({ user }) {
 
   useEffect(load, []);
 
-  const hasSubUser = members?.some((m) => m.role === 'sub_user');
-  const canInviteSubUser = user.planType === 'family' && !hasSubUser;
+
 
   async function onInvite(e) {
     e.preventDefault();
@@ -482,7 +481,7 @@ function FamilySection({ user }) {
       await api.post('/auth/invite', {
         name: inviteName.trim(),
         email: inviteEmail.trim().toLowerCase(),
-        role: inviteRole,
+        role: 'accountant',
         // Omitted entirely for a family member — the server ignores it, and
         // sending it anyway would suggest it did something.
         //
@@ -490,11 +489,11 @@ function FamilySection({ user }) {
         // allYears, or a list. The server refuses a list where nothing is a
         // real year instead of reading it as "everything", which is what an
         // omitted field used to mean.
-        ...(inviteRole === 'accountant'
+        ...(true
           ? { windowHours: inviteWindow, ...(allYears ? { allYears: true } : { financialYears: pickedYears }) }
           : {}),
       });
-      toast(inviteRole === 'accountant' ? 'Access granted — we’ve emailed them' : 'Invitation sent', 'success');
+      toast('Invitation sent', 'success');
       setInviteName('');
       setInviteEmail('');
       setPickedYears([]);
@@ -504,16 +503,6 @@ function FamilySection({ user }) {
       toast(err.message, 'error');
     } finally {
       setBusy(false);
-    }
-  }
-
-  async function onRemoveMember(id) {
-    try {
-      await api.delete(`/auth/family/${id}`);
-      toast('Access removed', 'success');
-      load();
-    } catch (err) {
-      toast(err.message, 'error');
     }
   }
 
@@ -552,63 +541,16 @@ function FamilySection({ user }) {
   const canSubmit =
     inviteName.trim() &&
     inviteEmail.trim() &&
-    (inviteRole !== 'accountant' || allYears || pickedYears.length > 0);
+    (allYears || pickedYears.length > 0);
 
   return (
     <div className="card" style={{ padding: 20, display: 'flex', flexDirection: 'column', gap: 18 }}>
       <div>
-        <div style={{ fontWeight: 700 }}>Family &amp; accountant access</div>
+        <div style={{ fontWeight: 700 }}>Accountant access</div>
         <div style={{ fontSize: 12.5, color: 'var(--text-muted)', marginTop: 3, lineHeight: 1.55 }}>
-          A family member shares this account fully and permanently. An accountant gets a read-only look that ends on
-          its own.
+          A read-only look at the years you choose, for as long as you choose, ending on its own.
         </div>
       </div>
-
-      {members?.length > 0 && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-          {members.map((m) => (
-            <div
-              key={m.id}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: 10,
-                fontSize: 13,
-                flexWrap: 'wrap',
-                padding: '10px 12px',
-                borderRadius: 'var(--radius-sm)',
-                background: 'var(--bg-elevated)',
-              }}
-            >
-              <Icon name={m.role === 'sub_user' ? 'users' : 'briefcase'} size={16} style={{ color: 'var(--accent)' }} />
-              <span style={{ fontWeight: 600 }}>{m.name}</span>
-              <span style={{ color: 'var(--text-muted)', flex: 1, minWidth: 140 }}>{m.email}</span>
-              <span style={{ color: m.active ? 'var(--emerald)' : 'var(--text-muted)', fontSize: 12 }}>
-                {m.active ? 'Active' : 'Invite pending'}
-              </span>
-              {/* Two people on a Family plan are equals — removing one is an
-                  administrator's call, not a race between them. */}
-              {m.role === 'sub_user' ? (
-                <span
-                  title="Family members share full access. Contact support to remove one."
-                  style={{ fontSize: 11.5, color: 'var(--text-muted)', display: 'inline-flex', alignItems: 'center', gap: 5 }}
-                >
-                  <Icon name="lock" size={12} />
-                  Full access
-                </span>
-              ) : (
-                <button
-                  className="btn btn-ghost"
-                  style={{ fontSize: 12, padding: '5px 11px' }}
-                  onClick={() => onRemoveMember(m.id)}
-                >
-                  Remove
-                </button>
-              )}
-            </div>
-          ))}
-        </div>
-      )}
 
       {/* Invitations count towards this too. Otherwise an account with one out
           and nobody accepted yet shows nothing at all — which is precisely the
@@ -740,12 +682,7 @@ function FamilySection({ user }) {
           />
         </div>
 
-        <select className="input" value={inviteRole} onChange={(e) => setInviteRole(e.target.value)}>
-          <option value="accountant">Accountant — read-only, {windowHours} hours</option>
-          {canInviteSubUser && <option value="sub_user">Family member — full, permanent access</option>}
-        </select>
-
-        {inviteRole === 'accountant' && (
+        {true && (
           <div
             style={{
               padding: 14,
@@ -831,43 +768,10 @@ function FamilySection({ user }) {
 
         <button className="btn btn-primary" type="submit" disabled={busy || !canSubmit} style={{ alignSelf: 'flex-start', fontSize: 13 }}>
           {busy && <span className="spinner" />}
-          {inviteRole === 'accountant' ? 'Grant access' : 'Send invite'}
+          Invite accountant
         </button>
       </form>
 
-      {/* Naming an upgrade without offering it is a dead end — this is the
-          exact moment someone wants the Family plan, so it's the moment to
-          make it one click. */}
-      {!canInviteSubUser && user.planType !== 'family' && (
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: 12,
-            flexWrap: 'wrap',
-            padding: 14,
-            borderRadius: 'var(--radius-sm)',
-            background: 'var(--accent-soft)',
-            border: '1px solid var(--accent-ring)',
-          }}
-        >
-          <Icon name="users" size={18} style={{ color: 'var(--accent)' }} />
-          <span style={{ flex: 1, minWidth: 200, fontSize: 12.5, color: 'var(--text-muted)', lineHeight: 1.55 }}>
-            You're on the Individual plan. The <strong style={{ color: 'var(--text)' }}>Family plan</strong> adds a
-            second full-access login for someone in your household — you both see the same expenses and receipts.
-          </span>
-          <button
-            type="button"
-            className="btn btn-primary"
-            style={{ fontSize: 12.5 }}
-            disabled={planBusy}
-            onClick={() => changePlan('family')}
-          >
-            {planBusy && <span className="spinner" />}
-            Upgrade to Family
-          </button>
-        </div>
-      )}
     </div>
   );
 }
@@ -982,7 +886,7 @@ export default function Account() {
     ...(user.role === 'owner'
       ? [
           { id: 'billing', label: 'Plan & billing', icon: 'credit-card' },
-          { id: 'family', label: 'Family & access', icon: 'users' },
+          { id: 'family', label: 'Accountant access', icon: 'briefcase' },
         ]
       : []),
     { id: 'security', label: 'Email & password', icon: 'shield' },
@@ -1055,7 +959,7 @@ export default function Account() {
         {tab === 'profile' && <AvatarSection user={user} setUser={setUser} />}
 
         {tab === 'billing' && <BillingSection user={user} />}
-        {tab === 'family' && <FamilySection user={user} />}
+        {tab === 'family' && <AccountantSection user={user} />}
 
       <form
         onSubmit={onSaveProfile}

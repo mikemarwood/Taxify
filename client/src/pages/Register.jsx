@@ -96,7 +96,7 @@ export default function Register() {
   // falls back rather than leaving the step blank.
   const [planType, setPlanType] = useState(() => {
     const asked = new URLSearchParams(window.location.search).get('plan');
-    return asked === 'family' || asked === 'individual' ? asked : 'individual';
+    return asked === 'business' || asked === 'individual' ? asked : 'individual';
   });
   const [promoCode, setPromoCode] = useState('');
   const [referralSource, setReferralSource] = useState('');

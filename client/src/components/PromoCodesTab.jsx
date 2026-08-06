@@ -130,7 +130,7 @@ export default function PromoCodesTab() {
             <select className="input" value={form.planType} onChange={(e) => set('planType', e.target.value)}>
               <option value="">Any plan</option>
               <option value="individual">Individual only</option>
-              <option value="family">Family only</option>
+              <option value="business">Small Business only</option>
             </select>
           </div>
           <div>

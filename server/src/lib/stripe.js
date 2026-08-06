@@ -8,6 +8,10 @@ const SETTING_KEYS = {
     secretKey: 'stripe_live_secret_key',
     webhookSecret: 'stripe_live_webhook_secret',
     priceIndividual: 'stripe_live_price_individual',
+    priceBusiness: 'stripe_live_price_business',
+    // The Small Business plan was the Family plan, and it is the same product
+    // at the same price — so an account with nothing in the new key keeps
+    // billing from the old one and nobody has to touch Stripe.
     priceFamily: 'stripe_live_price_family',
   },
   test: {
@@ -15,6 +19,7 @@ const SETTING_KEYS = {
     secretKey: 'stripe_test_secret_key',
     webhookSecret: 'stripe_test_webhook_secret',
     priceIndividual: 'stripe_test_price_individual',
+    priceBusiness: 'stripe_test_price_business',
     priceFamily: 'stripe_test_price_family',
   },
 };
@@ -31,11 +36,12 @@ let stripeClientKey = null;
 
 async function getModeConfig(mode) {
   const keys = SETTING_KEYS[mode];
-  const [publishableKey, secretKey, webhookSecret, priceIndividual, priceFamily] = await Promise.all([
+  const [publishableKey, secretKey, webhookSecret, priceIndividual, priceBusiness, priceFamily] = await Promise.all([
     getSetting(keys.publishableKey),
     getSetting(keys.secretKey),
     getSetting(keys.webhookSecret),
     getSetting(keys.priceIndividual),
+    getSetting(keys.priceBusiness),
     getSetting(keys.priceFamily),
   ]);
 
@@ -51,6 +57,7 @@ async function getModeConfig(mode) {
       secretKey: legacySecret || process.env.STRIPE_SECRET_KEY || '',
       webhookSecret: legacyWebhook || process.env.STRIPE_WEBHOOK_SECRET || '',
       priceIndividual: priceIndividual || process.env.STRIPE_PRICE_ID_INDIVIDUAL || '',
+      priceBusiness: priceBusiness || process.env.STRIPE_PRICE_ID_BUSINESS || '',
       priceFamily: priceFamily || process.env.STRIPE_PRICE_ID_FAMILY || '',
     };
   }
@@ -61,6 +68,7 @@ async function getModeConfig(mode) {
       secretKey: secretKey || process.env.STRIPE_SECRET_KEY || '',
       webhookSecret: webhookSecret || process.env.STRIPE_WEBHOOK_SECRET || '',
       priceIndividual: priceIndividual || process.env.STRIPE_PRICE_ID_INDIVIDUAL || '',
+      priceBusiness: priceBusiness || process.env.STRIPE_PRICE_ID_BUSINESS || '',
       priceFamily: priceFamily || process.env.STRIPE_PRICE_ID_FAMILY || '',
     };
   }
@@ -70,6 +78,7 @@ async function getModeConfig(mode) {
     secretKey: secretKey || '',
     webhookSecret: webhookSecret || '',
     priceIndividual: priceIndividual || process.env.STRIPE_PRICE_ID_INDIVIDUAL_TEST || '',
+    priceBusiness: priceBusiness || process.env.STRIPE_PRICE_ID_BUSINESS_TEST || '',
     priceFamily: priceFamily || process.env.STRIPE_PRICE_ID_FAMILY_TEST || '',
   };
 }
@@ -114,6 +123,7 @@ export async function saveStripeAdminSettings({ mode, live, test }) {
     if (values.secretKey) await setSetting(keys.secretKey, values.secretKey);
     if (values.webhookSecret !== undefined) await setSetting(keys.webhookSecret, values.webhookSecret);
     if (values.priceIndividual !== undefined) await setSetting(keys.priceIndividual, values.priceIndividual);
+    if (values.priceBusiness !== undefined) await setSetting(keys.priceBusiness, values.priceBusiness);
     if (values.priceFamily !== undefined) await setSetting(keys.priceFamily, values.priceFamily);
   }
   stripeClient = null;
@@ -133,8 +143,10 @@ export async function getStripe() {
 }
 
 export async function priceIdForPlan(planType) {
-  const { priceIndividual, priceFamily, mode } = await getStripeConfig();
-  const id = planType === 'family' ? priceFamily : priceIndividual;
+  const { priceIndividual, priceBusiness, priceFamily, mode } = await getStripeConfig();
+  // 'family' is still accepted so a row that has not been renamed yet still
+  // bills, and the old price setting stands in until somebody fills the new one.
+  const id = planType === 'business' || planType === 'family' ? priceBusiness || priceFamily : priceIndividual;
   if (!id) {
     throw new Error(`Stripe price id is not configured for the ${planType} plan (${mode} mode)`);
   }
@@ -148,28 +160,28 @@ export async function priceIdForPlan(planType) {
 // Yearly only: the app is sold as an annual product and showing a monthly
 // figure people can't actually buy is a bait. A price configured with a
 // different interval is normalised to what a year of it costs.
-// The only thing that differs between these is the second full-access login —
-// everything else, accountant access included, is on both. Listing a shared
-// feature under one plan reads as an upsell that isn't real, and someone finds
-// that out only after paying.
+// The only thing that differs between these is how many sets of books the
+// account may hold. Everything else — reports, exports, receipts, accountant
+// access — is on both, and listing a shared feature under one plan reads as an
+// upsell that isn't real, which someone finds out only after paying.
 const PLAN_COPY = {
   individual: {
     name: 'Individual',
     tagline: 'For one person keeping their own records.',
     features: [
-      'One login',
+      'Your own tax, one set of books',
       'Unlimited expenses and receipts',
       'Year-over-year reports and exports',
       'Read-only accountant access',
     ],
   },
-  family: {
-    name: 'Family',
-    tagline: 'For a couple or household sharing one set of books.',
+  business: {
+    name: 'Small Business',
+    tagline: 'For a sole trader running one or two businesses alongside their own tax.',
     features: [
-      'Two logins, one shared set of records',
-      'Everything in Individual',
-      'Both of you see the same expenses and receipts',
+      'Your own tax, plus up to 2 businesses',
+      'Each business kept separately, with its own reports',
+      'Quarterly or yearly lodgement per business',
       'Read-only accountant access',
     ],
   },
@@ -188,7 +200,12 @@ function yearlyAmount(price) {
 
 export async function getSignupPlans() {
   const config = await getStripeConfig();
-  const ids = { individual: config.priceIndividual, family: config.priceFamily };
+  // The old Family price stands in until the Business one is set, so the cards
+  // keep showing a real figure through the rename.
+  const ids = {
+    individual: config.priceIndividual,
+    business: config.priceBusiness || config.priceFamily,
+  };
 
   let stripe = null;
   try {
@@ -198,7 +215,7 @@ export async function getSignupPlans() {
   }
 
   const plans = [];
-  for (const planType of ['individual', 'family']) {
+  for (const planType of ['individual', 'business']) {
     const copy = PLAN_COPY[planType];
     const priceId = ids[planType];
     let amount = null;

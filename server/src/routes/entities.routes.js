@@ -6,6 +6,7 @@ import { dataOwnerId } from '../auth/access.js';
 import { toTitleCase } from '../lib/text.js';
 import { defaultFinancialYear } from '../lib/financialYear.js';
 import { CADENCES, normaliseCadence } from '../lib/lodgementPeriods.js';
+import { canAddEntity, entityAllowance } from '../lib/planLimits.js';
 import {
   ENTITY_KINDS,
   normaliseKind,
@@ -77,7 +78,25 @@ router.get(
     for (const row of rows) {
       entities.push({ ...shapeEntity(row), counts: await countsFor(ownerId, row.id) });
     }
-    res.json({ entities, selected: req.user.entityId || null });
+    // Sent so the page can say what the plan allows before somebody types a
+    // name and is refused. Archived books count against it, so this reads the
+    // full list rather than the visible one.
+    const all = await listEntities(ownerId, { includeArchived: true });
+    const usedBusinesses = all.filter((e) => e.kind === 'business').length;
+    const allowedBusinesses = entityAllowance(req.user.planType).businesses;
+
+    res.json({
+      entities,
+      selected: req.user.entityId || null,
+      allowance: {
+        businesses: allowedBusinesses,
+        businessesUsed: usedBusinesses,
+        // Never negative — an account grandfathered above its cap has none
+        // left, rather than a negative number to render.
+        businessesLeft: Math.max(0, allowedBusinesses - usedBusinesses),
+        planType: req.user.planType || 'individual',
+      },
+    });
   })
 );
 
@@ -98,6 +117,21 @@ router.post(
     const existing = await listEntities(ownerId, { includeArchived: true });
     if (existing.some((e) => e.name.toLowerCase() === name.toLowerCase())) {
       return res.status(409).json({ error: `You already have a set of books called ${name}` });
+    }
+
+    // What the plan pays for. Archived books count — unarchiving is one click,
+    // and a cap you can step around by archiving is not a cap.
+    //
+    // Only creation is checked. An account that already holds more than its
+    // plan allows keeps every one of them: deleting somebody's records because
+    // a price changed would be the wrong answer to a pricing decision.
+    const allowed = canAddEntity({
+      planType: req.user.planType,
+      kind,
+      existing: existing.map((e) => ({ kind: normaliseKind(e.kind) })),
+    });
+    if (!allowed.ok) {
+      return res.status(403).json({ error: allowed.message, reason: allowed.reason, needsPlan: allowed.needsPlan });
     }
 
     const conn = await pool.getConnection();

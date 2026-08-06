@@ -26,6 +26,8 @@ import { migrateCategoriesByYear } from './migrations/categoriesByYear.js';
 import { migrateCurrencyBase } from './migrations/currencyBase.js';
 import { migrateEntities } from './migrations/entities.js';
 import { migrateAccountantInvites } from './migrations/accountantInvites.js';
+import { migrateCategoryEntities } from './migrations/categoryEntities.js';
+import { migrateRemoveSecondLogins } from './migrations/removeSecondLogins.js';
 import { closeExpiredAssignments } from './auth/accountants.js';
 import { closeExpiredInvites } from './auth/accountantInvites.js';
 import { notify } from './lib/notify.js';
@@ -186,6 +188,24 @@ try {
   await migrateEntities(pool);
 } catch (err) {
   console.error('Failed to place records into entities');
+  console.error(err);
+}
+
+// After the entities migration too: a converted second login needs a set of
+// books of its own, and creating one means entities must already exist.
+try {
+  await migrateRemoveSecondLogins(pool);
+} catch (err) {
+  console.error('Failed to convert second logins into their own accounts');
+  console.error(err);
+}
+
+// After the entities migration, not before — it places categories into their
+// owner's default set of books, and that has to exist first.
+try {
+  await migrateCategoryEntities(pool);
+} catch (err) {
+  console.error('Failed to place categories into their set of books');
   console.error(err);
 }
 

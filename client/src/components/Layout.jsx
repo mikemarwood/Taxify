@@ -347,7 +347,7 @@ export default function Layout({ children }) {
                   {user?.actingAsClient
                     ? `Acting as accountant · ${user.actingAsClient.businessName || user.actingAsClient.name}`
                     : user?.role === 'owner'
-                    ? `${user.planType === 'family' ? 'Family' : 'Individual'} plan${
+                    ? `${user.planType === 'business' ? 'Small Business' : 'Individual'} plan${
                         user.isAccountant ? ' · accountant' : ''
                       }`
                     : user?.role === 'accountant'

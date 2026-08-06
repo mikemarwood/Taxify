@@ -24,6 +24,7 @@ import { getStripeAdminSettings, saveStripeAdminSettings, getStripeSecretKeyForM
 import { hashPassword } from '../auth/password.js';
 import { generateActivationToken } from '../auth/activationToken.js';
 import { seedDefaultCategories } from '../seed/defaultCategories.js';
+import { ensureDefaultEntity } from '../lib/entities.js';
 import { isFinancialYearLabel } from '../lib/financialYear.js';
 import { notify, verifyFcm } from '../lib/notify.js';
 import Stripe from 'stripe';
@@ -108,12 +109,12 @@ router.post(
     const { name, email, planType } = req.body || {};
     if (!name || !String(name).trim()) return res.status(400).json({ error: 'Name is required' });
     if (!email || !String(email).trim()) return res.status(400).json({ error: 'Email is required' });
-    if (planType !== undefined && planType !== 'individual' && planType !== 'family') {
-      return res.status(400).json({ error: "planType must be 'individual' or 'family'" });
+    if (planType !== undefined && planType !== 'individual' && planType !== 'business') {
+      return res.status(400).json({ error: "planType must be 'individual' or 'business'" });
     }
 
     const normalizedEmail = String(email).trim().toLowerCase();
-    const finalPlanType = planType === 'family' ? 'family' : 'individual';
+    const finalPlanType = planType === 'business' ? 'business' : 'individual';
     const placeholderHash = hashPassword(crypto.randomBytes(32).toString('hex'));
     const { token, tokenHash, expiresAt } = generateActivationToken();
 
@@ -132,7 +133,8 @@ router.post(
       throw err;
     }
 
-    await seedDefaultCategories(pool, userId);
+    const books = await ensureDefaultEntity(userId);
+    await seedDefaultCategories(pool, userId, books?.id ?? null);
 
     const acceptUrl = `${process.env.CLIENT_ORIGIN || 'http://localhost:5173'}/accept-invite?token=${token}`;
     try {
@@ -230,7 +232,7 @@ router.patch(
   '/users/:id/plan',
   asyncHandler(async (req, res) => {
     const planType = req.body?.planType;
-    if (planType !== 'individual' && planType !== 'family') {
+    if (planType !== 'individual' && planType !== 'business') {
       return res.status(400).json({ error: 'Plan must be individual or family' });
     }
 
@@ -576,7 +578,7 @@ function readPromoBody(body) {
   return {
     code,
     description: body?.description ? String(body.description).trim().slice(0, 255) : null,
-    planType: body?.planType === 'individual' || body?.planType === 'family' ? body.planType : null,
+    planType: body?.planType === 'individual' || body?.planType === 'business' ? body.planType : null,
     percentOff,
     amountOff,
     maxUses,

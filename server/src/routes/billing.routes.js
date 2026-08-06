@@ -20,20 +20,20 @@ router.post(
     // happened to start on. Anything unrecognised falls back to their current
     // plan — the price charged is always one of ours, never client-supplied.
     const requested =
-      req.body?.planType === 'family' ? 'family' : req.body?.planType === 'individual' ? 'individual' : null;
+      req.body?.planType === 'business' ? 'business' : req.body?.planType === 'individual' ? 'individual' : null;
     const planType = requested || req.user.planType || 'individual';
 
-    if (planType === 'individual' && req.user.planType === 'family') {
-      const [members] = await pool.execute(
-        `SELECT COUNT(*) AS n FROM users WHERE account_owner_id = ? AND role = 'sub_user'`,
-        [req.user.id]
-      );
-      if (Number(members[0]?.n) > 0) {
-        return res
-          .status(400)
-          .json({ error: 'Remove the second full-access login before moving to the Individual plan.' });
-      }
-    }
+    // A guard used to sit here refusing a downgrade while a second login
+    // existed. It queried `account_owner_id`, a column that has never existed —
+    // so rather than refusing, it threw: every customer whose trial had ended
+    // and who clicked the Individual card got a 500 instead of a checkout.
+    // Precisely the person being asked to pay.
+    //
+    // There are no second logins now, so it is gone rather than corrected. What
+    // a downgrade genuinely has to consider is the business books it leaves
+    // them over the limit of, and that is handled where it belongs — on
+    // creating a set of books — so nothing is ever deleted because a plan
+    // changed.
 
     const priceId = await priceIdForPlan(planType);
 
@@ -61,7 +61,7 @@ router.post(
   requireAuth,
   requireAccountOwner,
   asyncHandler(async (req, res) => {
-    const planType = req.body?.planType === 'family' ? 'family' : 'individual';
+    const planType = req.body?.planType === 'business' ? 'business' : 'individual';
 
     // Downgrading while a second person is still using the account would lock
     // them out, so it is refused rather than quietly stranding someone.
@@ -147,7 +147,7 @@ router.post(
           const subscription = await stripe.subscriptions.retrieve(session.subscription);
           // They may have switched plan at checkout, so the plan recorded here
           // is the one that was actually paid for.
-          const planType = session.metadata?.planType === 'family' ? 'family' : 'individual';
+          const planType = session.metadata?.planType === 'business' ? 'business' : 'individual';
           await pool.execute(
             `UPDATE users SET stripe_customer_id = ?, stripe_subscription_id = ?, subscription_status = 'active',
              plan_type = ?, subscription_current_period_end = FROM_UNIXTIME(?) WHERE id = ?`,

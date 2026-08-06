@@ -171,9 +171,14 @@ export default function AdminUserDetail({ userId, me, onClose, onChanged, action
               <Section title="Account" icon="user">
                 <div style={GRID}>
                   <Field label="Role">
-                    {u.isAdmin ? 'Administrator' : u.role === 'sub_user' ? 'Family member' : u.role === 'accountant' ? 'Accountant' : 'Account holder'}
+                    {u.isAdmin ? 'Administrator' : u.role === 'sub_user' ? 'Second login (legacy)' : u.role === 'accountant' ? 'Accountant' : 'Account holder'}
                   </Field>
-                  <Field label="Plan">{u.planType === 'family' ? 'Family' : 'Individual'}</Field>
+                  {/* A login that belongs to somebody else has no plan of its
+                      own — plan_type is NULL on those, and rendering NULL as
+                      "Individual" said they were on a plan they had never had. */}
+                  <Field label="Plan">
+                    {u.role === 'owner' ? (u.planType === 'business' ? 'Small Business' : 'Individual') : '—'}
+                  </Field>
                   <Field label="Status">
                     <span
                       style={{
@@ -259,7 +264,7 @@ export default function AdminUserDetail({ userId, me, onClose, onChanged, action
                       <span style={{ fontWeight: 600 }}>{m.name}</span>
                       <span style={{ color: 'var(--text-muted)', flex: 1, minWidth: 120 }}>{m.email}</span>
                       <span style={{ color: 'var(--text-muted)' }}>
-                        {m.role === 'sub_user' ? 'Family member' : 'Accountant'}
+                        {m.role === 'sub_user' ? 'Second login (legacy)' : 'Accountant'}
                       </span>
                       <span style={{ color: m.active ? 'var(--emerald)' : 'var(--amber)' }}>
                         {m.active ? 'Active' : 'Pending'}
@@ -392,7 +397,7 @@ export default function AdminUserDetail({ userId, me, onClose, onChanged, action
                     style={{ fontSize: 12.5 }}
                     onClick={() => actions.changePlan(u).then(refresh)}
                   >
-                    Move to {u.planType === 'family' ? 'Individual' : 'Family'}
+                    Move to {u.planType === 'business' ? 'Individual' : 'Small Business'}
                   </button>
                   <button
                     className="btn btn-ghost"

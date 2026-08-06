@@ -147,7 +147,7 @@ function CreateUserForm({ onCreated }) {
           </div>
           <select className="input" value={planType} onChange={(e) => setPlanType(e.target.value)} style={{ width: 200 }}>
             <option value="individual">Individual plan</option>
-            <option value="family">Family plan</option>
+            <option value="business">Small Business plan</option>
           </select>
           <p style={{ fontSize: 12, color: 'var(--text-muted)', margin: 0 }}>
             They'll get an email with a link to set their own password and start their 14-day trial.
@@ -220,16 +220,16 @@ function UsersTab() {
   useEffect(load, []);
 
   async function changePlan(u) {
-    const next = u.planType === 'family' ? 'individual' : 'family';
+    const next = u.planType === 'business' ? 'individual' : 'business';
     const wording =
-      next === 'family'
-        ? `Move ${u.email} to the Family plan? They'll be able to invite a second full-access login.`
+      next === 'business'
+        ? `Move ${u.email} to Small Business? They'll be able to keep up to two businesses alongside their own tax.`
         : `Move ${u.email} to the Individual plan? They'll lose the ability to have a second login.`;
     if (!window.confirm(wording)) return;
 
     try {
       await api.patch(`/admin/users/${u.id}/plan`, { planType: next });
-      toast(`${u.email} moved to the ${next === 'family' ? 'Family' : 'Individual'} plan`, 'success');
+      toast(`${u.email} moved to the ${next === 'business' ? 'Small Business' : 'Individual'} plan`, 'success');
       load();
     } catch (err) {
       toast(err.message, 'error');
@@ -399,11 +399,11 @@ function UsersTab() {
                       {u.isAdmin
                         ? 'Administrator'
                         : u.role === 'sub_user'
-                        ? 'Family member'
+                        ? 'Second login (legacy)'
                         : u.role === 'accountant'
                         ? 'Accountant'
-                        : u.planType === 'family'
-                        ? 'Family'
+                        : u.planType === 'business'
+                        ? 'Small Business'
                         : 'Individual'}
                     </Badge>
                     {!u.active && <Badge tone="amber">Invite pending</Badge>}
@@ -811,13 +811,13 @@ function StripeModeSection({ label, hint, section, values, secretDraft, onFieldC
           />
         </label>
         <label style={{ fontSize: 13, fontWeight: 600, flex: 1 }}>
-          Family plan price ID
+          Small Business plan price ID
           <input
             className="input"
             style={{ marginTop: 6, width: '100%' }}
             placeholder="price_..."
-            value={values.priceFamily || ''}
-            onChange={(e) => onFieldChange(section, 'priceFamily', e.target.value)}
+            value={values.priceBusiness ?? values.priceFamily ?? ''}
+            onChange={(e) => onFieldChange(section, 'priceBusiness', e.target.value)}
           />
         </label>
       </div>
@@ -870,6 +870,7 @@ function StripeSettingsTab() {
           publishableKey: live.publishableKey,
           webhookSecret: live.webhookSecret,
           priceIndividual: live.priceIndividual,
+          priceBusiness: live.priceBusiness,
           priceFamily: live.priceFamily,
           ...(liveSecret ? { secretKey: liveSecret } : {}),
         },
@@ -877,6 +878,7 @@ function StripeSettingsTab() {
           publishableKey: test.publishableKey,
           webhookSecret: test.webhookSecret,
           priceIndividual: test.priceIndividual,
+          priceBusiness: test.priceBusiness,
           priceFamily: test.priceFamily,
           ...(testSecret ? { secretKey: testSecret } : {}),
         },

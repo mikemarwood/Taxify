@@ -61,7 +61,7 @@ const FEATURES = [
   {
     icon: 'users',
     title: 'Share it with your partner',
-    text: 'The Family plan adds a second full login. Same expenses, same receipts, two people keeping them up to date.',
+    text: 'Small Business keeps your own tax and up to two businesses side by side — separate categories, separate reports, separate lodgement, one login.',
   },
   {
     icon: 'lock',
@@ -81,8 +81,8 @@ const PLANS = [
     highlight: false,
   },
   {
-    name: 'Family',
-    planType: 'family',
+    name: 'Small Business',
+    planType: 'business',
     price: '$79',
     period: '/year',
     text: 'The same full feature set, shared across two people.',
@@ -170,7 +170,7 @@ export default function Landing() {
           period: '/year',
           text: plan.tagline || fallback.text,
           features: plan.features?.length ? plan.features : fallback.features,
-          highlight: plan.planType === 'family',
+          highlight: plan.planType === 'business',
         };
       })
     : PLANS;
@@ -278,7 +278,7 @@ export default function Landing() {
         >
           {[
             ['14-day', 'Free trial, no card required'],
-            ['2', 'Plans — Individual or Family'],
+            ['2', 'Plans — Individual or Small Business'],
             ['bcrypt', 'Password hashing'],
             ['2FA', 'Email login codes'],
           ].map(([stat, label]) => (

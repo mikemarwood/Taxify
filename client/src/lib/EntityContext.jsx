@@ -25,6 +25,8 @@ function storageKey(user) {
 export function EntityProvider({ children }) {
   const { user } = useAuth();
   const [entities, setEntities] = useState([]);
+  // What the plan allows, so the page can say so before somebody types a name.
+  const [allowance, setAllowance] = useState(null);
   const [selected, setSelected] = useState(ALL_ENTITIES);
   const [loading, setLoading] = useState(true);
 
@@ -39,6 +41,7 @@ export function EntityProvider({ children }) {
     try {
       const { data } = await api.get('/entities');
       setEntities(data.entities || []);
+      setAllowance(data.allowance || null);
 
       const stored = key ? window.localStorage.getItem(key) : null;
       const known = (data.entities || []).some((e) => String(e.id) === String(stored));
@@ -73,6 +76,7 @@ export function EntityProvider({ children }) {
     const current = entities.find((e) => String(e.id) === String(selected)) || null;
     return {
       entities,
+      allowance,
       loading,
       selected,
       selectedId: selected === ALL_ENTITIES ? null : Number(selected),
@@ -87,7 +91,7 @@ export function EntityProvider({ children }) {
       choose,
       reload: load,
     };
-  }, [entities, selected, loading, choose, load]);
+  }, [entities, allowance, selected, loading, choose, load]);
 
   return <EntityContext.Provider value={value}>{children}</EntityContext.Provider>;
 }
@@ -96,6 +100,7 @@ export function useEntities() {
   return (
     useContext(EntityContext) || {
       entities: [],
+      allowance: null,
       loading: false,
       selected: ALL_ENTITIES,
       selectedId: null,

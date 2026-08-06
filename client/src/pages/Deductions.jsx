@@ -30,7 +30,20 @@ function Panel({ title, icon, claim, rateNote, children }) {
       >
         <Icon name={icon} size={18} style={{ color: 'var(--accent)' }} />
         <span style={{ fontWeight: 700, fontSize: 14 }}>{title}</span>
-        <span style={{ marginLeft: 'auto', display: 'flex', alignItems: 'baseline', gap: 8 }}>
+        {/* minWidth: 0 and wrapping, because the rate note is a 45-character
+            string sat beside an 18px figure. Without both, the note reflowed
+            into a ragged column against a baseline-aligned amount — most of
+            what made this page look cluttered on a phone. */}
+        <span
+          style={{
+            marginLeft: 'auto',
+            display: 'flex',
+            alignItems: 'baseline',
+            gap: 8,
+            flexWrap: 'wrap',
+            minWidth: 0,
+          }}
+        >
           {claim === null ? (
             <span style={{ fontSize: 12.5, color: 'var(--amber)', fontWeight: 600 }}>{rateNote}</span>
           ) : (
@@ -41,7 +54,12 @@ function Panel({ title, icon, claim, rateNote, children }) {
           )}
         </span>
       </div>
-      <div style={{ padding: 18, display: 'flex', flexDirection: 'column', gap: 14 }}>{children}</div>
+      {/* deduction-panel so the padding can come down on a phone — 18px each
+          side is 36px of a 298px budget, and nothing else in the app trims card
+          padding at that width. */}
+      <div className="deduction-panel" style={{ padding: 18, display: 'flex', flexDirection: 'column', gap: 14 }}>
+        {children}
+      </div>
     </div>
   );
 }
@@ -188,7 +206,7 @@ export default function Deductions() {
 
             {!readOnly && (
               <form onSubmit={addTrip} style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'flex-end' }}>
-                <div style={{ width: 148 }}>
+                <div style={{ flex: '1 1 148px', minWidth: 140 }}>
                   <label className="label">Date</label>
                   <input
                     className="input"
@@ -198,7 +216,7 @@ export default function Deductions() {
                     onChange={(e) => setTrip({ ...trip, date: e.target.value })}
                   />
                 </div>
-                <div style={{ width: 150 }}>
+                <div style={{ flex: '1 1 150px', minWidth: 130 }}>
                   <label className="label">Vehicle</label>
                   <input
                     className="input"
@@ -209,7 +227,7 @@ export default function Deductions() {
                     onChange={(e) => setTrip({ ...trip, vehicle: e.target.value })}
                   />
                 </div>
-                <div style={{ width: 100 }}>
+                <div style={{ flex: '1 1 100px', minWidth: 92 }}>
                   <label className="label">Kilometres</label>
                   <input
                     className="input"
@@ -220,7 +238,7 @@ export default function Deductions() {
                     onChange={(e) => setTrip({ ...trip, km: e.target.value.replace(/[^0-9.]/g, '') })}
                   />
                 </div>
-                <div style={{ flex: 1, minWidth: 160 }}>
+                <div style={{ flex: '2 1 200px', minWidth: 150 }}>
                   <label className="label">Purpose</label>
                   <input
                     className="input"
@@ -230,7 +248,14 @@ export default function Deductions() {
                     onChange={(e) => setTrip({ ...trip, purpose: e.target.value })}
                   />
                 </div>
-                <button className="btn btn-primary" type="submit" disabled={busy} style={{ fontSize: 13 }}>
+                {/* Full width once it is on a line of its own, rather than a
+                    small button marooned beside a gap. */}
+                <button
+                  className="btn btn-primary"
+                  type="submit"
+                  disabled={busy}
+                  style={{ fontSize: 13, flex: '1 1 auto', minWidth: 110, justifyContent: 'center' }}
+                >
                   Add trip
                 </button>
               </form>
@@ -242,9 +267,27 @@ export default function Deductions() {
               render={(t) => (
                 <>
                   <span style={{ width: 62, color: 'var(--text-muted)' }}>{formatDayMonth(t.date)}</span>
-                  <span style={{ fontWeight: 600, width: 110 }}>{t.vehicle}</span>
-                  <span style={{ width: 80 }}>{t.km} km</span>
-                  <span style={{ flex: 1, minWidth: 0, color: 'var(--text-muted)' }}>{t.purpose}</span>
+                  {/* Ellipsis rather than overflow, the same as an expense row —
+                      a long vehicle name used to run into the kilometres. */}
+                  <span
+                    style={{
+                      fontWeight: 600,
+                      minWidth: 90,
+                      maxWidth: 150,
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                      whiteSpace: 'nowrap',
+                    }}
+                  >
+                    {t.vehicle}
+                  </span>
+                  <span style={{ width: 70, whiteSpace: 'nowrap' }}>{t.km} km</span>
+                  {/* flex-basis 100% under the media query below, so the purpose
+                      gets a line of its own instead of the ~16px that was left
+                      over once everything else had taken its width. */}
+                  <span className="deduction-note" style={{ flex: 1, minWidth: 0, color: 'var(--text-muted)' }}>
+                    {t.purpose}
+                  </span>
                 </>
               )}
               onRemove={readOnly ? null : (id) => remove('vehicle-trips', id)}
@@ -263,7 +306,7 @@ export default function Deductions() {
           >
             {!readOnly && (
               <form onSubmit={addHours} style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'flex-end' }}>
-                <div style={{ width: 148 }}>
+                <div style={{ flex: '1 1 148px', minWidth: 140 }}>
                   <label className="label">Date</label>
                   <input
                     className="input"
@@ -273,7 +316,7 @@ export default function Deductions() {
                     onChange={(e) => setHours({ ...hours, date: e.target.value })}
                   />
                 </div>
-                <div style={{ width: 100 }}>
+                <div style={{ flex: '1 1 100px', minWidth: 92 }}>
                   <label className="label">Hours</label>
                   <input
                     className="input"
@@ -284,7 +327,7 @@ export default function Deductions() {
                     onChange={(e) => setHours({ ...hours, hours: e.target.value.replace(/[^0-9.]/g, '') })}
                   />
                 </div>
-                <div style={{ flex: 1, minWidth: 180 }}>
+                <div style={{ flex: '2 1 200px', minWidth: 150 }}>
                   <label className="label">Note</label>
                   <input
                     className="input"
@@ -294,7 +337,12 @@ export default function Deductions() {
                     onChange={(e) => setHours({ ...hours, note: e.target.value })}
                   />
                 </div>
-                <button className="btn btn-primary" type="submit" disabled={busy} style={{ fontSize: 13 }}>
+                <button
+                  className="btn btn-primary"
+                  type="submit"
+                  disabled={busy}
+                  style={{ fontSize: 13, flex: '1 1 auto', minWidth: 110, justifyContent: 'center' }}
+                >
                   Add hours
                 </button>
               </form>
@@ -306,8 +354,10 @@ export default function Deductions() {
               render={(h) => (
                 <>
                   <span style={{ width: 62, color: 'var(--text-muted)' }}>{formatDayMonth(h.date)}</span>
-                  <span style={{ fontWeight: 600, width: 80 }}>{h.hours} hrs</span>
-                  <span style={{ flex: 1, minWidth: 0, color: 'var(--text-muted)' }}>{h.note}</span>
+                  <span style={{ fontWeight: 600, width: 80, whiteSpace: 'nowrap' }}>{h.hours} hrs</span>
+                  <span className="deduction-note" style={{ flex: 1, minWidth: 0, color: 'var(--text-muted)' }}>
+                    {h.note}
+                  </span>
                 </>
               )}
               onRemove={readOnly ? null : (id) => remove('home-office', id)}
@@ -339,6 +389,7 @@ function EntryList({ rows, render, onRemove, empty }) {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0, x: 12 }}
+            className="deduction-row"
             style={{
               display: 'flex',
               alignItems: 'center',
@@ -355,9 +406,20 @@ function EntryList({ rows, render, onRemove, empty }) {
                 type="button"
                 title="Remove"
                 onClick={() => onRemove(row.id)}
-                style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: 0 }}
+                // Padded out to something a thumb can actually hit. It was a
+                // 14px icon with no padding at all, which is a 14px target.
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  cursor: 'pointer',
+                  color: 'var(--text-muted)',
+                  padding: 8,
+                  margin: -8,
+                  lineHeight: 0,
+                  flexShrink: 0,
+                }}
               >
-                <Icon name="trash" size={14} />
+                <Icon name="trash" size={15} />
               </button>
             )}
           </motion.div>

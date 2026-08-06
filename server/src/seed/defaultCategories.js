@@ -16,7 +16,13 @@ export const INITIAL_DEFAULT_CATEGORIES = [
 
 // The starter set every new account gets, filed against the year they signed
 // up in. Later years carry it forward on their own — see ensureCategoriesForYear.
-export async function seedDefaultCategories(pool, userId, financialYear = defaultFinancialYear()) {
+//
+// entityId is not optional in practice. A category with no set of books is
+// filtered out of every list, because the categories query matches on
+// `entity_id = ?` — so seeding without one produced an account whose Categories
+// page was empty *and* unrepairable: recreating the defaults hit the unique key
+// against the rows nobody could see, and INSERT IGNORE dropped them silently.
+export async function seedDefaultCategories(pool, userId, entityId, financialYear = defaultFinancialYear()) {
   const [templates] = await pool.execute('SELECT name, color, icon FROM default_categories');
 
   const connection = await pool.getConnection();
@@ -24,8 +30,8 @@ export async function seedDefaultCategories(pool, userId, financialYear = defaul
     await connection.beginTransaction();
     for (const c of templates) {
       await connection.execute(
-        'INSERT INTO categories (user_id, name, color, icon, financial_year) VALUES (?, ?, ?, ?, ?)',
-        [userId, c.name, c.color, c.icon, financialYear]
+        'INSERT INTO categories (user_id, entity_id, name, color, icon, financial_year) VALUES (?, ?, ?, ?, ?, ?)',
+        [userId, entityId, c.name, c.color, c.icon, financialYear]
       );
     }
     await connection.commit();

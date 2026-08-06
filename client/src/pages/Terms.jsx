@@ -10,7 +10,7 @@ const SECTIONS = [
   'Cancelling and refunds',
   'Your records belong to you',
   'Keeping your own copies',
-  'Sharing access with an accountant or family member',
+  'Sharing access with your accountant',
   'What you agree not to do',
   'Availability',
   'Our responsibility to you',
@@ -105,7 +105,7 @@ export default function Terms() {
         </P>
       </Section>
 
-      <Section n={7} title="Sharing access with an accountant or family member">
+      <Section n={7} title="Sharing access with your accountant">
         <P>
           Inviting an accountant gives them read-only access to the financial years you choose, for a window you
           choose, starting the first time they open your books and ending automatically afterwards. You can revoke it
@@ -113,9 +113,8 @@ export default function Terms() {
           you — nothing else can be changed.
         </P>
         <P>
-          A second person on a Family plan is a different arrangement entirely: full, permanent, shared access. Neither
-          of you can remove the other; only we can, at the account holder’s request. Invite someone only if you intend
-          that.
+          One person to an account. If somebody else needs to keep their own records — a partner with their own job,
+          for instance — they need their own account, because their tax return is their own and cannot share yours.
         </P>
         <P>Whoever you invite, you are responsible for having chosen to share your records with them.</P>
       </Section>
