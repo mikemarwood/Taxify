@@ -193,6 +193,61 @@ A business's segment is fixed when it is created and never changed, so renaming 
 move a file. The split also fixes a real bug: two businesses could each hold a "Tooling" in one
 year, and renaming one would have moved the other's receipts while repointing only its own rows.
 
+## Accountants
+
+An accountant is not a role somebody has instead of being a normal user — it is
+simply **having clients**. One login covers every client, and an account holder
+who also does someone else's books is one login wearing both hats.
+
+Three separate things, deliberately kept apart:
+
+| | What it is | Table |
+|---|---|---|
+| **Invitation** | An offer. Grants nothing; nothing that decides access consults it. Lasts **24 hours**, then it is deleted and the client is emailed. | `accountant_invites` |
+| **Login** | Created only when somebody accepts. Their own address, their own password, `account_holder_id` NULL. | `users` |
+| **Assignment** | The grant itself, and the only thing the read path consults. | `accountant_assignments` |
+
+**The flow.** The client invites by email from Account → Family. If that address
+already has a Taxify login they are granted access immediately and told; if not,
+they get an invitation link and set up an accountant login by completing name,
+practice or firm, optional phone, and a password. Either way they end up on
+`/clients`, pick a client, and that first open is what starts the clock.
+
+**The window** is the client's choice at grant time — 24, 48, 72 or 96 hours —
+and starts on **first open**, not when it was granted, so an invitation sent on
+a Friday is still good on Monday. The client can change the years, change the
+length, or hand out a fresh window from **Manage**, without revoking and
+re-inviting. Narrowing takes effect on the accountant's very next request.
+
+**Two-factor is required** of anyone acting for clients, whatever
+`mfa_mode` says, and cannot be switched off while any client is assigned. It is
+enforced in two places: the door at `POST /auth/clients/:ownerId` refuses before
+the clock starts, and `requireAuth` drops the client from the session — before
+the year rule, entity and `accessLocked` resolve against it, so every scope
+function behaves as though no client is open.
+
+> Deploying that gate blocks every accountant whose `otp_enabled` is 0, and they
+> find out mid-job. Run this first and warn them:
+> ```sql
+> SELECT DISTINCT u.email, u.name FROM accountant_assignments a
+> JOIN users u ON u.id = a.accountant_user_id WHERE u.otp_enabled = 0;
+> ```
+
+**Both ends are announced.** Invited, granted, accepted, first open, changed,
+revoked, expired, and the client's account being deleted all produce an email, a
+notification, or both. The way in was always announced and the way out never
+was, so a client simply vanished from the list.
+
+Two things to know before changing this code:
+
+- **`expires_at IS NULL` means *not opened yet*, not expired.** Invert it and you
+  either lock every accountant out or never expire anything.
+- **An invitation token proves control of a mailbox and nothing more.** It may
+  create a login; it may never write to one. An address that already has an
+  account is *linked*, never given a new password — otherwise forwarding an
+  invitation email is account takeover. `accountantInvites.test.js` has a test
+  whose only job is to fail if that branch ever changes.
+
 ## Notes
 
 - `server/src/scripts/importLegacy.js` depends on the `xlsx` package, which has a known unpatched advisory (prototype pollution / ReDoS). It's only used for this offline import of trusted local files, never on the request path of the running server.
