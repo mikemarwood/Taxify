@@ -28,9 +28,12 @@ export default function ForgotPassword() {
 
   useEffect(newCaptcha, [newCaptcha]);
 
+  const [captchaError, setCaptchaError] = useState('');
+
   async function onSubmit(event) {
     event.preventDefault();
     setBusy(true);
+    setCaptchaError('');
     try {
       await api.post('/auth/forgot-password', {
         email,
@@ -41,7 +44,11 @@ export default function ForgotPassword() {
       setSent(true);
     } catch (err) {
       playError();
-      toast(err.message, 'error');
+      // A wrong sum belongs under the sum. A toast in the opposite corner of
+      // the screen is the one place nobody is looking after typing a number
+      // into a box.
+      if (err.field === 'captcha') setCaptchaError(err.message);
+      else toast(err.message, 'error');
       newCaptcha(); // a challenge is spent once submitted, right or wrong
     } finally {
       setBusy(false);
@@ -128,6 +135,11 @@ export default function ForgotPassword() {
               <Icon name="repeat" size={14} />
             </button>
           </div>
+          {captchaError && (
+            <div role="alert" style={{ fontSize: 12.5, color: 'var(--red)', marginTop: 6 }}>
+              {captchaError}
+            </div>
+          )}
         </div>
 
         <button className="btn btn-primary" type="submit" disabled={!complete || busy}>

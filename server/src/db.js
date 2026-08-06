@@ -81,6 +81,19 @@ export async function ensureSchema() {
   await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS referral_source VARCHAR(100) NULL`);
   await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS terms_accepted_at DATETIME NULL`);
 
+  // The number a customer is shown. Nothing joins on it — users.id remains the
+  // key — so this exists purely so nobody is told they are customer number 3.
+  // Nullable, because it is filled in by a migration rather than by the ALTER,
+  // and unique, because the generator relies on the key to settle collisions.
+  await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS account_number CHAR(8) NULL`);
+  const [accountNumberIndex] = await pool.query(
+    `SELECT INDEX_NAME FROM information_schema.STATISTICS
+      WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'users' AND INDEX_NAME = 'uniq_users_account_number'`
+  );
+  if (accountNumberIndex.length === 0) {
+    await pool.query(`ALTER TABLE users ADD UNIQUE INDEX uniq_users_account_number (account_number)`);
+  }
+
   // `name` stays as the display name used everywhere else in the app; these
   // are the parts it's assembled from, so a user can correct one without
   // re-typing both.

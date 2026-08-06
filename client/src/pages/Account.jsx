@@ -15,6 +15,31 @@ import PlanComparison from '../components/PlanComparison.jsx';
 // accountant's own name is theirs to spell, and rewriting the row would make
 // this page the thing that changed it.
 import { titleCase, lowerEmail } from '../lib/textCase.js';
+
+// The window a date of birth may fall in — matches the sign-up form, so an
+// account cannot be edited into a state it could never have been created in.
+function shiftYears(years) {
+  const d = new Date();
+  d.setFullYear(d.getFullYear() - years);
+  return d.toISOString().slice(0, 10);
+}
+const LATEST_DOB = shiftYears(16);
+const EARLIEST_DOB = shiftYears(120);
+
+// A stored number is "+61 412 345 678". The form wants those two parts apart;
+// everything else in the app wants them together.
+function splitPhone(value) {
+  const text = String(value || '').trim();
+  const match = text.match(/^(\+\d{1,4})\s*(.*)$/);
+  if (!match) return { dial: '', number: text };
+  return { dial: match[1], number: match[2].trim() };
+}
+
+function joinPhone(dial, number) {
+  const n = String(number || '').trim();
+  if (!n) return '';
+  return `${dial || ''} ${n}`.trim();
+}
 import ChangeEmailSection from '../components/ChangeEmailSection.jsx';
 import { usePlanChange } from '../lib/usePlanChange.js';
 import { useFinancialYears } from '../lib/useFinancialYears.js';
@@ -790,12 +815,30 @@ export default function Account() {
   const [firstName, setFirstName] = useState(user.firstName || '');
   const [lastName, setLastName] = useState(user.lastName || '');
   const [dateOfBirth, setDateOfBirth] = useState(user.dateOfBirth || '');
-  const [phone, setPhone] = useState(user.phone || '');
+  const [phone, setPhone] = useState(() => splitPhone(user.phone).number);
+  const [dialCode, setDialCode] = useState(() => splitPhone(user.phone).dial);
   const [currency, setCurrency] = useState(user.currency || 'AUD');
-  const [businessName, setBusinessName] = useState(user.businessName || '');
   const [practiceName, setPracticeName] = useState(user.practiceName || '');
   const [profileBusy, setProfileBusy] = useState(false);
   const [options, setOptions] = useState(null);
+
+  // One entry per code, not per country, sorted by the number rather than as
+  // text — +1, +20, +7 in string order is nobody's idea of a list.
+  const dialOptions = useMemo(() => {
+    const seen = new Map();
+    for (const c of options?.countries || []) {
+      if (c.dial && !seen.has(c.dial)) seen.set(c.dial, { dial: c.dial, code: c.code });
+    }
+    return [...seen.values()].sort((a, b) => Number(a.dial.slice(1)) - Number(b.dial.slice(1)));
+  }, [options]);
+
+  // Only when the account has no number at all — an existing one already
+  // carries its own code and must not be moved to another country's.
+  useEffect(() => {
+    if (dialCode || dialOptions.length === 0) return;
+    const fromCountry = options?.countries?.find((c) => c.name === user.country)?.dial;
+    setDialCode(fromCountry || dialOptions[0].dial);
+  }, [dialOptions, dialCode, options, user.country]);
 
   // Same lists the sign-up form uses, so the two can't drift.
   useEffect(() => {
@@ -836,9 +879,8 @@ export default function Account() {
     firstName.trim() !== (user.firstName || '') ||
     lastName.trim() !== (user.lastName || '') ||
     dateOfBirth !== (user.dateOfBirth || '') ||
-    phone.trim() !== (user.phone || '') ||
+    joinPhone(dialCode, phone) !== (user.phone || '') ||
     currency !== (user.currency || '') ||
-    businessName.trim() !== (user.businessName || '') ||
     practiceName.trim() !== (user.practiceName || '');
 
   async function onSaveProfile(e) {
@@ -849,9 +891,8 @@ export default function Account() {
         firstName: firstName.trim(),
         lastName: lastName.trim(),
         dateOfBirth,
-        phone: phone.trim(),
+        phone: joinPhone(dialCode, phone),
         currency,
-        businessName: businessName.trim(),
         practiceName: practiceName.trim(),
       });
       toast('Account details updated', 'success');
@@ -1001,21 +1042,39 @@ export default function Account() {
             <input
               className="input"
               type="date"
-              max={new Date().toISOString().slice(0, 10)}
+              max={LATEST_DOB}
+              min={EARLIEST_DOB}
               value={dateOfBirth}
               onChange={(e) => setDateOfBirth(e.target.value)}
             />
+            <div style={{ fontSize: 11.5, color: 'var(--text-muted)', marginTop: 5 }}>You need to be 16 or over</div>
           </div>
           <div>
             <label className="label">Phone number</label>
-            <input
-              className="input"
-              inputMode="tel"
-              maxLength={20}
-              placeholder="08 9123 4567"
-              value={phone}
-              onChange={(e) => setPhone(e.target.value.replace(/[^\d+\s()-]/g, ''))}
-            />
+            <div style={{ display: 'flex', gap: 6 }}>
+              <select
+                className="input"
+                aria-label="Country code"
+                value={dialCode}
+                onChange={(e) => setDialCode(e.target.value)}
+                style={{ width: 104, flexShrink: 0, paddingLeft: 8, paddingRight: 4 }}
+              >
+                {dialOptions.map((d) => (
+                  <option key={d.code} value={d.dial}>
+                    {d.dial} {d.code}
+                  </option>
+                ))}
+              </select>
+              <input
+                className="input"
+                inputMode="tel"
+                maxLength={20}
+                placeholder="412 345 678"
+                value={phone}
+                onChange={(e) => setPhone(e.target.value.replace(/[^\d\s()-]/g, ''))}
+                style={{ minWidth: 0 }}
+              />
+            </div>
           </div>
         </div>
 
@@ -1071,10 +1130,6 @@ export default function Account() {
                 </option>
               ))}
             </select>
-          </div>
-          <div>
-            <label className="label">Business name (optional)</label>
-            <input className="input" maxLength={120} value={businessName} onChange={(e) => setBusinessName(e.target.value)} />
           </div>
           {/* A different fact from the business name above: that one is the
               business whose expenses you track, this one is the firm you do

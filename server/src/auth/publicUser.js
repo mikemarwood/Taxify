@@ -15,6 +15,8 @@ export function toPublicUser(user, mfaMode) {
     role: user.role || 'owner',
     accountHolderId: user.account_holder_id || null,
     planType: user.plan_type || null,
+    // What the account is called when a person or an email refers to it.
+    accountNumber: user.account_number || null,
     firstName: user.first_name || null,
     lastName: user.last_name || null,
     // Sent as yyyy-mm-dd so a date input can take it directly; the client

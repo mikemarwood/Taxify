@@ -348,6 +348,7 @@ router.get(
         currency: u.currency,
         businessName: u.business_name,
         referralSource: u.referral_source,
+        accountNumber: u.account_number || null,
         promoCode: u.promo_code,
         role: u.role || 'owner',
         isAdmin: !!u.is_admin,

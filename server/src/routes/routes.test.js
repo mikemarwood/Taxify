@@ -56,3 +56,62 @@ test('index.js imports a default from every route module it mounts', () => {
     );
   }
 });
+
+// The routes each module must actually register.
+//
+// The test above proves a module still exports a router. It does not prove the
+// router still has anything in it — and that is the mistake that happened next.
+// A commit meant to remove two retired /family routes cut 444 lines, taking the
+// body of POST /register and the whole activation flow with it. The file still
+// parsed, still exported a router, still imported cleanly, and every test here
+// passed. Nobody could create an account.
+//
+// So: name the routes that have to exist. Not all of them — the ones whose
+// absence means a customer cannot get in, or cannot get back in.
+const REQUIRED = {
+  'auth.routes.js': [
+    // Signing up, end to end. Each of these was missing at one point.
+    ['post', '/register'],
+    ['get', '/activate/check'],
+    ['post', '/activate'],
+    ['post', '/resend-activation'],
+    // Getting back in.
+    ['post', '/login'],
+    ['post', '/forgot-password'],
+    ['post', '/reset-password'],
+    ['post', '/otp/verify'],
+    // Sharing access.
+    ['post', '/invite'],
+    ['post', '/accept-invite'],
+  ],
+  'expenses.routes.js': [['get', '/'], ['post', '/']],
+  'entities.routes.js': [['get', '/'], ['post', '/']],
+  'deductions.routes.js': [['post', '/vehicle-trips'], ['post', '/home-office']],
+  'billing.routes.js': [['post', '/checkout']],
+};
+
+// What Express actually mounted, read off the router rather than out of the
+// source — a route that is commented out or unreachable does not count.
+function mountedRoutes(router) {
+  const found = new Set();
+  for (const layer of router.stack || []) {
+    if (!layer.route) continue;
+    for (const method of Object.keys(layer.route.methods || {})) {
+      found.add(`${method} ${layer.route.path}`);
+    }
+  }
+  return found;
+}
+
+for (const [file, required] of Object.entries(REQUIRED)) {
+  test(`${file} still registers the routes the app cannot work without`, async () => {
+    const mod = await import(`./${file}`);
+    const mounted = mountedRoutes(mod.default);
+    for (const [method, routePath] of required) {
+      assert.ok(
+        mounted.has(`${method} ${routePath}`),
+        `${file} no longer has ${method.toUpperCase()} ${routePath} — it registers: ${[...mounted].sort().join(', ') || '(nothing)'}`
+      );
+    }
+  });
+}

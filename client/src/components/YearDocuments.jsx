@@ -33,7 +33,7 @@ function Thumb({ doc }) {
   if (IMAGE_EXT.test(doc.originalName)) {
     return (
       <span style={frame}>
-        <img src={doc.url} alt="" loading="lazy" style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'top' }} />
+        <img src={doc.url} alt="" loading="lazy" decoding="async" style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'top' }} />
       </span>
     );
   }

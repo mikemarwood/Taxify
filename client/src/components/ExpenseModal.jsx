@@ -270,11 +270,49 @@ export default function ExpenseModal({ expense, onClose, onSaved, onDeleted }) {
           exit={{ opacity: 0, y: 8, scale: 0.97 }}
           transition={{ duration: 0.2, ease: 'easeOut' }}
           className="card"
-          style={{ width: '100%', maxWidth: 480, maxHeight: '90vh', overflowY: 'auto', padding: 28 }}
+          style={{
+            width: '100%',
+            maxWidth: 480,
+            // Sized to its content. It was 90vh with overflow-y: auto, which is
+            // nearly right — but a full-height receipt preview inside pushed
+            // almost every expense past the limit, so the panel scrolled even
+            // when there was little in it. The preview is capped below.
+            // The overlay already keeps 20px clear on each side, so this can
+            // use what is left rather than a flat 90vh that gave away another
+            // 60px on a laptop for no reason.
+            maxHeight: 'calc(100vh - 40px)',
+            overflowY: 'auto',
+            overscrollBehavior: 'contain',
+            padding: 28,
+            position: 'relative',
+          }}
         >
+          {/* Escape and a click outside both already close this. The cross is
+              the one people look for, and on a phone there is no Escape key and
+              little outside to click. */}
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Close"
+            title="Close"
+            className="btn btn-ghost"
+            style={{
+              position: 'absolute',
+              top: 10,
+              right: 10,
+              zIndex: 2,
+              padding: 7,
+              lineHeight: 0,
+              borderRadius: 999,
+              color: 'var(--text-muted)',
+            }}
+          >
+            <Icon name="x" size={17} />
+          </button>
+
           {editing ? (
             <form onSubmit={onSave} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-              <h2 style={{ margin: 0, fontSize: 20 }}>Edit expense</h2>
+              <h2 style={{ margin: 0, fontSize: 20, paddingRight: 34 }}>Edit expense</h2>
               <div>
                 <label className="label">What did you buy?</label>
                 <input
@@ -443,7 +481,7 @@ export default function ExpenseModal({ expense, onClose, onSaved, onDeleted }) {
                   <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: 0.6, textTransform: 'uppercase', color: 'var(--text-muted)', marginBottom: 8 }}>
                     Expense Record · #{expense.id}
                   </div>
-                  <h2 style={{ margin: 0, fontSize: 21, lineHeight: 1.3, wordBreak: 'break-word' }}>{expense.itemName}</h2>
+                  <h2 style={{ margin: 0, fontSize: 21, lineHeight: 1.3, wordBreak: 'break-word', paddingRight: 8 }}>{expense.itemName}</h2>
                   <div style={{ marginTop: 10 }}>
                     <CategoryBadge category={expense.category} />
                   </div>

@@ -48,8 +48,18 @@ export function serveAttachment(res, filePath, { originalName, download = false 
   res.setHeader('Content-Security-Policy', "default-src 'none'; img-src 'self' data:; style-src 'unsafe-inline'; object-src 'none'; sandbox");
 
   // These are per-account authenticated files and must not sit in any shared
-  // cache between here and the reader.
-  res.setHeader('Cache-Control', 'private, no-store');
+  // cache between here and the reader — which is what `private` says.
+  //
+  // It used to say no-store as well, and that was why receipts felt slow:
+  // no-store denies the browser its own disk cache, so every look at the same
+  // photo pulled the whole original down again. A phone-camera receipt is
+  // several megabytes and the preview box is about 200 pixels wide.
+  //
+  // no-cache is not a weaker version of that. It means "keep it, but check
+  // with me before showing it", and the check carries the session cookie — so
+  // a signed-out browser on a shared machine still gets a 401 and no picture,
+  // while a signed-in one gets a 304 with no body at all.
+  res.setHeader('Cache-Control', 'private, no-cache, must-revalidate');
 
   return res.sendFile(filePath);
 }

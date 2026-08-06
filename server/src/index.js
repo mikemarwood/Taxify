@@ -28,6 +28,7 @@ import { migrateEntities } from './migrations/entities.js';
 import { migrateAccountantInvites } from './migrations/accountantInvites.js';
 import { migrateCategoryEntities } from './migrations/categoryEntities.js';
 import { migrateRemoveSecondLogins } from './migrations/removeSecondLogins.js';
+import { migrateAccountNumbers } from './migrations/accountNumbers.js';
 import { closeExpiredAssignments } from './auth/accountants.js';
 import { closeExpiredInvites } from './auth/accountantInvites.js';
 import { notify } from './lib/notify.js';
@@ -189,6 +190,15 @@ try {
   await migrateCategoriesByYear(pool);
 } catch (err) {
   console.error('Failed to split categories by financial year');
+  console.error(err);
+}
+
+// Nothing depends on this having run — every account works off users.id
+// either way — so it sits after the migrations that things do depend on.
+try {
+  await migrateAccountNumbers(pool);
+} catch (err) {
+  console.error('Failed to give existing accounts a public number');
   console.error(err);
 }
 

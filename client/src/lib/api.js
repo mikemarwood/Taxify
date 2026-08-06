@@ -36,6 +36,9 @@ api.interceptors.response.use(
     if (data.lockedUntil) wrapped.lockedUntil = data.lockedUntil;
     if (data.lockedForSeconds !== undefined) wrapped.lockedForSeconds = data.lockedForSeconds;
     if (data.attemptsRemaining !== undefined) wrapped.attemptsRemaining = data.attemptsRemaining;
+    // Which field a refusal belongs to, so a form can put the message beside
+    // the box that caused it instead of in a corner toast.
+    if (data.field) wrapped.field = data.field;
     return Promise.reject(wrapped);
   }
 );

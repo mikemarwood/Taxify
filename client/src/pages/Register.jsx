@@ -40,8 +40,8 @@ function money(cents, currency) {
 
 const STEPS = [
   { key: 'you', label: 'About you', icon: 'users' },
-  { key: 'email', label: 'Your email', icon: 'mail' },
   { key: 'where', label: 'Where you are', icon: 'globe' },
+  { key: 'email', label: 'Your email', icon: 'mail' },
   { key: 'plan', label: 'Choose a plan', icon: 'tag' },
   { key: 'finish', label: 'Finish up', icon: 'check-circle' },
 ];
@@ -60,6 +60,17 @@ function Field({ label, hint, error, required, children, span }) {
     </div>
   );
 }
+
+// The window a date of birth may fall in. The picker greys out everything
+// outside it, so being too young is refused before it is typed rather than
+// after — and 120 years back stops a mistyped century sailing through.
+function shiftYears(years) {
+  const d = new Date();
+  d.setFullYear(d.getFullYear() - years);
+  return d.toISOString().slice(0, 10);
+}
+const LATEST_DOB = shiftYears(16);
+const EARLIEST_DOB = shiftYears(120);
 
 const MONTH_NAMES = [
   'January','February','March','April','May','June',
@@ -82,7 +93,10 @@ export default function Register() {
   const [lastName, setLastName] = useState('');
   const [dateOfBirth, setDateOfBirth] = useState('');
   const [phone, setPhone] = useState('');
-  const [businessName, setBusinessName] = useState('');
+  const [dialCode, setDialCode] = useState('');
+  // Set once from the country, and then left alone — somebody with an overseas
+  // mobile living here should not have it changed back under them.
+  const [dialTouched, setDialTouched] = useState(false);
   const [email, setEmail] = useState('');
   const [confirmEmail, setConfirmEmail] = useState('');
   const [country, setCountry] = useState('');
@@ -102,6 +116,7 @@ export default function Register() {
   const [referralSource, setReferralSource] = useState('');
   const [termsAccepted, setTermsAccepted] = useState(false);
   const [captchaAnswer, setCaptchaAnswer] = useState('');
+  const [captchaError, setCaptchaError] = useState('');
 
   const [emailStatus, setEmailStatus] = useState({ state: 'idle' });
   const [promoStatus, setPromoStatus] = useState(null);
@@ -158,6 +173,35 @@ export default function Register() {
   }, [email]);
 
   // What we already know about this country's tax year, if anything.
+  // One entry per dialling code rather than per country, so +61 appears once
+  // and not beside every country that shares it. Sorted numerically, because
+  // +1, +20, +7 in string order is nobody's idea of a list.
+  const dialOptions = useMemo(() => {
+    const seen = new Map();
+    for (const c of options?.countries || []) {
+      if (c.dial && !seen.has(c.dial)) seen.set(c.dial, { dial: c.dial, code: c.code });
+    }
+    return [...seen.values()].sort((a, b) => Number(a.dial.slice(1)) - Number(b.dial.slice(1)));
+  }, [options]);
+
+  const dialForCountry = useMemo(
+    () => options?.countries?.find((c) => c.name === country)?.dial || '',
+    [options, country]
+  );
+
+  // Follows the country until somebody picks a code themselves. Someone here
+  // on an overseas mobile should not have it corrected back under them.
+  useEffect(() => {
+    if (dialTouched) return;
+    if (dialForCountry && dialForCountry !== dialCode) setDialCode(dialForCountry);
+  }, [dialForCountry, dialTouched, dialCode]);
+
+  // Nothing detected yet — start somewhere valid rather than blank, so the
+  // number beside it is never ambiguous.
+  useEffect(() => {
+    if (!dialCode && dialOptions.length > 0) setDialCode(dialOptions[0].dial);
+  }, [dialOptions, dialCode]);
+
   const knownFinancialYear = useMemo(
     () => (country && options?.financialYears ? options.financialYears[country] || null : null),
     [country, options]
@@ -192,15 +236,19 @@ export default function Register() {
 
   // Each step gates its own Next, so a mistake is caught on the screen that
   // caused it rather than at the very end.
-  const stepValid = [
-    firstName.trim() && lastName.trim() && dateOfBirth && !errors.dateOfBirth && !errors.phone,
-    email.trim() && confirmEmail.trim() && emailStatus.state === 'free' && !errors.confirmEmail,
+  // Keyed, not positional. The order of the steps is a layout decision and
+  // must not be able to silently re-point a gate at the wrong screen.
+  const stepKey = STEPS[step].key;
+  const validByKey = {
+    you: firstName.trim() && lastName.trim() && dateOfBirth && !errors.dateOfBirth && !errors.phone,
+    email: email.trim() && confirmEmail.trim() && emailStatus.state === 'free' && !errors.confirmEmail,
     // The financial year has to be answered too when we do not know it —
     // otherwise the server rejects the whole registration at the last step.
-    country && state.trim() && currency && (knownFinancialYear || fyMonth > 0),
-    Boolean(planType),
-    referralSource && termsAccepted && captchaAnswer.trim(),
-  ];
+    where: country && state.trim() && currency && (knownFinancialYear || fyMonth > 0),
+    plan: Boolean(planType),
+    finish: referralSource && termsAccepted && captchaAnswer.trim(),
+  };
+  const stepValid = STEPS.map((s) => validByKey[s.key]);
 
   const isLast = step === STEPS.length - 1;
 
@@ -227,12 +275,13 @@ export default function Register() {
 
   async function submit() {
     setBusy(true);
+    setCaptchaError('');
     try {
       await register({
         firstName,
         lastName,
         dateOfBirth,
-        phone,
+        phone: phone.trim() ? `${dialCode} ${phone.trim()}`.trim() : '',
         email,
         confirmEmail,
         currency,
@@ -241,7 +290,6 @@ export default function Register() {
         planType,
         ...(knownFinancialYear ? {} : { financialYearStart: { month: fyMonth, day: fyDay } }),
         promoCode: promoStatus?.ok ? promoCode.trim().toUpperCase() : undefined,
-        businessName: businessName.trim() || undefined,
         referralSource,
         termsAccepted,
         captchaToken: captcha?.token,
@@ -251,7 +299,10 @@ export default function Register() {
       setPendingEmail(email.trim().toLowerCase());
     } catch (err) {
       playError();
-      toast(err.message, 'error');
+      // Under the sum, not in the corner. Somebody who has just typed a number
+      // into a box is looking at that box.
+      if (err.field === 'captcha') setCaptchaError(err.message);
+      else toast(err.message, 'error');
       newCaptcha();
     } finally {
       setBusy(false);
@@ -415,10 +466,10 @@ export default function Register() {
               transition={{ duration: 0.26, ease: [0.16, 1, 0.3, 1] }}
               style={{ display: 'flex', flexDirection: 'column', gap: 4, minHeight: 0 }}
             >
-              <h1 style={{ margin: 0, fontSize: 'clamp(22px, 2.4vw, 28px)', letterSpacing: -0.5 }}>{HEADINGS[step].title}</h1>
-              <p style={{ margin: '0 0 18px', fontSize: 14, color: 'var(--text-muted)' }}>{HEADINGS[step].sub}</p>
+              <h1 style={{ margin: 0, fontSize: 'clamp(22px, 2.4vw, 28px)', letterSpacing: -0.5 }}>{HEADINGS[stepKey].title}</h1>
+              <p style={{ margin: '0 0 18px', fontSize: 14, color: 'var(--text-muted)' }}>{HEADINGS[stepKey].sub}</p>
 
-              {step === 0 && (
+              {stepKey === 'you' && (
                 <Grid>
                   <Field label="First name" required>
                     <input
@@ -439,40 +490,51 @@ export default function Register() {
                       autoComplete="family-name"
                     />
                   </Field>
-                  <Field label="Date of birth" required error={errors.dateOfBirth} hint="dd/mm/yyyy">
+                  <Field label="Date of birth" required error={errors.dateOfBirth} hint="You need to be 16 or over">
                     <input
                       type="date"
                       className="input"
                       value={dateOfBirth}
-                      max={new Date().toISOString().slice(0, 10)}
+                      max={LATEST_DOB}
+                      min={EARLIEST_DOB}
                       onChange={(e) => setDateOfBirth(e.target.value)}
                       autoComplete="bday"
                     />
                   </Field>
-                  <Field label="Phone number" error={errors.phone} hint="Area code then number">
-                    <input
-                      className="input"
-                      value={phone}
-                      inputMode="tel"
-                      maxLength={LIMITS.phone.max}
-                      placeholder="08 9123 4567"
-                      onChange={(e) => setPhone(e.target.value.replace(/[^\d+\s()-]/g, ''))}
-                      autoComplete="tel"
-                    />
-                  </Field>
-                  <Field label="Business name" span hint="Optional — if you trade under one">
-                    <input
-                      className="input"
-                      value={businessName}
-                      maxLength={LIMITS.businessName.max}
-                      onChange={(e) => setBusinessName(e.target.value)}
-                      autoComplete="organization"
-                    />
+                  <Field label="Phone number" error={errors.phone} hint="Optional">
+                    <div style={{ display: 'flex', gap: 6 }}>
+                      <select
+                        className="input"
+                        aria-label="Country code"
+                        value={dialCode}
+                        onChange={(e) => {
+                          setDialCode(e.target.value);
+                          setDialTouched(true);
+                        }}
+                        style={{ width: 104, flexShrink: 0, paddingLeft: 8, paddingRight: 4 }}
+                      >
+                        {dialOptions.map((d) => (
+                          <option key={d.code} value={d.dial}>
+                            {d.dial} {d.code}
+                          </option>
+                        ))}
+                      </select>
+                      <input
+                        className="input"
+                        value={phone}
+                        inputMode="tel"
+                        maxLength={LIMITS.phone.max}
+                        placeholder="412 345 678"
+                        onChange={(e) => setPhone(e.target.value.replace(/[^\d\s()-]/g, ''))}
+                        autoComplete="tel-national"
+                        style={{ minWidth: 0 }}
+                      />
+                    </div>
                   </Field>
                 </Grid>
               )}
 
-              {step === 1 && (
+              {stepKey === 'email' && (
                 <Grid>
                   <Field
                     label="Email"
@@ -515,7 +577,7 @@ export default function Register() {
                 </Grid>
               )}
 
-              {step === 2 && (
+              {stepKey === 'where' && (
                 <Grid>
                   <Field label="Country" required>
                     <select
@@ -642,7 +704,7 @@ export default function Register() {
                 </Grid>
               )}
 
-              {step === 3 && (
+              {stepKey === 'plan' && (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 12, minHeight: 0 }}>
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 12 }}>
                     {plans.map((plan) => (
@@ -702,7 +764,7 @@ export default function Register() {
                 </div>
               )}
 
-              {step === 4 && (
+              {stepKey === 'finish' && (
                 <Grid>
                   <Field label="How did you hear about us?" required span>
                     <select
@@ -720,7 +782,7 @@ export default function Register() {
                     </select>
                   </Field>
 
-                  <Field label="Quick check you're a person" required span>
+                  <Field label="Quick check you're a person" required span error={captchaError}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                       <span
                         style={{
@@ -835,13 +897,14 @@ export default function Register() {
   );
 }
 
-const HEADINGS = [
-  { title: 'Let’s start with you', sub: 'The name your records and reports will be filed under.' },
-  { title: 'Where can we reach you?', sub: 'This becomes your sign-in, so it needs to be one you can open.' },
-  { title: 'Where are you based?', sub: 'Sets your financial year and the currency expenses default to.' },
-  { title: 'Pick a plan', sub: 'Both start with a free trial. You can change plan later.' },
-  { title: 'Last thing', sub: 'Then we’ll email you a link to set your password.' },
-];
+// Keyed for the same reason as the gates above.
+const HEADINGS = {
+  you: { title: 'Let’s start with you', sub: 'The name your records and reports will be filed under.' },
+  where: { title: 'Where are you based?', sub: 'Sets your financial year, your currency and your dialling code.' },
+  email: { title: 'Where can we reach you?', sub: 'This becomes your sign-in, so it needs to be one you can open.' },
+  plan: { title: 'Pick a plan', sub: 'Both start with a free trial. You can change plan later.' },
+  finish: { title: 'Last thing', sub: 'Then we’ll email you a link to set your password.' },
+};
 
 
 function Grid({ children }) {

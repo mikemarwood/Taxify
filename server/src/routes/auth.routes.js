@@ -50,6 +50,7 @@ import {
 import { COUNTRIES, STATES, CURRENCIES, countryByName, countryByCode, isKnownCurrency, isValidState } from '../lib/geoData.js';
 import { financialYearForCountry, normaliseRule, COUNTRY_FINANCIAL_YEARS } from '../lib/financialYear.js';
 import { createCaptcha, verifyCaptcha } from '../lib/captcha.js';
+import { assignAccountNumber } from '../lib/accountNumber.js';
 import { getSignupPlans } from '../lib/stripe.js';
 import { evaluatePromoCode, recordPromoRedemption } from '../lib/promoCodes.js';
 
@@ -255,7 +256,9 @@ router.post(
     } = req.body || {};
 
     if (!verifyCaptcha(captchaToken, captchaAnswer)) {
-      return res.status(400).json({ error: 'The verification answer was wrong — try the new sum' });
+      // Named so the form can show this under the sum rather than as a toast
+      // in the opposite corner from the box it is about.
+      return res.status(400).json({ error: 'That answer was not right — here is a new sum', field: 'captcha' });
     }
 
     for (const [field, label] of [
@@ -339,6 +342,375 @@ router.post(
 
     // No password at sign-up: it's set when the activation link is opened,
     // which proves the address works before an account can be used.
+    const placeholderHash = hashPassword(crypto.randomBytes(32).toString('hex'));
+    const mfaMode = await getMfaMode();
+    const otpEnabledAtSignup = mfaMode === 'required' ? 1 : 0;
+    const { token, tokenHash, expiresAt } = generateActivationToken();
+
+    // Which twelve months count as a year for this person. Known countries get
+    // it automatically; anywhere we don't know, they must say — guessing would
+    // file their whole history into the wrong years, which is also why country
+    // is not editable afterwards.
+    const knownRule = financialYearForCountry(matchedCountry.name);
+    let fyRule = knownRule;
+    if (!fyRule) {
+      const asked = req.body?.financialYearStart;
+      const month = Number(asked?.month);
+      const day = Number(asked?.day);
+      if (!Number.isInteger(month) || month < 1 || month > 12 || !Number.isInteger(day) || day < 1 || day > 28) {
+        return res.status(400).json({ error: 'financial_year_required', country: matchedCountry.name });
+      }
+      fyRule = normaliseRule({ startMonth: month, startDay: day });
+    }
+
+    let userId;
+    try {
+      const [result] = await pool.execute(
+        `INSERT INTO users
+           (email, password_hash, name, first_name, last_name, date_of_birth, phone, otp_enabled, otp_prompted,
+            role, plan_type, promo_code, currency, country, state, referral_source,
+            fy_start_month, fy_start_day,
+            terms_accepted_at, activation_token_hash, activation_token_expires_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, 'owner', ?, ?, ?, ?, ?, ?, ?, ?, NOW(), ?, ?)`,
+        [
+          normalizedEmail,
+          placeholderHash,
+          fullName,
+          first,
+          last,
+          dob,
+          cleanedPhone || null,
+          otpEnabledAtSignup,
+          finalPlanType,
+          finalPromo,
+          finalCurrency,
+          matchedCountry.name,
+          String(state).trim(),
+          String(referralSource),
+          fyRule.startMonth,
+          fyRule.startDay,
+          tokenHash,
+          expiresAt,
+        ]
+      );
+      userId = result.insertId;
+    } catch (err) {
+      if (err.code === 'ER_DUP_ENTRY') {
+        return res.status(409).json({ error: 'An account with that email already exists' });
+      }
+      throw err;
+    }
+
+    // Their books, then the categories inside them. Seeding without an entity
+    // is what left the earliest accounts with an empty, unrepairable Categories
+    // page — see migrations/categoryEntities.js.
+    const books = await ensureDefaultEntity(userId);
+    await seedDefaultCategories(pool, userId, books?.id ?? null);
+
+    // The number they will be shown. Assigned here rather than left to the
+    // boot migration, so somebody who signs up between restarts still has one.
+    try {
+      await assignAccountNumber(pool, userId);
+    } catch (err) {
+      console.error('Could not assign an account number at signup', err);
+    }
+
+    if (finalPromo) await recordPromoRedemption(finalPromo);
+
+    const activationUrl = `${process.env.CLIENT_ORIGIN || 'http://localhost:5173'}/activate?token=${token}`;
+    try {
+      await sendActivationEmail(normalizedEmail, first, activationUrl, {
+        planType: finalPlanType,
+        trialDays: TRIAL_DAYS,
+        expiryDays: ACTIVATION_TOKEN_DAYS,
+      });
+    } catch (err) {
+      console.error('Failed to send activation email', err);
+    }
+
+    res.status(201).json({ pendingActivation: true, email: normalizedEmail });
+  })
+);
+
+// Confirms a link is still good before showing the set-password form, so
+// somebody doesn't choose a password only to be told the link expired.
+router.get(
+  '/activate/check',
+  asyncHandler(async (req, res) => {
+    const user = await findActivationCandidate(req.query?.token);
+    if (!user) return res.status(400).json({ error: 'This activation link is invalid or has expired.' });
+    res.json({ ok: true, email: user.email, firstName: user.first_name || user.name });
+  })
+);
+
+async function findActivationCandidate(token) {
+  if (!token) return null;
+  const tokenHash = crypto.createHash('sha256').update(String(token)).digest('hex');
+  const [rows] = await pool.execute(
+    'SELECT * FROM users WHERE activation_token_hash = ? AND activated_at IS NULL',
+    [tokenHash]
+  );
+  const user = rows[0];
+  if (!user || new Date(user.activation_token_expires_at) < new Date()) return null;
+  return user;
+}
+
+// Activation is where the password is set — the account is created without
+// one, so opening this link is what proves the address belongs to whoever
+// signed up.
+router.post(
+  '/activate',
+  asyncHandler(async (req, res) => {
+    const { token, password } = req.body || {};
+    if (!token) return res.status(400).json({ error: 'Activation token is required' });
+    if (!isStrongPassword(password)) {
+      return res.status(400).json({
+        error: 'Password must be at least 8 characters and include an uppercase letter, a lowercase letter, and a number',
+      });
+    }
+
+    const user = await findActivationCandidate(token);
+    if (!user) return res.status(400).json({ error: 'This activation link is invalid or has expired.' });
+
+    const trialEndsAt = new Date(Date.now() + TRIAL_DAYS * 24 * 60 * 60 * 1000);
+    await pool.execute(
+      `UPDATE users SET password_hash = ?, activated_at = NOW(), activation_token_hash = NULL,
+       activation_token_expires_at = NULL, trial_ends_at = ?, subscription_status = 'trialing' WHERE id = ?`,
+      [hashPassword(password), trialEndsAt, user.id]
+    );
+
+    try {
+      await sendAccountActivatedEmail(user.email, user.first_name || user.name, {
+        planType: user.plan_type,
+        trialEndsAt,
+      });
+    } catch (err) {
+      console.error('Failed to send activation confirmation email', err);
+    }
+
+    const jwt = signToken(user);
+    res.cookie(COOKIE_NAME, jwt, cookieOptions());
+    const mfaMode = await getMfaMode();
+    user.trial_ends_at = trialEndsAt;
+    user.subscription_status = 'trialing';
+    const publicUser = toPublicUser(user, mfaMode);
+    publicUser.accessLocked = false;
+    res.json({ user: publicUser });
+  })
+);
+
+router.post(
+  '/resend-activation',
+  asyncHandler(async (req, res) => {
+    const { email } = req.body || {};
+    if (!email) return res.status(400).json({ error: 'Email is required' });
+
+    const normalizedEmail = String(email).trim().toLowerCase();
+    const [rows] = await pool.execute('SELECT * FROM users WHERE email = ? AND activated_at IS NULL', [normalizedEmail]);
+    const user = rows[0];
+    // Always respond the same way whether or not the account exists, so this
+    // endpoint can't be used to probe which emails are registered.
+    if (!user) return res.json({ ok: true });
+
+    // Five minutes between sends. Returned to the caller so the button can
+    // show a live countdown rather than silently doing nothing when pressed.
+    const issuedAt = new Date(
+      new Date(user.activation_token_expires_at).getTime() - ACTIVATION_TOKEN_DAYS * 24 * 60 * 60 * 1000
+    );
+    const sinceIssued = Date.now() - issuedAt.getTime();
+    if (user.activation_token_expires_at && sinceIssued < RESEND_COOLDOWN_MS) {
+      return res.json({ ok: true, retryAfterSeconds: Math.ceil((RESEND_COOLDOWN_MS - sinceIssued) / 1000) });
+    }
+
+    const { token, tokenHash, expiresAt } = generateActivationToken();
+    await pool.execute('UPDATE users SET activation_token_hash = ?, activation_token_expires_at = ? WHERE id = ?', [
+      tokenHash,
+      expiresAt,
+      user.id,
+    ]);
+
+    const activationUrl = `${process.env.CLIENT_ORIGIN || 'http://localhost:5173'}/activate?token=${token}`;
+    try {
+      await sendActivationEmail(user.email, user.first_name || user.name, activationUrl, {
+        planType: user.plan_type,
+        trialDays: TRIAL_DAYS,
+        expiryDays: ACTIVATION_TOKEN_DAYS,
+      });
+    } catch (err) {
+      console.error('Failed to send activation email', err);
+    }
+
+    res.json({ ok: true, retryAfterSeconds: Math.ceil(RESEND_COOLDOWN_MS / 1000) });
+  })
+);
+
+
+router.post(
+  '/invite',
+  requireAuth,
+  requireAccountOwner,
+  asyncHandler(async (req, res) => {
+    const { name, email, role, financialYears } = req.body || {};
+    if (!name || !String(name).trim()) return res.status(400).json({ error: 'Name is required' });
+    if (!email || !String(email).trim()) return res.status(400).json({ error: 'Email is required' });
+    // The only kind of invitation there is. A second login on one account was
+    // removed with the Family plan — two people means two accounts.
+    if (role !== 'accountant') {
+      return res.status(400).json({ error: 'Only an accountant can be invited' });
+    }
+
+    const normalizedEmail = String(email).trim().toLowerCase();
+    const displayName = String(name).trim();
+
+    // A family member is a second person on this account, so there is only ever
+    // room for one and only on the plan that includes them.
+    if (role === 'sub_user') {
+      if (req.user.planType !== 'family') {
+        return res.status(400).json({ error: 'Only an accountant can be invited' });
+      }
+      const [existingRows] = await pool.execute(
+        "SELECT id FROM users WHERE account_holder_id = ? AND role = 'sub_user'",
+        [req.user.id]
+      );
+      if (existingRows.length > 0) {
+        return res.status(400).json({ error: 'Only an accountant can be invited' });
+      }
+    }
+
+    // Only accountants can be scoped to particular years. A family member is a
+    // co-owner of the same books, not a visitor with a reading window.
+    //
+    // The caller has to say which it means. "Every year" is { allYears: true };
+    // a list is a list. Left to infer, an omitted field and a list where every
+    // entry was rejected look identical — and both used to mean the whole
+    // history, so a client who mistyped their years handed over everything.
+    let yearScope = null;
+    let rejectedYears = [];
+    if (role === 'accountant' && req.body?.allYears !== true) {
+      const grant = parseYearGrant(financialYears);
+      if (!grant.ok) {
+        return res.status(400).json({
+          error: grant.tooMany
+            ? 'That is more financial years than an account can have — pick the ones they need.'
+            : "None of those look like financial years. Pick them from the list, or choose every year.",
+          rejectedYears: grant.rejected,
+        });
+      }
+      yearScope = grant.value;
+      rejectedYears = grant.rejected;
+    }
+
+    // How long their window lasts once opened. The client's choice, defaulting
+    // to a day when they express no view.
+    const windowHours =
+      role === 'accountant'
+        ? normaliseWindowHours(req.body?.windowHours) ?? ACCOUNTANT_WINDOW_HOURS
+        : ACCOUNTANT_WINDOW_HOURS;
+
+    if (role === 'accountant') {
+      // An accountant works for several people, so the same address turning up
+      // again is the normal case, not a collision — it gets another assignment
+      // rather than another login.
+      //
+      // activated_at matters here. A row that was invited and never accepted is
+      // not a login: its password is a random string nobody has ever seen. It
+      // used to match this branch anyway, and the person was told to sign in
+      // with credentials that had never existed.
+      const [existing] = await pool.execute(
+        'SELECT id, role, name, activated_at FROM users WHERE email = ?',
+        [normalizedEmail]
+      );
+      const found = existing[0]?.activated_at ? existing[0] : null;
+
+      if (found) {
+        // An account holder who also does other people's books is one login
+        // with both hats, so an existing Taxify user is a perfectly good
+        // accountant — they simply gain a client. The one thing that would be
+        // absurd is giving someone access to their own account.
+        if (found.id === req.user.id) {
+          return res.status(400).json({ error: 'You already have access to your own account' });
+        }
+        const [already] = await pool.execute(
+          'SELECT id FROM accountant_assignments WHERE accountant_user_id = ? AND owner_user_id = ?',
+          [found.id, req.user.id]
+        );
+        if (already.length > 0) {
+          return res.status(400).json({ error: 'That accountant already has access to your account' });
+        }
+        await pool.execute(
+          'INSERT INTO accountant_assignments (accountant_user_id, owner_user_id, financial_years, window_hours) VALUES (?, ?, ?, ?)',
+          [found.id, req.user.id, yearScope, windowHours]
+        );
+
+        const loginUrl = `${process.env.CLIENT_ORIGIN || 'http://localhost:5173'}/login`;
+        let emailed = true;
+        try {
+          await sendAccountantAccessGrantedEmail(
+            normalizedEmail,
+            found.name,
+            req.user.name,
+            loginUrl,
+            yearScope,
+            describeWindow(windowHours)
+          );
+        } catch (err) {
+          console.error('Failed to send accountant access email', err);
+          emailed = false;
+        }
+        // They may be signed in right now, in which case a client appearing on
+        // their list with no explanation is the worse outcome.
+        await notify(found.id, {
+          title: `${req.user.name || req.user.email} has shared their books with you`,
+          body: `Read-only, for ${describeWindow(windowHours)} from the first time you open them.`,
+          url: '/clients',
+          kind: 'accountant',
+        });
+        return res.status(201).json({ ok: true, existingAccountant: true, emailed, rejectedYears });
+      }
+
+      // Nobody by that address, so there is nothing to grant yet — only an
+      // offer. No users row is created here on purpose: see accountant_invites
+      // in db.js for the three things that went wrong when one was.
+      const { token, tokenHash, expiresAt } = generateInviteToken();
+      await pool.execute(
+        `INSERT INTO accountant_invites (owner_user_id, email, name, financial_years, window_hours, token_hash, expires_at, last_sent_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, NOW())
+         ON DUPLICATE KEY UPDATE
+           name = VALUES(name), financial_years = VALUES(financial_years), window_hours = VALUES(window_hours),
+           token_hash = VALUES(token_hash), expires_at = VALUES(expires_at), last_sent_at = NOW(),
+           accepted_at = NULL, accepted_user_id = NULL`,
+        [req.user.id, normalizedEmail, displayName, yearScope, windowHours, tokenHash, expiresAt]
+      );
+
+      const acceptUrl = `${process.env.CLIENT_ORIGIN || 'http://localhost:5173'}/accept-invite?token=${token}`;
+      let emailed = true;
+      try {
+        await sendAccountantInviteEmail(
+          normalizedEmail,
+          displayName,
+          req.user.name,
+          acceptUrl,
+          yearScope,
+          describeWindow(windowHours),
+          `in ${INVITE_LIFETIME_HOURS} hours`
+        );
+      } catch (err) {
+        console.error('Failed to send accountant invitation', err);
+        emailed = false;
+      }
+
+      // A failed send must not roll back the invitation — but the owner has to
+      // be told, or they will assume it arrived and wonder why nothing happens.
+      return res.status(201).json({ ok: true, invited: true, emailed, rejectedYears });
+    }
+    // Only an accountant reaches this route now. The branch above always
+    // returns, whether it granted access to somebody who already has an
+    // account or sent an invitation to somebody who does not.
+    //
+    // What used to follow was the second login: it created a user row for a
+    // family member. That is gone deliberately — an account belongs to one
+    // person. See migrations/removeSecondLogins.js.
+    return res.status(500).json({ error: 'Unsupported invitation' });
   })
 );
 
@@ -1437,7 +1809,9 @@ router.post(
   asyncHandler(async (req, res) => {
     const { email, captchaToken, captchaAnswer } = req.body || {};
     if (!verifyCaptcha(captchaToken, captchaAnswer)) {
-      return res.status(400).json({ error: 'The verification answer was wrong — try the new sum' });
+      // Named so the form can show this under the sum rather than as a toast
+      // in the opposite corner from the box it is about.
+      return res.status(400).json({ error: 'That answer was not right — here is a new sum', field: 'captcha' });
     }
 
     const normalizedEmail = String(email || '').trim().toLowerCase();
