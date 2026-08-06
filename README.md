@@ -159,10 +159,38 @@ To also raise them in the Android notification tray:
 The device token is registered by `client/src/lib/pushNotifications.js` after login and stored in
 `device_tokens`; tokens Google reports as dead are deleted rather than retried.
 
+## Plans
+
+Two, and the only thing that differs is how many sets of books an account may hold:
+
+| Plan | Individual | Businesses |
+|---|---|---|
+| Individual | 1 | 0 |
+| Small Business | 1 | up to 2 |
+
+**One person per account.** There used to be a Family plan with a second full login, and it could not
+work: `tax_years`, `vehicle_trips` and `home_office_hours` are keyed to the account holder, so a
+household had exactly one 2025-2026 row between two people with two jobs. Whoever recorded a refund
+second overwrote the first, and finalising the year locked the other person out of editing their own
+expenses. Two people means two accounts.
+
+The rule lives in [planLimits.js](server/src/lib/planLimits.js) and is enforced at the one place
+entities are created. Two things about it are deliberate:
+
+- **An unknown `planType` gets the smallest allowance, never the largest.** `plan_type` is a free
+  VARCHAR with no constraint, so a typo or a half-finished rename must not be a way to get more than
+  was paid for.
+- **Only creation is capped.** An account already over its limit keeps everything — nothing is
+  deleted or hidden because a price changed. Archived businesses still count, or the cap would be one
+  archive away from meaningless.
+
+The Stripe price for Small Business falls back to the old Family price setting when
+`stripe_*_price_business` is empty, so the rename needed no billing change.
+
 ## Sets of books
 
-An account holds one **Individual** and any number of **small businesses**. An expense belongs to
-exactly one of them, and that is what decides whether it is asked for a business-use percentage —
+An account holds one **Individual** and, on Small Business, up to two businesses. An expense belongs
+to exactly one of them, and that is what decides whether it is asked for a business-use percentage —
 personal records never are.
 
 - Managed on the **Categories** page, and switched from the picker at the top of the nav. The picker
