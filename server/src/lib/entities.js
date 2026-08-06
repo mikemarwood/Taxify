@@ -52,6 +52,24 @@ export function writeEntityId(user) {
   return user.entityId;
 }
 
+// The same question when a form names the books itself rather than relying on
+// what is selected. The id has to be checked against the account that owns it:
+// unvalidated, a number from a request body files a row into a set of books
+// that is not yours, where it is invisible to you *and* to whoever owns that
+// id — which reads as losing the record, not as being refused.
+export async function resolveWriteEntity(user, ownerId, requested) {
+  const asked = Number(requested) || null;
+  if (!asked) return writeEntityId(user);
+  const owned = await entityFor(ownerId, asked);
+  if (!owned) {
+    throw Object.assign(new Error('That set of books is not on this account'), { status: 400 });
+  }
+  if (owned.archived_at) {
+    throw Object.assign(new Error(`${owned.name} is archived — restore it before adding to it`), { status: 409 });
+  }
+  return owned.id;
+}
+
 export function shapeEntity(row) {
   return {
     id: row.id,

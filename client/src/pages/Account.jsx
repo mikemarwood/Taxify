@@ -11,6 +11,10 @@ import Avatar from '../components/Avatar.jsx';
 import AvatarEditorModal from '../components/AvatarEditorModal.jsx';
 import { isSoundEnabled, setSoundEnabled } from '../lib/sounds.js';
 import PlanComparison from '../components/PlanComparison.jsx';
+// Names and addresses are shown tidied rather than stored tidied — an
+// accountant's own name is theirs to spell, and rewriting the row would make
+// this page the thing that changed it.
+import { titleCase, lowerEmail } from '../lib/textCase.js';
 import ChangeEmailSection from '../components/ChangeEmailSection.jsx';
 import { usePlanChange } from '../lib/usePlanChange.js';
 import { useFinancialYears } from '../lib/useFinancialYears.js';
@@ -577,9 +581,9 @@ function AccountantSection({ user }) {
             >
               <Icon name="mail" size={16} style={{ color: 'var(--amber)' }} />
               <span style={{ minWidth: 140, flex: 1 }}>
-                <span style={{ fontWeight: 600 }}>{i.name || i.email}</span>
+                <span style={{ fontWeight: 600 }}>{i.name ? titleCase(i.name) : lowerEmail(i.email)}</span>
                 <span style={{ display: 'block', fontSize: 11.5, color: 'var(--text-muted)' }}>
-                  {i.name ? `${i.email} · ` : ''}Invited, waiting for them to accept
+                  {i.name ? `${lowerEmail(i.email)} · ` : ''}Invited, waiting for them to accept
                 </span>
               </span>
               <span style={{ fontSize: 11.5, color: 'var(--text-muted)' }}>
@@ -619,10 +623,10 @@ function AccountantSection({ user }) {
             >
               <Icon name="briefcase" size={16} style={{ color: 'var(--accent)' }} />
               <span style={{ minWidth: 140, flex: 1 }}>
-                <span style={{ fontWeight: 600 }}>{a.practiceName || a.name}</span>
+                <span style={{ fontWeight: 600 }}>{titleCase(a.practiceName || a.name)}</span>
                 <span style={{ display: 'block', fontSize: 11.5, color: 'var(--text-muted)' }}>
-                  {a.practiceName ? `${a.name} · ` : ''}
-                  {a.email}
+                  {a.practiceName ? `${titleCase(a.name)} · ` : ''}
+                  {lowerEmail(a.email)}
                   {a.phone ? ` · ${a.phone}` : ''}
                 </span>
               </span>

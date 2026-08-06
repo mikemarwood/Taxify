@@ -1,14 +1,10 @@
-// Tidying what people type, without overwriting what they meant.
-//
-// Coerced rather than assumed. Every call site currently passes a string, but
-// this feeds a folder name that then gets renamed on disk, and a TypeError
-// there would fail a category rename halfway through.
+// Mirrors server/src/lib/textCase.js, the same way financialYear.js does — the
+// server tidies text on the way in, and this tidies what is already stored on
+// the way out, so rows written before either existed still read properly.
 //
 // The rule: fix a word that is clearly untidy — all lower or all upper — and
-// leave alone one that already carries deliberate capitals. The old version
-// lowercased everything first, which spelled "ATO fees" as "Ato Fees" and
-// anyone called McDonald as Mcdonald. A name is the one field where being
-// clever is worse than doing nothing.
+// leave alone one that carries deliberate capitals. Someone called McDonald
+// should never see their own name spelled wrong.
 
 function isUntidy(word) {
   const letters = word.replace(/[^a-zA-Z]/g, '');
@@ -35,30 +31,20 @@ export function titleCase(value) {
     .split(' ')
     .map((word) => {
       if (!isUntidy(word)) return word;
-      // An all-caps word of two or three letters is far more likely to be an
-      // initialism than shouting — ATO, GST, BMW, and every Australian state.
       const letters = word.replace(/[^a-zA-Z]/g, '');
+      // ATO, GST, NSW — an initialism, not shouting.
       if (letters.length <= 3 && letters === letters.toUpperCase() && letters.length > 1) return word;
       return capitaliseWord(word.toLowerCase());
     })
     .join(' ');
 }
 
-// The name category rows and receipt folders have always used. Same function,
-// kept so the call sites that read as "the category naming rule" still say so.
-export const toTitleCase = titleCase;
-
-// Only the first letter of each sentence, and nothing else touched. Lowercasing
-// the rest would wreck "ATO", "Parramatta" and every product name somebody
-// types into a note, which is worse than a stray capital.
 export function sentenceCase(value) {
   const text = String(value ?? '').trim().replace(/\s+/g, ' ');
   if (!text) return '';
   return text.replace(/(^|[.!?]\s+)([a-z])/g, (_, lead, ch) => lead + ch.toUpperCase());
 }
 
-// Addresses are matched lowercased everywhere else, so showing them any other
-// way just invites someone to think two rows are different accounts.
 export function lowerEmail(value) {
   return String(value ?? '').trim().toLowerCase();
 }

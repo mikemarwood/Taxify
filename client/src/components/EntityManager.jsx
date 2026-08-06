@@ -199,8 +199,19 @@ export default function EntityManager() {
         })}
 
         {atLimit ? (
-          <div
+          // Rendered as a real disabled button rather than a note, so it reads
+          // as the control it replaces — greyed out and plainly unavailable,
+          // instead of an explanation sitting where a button used to be.
+          <button
+            type="button"
             className="card"
+            disabled
+            aria-disabled="true"
+            title={
+              allowance?.businesses === 0
+                ? 'Adding a business needs the Small Business plan'
+                : `Your plan covers ${allowance?.businesses} businesses`
+            }
             style={{
               padding: 12,
               minWidth: 190,
@@ -209,18 +220,24 @@ export default function EntityManager() {
               alignItems: 'center',
               gap: 9,
               border: '1px dashed var(--border-strong)',
+              background: 'var(--bg-inset)',
               fontSize: 12.5,
+              font: 'inherit',
+              textAlign: 'left',
               color: 'var(--text-muted)',
               lineHeight: 1.5,
+              opacity: 0.65,
+              cursor: 'not-allowed',
             }}
           >
             <Icon name="lock" size={15} style={{ flexShrink: 0 }} />
             <span>
+              <strong style={{ display: 'block', fontSize: 12.5 }}>Not available on this plan</strong>
               {allowance?.businesses === 0
-                ? 'Small Business lets you add up to two businesses alongside your own tax.'
+                ? 'Small Business adds up to two businesses alongside your own tax.'
                 : `You have all ${allowance?.businesses} businesses your plan covers.`}
             </span>
-          </div>
+          </button>
         ) : (
         <button
           type="button"

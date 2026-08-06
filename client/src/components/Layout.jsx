@@ -32,9 +32,13 @@ const navGroups = [
     title: 'Expenses',
     items: [
       { to: '/add', label: 'Add expense', icon: 'plus-circle' },
+      // Kilometres and hours are the claims that arrive without a receipt, so
+      // this belongs beside adding one rather than three items further down
+      // where it read as an unrelated page. Indented, because it is the same
+      // job done a different way.
+      { to: '/deductions', label: 'Other deductions', icon: 'car', sub: true },
       { to: '/expenses', label: 'All expenses', icon: 'list' },
       { to: '/categories', label: 'Categories', icon: 'tag' },
-      { to: '/deductions', label: 'Other deductions', icon: 'car' },
     ],
   },
   {
@@ -64,9 +68,11 @@ function NavItem({ item }) {
         display: 'flex',
         alignItems: 'center',
         gap: 12,
-        padding: '8px 12px',
+        // A sub-item sits in from its parent and rides slightly smaller, so
+        // the pair reads as one thing with two ways in.
+        padding: item.sub ? '7px 12px 7px 26px' : '8px 12px',
         borderRadius: 'var(--radius-sm)',
-        fontSize: 13.5,
+        fontSize: item.sub ? 13 : 13.5,
         fontWeight: isActive ? 600 : 500,
         textDecoration: 'none',
         color: isActive ? 'var(--nav-text-active)' : 'var(--nav-text)',
@@ -93,7 +99,25 @@ function NavItem({ item }) {
               }}
             />
           )}
-          <Icon name={item.icon} size={19} strokeWidth={isActive ? 2 : 1.8} style={{ color: isActive ? "var(--nav-accent)" : "inherit" }} />
+          {/* The elbow that ties it to the item above. Purely decorative, so
+              it is hidden from anyone listening rather than read out. */}
+          {item.sub && (
+            <span
+              aria-hidden="true"
+              style={{
+                position: 'absolute',
+                left: 13,
+                top: 0,
+                bottom: '50%',
+                width: 9,
+                borderLeft: '1px solid var(--nav-border)',
+                borderBottom: '1px solid var(--nav-border)',
+                borderBottomLeftRadius: 6,
+                opacity: 0.8,
+              }}
+            />
+          )}
+          <Icon name={item.icon} size={item.sub ? 17 : 19} strokeWidth={isActive ? 2 : 1.8} style={{ color: isActive ? "var(--nav-accent)" : "inherit" }} />
           {item.label}
         </>
       )}

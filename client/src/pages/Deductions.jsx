@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { api } from '../lib/api.js';
 import { useAuth } from '../lib/AuthContext.jsx';
+import { useEntities } from '../lib/EntityContext.jsx';
 import { useToast } from '../components/Toast.jsx';
 import Icon from '../components/Icon.jsx';
 import { SkeletonList } from '../components/Skeletons.jsx';
@@ -68,6 +69,11 @@ export default function Deductions() {
   const { user } = useAuth();
   const toast = useToast();
   const { years } = useFinancialYears();
+  // Which books an entry lands in used to be whatever the sidebar happened to
+  // be set to, with nothing on the page saying so. Named here instead, the
+  // same way Add expense names it.
+  const { entities, entity: selectedEntity, showSwitcher, isAll } = useEntities();
+  const [entityId, setEntityId] = useState('');
   const [year, setYear] = useState('');
   const [data, setData] = useState(null);
   const [busy, setBusy] = useState(false);
@@ -81,25 +87,36 @@ export default function Deductions() {
     if (!year && years.length > 0) setYear(years.includes(currentFinancialYear()) ? currentFinancialYear() : years[0]);
   }, [years, year]);
 
-  function load(forYear = year) {
+  // Follows the sidebar until somebody changes it here, and falls back to the
+  // first set of books when the combined view is open — where there is nothing
+  // selected to follow.
+  useEffect(() => {
+    if (entityId && entities.some((e) => String(e.id) === String(entityId))) return;
+    const next = selectedEntity?.id || entities[0]?.id;
+    if (next) setEntityId(String(next));
+  }, [entities, selectedEntity, entityId]);
+
+  const filingInto = entities.find((e) => String(e.id) === String(entityId)) || selectedEntity || null;
+
+  function load(forYear = year, forEntity = entityId) {
     if (!forYear) return;
     api
-      .get(`/deductions/${encodeURIComponent(forYear)}`)
+      .get(`/deductions/${encodeURIComponent(forYear)}${forEntity ? `?entityId=${encodeURIComponent(forEntity)}` : ''}`)
       .then((res) => setData(res.data))
       .catch(() => setData(null));
   }
 
   useEffect(() => {
     setData(null);
-    load(year);
+    load(year, entityId);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [year]);
+  }, [year, entityId]);
 
   async function addTrip(e) {
     e.preventDefault();
     setBusy(true);
     try {
-      await api.post('/deductions/vehicle-trips', trip);
+      await api.post('/deductions/vehicle-trips', { ...trip, entityId });
       playSuccess();
       setTrip({ date: '', vehicle: trip.vehicle, km: '', purpose: '' });
       load();
@@ -115,7 +132,7 @@ export default function Deductions() {
     e.preventDefault();
     setBusy(true);
     try {
-      await api.post('/deductions/home-office', hours);
+      await api.post('/deductions/home-office', { ...hours, entityId });
       playSuccess();
       setHours({ date: '', hours: '', note: '' });
       load();
@@ -149,20 +166,71 @@ export default function Deductions() {
             Kilometres and hours — the claims that don't come with a receipt.
           </p>
         </div>
-        <select
-          className="input"
-          aria-label="Financial year"
-          value={year}
-          onChange={(e) => setYear(e.target.value)}
-          style={{ width: 150, padding: '9px 10px', fontSize: 13 }}
-        >
-          {years.map((y) => (
-            <option key={y} value={y}>
-              FY {y}
-            </option>
-          ))}
-        </select>
+        {/* Both labelled. An unlabelled dropdown of years beside an unlabelled
+            dropdown of names left it to guesswork which one an entry followed. */}
+        {showSwitcher && (
+          <div style={{ minWidth: 170 }}>
+            <label className="label" htmlFor="deduction-books">
+              Which books
+            </label>
+            <select
+              id="deduction-books"
+              className="input"
+              value={entityId}
+              onChange={(e) => setEntityId(e.target.value)}
+              style={{ padding: '9px 10px', fontSize: 13 }}
+            >
+              {entities.map((e) => (
+                <option key={e.id} value={e.id}>
+                  {e.name}
+                  {e.kind === 'business' ? ' — business' : ''}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
+        <div style={{ minWidth: 150 }}>
+          <label className="label" htmlFor="deduction-year">
+            Financial year
+          </label>
+          <select
+            id="deduction-year"
+            className="input"
+            value={year}
+            onChange={(e) => setYear(e.target.value)}
+            style={{ padding: '9px 10px', fontSize: 13 }}
+          >
+            {years.map((y) => (
+              <option key={y} value={y}>
+                FY {y}
+              </option>
+            ))}
+          </select>
+        </div>
       </div>
+
+      {/* Said once above both panels rather than repeated on each form, so
+          there is never a doubt about where an entry is going. */}
+      {filingInto && showSwitcher && (
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 8,
+            marginBottom: 16,
+            padding: '9px 12px',
+            borderRadius: 'var(--radius-sm)',
+            background: 'var(--bg-inset)',
+            fontSize: 12.5,
+            color: 'var(--text-muted)',
+          }}
+        >
+          <Icon name={filingInto.kind === 'business' ? 'briefcase' : 'user'} size={14} />
+          <span>
+            Showing and adding to <strong style={{ color: 'var(--text)' }}>{filingInto.name}</strong>, FY {year}
+          </span>
+        </div>
+      )}
 
       {!data ? (
         <SkeletonList rows={4} />

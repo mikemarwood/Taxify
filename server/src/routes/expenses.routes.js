@@ -11,7 +11,7 @@ import { asyncHandler } from '../lib/asyncHandler.js';
 import { financialYearOf } from '../lib/financialYear.js';
 import { resolveCategoryForYear } from '../lib/categoryYears.js';
 import { blockIfFinalised, finalisedYearsFor } from '../lib/finalisedYears.js';
-import { writeEntityId } from '../lib/entities.js';
+import { resolveWriteEntity } from '../lib/entities.js';
 import { viewableCopy } from '../lib/heicPreview.js';
 import { serveAttachment } from '../lib/serveAttachment.js';
 import { MAX_UPLOAD_BYTES, isAllowedUpload, UPLOAD_REJECTED_MESSAGE } from '../lib/uploadRules.js';
@@ -375,7 +375,9 @@ router.post(
       // at — the form sends an entity explicitly when nothing is selected.
       let entityId;
       try {
-        entityId = writeEntityId({ entityId: Number(req.body?.entityId) || req.user.entityId });
+        // Validated against the account rather than trusted, so a stray id
+        // cannot file the row into books that are not yours.
+        entityId = await resolveWriteEntity(req.user, req.user.id, req.body?.entityId);
       } catch (err) {
         cleanupUpload();
         return res.status(400).json({ error: err.message });

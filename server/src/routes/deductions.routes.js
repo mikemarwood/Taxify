@@ -4,8 +4,12 @@ import { requireAuth, requireActiveAccess } from '../auth/middleware.js';
 import { asyncHandler } from '../lib/asyncHandler.js';
 import { dataOwnerId } from '../auth/access.js';
 import { financialYearOf, isFinancialYearLabel } from '../lib/financialYear.js';
+// Tidied on the way in rather than on the way out, because the claim is
+// grouped by vehicle name — 'hilux' and 'Hilux' would otherwise be two
+// vehicles sharing one cap between them, and each would look under it.
+import { titleCase, sentenceCase } from '../lib/text.js';
 import { blockIfFinalised } from '../lib/finalisedYears.js';
-import { writeEntityId } from '../lib/entities.js';
+import { entityFor, resolveWriteEntity } from '../lib/entities.js';
 import { ratesFor, vehicleClaim, homeOfficeClaim, RATE_KEYS } from '../lib/deductions.js';
 
 const router = Router();
@@ -31,7 +35,15 @@ router.get(
     const userId = ownerOf(req);
     // Narrowed to the selected books when there are some, and every set of
     // books when there are not — the same rule reads use everywhere else.
-    const entityId = req.user.entityId || null;
+    // The page can name a different set of books than the sidebar has
+    // selected, and the list has to follow the same choice or it would show
+    // one set of entries while adding to another. Validated, not trusted.
+    let entityId = req.user.entityId || null;
+    if (req.query.entityId) {
+      const owned = await entityFor(userId, Number(req.query.entityId));
+      if (!owned) return res.status(400).json({ error: 'That set of books is not on this account' });
+      entityId = owned.id;
+    }
     const scope = entityId ? ' AND entity_id = ?' : '';
     const params = entityId ? [userId, financialYear, entityId] : [userId, financialYear];
 
@@ -114,7 +126,9 @@ router.post(
     if (!Number.isFinite(distance) || distance <= 0) return res.status(400).json({ error: 'Enter the kilometres driven' });
     if (distance > 100000) return res.status(400).json({ error: 'That distance is too large' });
 
-    const entityId = writeEntityId(req.user);
+    // The page names the books rather than relying on what is selected, so a
+    // trip can be logged from the combined view without guessing.
+    const entityId = await resolveWriteEntity(req.user, ownerOf(req), req.body?.entityId);
     if (!(await assertWritable(req, res, date, entityId))) return;
 
     const [result] = await pool.execute(
@@ -125,9 +139,9 @@ router.post(
         entityId,
         financialYearOf(date, req.user.financialYearRule),
         date,
-        String(vehicle).trim().slice(0, 80),
+        titleCase(vehicle).slice(0, 80),
         distance,
-        purpose ? String(purpose).trim().slice(0, 255) : null,
+        purpose ? sentenceCase(purpose).slice(0, 255) || null : null,
         req.user.id,
       ]
     );
@@ -161,7 +175,7 @@ router.post(
     // More than a day's worth in a day is a typo, not a claim.
     if (worked > 24) return res.status(400).json({ error: 'That is more than 24 hours' });
 
-    const entityId = writeEntityId(req.user);
+    const entityId = await resolveWriteEntity(req.user, ownerOf(req), req.body?.entityId);
     if (!(await assertWritable(req, res, date, entityId))) return;
 
     const [result] = await pool.execute(
@@ -173,7 +187,7 @@ router.post(
         financialYearOf(date, req.user.financialYearRule),
         date,
         worked,
-        note ? String(note).trim().slice(0, 255) : null,
+        note ? sentenceCase(note).slice(0, 255) || null : null,
         req.user.id,
       ]
     );
