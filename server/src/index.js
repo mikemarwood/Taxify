@@ -128,11 +128,38 @@ app.use((err, req, res, next) => {
 if (isProd) {
   const clientDist = path.join(__dirname, '..', '..', 'client', 'dist');
   if (fs.existsSync(clientDist)) {
+    // Vite writes a content hash into every filename in /assets, so those can
+    // be cached forever — the name changes when the content does.
+    app.use(
+      '/assets',
+      express.static(path.join(clientDist, 'assets'), {
+        immutable: true,
+        maxAge: '1y',
+        // A miss here must be a miss. Without this the catch-all below answers
+        // with index.html and a 200, so the browser is handed HTML where it
+        // asked for JavaScript, fails to parse it, and renders nothing at all —
+        // a blank page with no error anywhere. Anything under /assets that is
+        // not on disk is a genuine 404.
+        fallthrough: false,
+      })
+    );
+
     app.use('/downloads', express.static(path.join(clientDist, 'downloads'), {
       setHeaders: (res) => res.set('Cache-Control', 'no-store'),
     }));
-    app.use(express.static(clientDist));
+
+    app.use(express.static(clientDist, {
+      // index.html is the one file that must never be cached. It is the map to
+      // every hashed asset, so a stale copy points at chunks that were deleted
+      // by the last deploy — which is how a working build still comes up empty
+      // in somebody's browser.
+      setHeaders: (res, filePath) => {
+        if (filePath.endsWith('index.html')) res.set('Cache-Control', 'no-store, must-revalidate');
+      },
+    }));
+
     app.get(/^(?!\/api).*/, (req, res) => {
+      res.set('Cache-Control', 'no-store, must-revalidate');
       res.sendFile(path.join(clientDist, 'index.html'));
     });
   }
