@@ -535,6 +535,154 @@ export async function sendInviteEmail(to, name, role, acceptUrl, inviterName) {
   });
 }
 
+// The four emails an accountant relationship actually produces. Between them
+// they cover being asked, being given access, having it changed, and having it
+// end — the last of which used to happen in complete silence.
+
+// What the years line says, shared so four emails cannot describe the same
+// grant four different ways.
+function scopeSentence(yearScope) {
+  if (!yearScope) return 'You can see their full history.';
+  const years = yearScope.split(',');
+  return `You can see the financial ${years.length === 1 ? 'year' : 'years'} <strong>${escapeHtml(
+    years.join(', ')
+  )}</strong>.`;
+}
+
+// Somebody who has no Taxify login yet. The invitation itself grants nothing —
+// it is an offer, and it expires, and until it is accepted there is no account
+// anywhere with their name on it.
+export async function sendAccountantInviteEmail(to, name, clientName, acceptUrl, yearScope, windowLabel, expiryLabel) {
+  await sendMail({
+    to,
+    subject: `${clientName} would like to share their Taxify records with you`,
+    title: 'An invitation to view a client\u2019s books',
+    heading: `Hi${name ? ` ${escapeHtml(name)}` : ''}, ${escapeHtml(clientName)} has asked you to look over their records.`,
+    bodyHtml: `
+      <p style="font-size:14px;color:#1f2937;margin:0 0 16px;line-height:1.55;">
+        Taxify is where they keep their expenses and receipts. Accepting sets up an accountant login for you — one
+        login, however many clients you end up with. ${scopeSentence(yearScope)}
+      </p>
+      ${button(acceptUrl, 'Accept and set up my login')}
+      ${linkFallback(acceptUrl)}
+      <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 16px;">
+        ${bullet('Your access is <strong>read-only</strong> \u2014 you can read and export, never change.')}
+        ${bullet(`It lasts <strong>${windowLabel}</strong>, counted from the first time you open their books \u2014 not from now.`)}
+        ${bullet('They can end it at any time, and it is removed automatically when the time is up.')}
+        ${bullet('You will be asked to turn on two-factor sign-in. Their records deserve it.')}
+      </table>
+      <p style="font-size:13px;color:#4b5563;margin:0;line-height:1.55;">
+        This invitation expires ${expiryLabel}. If you were not expecting it, ignore this email \u2014 nothing has been
+        created and nobody has been given anything.
+      </p>
+    `,
+  });
+}
+
+// Somebody who already has a Taxify login. Nothing to set up; a client simply
+// appears on their list.
+export async function sendAccountantAccessGrantedEmail(to, name, clientName, loginUrl, yearScope, windowLabel) {
+  await sendMail({
+    to,
+    subject: `${clientName} has shared their Taxify records with you`,
+    title: 'New client access',
+    heading: `Hi${name ? ` ${escapeHtml(name)}` : ''}, ${escapeHtml(clientName)} has shared their books with you.`,
+    bodyHtml: `
+      <p style="font-size:14px;color:#1f2937;margin:0 0 16px;line-height:1.55;">
+        Nothing to set up \u2014 sign in with the login you already have and they will be on your client list.
+        ${scopeSentence(yearScope)}
+      </p>
+      ${button(loginUrl, 'Open my client list')}
+      ${linkFallback(loginUrl)}
+      <p style="font-size:13px;color:#4b5563;margin:0;line-height:1.55;">
+        Access is <strong>read-only</strong> and lasts <strong>${windowLabel}</strong> from the first time you open
+        their account, after which it is removed automatically. Ask them to share it again whenever you need another
+        look.
+      </p>
+    `,
+  });
+}
+
+// The client changed something without revoking and starting over. Only sent
+// when the change widens what they have — a narrowing does not need to
+// interrupt anyone's afternoon.
+export async function sendAccountantAccessUpdatedEmail(to, name, clientName, loginUrl, changeLabel) {
+  await sendMail({
+    to,
+    subject: `${clientName} has updated your access`,
+    title: 'Your access has changed',
+    heading: `Hi${name ? ` ${escapeHtml(name)}` : ''}, ${escapeHtml(clientName)} has updated what you can see.`,
+    bodyHtml: `
+      <p style="font-size:14px;color:#1f2937;margin:0 0 16px;line-height:1.55;">
+        You now have ${escapeHtml(changeLabel)}.
+      </p>
+      ${button(loginUrl, 'Open my client list')}
+      ${linkFallback(loginUrl)}
+      <p style="font-size:13px;color:#4b5563;margin:0;line-height:1.55;">
+        Changes take effect immediately \u2014 there is no need to sign out and back in.
+      </p>
+    `,
+  });
+}
+
+// The way out, which had no email at all. Whether they revoked it, the window
+// closed, or the client closed their account, the accountant found out by
+// opening their list and seeing somebody missing.
+export async function sendAccountantAccessEndedEmail(to, name, clientName, reason) {
+  const why = {
+    revoked: `${escapeHtml(clientName)} has removed your access to their records.`,
+    expired: `Your window on ${escapeHtml(clientName)}'s records has closed.`,
+    account_closed: `${escapeHtml(clientName)} has closed their Taxify account, so their records are no longer there.`,
+  };
+  await sendMail({
+    to,
+    subject: `Your access to ${clientName}'s records has ended`,
+    title: 'Access ended',
+    heading: `Hi${name ? ` ${escapeHtml(name)}` : ''}, ${why[reason] || why.revoked}`,
+    bodyHtml: `
+      <p style="font-size:14px;color:#1f2937;margin:0 0 16px;line-height:1.55;">
+        They are no longer on your client list. Nothing of yours was affected, and anything you downloaded while you
+        had access is still yours.
+      </p>
+      <p style="font-size:13px;color:#4b5563;margin:0;line-height:1.55;">
+        ${
+          reason === 'account_closed'
+            ? 'There is nothing to do here \u2014 this is only so you know why they disappeared.'
+            : 'If you still need to look at their records, ask them to share them again.'
+        }
+      </p>
+    `,
+  });
+}
+
+// The invitation nobody accepted. Sent to the client rather than the invitee —
+// the invitee is the one who did not act, and the client is the one whose plan
+// quietly did not happen and who can do something about it.
+export async function sendAccountantInviteLapsedEmail(to, ownerName, inviteeEmail, inviteeName) {
+  const who = inviteeName
+    ? `${escapeHtml(inviteeName)} (${escapeHtml(inviteeEmail)})`
+    : escapeHtml(inviteeEmail);
+  await sendMail({
+    to,
+    subject: 'Your accountant invitation has expired',
+    title: 'Invitation expired',
+    heading: `Hi${ownerName ? ` ${escapeHtml(ownerName)}` : ''}, the invitation you sent to ${who} has expired.`,
+    bodyHtml: `
+      <p style="font-size:14px;color:#1f2937;margin:0 0 16px;line-height:1.55;">
+        Invitations last 24 hours and this one was not accepted in that time. Nobody has been given access to your
+        records, and the link in that email no longer works.
+      </p>
+      <p style="font-size:14px;color:#1f2937;margin:0 0 16px;line-height:1.55;">
+        If you still want them to look at your books, send it again from your account. It is one click, and the first
+        email may simply have gone to their junk folder.
+      </p>
+      <p style="font-size:13px;color:#4b5563;margin:0;line-height:1.55;">
+        Nothing needs doing if you have changed your mind.
+      </p>
+    `,
+  });
+}
+
 export async function sendAdminCreatedAccountEmail(to, name, acceptUrl) {
   await sendMail({
     to,

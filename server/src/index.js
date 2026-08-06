@@ -25,8 +25,11 @@ import { migrateReceiptFolders } from './migrations/receiptFolders.js';
 import { migrateCategoriesByYear } from './migrations/categoriesByYear.js';
 import { migrateCurrencyBase } from './migrations/currencyBase.js';
 import { migrateEntities } from './migrations/entities.js';
+import { migrateAccountantInvites } from './migrations/accountantInvites.js';
 import { closeExpiredAssignments } from './auth/accountants.js';
+import { closeExpiredInvites } from './auth/accountantInvites.js';
 import { notify } from './lib/notify.js';
+import { sendAccountantInviteLapsedEmail } from './lib/mailer.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
@@ -169,6 +172,13 @@ try {
   console.error(err);
 }
 
+try {
+  await migrateAccountantInvites(pool);
+} catch (err) {
+  console.error('Failed to move accountant invitations');
+  console.error(err);
+}
+
 // Every row has to belong to a set of books before anything is scoped to one.
 // Awaited before the first request for the same reason the others are: entity
 // is derived on every read, and half an answer is worse than a slow start.
@@ -207,6 +217,17 @@ const closeAccountantAccess = () =>
   closeExpiredAssignments(notify).catch((err) => console.error('Failed to close expired accountant access', err));
 closeAccountantAccess();
 setInterval(closeAccountantAccess, 15 * 60 * 1000);
+
+// An invitation to read somebody's complete financial records should not sit
+// live in a mailbox indefinitely. Twenty-four hours, then it is deleted and the
+// client is told — so they hear it from us rather than by noticing the row has
+// gone, and resending is one click.
+const closeLapsedInvites = () =>
+  closeExpiredInvites((invite) =>
+    sendAccountantInviteLapsedEmail(invite.owner_email, invite.owner_name, invite.email, invite.name)
+  ).catch((err) => console.error('Failed to close lapsed accountant invitations', err));
+closeLapsedInvites();
+setInterval(closeLapsedInvites, 15 * 60 * 1000);
 
 // Twice a day is enough for something measured in months, and keeps the
 // appointment reminder from slipping past its window if a restart lands badly.

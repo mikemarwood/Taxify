@@ -33,9 +33,19 @@ import {
   sendPasswordChangedEmail,
   sendEmailChangeEmail,
   sendEmailChangedNoticeEmail,
-  sendAccountantAccessEmail,
+  sendAccountantAccessGrantedEmail,
+  sendAccountantInviteEmail,
+  sendAccountantAccessUpdatedEmail,
+  sendAccountantAccessEndedEmail,
 } from '../lib/mailer.js';
 import { ACTIVATION_TOKEN_DAYS, generateActivationToken } from '../auth/activationToken.js';
+import {
+  generateInviteToken,
+  findInviteByToken,
+  inviteAcceptOutcome,
+  pendingInvites,
+  INVITE_LIFETIME_HOURS,
+} from '../auth/accountantInvites.js';
 import { COUNTRIES, STATES, CURRENCIES, countryByName, countryByCode, isKnownCurrency, isValidState } from '../lib/geoData.js';
 import { financialYearForCountry, normaliseRule, COUNTRY_FINANCIAL_YEARS } from '../lib/financialYear.js';
 import { createCaptcha, verifyCaptcha } from '../lib/captcha.js';
@@ -582,8 +592,16 @@ router.post(
       // An accountant works for several people, so the same address turning up
       // again is the normal case, not a collision — it gets another assignment
       // rather than another login.
-      const [existing] = await pool.execute('SELECT id, role, name FROM users WHERE email = ?', [normalizedEmail]);
-      const found = existing[0];
+      //
+      // activated_at matters here. A row that was invited and never accepted is
+      // not a login: its password is a random string nobody has ever seen. It
+      // used to match this branch anyway, and the person was told to sign in
+      // with credentials that had never existed.
+      const [existing] = await pool.execute(
+        'SELECT id, role, name, activated_at FROM users WHERE email = ?',
+        [normalizedEmail]
+      );
+      const found = existing[0]?.activated_at ? existing[0] : null;
 
       if (found) {
         // An account holder who also does other people's books is one login
@@ -605,14 +623,66 @@ router.post(
           [found.id, req.user.id, yearScope, windowHours]
         );
 
-        const loginUrl = `${process.env.CLIENT_ORIGIN || 'http://localhost:5173'}/login?accountant=1`;
+        const loginUrl = `${process.env.CLIENT_ORIGIN || 'http://localhost:5173'}/login`;
+        let emailed = true;
         try {
-          await sendAccountantAccessEmail(normalizedEmail, found.name, req.user.name, loginUrl, yearScope);
+          await sendAccountantAccessGrantedEmail(
+            normalizedEmail,
+            found.name,
+            req.user.name,
+            loginUrl,
+            yearScope,
+            describeWindow(windowHours)
+          );
         } catch (err) {
           console.error('Failed to send accountant access email', err);
+          emailed = false;
         }
-        return res.status(201).json({ ok: true, existingAccountant: true });
+        // They may be signed in right now, in which case a client appearing on
+        // their list with no explanation is the worse outcome.
+        await notify(found.id, {
+          title: `${req.user.name || req.user.email} has shared their books with you`,
+          body: `Read-only, for ${describeWindow(windowHours)} from the first time you open them.`,
+          url: '/clients',
+          kind: 'accountant',
+        });
+        return res.status(201).json({ ok: true, existingAccountant: true, emailed, rejectedYears });
       }
+
+      // Nobody by that address, so there is nothing to grant yet — only an
+      // offer. No users row is created here on purpose: see accountant_invites
+      // in db.js for the three things that went wrong when one was.
+      const { token, tokenHash, expiresAt } = generateInviteToken();
+      await pool.execute(
+        `INSERT INTO accountant_invites (owner_user_id, email, name, financial_years, window_hours, token_hash, expires_at, last_sent_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, NOW())
+         ON DUPLICATE KEY UPDATE
+           name = VALUES(name), financial_years = VALUES(financial_years), window_hours = VALUES(window_hours),
+           token_hash = VALUES(token_hash), expires_at = VALUES(expires_at), last_sent_at = NOW(),
+           accepted_at = NULL, accepted_user_id = NULL`,
+        [req.user.id, normalizedEmail, displayName, yearScope, windowHours, tokenHash, expiresAt]
+      );
+
+      const acceptUrl = `${process.env.CLIENT_ORIGIN || 'http://localhost:5173'}/accept-invite?token=${token}`;
+      let emailed = true;
+      try {
+        await sendAccountantInviteEmail(
+          normalizedEmail,
+          displayName,
+          req.user.name,
+          acceptUrl,
+          yearScope,
+          describeWindow(windowHours),
+          `in ${INVITE_LIFETIME_HOURS} hours`
+        );
+      } catch (err) {
+        console.error('Failed to send accountant invitation', err);
+        emailed = false;
+      }
+
+      // A failed send must not roll back the invitation — but the owner has to
+      // be told, or they will assume it arrived and wonder why nothing happens.
+      return res.status(201).json({ ok: true, invited: true, emailed, rejectedYears });
     }
 
     const placeholderHash = hashPassword(crypto.randomBytes(32).toString('hex'));
@@ -645,14 +715,9 @@ router.post(
       throw err;
     }
 
-    if (role === 'sub_user') {
-      await seedDefaultCategories(pool, userId);
-    } else {
-      await pool.execute(
-        'INSERT INTO accountant_assignments (accountant_user_id, owner_user_id, financial_years, window_hours) VALUES (?, ?, ?, ?)',
-        [userId, req.user.id, yearScope, windowHours]
-      );
-    }
+    // Only a family member reaches here now — the accountant branch above
+    // always returns, whether it granted access or sent an invitation.
+    await seedDefaultCategories(pool, userId);
 
     const acceptUrl = `${process.env.CLIENT_ORIGIN || 'http://localhost:5173'}/accept-invite?token=${token}`;
     try {
@@ -803,6 +868,148 @@ router.post(
     // account rather than in whoever they were last looking at.
     res.cookie(COOKIE_NAME, signToken(req.user), cookieOptions(false));
     res.json({ ok: true, trialEndsAt });
+  })
+);
+
+// What is behind an invitation link, before anything is submitted, so the page
+// can render the right thing rather than a password box for somebody who
+// already has an account.
+router.get(
+  '/accountant-invite/check',
+  asyncHandler(async (req, res) => {
+    const invite = await findInviteByToken(req.query?.token);
+    if (!invite) return res.status(404).json({ error: 'invalid' });
+
+    const [existing] = await pool.execute('SELECT id, name, activated_at FROM users WHERE email = ?', [invite.email]);
+    const outcome = inviteAcceptOutcome({ invite, existingUser: existing[0] || null });
+
+    if (outcome === 'expired') return res.status(410).json({ error: 'expired' });
+    if (outcome === 'already_accepted') return res.status(409).json({ error: 'already_accepted' });
+
+    res.json({
+      email: invite.email,
+      name: invite.name || existing[0]?.name || null,
+      inviterName: invite.owner_name,
+      financialYears: invite.financial_years ? invite.financial_years.split(',') : null,
+      windowHours: invite.window_hours,
+      expiresAt: invite.expires_at,
+      // The page shows "sign in" rather than a set-up form for these.
+      hasAccount: outcome === 'link_existing',
+    });
+  })
+);
+
+// Accepting. Deliberately a separate route from /accept-invite, which still
+// serves family members and admin-created accounts — those genuinely do
+// pre-create a users row, and leaving that path untouched keeps it at zero risk.
+router.post(
+  '/accountant-invite/accept',
+  asyncHandler(async (req, res) => {
+    const invite = await findInviteByToken(req.body?.token);
+    const [existing] = await pool.execute(
+      'SELECT id, name, activated_at FROM users WHERE email = ?',
+      [invite?.email || '']
+    );
+    const existingUser = existing[0] || null;
+    const outcome = inviteAcceptOutcome({ invite, existingUser });
+
+    if (outcome === 'not_found') return res.status(404).json({ error: 'That invitation link is not valid.' });
+    if (outcome === 'expired') {
+      return res.status(410).json({ error: 'That invitation has expired. Ask them to send you another.' });
+    }
+    if (outcome === 'already_accepted') {
+      return res.status(409).json({ error: 'That invitation has already been used. Sign in instead.' });
+    }
+    if (outcome === 'self_invite') {
+      return res.status(400).json({ error: 'That invitation is for your own account.' });
+    }
+
+    async function grantAccess(accountantUserId) {
+      await pool.execute(
+        `INSERT INTO accountant_assignments (accountant_user_id, owner_user_id, financial_years, window_hours)
+         VALUES (?, ?, ?, ?)
+         ON DUPLICATE KEY UPDATE financial_years = VALUES(financial_years), window_hours = VALUES(window_hours)`,
+        [accountantUserId, invite.owner_user_id, invite.financial_years, invite.window_hours]
+      );
+      await pool.execute(
+        'UPDATE accountant_invites SET accepted_at = NOW(), accepted_user_id = ?, token_hash = NULL WHERE id = ?',
+        [accountantUserId, invite.id]
+      );
+      // The owner asked for this and has heard nothing since. This is the
+      // notification they most obviously lacked.
+      await notify(invite.owner_user_id, {
+        title: 'Your accountant accepted',
+        body: `They can now open your books. You will be told the first time they do.`,
+        url: '/account',
+        kind: 'accountant',
+      });
+    }
+
+    // An invitation token proves control of a mailbox and nothing more. It may
+    // create a login; it may never write to one. Letting mailbox-proof set a
+    // password on an account that already exists would make a forwarded
+    // invitation email into account takeover.
+    if (outcome === 'link_existing') {
+      await grantAccess(existingUser.id);
+      return res.json({ existingAccount: true });
+    }
+
+    const { firstName, lastName, practiceName, phone, password } = req.body || {};
+    const first = toPersonName(firstName);
+    const last = toPersonName(lastName);
+    if (!first || !last) return res.status(400).json({ error: 'Enter your first and last name' });
+
+    const firm = String(practiceName || '').trim();
+    if (firm.length < 2) return res.status(400).json({ error: 'Enter your practice or firm name' });
+
+    if (!isStrongPassword(password)) {
+      return res.status(400).json({
+        error: 'Password must be at least 8 characters and include an uppercase letter, a lowercase letter, and a number',
+      });
+    }
+
+    const cleanedPhone = phone ? normalisePhone(phone) : null;
+    if (phone && !cleanedPhone) return res.status(400).json({ error: 'Enter a valid phone number' });
+
+    let userId;
+    try {
+      const [result] = await pool.execute(
+        `INSERT INTO users (email, password_hash, name, first_name, last_name, phone, practice_name,
+           role, account_holder_id, activated_at, subscription_status, terms_accepted_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, 'accountant', NULL, NOW(), 'none', NOW())`,
+        [
+          invite.email,
+          hashPassword(password),
+          `${first} ${last}`.trim(),
+          first,
+          last,
+          cleanedPhone,
+          firm.slice(0, 160),
+        ]
+      );
+      userId = result.insertId;
+    } catch (err) {
+      // Two people accepting at once, or an account created in between. The
+      // loser links rather than failing.
+      if (err.code === 'ER_DUP_ENTRY') {
+        const [again] = await pool.execute('SELECT id FROM users WHERE email = ?', [invite.email]);
+        if (again[0]) {
+          await grantAccess(again[0].id);
+          return res.json({ existingAccount: true });
+        }
+      }
+      throw err;
+    }
+
+    await grantAccess(userId);
+
+    const [rows] = await pool.execute('SELECT * FROM users WHERE id = ?', [userId]);
+    const publicUser = toPublicUser(rows[0], await getMfaMode());
+    publicUser.isAccountant = true;
+    publicUser.accessLocked = await computeAccessLocked(publicUser);
+
+    res.cookie(COOKIE_NAME, signToken(rows[0]), cookieOptions(true));
+    res.status(201).json({ user: publicUser });
   })
 );
 
@@ -993,6 +1200,72 @@ router.patch(
   })
 );
 
+// Sending the invitation again, with a fresh link. The old one stops working
+// the moment this runs, so a forwarded copy of the previous email is dead.
+router.post(
+  '/accountant-invites/:id/resend',
+  requireAuth,
+  requireAccountOwner,
+  asyncHandler(async (req, res) => {
+    const [rows] = await pool.execute(
+      'SELECT * FROM accountant_invites WHERE id = ? AND owner_user_id = ? AND accepted_at IS NULL',
+      [req.params.id, req.user.id]
+    );
+    const invite = rows[0];
+    if (!invite) return res.status(404).json({ error: 'Not found' });
+
+    const sinceLast = invite.last_sent_at ? Date.now() - new Date(invite.last_sent_at).getTime() : Infinity;
+    if (sinceLast < RESEND_COOLDOWN_MS) {
+      return res.status(429).json({
+        error: 'That was just sent — give it a minute before trying again.',
+        retryAfterSeconds: Math.ceil((RESEND_COOLDOWN_MS - sinceLast) / 1000),
+      });
+    }
+
+    const { token, tokenHash, expiresAt } = generateInviteToken();
+    await pool.execute(
+      'UPDATE accountant_invites SET token_hash = ?, expires_at = ?, last_sent_at = NOW() WHERE id = ?',
+      [tokenHash, expiresAt, invite.id]
+    );
+
+    const acceptUrl = `${process.env.CLIENT_ORIGIN || 'http://localhost:5173'}/accept-invite?token=${token}`;
+    let emailed = true;
+    try {
+      await sendAccountantInviteEmail(
+        invite.email,
+        invite.name,
+        req.user.name,
+        acceptUrl,
+        invite.financial_years,
+        describeWindow(invite.window_hours),
+        `in ${INVITE_LIFETIME_HOURS} hours`
+      );
+    } catch (err) {
+      console.error('Failed to resend accountant invitation', err);
+      emailed = false;
+    }
+    res.json({ ok: true, emailed });
+  })
+);
+
+// Taking it back. Mistyping an address had no undo at all before — the
+// invitation simply sat there until it lapsed.
+router.delete(
+  '/accountant-invites/:id',
+  requireAuth,
+  requireAccountOwner,
+  asyncHandler(async (req, res) => {
+    const [result] = await pool.execute('DELETE FROM accountant_invites WHERE id = ? AND owner_user_id = ?', [
+      req.params.id,
+      req.user.id,
+    ]);
+    if (result.affectedRows === 0) return res.status(404).json({ error: 'Not found' });
+    // No email. There is no account to notify, and "never mind" to somebody who
+    // may not have read the first one is noise — the dead link explains itself.
+    res.json({ ok: true });
+  })
+);
+
 // Revoking an accountant is the owner's to do — unlike a family member, an
 // accountant is a visitor, and their access was always meant to end.
 router.delete(
@@ -1020,6 +1293,14 @@ router.delete(
       url: '/clients',
       kind: 'accountant',
     });
+    try {
+      const [who] = await pool.execute('SELECT email, name FROM users WHERE id = ?', [rows[0].accountant_user_id]);
+      if (who[0]) {
+        await sendAccountantAccessEndedEmail(who[0].email, who[0].name, req.user.name, 'revoked');
+      }
+    } catch (err) {
+      console.error('Failed to tell the accountant their access ended', err);
+    }
 
     res.json({ ok: true });
   })
@@ -1054,6 +1335,9 @@ router.get(
         expiresAt: r.expires_at,
         grantedAt: r.created_at,
       })),
+      // Invitations nobody has accepted yet, so the list can tell "invited"
+      // apart from "accepted but hasn't looked" — which read identically before.
+      invites: await pendingInvites(req.user.id),
       windowHours: ACCOUNTANT_WINDOW_HOURS,
       windowChoices: ACCOUNTANT_WINDOW_CHOICES,
     });
@@ -1441,9 +1725,15 @@ router.post(
   '/email-change',
   requireAuth,
   asyncHandler(async (req, res) => {
-    if (req.user.role === 'accountant' || req.user.role === 'sub_user') {
-      // Their address is the invitation the account holder sent — changing it
-      // is a matter for that invitation, not for this form.
+    if (req.user.role === 'sub_user') {
+      // A family member's address is the invitation the account holder sent —
+      // changing it is a matter for that invitation, not for this form.
+      //
+      // Accountants used to be refused here too and told to ask for a
+      // re-invitation, which the invite route could not do for an address that
+      // already had a login. Their account is their own — their address, their
+      // password, belonging to no account holder — so this was never a rule,
+      // only a dead end.
       return res.status(403).json({ error: 'Ask the account holder to re-invite you at a different address.' });
     }
 

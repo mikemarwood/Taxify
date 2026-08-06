@@ -12,7 +12,14 @@ import { toPublicUser } from '../auth/publicUser.js';
 import { computeAccessLocked } from '../auth/access.js';
 import { asyncHandler } from '../lib/asyncHandler.js';
 import { toTitleCase } from '../lib/text.js';
-import { getSmtpConfig, saveSmtpConfig, sendTestEmail, diagnoseSmtp, sendAdminCreatedAccountEmail } from '../lib/mailer.js';
+import {
+  getSmtpConfig,
+  saveSmtpConfig,
+  sendTestEmail,
+  diagnoseSmtp,
+  sendAdminCreatedAccountEmail,
+  sendAccountantAccessEndedEmail,
+} from '../lib/mailer.js';
 import { getStripeAdminSettings, saveStripeAdminSettings, getStripeSecretKeyForMode } from '../lib/stripe.js';
 import { hashPassword } from '../auth/password.js';
 import { generateActivationToken } from '../auth/activationToken.js';
@@ -171,18 +178,37 @@ router.delete(
     const targetId = Number(req.params.id);
     if (targetId === req.user.id) return res.status(400).json({ error: "You can't delete your own account" });
 
-    const [rows] = await pool.execute('SELECT id, email, is_admin FROM users WHERE id = ?', [targetId]);
+    const [rows] = await pool.execute('SELECT id, email, name, is_admin FROM users WHERE id = ?', [targetId]);
     const target = rows[0];
     if (!target) return res.status(404).json({ error: 'User not found' });
     if (target.is_admin) {
       return res.status(400).json({ error: 'Administrator accounts can’t be deleted here — remove admin first' });
     }
 
-    // Sub-users and accountants hang off this account; they go with it, since
-    // an invited login with no account holder can't reach anything anyway.
+    // Sub-users hang off this account and go with it. Accountants do not —
+    // their login is their own and may act for other people, so only their
+    // assignment to this client disappears, by foreign key cascade.
     const [dependents] = await pool.execute('SELECT id FROM users WHERE account_holder_id = ?', [targetId]);
 
+    // Read before the delete, because the cascade takes the assignments with
+    // it. A client is about to disappear from these people's lists, and until
+    // now that happened in complete silence.
+    const [accountants] = await pool.execute(
+      `SELECT u.email, u.name FROM accountant_assignments a
+       JOIN users u ON u.id = a.accountant_user_id
+       WHERE a.owner_user_id = ?`,
+      [targetId]
+    );
+
     await pool.execute('DELETE FROM users WHERE id = ?', [targetId]);
+
+    for (const who of accountants) {
+      try {
+        await sendAccountantAccessEndedEmail(who.email, who.name, target.name || target.email, 'account_closed');
+      } catch (err) {
+        console.error(`Deleted the account but could not tell ${who.email}`, err.message);
+      }
+    }
 
     for (const id of [targetId, ...dependents.map((d) => d.id)]) {
       try {

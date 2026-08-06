@@ -156,6 +156,54 @@ export async function ensureSchema() {
     `ALTER TABLE accountant_assignments ADD COLUMN IF NOT EXISTS window_hours SMALLINT NOT NULL DEFAULT 24`
   );
 
+  // An invitation, which grants nothing at all.
+  //
+  // Inviting an accountant used to create a login on the spot: a users row with
+  // a random password nobody knew, waiting to be activated. Three things went
+  // wrong with that. The unactivated-account sweep deleted it after five days
+  // and took the client's grant with it, silently. A second client inviting the
+  // same person matched that row and was told to sign in with a password that
+  // had never existed. And the owner's list could not tell "invited" apart from
+  // "accepted, hasn't looked yet".
+  //
+  // Separating the promise from the login fixes all three by construction: an
+  // invitation is its own row, nothing that decides access consults it, and the
+  // real login is created only when somebody accepts.
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS accountant_invites (
+      id INT PRIMARY KEY AUTO_INCREMENT,
+      owner_user_id INT NOT NULL,
+      email VARCHAR(255) NOT NULL,
+      name VARCHAR(255) NULL,
+      financial_years VARCHAR(255) NULL,
+      window_hours SMALLINT NOT NULL DEFAULT 24,
+      token_hash VARCHAR(64) NULL,
+      expires_at DATETIME NOT NULL,
+      last_sent_at DATETIME NULL,
+      accepted_at DATETIME NULL,
+      accepted_user_id INT NULL,
+      created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE KEY uniq_invite_owner_email (owner_user_id, email),
+      KEY idx_invite_token (token_hash),
+      FOREIGN KEY (owner_user_id) REFERENCES users(id) ON DELETE CASCADE,
+      FOREIGN KEY (accepted_user_id) REFERENCES users(id) ON DELETE SET NULL
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+  `);
+
+  // Repeated explicitly, for the same reason as everywhere else in this file:
+  // CREATE TABLE IF NOT EXISTS does not reach an install made a release ago.
+  for (const column of [
+    `name VARCHAR(255) NULL`,
+    `financial_years VARCHAR(255) NULL`,
+    `window_hours SMALLINT NOT NULL DEFAULT 24`,
+    `token_hash VARCHAR(64) NULL`,
+    `last_sent_at DATETIME NULL`,
+    `accepted_at DATETIME NULL`,
+    `accepted_user_id INT NULL`,
+  ]) {
+    await pool.query(`ALTER TABLE accountant_invites ADD COLUMN IF NOT EXISTS ${column}`);
+  }
+
   // Accountants who predate the table keep the client they already had.
   await pool.query(`
     INSERT IGNORE INTO accountant_assignments (accountant_user_id, owner_user_id)

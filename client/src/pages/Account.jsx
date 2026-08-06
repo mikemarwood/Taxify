@@ -450,6 +450,9 @@ function FamilySection({ user }) {
   const [inviteWindow, setInviteWindow] = useState(24);
   // Which existing grant has its panel open, and what is being changed in it.
   const [managing, setManaging] = useState(null);
+  // Invitations nobody has accepted yet. Kept apart from the granted list
+  // because they are a different thing: a promise, not access.
+  const [invites, setInvites] = useState([]);
   const [inviteName, setInviteName] = useState('');
   const [inviteEmail, setInviteEmail] = useState('');
   const [inviteRole, setInviteRole] = useState(user.planType === 'family' ? 'sub_user' : 'accountant');
@@ -463,6 +466,7 @@ function FamilySection({ user }) {
       setAccountants(res.data.accountants);
       setWindowHours(res.data.windowHours || 24);
       if (res.data.windowChoices?.length) setWindowChoices(res.data.windowChoices);
+      setInvites(res.data.invites || []);
     });
   }
 
@@ -507,6 +511,27 @@ function FamilySection({ user }) {
     try {
       await api.delete(`/auth/family/${id}`);
       toast('Access removed', 'success');
+      load();
+    } catch (err) {
+      toast(err.message, 'error');
+    }
+  }
+
+  async function onResendInvite(invite) {
+    try {
+      const { data } = await api.post(`/auth/accountant-invites/${invite.id}/resend`);
+      toast(data.emailed ? 'Invitation sent again' : 'Saved, but the email would not send', data.emailed ? 'success' : 'error');
+      load();
+    } catch (err) {
+      toast(err.message, 'error');
+    }
+  }
+
+  async function onCancelInvite(invite) {
+    if (!window.confirm(`Cancel the invitation to ${invite.email}? The link in their email stops working.`)) return;
+    try {
+      await api.delete(`/auth/accountant-invites/${invite.id}`);
+      toast('Invitation cancelled', 'success');
       load();
     } catch (err) {
       toast(err.message, 'error');
@@ -585,11 +610,57 @@ function FamilySection({ user }) {
         </div>
       )}
 
-      {accountants?.length > 0 && (
+      {/* Invitations count towards this too. Otherwise an account with one out
+          and nobody accepted yet shows nothing at all — which is precisely the
+          state somebody most wants to look at. */}
+      {(accountants?.length > 0 || invites.length > 0) && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
           <div style={{ fontSize: 12, fontWeight: 700, letterSpacing: 0.5, textTransform: 'uppercase', color: 'var(--text-muted)' }}>
-            Accountants with access
+            Accountants
           </div>
+          {invites.map((i) => (
+            <div
+              key={`invite-${i.id}`}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 10,
+                fontSize: 13,
+                flexWrap: 'wrap',
+                padding: '10px 12px',
+                borderRadius: 'var(--radius-sm)',
+                background: 'var(--bg-elevated)',
+                borderLeft: '3px solid var(--amber)',
+              }}
+            >
+              <Icon name="mail" size={16} style={{ color: 'var(--amber)' }} />
+              <span style={{ minWidth: 140, flex: 1 }}>
+                <span style={{ fontWeight: 600 }}>{i.name || i.email}</span>
+                <span style={{ display: 'block', fontSize: 11.5, color: 'var(--text-muted)' }}>
+                  {i.name ? `${i.email} · ` : ''}Invited, waiting for them to accept
+                </span>
+              </span>
+              <span style={{ fontSize: 11.5, color: 'var(--text-muted)' }}>
+                {i.financialYears ? `FY ${i.financialYears.join(', ')}` : 'All years'}
+              </span>
+              <span style={{ fontSize: 11.5, color: 'var(--amber)' }}>Link expires {formatWhen(i.expiresAt)}</span>
+              <button
+                className="btn btn-ghost"
+                style={{ fontSize: 12, padding: '5px 11px' }}
+                onClick={() => onResendInvite(i)}
+              >
+                Resend
+              </button>
+              <button
+                className="btn btn-ghost"
+                style={{ fontSize: 12, padding: '5px 11px' }}
+                onClick={() => onCancelInvite(i)}
+              >
+                Cancel
+              </button>
+            </div>
+          ))}
+
           {accountants.map((a) => (
             <div
               key={a.id}
