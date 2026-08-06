@@ -3,6 +3,13 @@ import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { api } from '../lib/api.js';
 import { useAuth } from '../lib/AuthContext.jsx';
+import {
+  MAX_NAME_LENGTH,
+  MIN_NAME_LENGTH,
+  categoryNameError,
+  isCategoryNameReady,
+  tidyCategoryName,
+} from '../lib/categoryName.js';
 import { useToast } from '../components/Toast.jsx';
 import { SkeletonList } from '../components/Skeletons.jsx';
 import Icon from '../components/Icon.jsx';
@@ -72,116 +79,6 @@ export default function Admin() {
   );
 }
 
-function CreateUserForm({ onCreated }) {
-  const toast = useToast();
-  const [open, setOpen] = useState(false);
-  const [name, setName] = useState('');
-  const [email, setEmail] = useState('');
-  const [planType, setPlanType] = useState('individual');
-  const [busy, setBusy] = useState(false);
-  const [acceptUrl, setAcceptUrl] = useState(null);
-
-  function reset() {
-    setName('');
-    setEmail('');
-    setPlanType('individual');
-    setOpen(false);
-  }
-
-  async function onSubmit(e) {
-    e.preventDefault();
-    setBusy(true);
-    try {
-      const res = await api.post('/admin/users', { name: name.trim(), email: email.trim(), planType });
-      toast('User created — invite link sent', 'success');
-      setAcceptUrl(res.data.acceptUrl);
-      reset();
-      onCreated();
-    } catch (err) {
-      toast(err.message, 'error');
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  async function copyLink() {
-    try {
-      await navigator.clipboard.writeText(acceptUrl);
-      toast('Link copied', 'success');
-    } catch {
-      toast('Could not copy — select and copy the link manually', 'error');
-    }
-  }
-
-  if (!open && !acceptUrl) {
-    return (
-      <button className="btn btn-primary" style={{ marginBottom: 16 }} onClick={() => setOpen(true)}>
-        Create user
-      </button>
-    );
-  }
-
-  return (
-    <div style={{ marginBottom: 20, display: 'flex', flexDirection: 'column', gap: 12 }}>
-      {open && (
-        <form onSubmit={onSubmit} className="card" style={{ padding: 20, display: 'flex', flexDirection: 'column', gap: 14 }}>
-          <div style={{ fontWeight: 700 }}>Create user</div>
-          <div style={{ display: 'flex', gap: 12 }}>
-            <input
-              className="input"
-              required
-              placeholder="Name"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              style={{ flex: 1 }}
-            />
-            <input
-              className="input"
-              required
-              type="email"
-              placeholder="Email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value.toLowerCase())}
-              style={{ flex: 1 }}
-            />
-          </div>
-          <select className="input" value={planType} onChange={(e) => setPlanType(e.target.value)} style={{ width: 200 }}>
-            <option value="individual">Individual plan</option>
-            <option value="business">Small Business plan</option>
-          </select>
-          <p style={{ fontSize: 12, color: 'var(--text-muted)', margin: 0 }}>
-            They'll get an email with a link to set their own password and start their 14-day trial.
-          </p>
-          <div style={{ display: 'flex', gap: 10 }}>
-            <button className="btn btn-primary" type="submit" disabled={busy || !name.trim() || !email.trim()}>
-              {busy && <span className="spinner" />}
-              Create &amp; send invite
-            </button>
-            <button type="button" className="btn btn-ghost" onClick={reset} disabled={busy}>
-              Cancel
-            </button>
-          </div>
-        </form>
-      )}
-
-      {acceptUrl && (
-        <div className="card" style={{ padding: 16, display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
-          <span style={{ fontSize: 13, flex: 1, minWidth: 200 }}>
-            Invite link (in case the email doesn't arrive):{' '}
-            <span style={{ color: 'var(--text-muted)', wordBreak: 'break-all' }}>{acceptUrl}</span>
-          </span>
-          <button type="button" className="btn btn-ghost" style={{ fontSize: 12, padding: '6px 12px' }} onClick={copyLink}>
-            Copy link
-          </button>
-          <button type="button" className="btn btn-ghost" style={{ fontSize: 12, padding: '6px 12px' }} onClick={() => setAcceptUrl(null)}>
-            Dismiss
-          </button>
-        </div>
-      )}
-    </div>
-  );
-}
-
 const BADGE_TONES = {
   red: { color: 'var(--red)', background: 'rgba(239, 68, 68, 0.13)' },
   amber: { color: 'var(--amber)', background: 'rgba(245, 158, 11, 0.14)' },
@@ -213,83 +110,13 @@ function UsersTab() {
   const toast = useToast();
   const [users, setUsers] = useState(null);
   const [detailId, setDetailId] = useState(null);
+  const [filter, setFilter] = useState('all');
+  const [search, setSearch] = useState('');
 
   function load() {
     api.get('/admin/users').then((res) => setUsers(res.data.users));
   }
   useEffect(load, []);
-
-  async function changePlan(u) {
-    const next = u.planType === 'business' ? 'individual' : 'business';
-    const wording =
-      next === 'business'
-        ? `Move ${u.email} to Small Business? They'll be able to keep up to two businesses alongside their own tax.`
-        : `Move ${u.email} to the Individual plan? They'll lose the ability to have a second login.`;
-    if (!window.confirm(wording)) return;
-
-    try {
-      await api.patch(`/admin/users/${u.id}/plan`, { planType: next });
-      toast(`${u.email} moved to the ${next === 'business' ? 'Small Business' : 'Individual'} plan`, 'success');
-      load();
-    } catch (err) {
-      toast(err.message, 'error');
-    }
-  }
-
-  // Signs you in as them, read-only. Confirmed first because the page you're
-  // on changes underneath you and the next thing you see is their data.
-  async function viewAs(u) {
-    if (
-      !window.confirm(
-        `View Taxify as ${u.name} (${u.email})?\n\n` +
-          'You will see their account exactly as they do, but nothing can be changed. ' +
-          'A banner stays on screen until you exit.'
-      )
-    ) {
-      return;
-    }
-
-    try {
-      const res = await api.post(`/admin/users/${u.id}/view-as`);
-      setUser(res.data.user);
-      navigate('/');
-    } catch (err) {
-      toast(err.message, 'error');
-    }
-  }
-
-  // Full access without a subscription. Asking for an end date rather than
-  // defaulting to forever, because a granted account that nobody remembers
-  // granting is how a paid product quietly stops being one.
-  async function toggleAccess(u) {
-    if (u.accessBypass) {
-      if (!window.confirm(`Revoke granted access for ${u.email}? They'll go back to their subscription status.`)) return;
-      try {
-        await api.patch(`/admin/users/${u.id}/access`, { bypass: false });
-        toast(`Access revoked for ${u.email}`, 'success');
-        load();
-      } catch (err) {
-        toast(err.message, 'error');
-      }
-      return;
-    }
-
-    const until = window.prompt(
-      `Give ${u.email} full access without a subscription.\n\n` +
-        'End date as YYYY-MM-DD, or leave blank for open-ended:',
-      ''
-    );
-    if (until === null) return;
-
-    try {
-      await api.patch(`/admin/users/${u.id}/access`, { bypass: true, until: until.trim() || null });
-      toast(until.trim() ? `Access granted until ${until.trim()}` : 'Access granted (open-ended)', 'success');
-      load();
-    } catch (err) {
-      toast(err.message, 'error');
-    }
-  }
-
   async function toggleAdmin(u) {
     try {
       await api.patch(`/admin/users/${u.id}`, { isAdmin: !u.isAdmin });
@@ -333,15 +160,96 @@ function UsersTab() {
     }
   }
 
+  // What each filter means, in one place, so the count on a chip and the rows
+  // it shows can never disagree.
+  const FILTERS = [
+    { key: 'all', label: 'Everyone', match: () => true },
+    // Invited or signed up and never opened the link. These are the accounts
+    // worth chasing, and they were indistinguishable in a list.
+    { key: 'pending', label: 'Not activated', match: (u) => !u.active },
+    { key: 'trialing', label: 'On trial', match: (u) => u.subscriptionStatus === 'trialing' },
+    { key: 'paying', label: 'Paying', match: (u) => u.subscriptionStatus === 'active' && !u.accessBypass },
+    {
+      key: 'due',
+      label: 'Payment due',
+      match: (u) => u.subscriptionStatus === 'past_due' || u.subscriptionStatus === 'expired',
+    },
+    { key: 'free', label: 'Free', match: (u) => !!u.accessBypass },
+    { key: 'individual', label: 'Individual', match: (u) => u.role === 'owner' && u.planType !== 'business' },
+    { key: 'business', label: 'Small Business', match: (u) => u.role === 'owner' && u.planType === 'business' },
+    { key: 'accountant', label: 'Accountants', match: (u) => u.role === 'accountant' },
+    { key: 'admin', label: 'Administrators', match: (u) => !!u.isAdmin },
+  ];
+
+  const active = FILTERS.find((f) => f.key === filter) || FILTERS[0];
+  const term = search.trim().toLowerCase();
+  const shown = (users || []).filter(
+    (u) =>
+      active.match(u) &&
+      (!term || u.name?.toLowerCase().includes(term) || u.email?.toLowerCase().includes(term))
+  );
+
   return (
     <div>
-      <CreateUserForm onCreated={load} />
+      {users !== null && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 14 }}>
+          <input
+            className="input"
+            type="search"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search by name or email"
+            aria-label="Search users"
+            style={{ maxWidth: 320 }}
+          />
+
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+            {FILTERS.map((f) => {
+              const count = users.filter(f.match).length;
+              const on = f.key === filter;
+              return (
+                <button
+                  key={f.key}
+                  type="button"
+                  onClick={() => setFilter(f.key)}
+                  aria-pressed={on}
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: 6,
+                    padding: '5px 11px',
+                    borderRadius: 999,
+                    fontSize: 12.5,
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                    border: `1px solid ${on ? 'var(--accent)' : 'var(--border)'}`,
+                    background: on ? 'var(--accent-soft)' : 'var(--bg-elevated)',
+                    color: on ? 'var(--accent)' : 'var(--text-muted)',
+                    font: 'inherit',
+                  }}
+                >
+                  {f.label}
+                  {/* The count is the useful part — "Payment due 3" is a job to
+                      do, "Payment due" is a category. */}
+                  <span style={{ opacity: 0.75, fontVariantNumeric: 'tabular-nums' }}>{count}</span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
       {users === null ? (
         <SkeletonList rows={4} />
       ) : (
+        shown.length === 0 ? (
+          <div className="card" style={{ padding: 22, textAlign: 'center', fontSize: 13, color: 'var(--text-muted)' }}>
+            No accounts match that.
+          </div>
+        ) : (
         <div className="card" style={{ overflow: 'hidden' }}>
           <AnimatePresence initial={false}>
-            {users.map((u, i) => (
+            {shown.map((u, i) => (
               <motion.button
                 key={u.id}
                 type="button"
@@ -362,7 +270,7 @@ function UsersTab() {
                   color: 'var(--text)',
                   textAlign: 'left',
                   cursor: 'pointer',
-                  borderBottom: i < users.length - 1 ? '1px solid var(--border)' : 'none',
+                  borderBottom: i < shown.length - 1 ? '1px solid var(--border)' : 'none',
                 }}
               >
                 <Avatar name={u.name} avatarUrl={u.avatarUrl} size={34} />
@@ -420,6 +328,7 @@ function UsersTab() {
             ))}
           </AnimatePresence>
         </div>
+        )
       )}
 
       {detailId !== null && (
@@ -428,7 +337,7 @@ function UsersTab() {
           me={me}
           onClose={() => setDetailId(null)}
           onChanged={load}
-          actions={{ changePlan, toggleAccess, viewAs, toggleAdmin, deleteUser }}
+          actions={{ viewAs, toggleAdmin, deleteUser }}
         />
       )}
     </div>
@@ -989,6 +898,13 @@ function DefaultCategoriesTab() {
   const [editColor, setEditColor] = useState(SWATCHES[0]);
   const [editIcon, setEditIcon] = useState('tag');
 
+  // The template every new account is seeded from, so a duplicate here becomes
+  // a duplicate on every account created afterwards.
+  const existingNames = (categories || []).map((c) => c.name);
+  const nameError = categoryNameError(name, existingNames);
+  const nameReady = isCategoryNameReady(name, existingNames);
+  const editNameError = categoryNameError(editName, existingNames, categories?.find((c) => c.id === editingId)?.name);
+
   function load() {
     api.get('/admin/default-categories').then((res) => setCategories(res.data.categories));
   }
@@ -1049,17 +965,30 @@ function DefaultCategoriesTab() {
             <label className="label">Name</label>
             <input
               className="input"
-              placeholder="New default category name"
+              placeholder="New Default Category Name"
+              maxLength={MAX_NAME_LENGTH}
               value={name}
-              onChange={(e) => setName(e.target.value)}
+              onChange={(e) => setName(tidyCategoryName(e.target.value))}
+              aria-invalid={nameError ? 'true' : undefined}
+              style={nameError ? { borderColor: 'var(--red)' } : undefined}
             />
+            <div
+              style={{
+                fontSize: 11.5,
+                marginTop: 5,
+                minHeight: 15,
+                color: nameError ? 'var(--red)' : 'var(--text-muted)',
+              }}
+            >
+              {nameError || `${MIN_NAME_LENGTH}–${MAX_NAME_LENGTH} characters`}
+            </div>
           </div>
           <ColourPicker value={color} onChange={setColor} />
         </div>
 
         <IconPicker value={icon} onChange={setIcon} />
 
-        <button className="btn btn-primary" disabled={busy || !name.trim()} type="submit" style={{ alignSelf: 'flex-start' }}>
+        <button className="btn btn-primary" disabled={busy || !nameReady} type="submit" style={{ alignSelf: 'flex-start' }}>
           {busy && <span className="spinner" />}
           Add default category
         </button>

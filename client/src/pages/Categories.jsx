@@ -12,7 +12,13 @@ import { defaultFinancialYear } from '../lib/financialYear.js';
 import { useFinancialYears } from '../lib/useFinancialYears.js';
 import { useAuth } from '../lib/AuthContext.jsx';
 
-const MAX_NAME_LENGTH = 40;
+import {
+  MAX_NAME_LENGTH,
+  MIN_NAME_LENGTH,
+  categoryNameError,
+  isCategoryNameReady,
+  tidyCategoryName,
+} from '../lib/categoryName.js';
 
 export default function Categories() {
   const { user } = useAuth();
@@ -31,6 +37,14 @@ export default function Categories() {
   const [editColor, setEditColor] = useState('');
   const [editRental, setEditRental] = useState(false);
   const [editBusy, setEditBusy] = useState(false);
+
+  // Checked against the year being viewed, since that is the list a new
+  // category would join — the same scope the unique key uses.
+  const existingNames = (categories || []).map((c) => c.name);
+  const nameError = categoryNameError(name, existingNames);
+  const nameReady = isCategoryNameReady(name, existingNames);
+  const editNameError = categoryNameError(editName, existingNames, categories?.find((c) => c.id === editingId)?.name);
+  const editNameReady = isCategoryNameReady(editName, existingNames, categories?.find((c) => c.id === editingId)?.name);
   const [year, setYear] = useState(() => defaultFinancialYear(null, user?.financialYearRule));
   const [years, setYears] = useState([]);
   const { years: expenseYears } = useFinancialYears();
@@ -176,11 +190,26 @@ export default function Categories() {
                   <input
                     className="input"
                     autoFocus
-                    placeholder="e.g. Software subscriptions"
+                    placeholder="e.g. Software Subscriptions"
                     maxLength={MAX_NAME_LENGTH}
                     value={name}
-                    onChange={(e) => setName(e.target.value)}
+                    onChange={(e) => setName(tidyCategoryName(e.target.value))}
+                    aria-invalid={nameError ? 'true' : undefined}
+                    style={nameError ? { borderColor: 'var(--red)' } : undefined}
                   />
+                  {/* Said as it is typed. Finding out a name is taken by
+                      pressing the button and being refused is the same
+                      information arriving too late to be useful. */}
+                  <div
+                    style={{
+                      fontSize: 11.5,
+                      marginTop: 5,
+                      minHeight: 15,
+                      color: nameError ? 'var(--red)' : 'var(--text-muted)',
+                    }}
+                  >
+                    {nameError || `${MIN_NAME_LENGTH}–${MAX_NAME_LENGTH} characters`}
+                  </div>
                 </div>
                 <ColourPicker value={color} onChange={setColor} />
               </div>
@@ -188,7 +217,7 @@ export default function Categories() {
               <IconPicker value={icon} onChange={setIcon} />
 
               <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
-                <button className="btn btn-primary" disabled={busy || !name.trim()} type="submit">
+                <button className="btn btn-primary" disabled={busy || !nameReady} type="submit">
                   {busy && <span className="spinner" />}
                   Add to FY {year}
                 </button>
@@ -248,13 +277,20 @@ export default function Categories() {
 
                     <div style={{ minWidth: 0, flex: 1 }}>
                       {editing ? (
-                        <input
-                          className="input"
-                          autoFocus
-                          maxLength={MAX_NAME_LENGTH}
-                          value={editName}
-                          onChange={(e) => setEditName(e.target.value)}
-                        />
+                        <>
+                          <input
+                            className="input"
+                            autoFocus
+                            maxLength={MAX_NAME_LENGTH}
+                            value={editName}
+                            onChange={(e) => setEditName(tidyCategoryName(e.target.value))}
+                            aria-invalid={editNameError ? 'true' : undefined}
+                            style={editNameError ? { borderColor: 'var(--red)' } : undefined}
+                          />
+                          {editNameError && (
+                            <div style={{ fontSize: 11.5, marginTop: 4, color: 'var(--red)' }}>{editNameError}</div>
+                          )}
+                        </>
                       ) : (
                         <>
                           <div
@@ -377,7 +413,7 @@ export default function Categories() {
                         <button
                           className="btn btn-primary"
                           style={{ fontSize: 13 }}
-                          disabled={editBusy || !editName.trim()}
+                          disabled={editBusy || !editNameReady}
                           onClick={() => saveEdit(c.id)}
                         >
                           {editBusy && <span className="spinner" />}

@@ -865,3 +865,39 @@ export async function sendTestEmail(to) {
     `,
   });
 }
+
+// Sent whenever an account's plan changes, whoever changed it.
+//
+// A plan change is a change to what somebody is paying for and what they can
+// do, so it gets the same treatment as a password change: told about, in
+// writing, with what to do if it was not them.
+export async function sendPlanChangedEmail(to, name, { fromLabel, toLabel, complimentary = false, until = null } = {}) {
+  const accountUrl = `${process.env.CLIENT_ORIGIN || 'http://localhost:5173'}/account?tab=billing`;
+  await sendMail({
+    to,
+    subject: `Your Taxify plan is now ${toLabel}`,
+    title: 'Plan changed',
+    heading: `Hi${name ? ` ${name}` : ''}, your plan has changed.`,
+    bodyHtml: `
+      <p style="font-size:14px;color:#1f2937;margin:0 0 16px;line-height:1.55;">
+        Your account has moved from <strong>${escapeHtml(fromLabel)}</strong> to
+        <strong>${escapeHtml(toLabel)}</strong>.
+      </p>
+      ${
+        complimentary
+          ? `<p style="font-size:14px;color:#1f2937;margin:0 0 16px;line-height:1.55;">
+               This plan is on us${until ? ` until <strong>${escapeHtml(until)}</strong>` : ''} — there is nothing
+               to pay and no card is needed.
+             </p>`
+          : `<p style="font-size:14px;color:#1f2937;margin:0 0 16px;line-height:1.55;">
+               Nothing about your renewal date changes. If there is a difference in price, it is worked out from
+               today to the end of the year you have already paid for.
+             </p>`
+      }
+      ${button(accountUrl, 'View your plan')}
+      <p style="font-size:13px;color:#4b5563;margin:0;line-height:1.55;">
+        <strong>If you weren't expecting this</strong>, reply to this email and we'll put it back.
+      </p>
+    `,
+  });
+}

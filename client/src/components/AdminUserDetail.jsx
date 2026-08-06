@@ -390,22 +390,12 @@ export default function AdminUserDetail({ userId, me, onClose, onChanged, action
                 )}
               </Section>
 
+              <Section title="Plan &amp; billing" icon="credit-card">
+                <PlanAndBilling user={u} onSaved={refresh} />
+              </Section>
+
               <Section title="Actions" icon="wrench">
                 <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                  <button
-                    className="btn btn-ghost"
-                    style={{ fontSize: 12.5 }}
-                    onClick={() => actions.changePlan(u).then(refresh)}
-                  >
-                    Move to {u.planType === 'business' ? 'Individual' : 'Small Business'}
-                  </button>
-                  <button
-                    className="btn btn-ghost"
-                    style={{ fontSize: 12.5, color: u.accessBypass ? 'var(--emerald)' : undefined }}
-                    onClick={() => actions.toggleAccess(u).then(refresh)}
-                  >
-                    {u.accessBypass ? 'Revoke granted access' : 'Grant access'}
-                  </button>
                   {!isSelf && (
                     <>
                       <button className="btn btn-ghost" style={{ fontSize: 12.5 }} onClick={() => actions.viewAs(u)}>
@@ -443,5 +433,118 @@ export default function AdminUserDetail({ userId, me, onClose, onChanged, action
         </motion.div>
       </motion.div>
     </AnimatePresence>
+  );
+}
+
+// Plan and how it is paid for, as one decision.
+//
+// Which plan somebody is on and whether they are charged for it were two
+// separate controls, and setting both meant two requests — leaving a window
+// where an account was on a plan it was about to be given for free. Sent
+// together now, and nothing is applied until it is confirmed.
+function PlanAndBilling({ user, onSaved }) {
+  const toast = useToast();
+  const [planType, setPlanType] = useState(user.planType === 'business' ? 'business' : 'individual');
+  const [complimentary, setComplimentary] = useState(!!user.accessBypass);
+  const [until, setUntil] = useState(user.accessBypassUntil ? String(user.accessBypassUntil).slice(0, 10) : '');
+  const [busy, setBusy] = useState(false);
+
+  const label = planType === 'business' ? 'Small Business' : 'Individual';
+  const dirty =
+    planType !== (user.planType === 'business' ? 'business' : 'individual') ||
+    complimentary !== !!user.accessBypass ||
+    (complimentary && until !== (user.accessBypassUntil ? String(user.accessBypassUntil).slice(0, 10) : ''));
+
+  async function save() {
+    const lines = [`Move ${user.email} to ${label}.`];
+    if (complimentary) {
+      lines.push(until ? `They will not be charged, until ${until}.` : 'They will not be charged, open-ended.');
+    } else if (user.accessBypass) {
+      lines.push('They will be billed normally from now on.');
+    }
+    if (planType !== (user.planType === 'business' ? 'business' : 'individual')) {
+      lines.push('They will be emailed about the change.');
+    }
+    if (!window.confirm(lines.join('\n\n'))) return;
+
+    setBusy(true);
+    try {
+      await api.patch(`/admin/users/${user.id}/plan`, {
+        planType,
+        complimentary,
+        until: complimentary && until ? until : null,
+      });
+      toast('Plan updated', 'success');
+      onSaved();
+    } catch (err) {
+      toast(err.message, 'error');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+        {[
+          { value: 'individual', label: 'Individual' },
+          { value: 'business', label: 'Small Business' },
+        ].map((option) => (
+          <button
+            key={option.value}
+            type="button"
+            className={planType === option.value ? 'btn btn-primary' : 'btn btn-ghost'}
+            style={{ fontSize: 12.5 }}
+            onClick={() => setPlanType(option.value)}
+          >
+            {option.label}
+          </button>
+        ))}
+      </div>
+
+      <label style={{ display: 'flex', alignItems: 'flex-start', gap: 9, fontSize: 13, cursor: 'pointer' }}>
+        <input
+          type="checkbox"
+          checked={complimentary}
+          onChange={(e) => setComplimentary(e.target.checked)}
+          style={{ marginTop: 3 }}
+        />
+        <span>
+          <strong>Free — do not charge for this plan</strong>
+          <span style={{ display: 'block', fontSize: 12, color: 'var(--text-muted)', lineHeight: 1.5 }}>
+            Full use of the plan with no subscription. Any Stripe subscription they already have is untouched —
+            this only stops the app requiring one.
+          </span>
+        </span>
+      </label>
+
+      {complimentary && (
+        <div>
+          <label className="label" htmlFor={`comp-until-${user.id}`}>
+            Until (optional)
+          </label>
+          <input
+            id={`comp-until-${user.id}`}
+            className="input"
+            type="date"
+            value={until}
+            onChange={(e) => setUntil(e.target.value)}
+            style={{ maxWidth: 200 }}
+          />
+          {/* An open-ended grant nobody remembers making is how a paid product
+              quietly stops being one. */}
+          <div style={{ fontSize: 11.5, color: 'var(--text-muted)', marginTop: 5 }}>
+            Leave blank for open-ended — but a date is easier to remember than a promise.
+          </div>
+        </div>
+      )}
+
+      <div>
+        <button className="btn btn-primary" style={{ fontSize: 12.5 }} disabled={!dirty || busy} onClick={save}>
+          {busy && <span className="spinner" />}
+          Apply
+        </button>
+      </div>
+    </div>
   );
 }

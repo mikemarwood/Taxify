@@ -6,6 +6,8 @@ import { fileURLToPath } from 'url';
 import { userRootDir } from '../lib/receiptStorage.js';
 import { normalisePromoCode, isValidPromoCodeFormat } from '../lib/promoCodes.js';
 import pool, { getSetting, setSetting, getMfaMode } from '../db.js';
+import { sendPlanChangedEmail } from '../lib/mailer.js';
+import { planLabel as planLabelFor } from '../lib/planLimits.js';
 import { requireAuth, requireAdmin } from '../auth/middleware.js';
 import { signViewAsToken, cookieOptions, COOKIE_NAME } from '../auth/jwt.js';
 import { toPublicUser } from '../auth/publicUser.js';
@@ -103,53 +105,6 @@ router.get(
   })
 );
 
-router.post(
-  '/users',
-  asyncHandler(async (req, res) => {
-    const { name, email, planType } = req.body || {};
-    if (!name || !String(name).trim()) return res.status(400).json({ error: 'Name is required' });
-    if (!email || !String(email).trim()) return res.status(400).json({ error: 'Email is required' });
-    if (planType !== undefined && planType !== 'individual' && planType !== 'business') {
-      return res.status(400).json({ error: "planType must be 'individual' or 'business'" });
-    }
-
-    const normalizedEmail = String(email).trim().toLowerCase();
-    const finalPlanType = planType === 'business' ? 'business' : 'individual';
-    const placeholderHash = hashPassword(crypto.randomBytes(32).toString('hex'));
-    const { token, tokenHash, expiresAt } = generateActivationToken();
-
-    let userId;
-    try {
-      const [result] = await pool.execute(
-        `INSERT INTO users (email, password_hash, name, role, plan_type, activation_token_hash, activation_token_expires_at)
-         VALUES (?, ?, ?, 'owner', ?, ?, ?)`,
-        [normalizedEmail, placeholderHash, String(name).trim(), finalPlanType, tokenHash, expiresAt]
-      );
-      userId = result.insertId;
-    } catch (err) {
-      if (err.code === 'ER_DUP_ENTRY') {
-        return res.status(409).json({ error: 'An account with that email already exists' });
-      }
-      throw err;
-    }
-
-    const books = await ensureDefaultEntity(userId);
-    await seedDefaultCategories(pool, userId, books?.id ?? null);
-
-    const acceptUrl = `${process.env.CLIENT_ORIGIN || 'http://localhost:5173'}/accept-invite?token=${token}`;
-    try {
-      await sendAdminCreatedAccountEmail(normalizedEmail, String(name).trim(), acceptUrl);
-    } catch (err) {
-      console.error('Failed to send admin-created-account email', err);
-    }
-
-    res.status(201).json({
-      user: { id: userId, name: String(name).trim(), email: normalizedEmail, planType: finalPlanType, active: false },
-      acceptUrl,
-    });
-  })
-);
-
 router.patch(
   '/users/:id',
   asyncHandler(async (req, res) => {
@@ -233,29 +188,63 @@ router.patch(
   asyncHandler(async (req, res) => {
     const planType = req.body?.planType;
     if (planType !== 'individual' && planType !== 'business') {
-      return res.status(400).json({ error: 'Plan must be individual or family' });
+      return res.status(400).json({ error: 'Plan must be individual or business' });
     }
 
-    const [rows] = await pool.execute('SELECT id, email, plan_type, role FROM users WHERE id = ?', [req.params.id]);
+    const [rows] = await pool.execute(
+      'SELECT id, email, name, first_name, plan_type, role FROM users WHERE id = ?',
+      [req.params.id]
+    );
     const target = rows[0];
     if (!target) return res.status(404).json({ error: 'User not found' });
     if (target.role !== 'owner') {
       return res.status(400).json({ error: 'Only account holders have a plan — this login belongs to one' });
     }
 
-    if (planType === 'individual') {
-      const [subs] = await pool.execute("SELECT id FROM users WHERE account_holder_id = ? AND role = 'sub_user'", [
-        target.id,
-      ]);
-      if (subs.length > 0) {
-        return res.status(400).json({
-          error: 'This account has a second user. Remove them first, or the downgrade would lock them out.',
+    // Whether this plan is being given rather than sold. Sent together with
+    // the plan because they are one decision — "put them on Small Business,
+    // free, until March" is a single act, and applying it as two requests
+    // leaves a window where they are billed for something they were given.
+    //
+    // Absent means leave the existing arrangement alone, so changing somebody's
+    // plan does not silently cancel a grant made last month.
+    const comp = req.body?.complimentary;
+    const untilRaw = req.body?.until ? String(req.body.until).slice(0, 10) : null;
+    if (untilRaw && !/^\d{4}-\d{2}-\d{2}$/.test(untilRaw)) {
+      return res.status(400).json({ error: 'Enter the end date as a date, or leave it blank for open-ended' });
+    }
+
+    if (comp === undefined) {
+      await pool.execute('UPDATE users SET plan_type = ? WHERE id = ?', [planType, target.id]);
+    } else {
+      await pool.execute(
+        'UPDATE users SET plan_type = ?, access_bypass = ?, access_bypass_until = ? WHERE id = ?',
+        [planType, comp ? 1 : 0, comp ? untilRaw : null, target.id]
+      );
+    }
+
+    console.log(
+      `[admin] ${req.user.email} moved ${target.email} from ${target.plan_type} to ${planType}` +
+        (comp === undefined ? '' : comp ? ` (free${untilRaw ? ` until ${untilRaw}` : ''})` : ' (billed)')
+    );
+
+    // Only when it actually moved. Re-saving the same plan to change the
+    // billing arrangement is not news worth an email.
+    if (target.plan_type !== planType) {
+      try {
+        await sendPlanChangedEmail(target.email, target.first_name || target.name, {
+          fromLabel: planLabelFor(target.plan_type),
+          toLabel: planLabelFor(planType),
+          complimentary: comp === true,
+          until: untilRaw,
         });
+      } catch (err) {
+        // The change is done and recorded. A mail server being down must not
+        // undo it or report it as a failure.
+        console.error('Could not send the plan changed email', err.message);
       }
     }
 
-    await pool.execute('UPDATE users SET plan_type = ? WHERE id = ?', [planType, target.id]);
-    console.log(`[admin] ${req.user.email} moved ${target.email} from ${target.plan_type} to ${planType}`);
     res.json({ ok: true, planType });
   })
 );
