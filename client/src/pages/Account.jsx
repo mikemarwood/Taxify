@@ -297,6 +297,145 @@ function StartOwnAccount() {
   );
 }
 
+// Said the same way in the picker, the summary line and the emails. Kept beside
+// the page that shows it; the server has its own copy for the emails, and one
+// of them has to be first.
+function describeHours(hours) {
+  return hours === 24 ? '24 hours' : `${hours / 24} days`;
+}
+
+// Changing an existing grant rather than revoking and starting again.
+//
+// Two things are kept deliberately apart: what they can see, and whether their
+// clock is running. Sending one must never quietly change the other — a request
+// that only reopens the window leaves the years untouched, because clearing
+// them would mean "the whole history".
+function ManageAccess({ accountant, years, windowChoices, onDone }) {
+  const toast = useToast();
+  const [allYears, setAllYears] = useState(!accountant.financialYears);
+  const [picked, setPicked] = useState(accountant.financialYears || []);
+  const [hours, setHours] = useState(accountant.windowHours || 24);
+  const [busy, setBusy] = useState(false);
+
+  async function send(body, message) {
+    setBusy(true);
+    try {
+      await api.patch(`/auth/accountant-access/${accountant.id}`, body);
+      toast(message, 'success');
+      onDone();
+    } catch (err) {
+      toast(err.message, 'error');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  const changed =
+    allYears !== !accountant.financialYears ||
+    hours !== (accountant.windowHours || 24) ||
+    (!allYears && picked.join(',') !== (accountant.financialYears || []).join(','));
+
+  const chip = (on) => ({
+    fontSize: 12,
+    fontWeight: 600,
+    padding: '5px 10px',
+    borderRadius: 999,
+    cursor: 'pointer',
+    color: on ? '#fff' : 'var(--text-muted)',
+    background: on ? 'var(--accent)' : 'var(--bg-card)',
+    border: `1px solid ${on ? 'var(--accent)' : 'var(--border)'}`,
+  });
+
+  return (
+    <div
+      style={{
+        flexBasis: '100%',
+        marginTop: 10,
+        paddingTop: 12,
+        borderTop: '1px solid var(--border)',
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 12,
+      }}
+    >
+      <div>
+        <div className="label" style={{ margin: '0 0 6px' }}>
+          What they can see
+        </div>
+        <label style={{ display: 'flex', alignItems: 'center', gap: 9, fontSize: 13, cursor: 'pointer' }}>
+          <input type="radio" checked={allYears} onChange={() => setAllYears(true)} />
+          Every financial year
+        </label>
+        <label style={{ display: 'flex', alignItems: 'center', gap: 9, fontSize: 13, cursor: 'pointer', marginTop: 4 }}>
+          <input type="radio" checked={!allYears} onChange={() => setAllYears(false)} />
+          Only the years I choose
+        </label>
+        {!allYears && (
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 8 }}>
+            {years.map((y) => {
+              const on = picked.includes(y);
+              return (
+                <button
+                  key={y}
+                  type="button"
+                  onClick={() => setPicked((prev) => (on ? prev.filter((v) => v !== y) : [...prev, y]))}
+                  style={chip(on)}
+                >
+                  FY {y}
+                </button>
+              );
+            })}
+          </div>
+        )}
+      </div>
+
+      <div>
+        <div className="label" style={{ margin: '0 0 6px' }}>
+          How long they get
+        </div>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+          {windowChoices.map((h) => (
+            <button key={h} type="button" onClick={() => setHours(h)} style={chip(hours === h)}>
+              {describeHours(h)}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+        <button
+          className="btn btn-primary"
+          style={{ fontSize: 12.5, padding: '6px 12px' }}
+          disabled={busy || !changed || (!allYears && picked.length === 0)}
+          onClick={() =>
+            send(
+              { windowHours: hours, ...(allYears ? { allYears: true } : { financialYears: picked }) },
+              'Access updated'
+            )
+          }
+        >
+          Save changes
+        </button>
+        {accountant.firstLoginAt && (
+          <button
+            className="btn btn-ghost"
+            style={{ fontSize: 12.5, padding: '6px 12px' }}
+            disabled={busy}
+            onClick={() => send({ reopen: true }, 'They have a fresh window')}
+          >
+            Give them another {describeHours(accountant.windowHours || 24)}
+          </button>
+        )}
+      </div>
+
+      <p style={{ fontSize: 11.5, color: 'var(--text-muted)', margin: 0, lineHeight: 1.5 }}>
+        Narrowing what they can see takes effect immediately — they do not need to sign out. A fresh window starts the
+        next time they open your books, not now.
+      </p>
+    </div>
+  );
+}
+
 function FamilySection({ user }) {
   const toast = useToast();
   const { changePlan, busy: planBusy } = usePlanChange();
@@ -306,6 +445,11 @@ function FamilySection({ user }) {
   const [members, setMembers] = useState(null);
   const [accountants, setAccountants] = useState(null);
   const [windowHours, setWindowHours] = useState(24);
+  const [windowChoices, setWindowChoices] = useState([24, 48, 72, 96]);
+  // How long the invite being written now should last once opened.
+  const [inviteWindow, setInviteWindow] = useState(24);
+  // Which existing grant has its panel open, and what is being changed in it.
+  const [managing, setManaging] = useState(null);
   const [inviteName, setInviteName] = useState('');
   const [inviteEmail, setInviteEmail] = useState('');
   const [inviteRole, setInviteRole] = useState(user.planType === 'family' ? 'sub_user' : 'accountant');
@@ -318,6 +462,7 @@ function FamilySection({ user }) {
     api.get('/auth/accountant-access').then((res) => {
       setAccountants(res.data.accountants);
       setWindowHours(res.data.windowHours || 24);
+      if (res.data.windowChoices?.length) setWindowChoices(res.data.windowChoices);
     });
   }
 
@@ -336,7 +481,14 @@ function FamilySection({ user }) {
         role: inviteRole,
         // Omitted entirely for a family member — the server ignores it, and
         // sending it anyway would suggest it did something.
-        ...(inviteRole === 'accountant' && !allYears ? { financialYears: pickedYears } : {}),
+        //
+        // For an accountant the intent is stated rather than inferred: either
+        // allYears, or a list. The server refuses a list where nothing is a
+        // real year instead of reading it as "everything", which is what an
+        // omitted field used to mean.
+        ...(inviteRole === 'accountant'
+          ? { windowHours: inviteWindow, ...(allYears ? { allYears: true } : { financialYears: pickedYears }) }
+          : {}),
       });
       toast(inviteRole === 'accountant' ? 'Access granted — we’ve emailed them' : 'Invitation sent', 'success');
       setInviteName('');
@@ -464,10 +616,29 @@ function FamilySection({ user }) {
               <button
                 className="btn btn-ghost"
                 style={{ fontSize: 12, padding: '5px 11px' }}
+                onClick={() => setManaging(managing?.id === a.id ? null : { ...a })}
+              >
+                {managing?.id === a.id ? 'Close' : 'Manage'}
+              </button>
+              <button
+                className="btn btn-ghost"
+                style={{ fontSize: 12, padding: '5px 11px' }}
                 onClick={() => onRevokeAccountant(a)}
               >
                 Revoke
               </button>
+
+              {managing?.id === a.id && (
+                <ManageAccess
+                  accountant={a}
+                  years={grantableYears}
+                  windowChoices={windowChoices}
+                  onDone={() => {
+                    setManaging(null);
+                    load();
+                  }}
+                />
+              )}
             </div>
           ))}
         </div>
@@ -548,9 +719,35 @@ function FamilySection({ user }) {
               </div>
             )}
 
+            <div className="label" style={{ margin: '4px 0 0' }}>
+              How long do they get?
+            </div>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+              {windowChoices.map((h) => (
+                <button
+                  key={h}
+                  type="button"
+                  onClick={() => setInviteWindow(h)}
+                  style={{
+                    fontSize: 12,
+                    fontWeight: 600,
+                    padding: '6px 12px',
+                    borderRadius: 999,
+                    cursor: 'pointer',
+                    color: inviteWindow === h ? '#fff' : 'var(--text-muted)',
+                    background: inviteWindow === h ? 'var(--accent)' : 'var(--bg-card)',
+                    border: `1px solid ${inviteWindow === h ? 'var(--accent)' : 'var(--border)'}`,
+                  }}
+                >
+                  {describeHours(h)}
+                </button>
+              ))}
+            </div>
+
             <p style={{ fontSize: 11.5, color: 'var(--text-muted)', margin: 0, lineHeight: 1.5 }}>
-              Their access begins the first time they open your books and is removed automatically {windowHours} hours
-              later. They can never change anything.
+              The clock starts the first time they open your books, not now — so a Friday invitation is still good on
+              Monday. After {describeHours(inviteWindow)} the access is removed automatically. They can never change
+              anything.
             </p>
           </div>
         )}

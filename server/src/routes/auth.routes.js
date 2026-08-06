@@ -17,10 +17,12 @@ import { computeAccessLocked } from '../auth/access.js';
 import {
   listAssignments,
   openAssignment,
-  purgeExpiredAssignments,
   hasAssignments,
-  serialiseYears,
+  parseYearGrant,
+  normaliseWindowHours,
+  describeWindow,
   ACCOUNTANT_WINDOW_HOURS,
+  ACCOUNTANT_WINDOW_CHOICES,
 } from '../auth/accountants.js';
 import {
   sendOtpEmail,
@@ -548,7 +550,33 @@ router.post(
 
     // Only accountants can be scoped to particular years. A family member is a
     // co-owner of the same books, not a visitor with a reading window.
-    const yearScope = role === 'accountant' ? serialiseYears(financialYears) : null;
+    //
+    // The caller has to say which it means. "Every year" is { allYears: true };
+    // a list is a list. Left to infer, an omitted field and a list where every
+    // entry was rejected look identical — and both used to mean the whole
+    // history, so a client who mistyped their years handed over everything.
+    let yearScope = null;
+    let rejectedYears = [];
+    if (role === 'accountant' && req.body?.allYears !== true) {
+      const grant = parseYearGrant(financialYears);
+      if (!grant.ok) {
+        return res.status(400).json({
+          error: grant.tooMany
+            ? 'That is more financial years than an account can have — pick the ones they need.'
+            : "None of those look like financial years. Pick them from the list, or choose every year.",
+          rejectedYears: grant.rejected,
+        });
+      }
+      yearScope = grant.value;
+      rejectedYears = grant.rejected;
+    }
+
+    // How long their window lasts once opened. The client's choice, defaulting
+    // to a day when they express no view.
+    const windowHours =
+      role === 'accountant'
+        ? normaliseWindowHours(req.body?.windowHours) ?? ACCOUNTANT_WINDOW_HOURS
+        : ACCOUNTANT_WINDOW_HOURS;
 
     if (role === 'accountant') {
       // An accountant works for several people, so the same address turning up
@@ -573,8 +601,8 @@ router.post(
           return res.status(400).json({ error: 'That accountant already has access to your account' });
         }
         await pool.execute(
-          'INSERT INTO accountant_assignments (accountant_user_id, owner_user_id, financial_years) VALUES (?, ?, ?)',
-          [found.id, req.user.id, yearScope]
+          'INSERT INTO accountant_assignments (accountant_user_id, owner_user_id, financial_years, window_hours) VALUES (?, ?, ?, ?)',
+          [found.id, req.user.id, yearScope, windowHours]
         );
 
         const loginUrl = `${process.env.CLIENT_ORIGIN || 'http://localhost:5173'}/login?accountant=1`;
@@ -621,8 +649,8 @@ router.post(
       await seedDefaultCategories(pool, userId);
     } else {
       await pool.execute(
-        'INSERT INTO accountant_assignments (accountant_user_id, owner_user_id, financial_years) VALUES (?, ?, ?)',
-        [userId, req.user.id, yearScope]
+        'INSERT INTO accountant_assignments (accountant_user_id, owner_user_id, financial_years, window_hours) VALUES (?, ?, ?, ?)',
+        [userId, req.user.id, yearScope, windowHours]
       );
     }
 
@@ -712,15 +740,22 @@ router.post(
     if (assignment.firstOpen) {
       await notify(ownerId, {
         title: 'Your accountant opened your books',
-        body: `${req.user.name || req.user.email} has access for the next ${ACCOUNTANT_WINDOW_HOURS} hours. You can remove it at any time.`,
+        body: `${req.user.name || req.user.email} has access for the next ${describeWindow(assignment.windowHours ?? assignment.window_hours)}. You can remove it at any time.`,
         url: '/account',
         kind: 'accountant',
       });
     }
 
+    // The token cannot outlive the window it was issued for, so it takes its
+    // length from the same row rather than from a constant that no longer
+    // decides anything.
     res.cookie(
       COOKIE_NAME,
-      signAccountantToken(req.user, ownerId, ACCOUNTANT_WINDOW_HOURS),
+      signAccountantToken(
+        req.user,
+        ownerId,
+        normaliseWindowHours(assignment.windowHours ?? assignment.window_hours) ?? ACCOUNTANT_WINDOW_HOURS
+      ),
       cookieOptions(false)
     );
     res.json({ ok: true, expiresAt: assignment.expires_at || assignment.expiresAt || null });
@@ -860,6 +895,93 @@ router.delete(
   })
 );
 
+// Changing access without tearing it down and starting again. Before this,
+// "give them one more year" and "they ran out of time" both meant revoke,
+// re-invite, and another email for them to find and accept.
+router.patch(
+  '/accountant-access/:ownerAssignmentId',
+  requireAuth,
+  requireAccountOwner,
+  asyncHandler(async (req, res) => {
+    const [rows] = await pool.execute(
+      'SELECT id, accountant_user_id, financial_years, window_hours FROM accountant_assignments WHERE id = ? AND owner_user_id = ?',
+      [req.params.ownerAssignmentId, req.user.id]
+    );
+    const assignment = rows[0];
+    if (!assignment) return res.status(404).json({ error: 'Not found' });
+
+    const updates = [];
+    const params = [];
+    const changes = [];
+
+    // Only touched when the request actually carries a scope decision. A body
+    // of { reopen: true } must leave the years exactly as they were — clearing
+    // them would mean "the whole history", so an extension of time would
+    // quietly become an extension of scope.
+    const saysAllYears = req.body?.allYears === true;
+    const saysYears = Object.prototype.hasOwnProperty.call(req.body || {}, 'financialYears');
+
+    if (saysAllYears || saysYears) {
+      let value = null;
+      if (!saysAllYears) {
+        const grant = parseYearGrant(req.body.financialYears);
+        if (!grant.ok) {
+          return res.status(400).json({
+            error: grant.tooMany
+              ? 'That is more financial years than an account can have — pick the ones they need.'
+              : 'None of those look like financial years. Pick them from the list, or choose every year.',
+            rejectedYears: grant.rejected,
+          });
+        }
+        value = grant.value;
+      }
+      const after = value ? value.split(',') : null;
+      updates.push('financial_years = ?');
+      params.push(value);
+      changes.push(
+        after ? `financial ${after.length === 1 ? 'year' : 'years'} ${after.join(', ')}` : 'every financial year'
+      );
+    }
+
+    if (req.body?.windowHours !== undefined) {
+      const hours = normaliseWindowHours(req.body.windowHours);
+      if (!hours) return res.status(400).json({ error: 'Choose 24, 48, 72 or 96 hours' });
+      updates.push('window_hours = ?');
+      params.push(hours);
+      changes.push(`a ${describeWindow(hours)} window`);
+    }
+
+    if (req.body?.reopen === true) {
+      // Back to "granted, not opened yet", so the clock restarts when they next
+      // look rather than from now. Setting a new expiry instead would burn the
+      // window whether or not they came back — which is the whole reason the
+      // clock starts on first open in the first place.
+      updates.push('first_login_at = NULL', 'expires_at = NULL');
+      changes.push('a fresh window, starting when they next open your books');
+    }
+
+    if (updates.length === 0) return res.status(400).json({ error: 'Nothing to change' });
+
+    await pool.execute(`UPDATE accountant_assignments SET ${updates.join(', ')} WHERE id = ? AND owner_user_id = ?`, [
+      ...params,
+      assignment.id,
+      req.user.id,
+    ]);
+
+    // Narrowing takes effect on their very next request, because requireAuth
+    // re-reads the assignment on every one. Either way they are told, rather
+    // than discovering it when something they could see yesterday is gone.
+    await notify(assignment.accountant_user_id, {
+      title: `${req.user.name || req.user.email} updated your access`,
+      body: `You now have ${changes.join(', and ')}.`,
+      url: '/clients',
+      kind: 'accountant',
+    });
+
+    res.json({ ok: true });
+  })
+);
+
 // Revoking an accountant is the owner's to do — unlike a family member, an
 // accountant is a visitor, and their access was always meant to end.
 router.delete(
@@ -867,11 +989,27 @@ router.delete(
   requireAuth,
   requireAccountOwner,
   asyncHandler(async (req, res) => {
+    const [rows] = await pool.execute(
+      'SELECT accountant_user_id FROM accountant_assignments WHERE id = ? AND owner_user_id = ?',
+      [req.params.ownerAssignmentId, req.user.id]
+    );
+    if (!rows[0]) return res.status(404).json({ error: 'Not found' });
+
     const [result] = await pool.execute('DELETE FROM accountant_assignments WHERE id = ? AND owner_user_id = ?', [
       req.params.ownerAssignmentId,
       req.user.id,
     ]);
     if (result.affectedRows === 0) return res.status(404).json({ error: 'Not found' });
+
+    // Told, rather than left to notice. The way in was always announced; the
+    // way out was silent, so a client simply vanished from their list.
+    await notify(rows[0].accountant_user_id, {
+      title: `${req.user.name || req.user.email} has removed your access`,
+      body: 'Their books are no longer on your client list. Nothing of yours was affected.',
+      url: '/clients',
+      kind: 'accountant',
+    });
+
     res.json({ ok: true });
   })
 );
@@ -882,13 +1020,12 @@ router.get(
   requireAuth,
   requireAccountOwner,
   asyncHandler(async (req, res) => {
-    await purgeExpiredAssignments();
     const [rows] = await pool.execute(
-      `SELECT a.id, a.financial_years, a.first_login_at, a.expires_at, a.created_at,
+      `SELECT a.id, a.financial_years, a.window_hours, a.first_login_at, a.expires_at, a.created_at,
               u.name, u.email, u.activated_at
        FROM accountant_assignments a
        JOIN users u ON u.id = a.accountant_user_id
-       WHERE a.owner_user_id = ?
+       WHERE a.owner_user_id = ? AND (a.expires_at IS NULL OR a.expires_at > NOW())
        ORDER BY u.name`,
       [req.user.id]
     );
@@ -899,11 +1036,13 @@ router.get(
         email: r.email,
         active: !!r.activated_at,
         financialYears: r.financial_years ? r.financial_years.split(',') : null,
+        windowHours: normaliseWindowHours(r.window_hours) ?? ACCOUNTANT_WINDOW_HOURS,
         firstLoginAt: r.first_login_at,
         expiresAt: r.expires_at,
         grantedAt: r.created_at,
       })),
       windowHours: ACCOUNTANT_WINDOW_HOURS,
+      windowChoices: ACCOUNTANT_WINDOW_CHOICES,
     });
   })
 );

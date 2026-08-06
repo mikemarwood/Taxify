@@ -142,6 +142,13 @@ export async function ensureSchema() {
   // narrow it.
   await pool.query(`ALTER TABLE accountant_assignments ADD COLUMN IF NOT EXISTS financial_years VARCHAR(255) NULL`);
 
+  // How long the window lasts once opened, chosen by the client when they grant
+  // access: 24, 48, 72 or 96 hours. A default rather than a constant now — an
+  // afternoon job and a full set of books are not the same amount of work.
+  await pool.query(
+    `ALTER TABLE accountant_assignments ADD COLUMN IF NOT EXISTS window_hours SMALLINT NOT NULL DEFAULT 24`
+  );
+
   // Accountants who predate the table keep the client they already had.
   await pool.query(`
     INSERT IGNORE INTO accountant_assignments (accountant_user_id, owner_user_id)

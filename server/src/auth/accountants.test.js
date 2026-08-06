@@ -1,6 +1,12 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { financialYearClause, serialiseYears } from './accountants.js';
+import {
+  financialYearClause,
+  serialiseYears,
+  parseYearGrant,
+  normaliseWindowHours,
+  describeWindow,
+} from './accountants.js';
 
 // The highest-value test in the codebase. This clause is the only thing
 // standing between an accountant granted 2024-2025 and their client's entire
@@ -100,4 +106,81 @@ test('every year uses the rule, not its position in the list', () => {
     '2024-01-01', '2024-12-31',
     '2025-01-01', '2025-12-31',
   ]);
+});
+
+// --- A grant that fails closed -------------------------------------------
+
+test('a grant of nothing means every year, but only when asked for explicitly', () => {
+  for (const empty of [null, undefined, []]) {
+    const grant = parseYearGrant(empty);
+    assert.equal(grant.ok, true);
+    assert.equal(grant.value, null);
+  }
+});
+
+test('a grant where every year is rejected is refused, not treated as all years', () => {
+  // The bug this exists for: serialiseYears returns null here, null means the
+  // whole history, so a client who mistyped every year handed over everything
+  // and the response said nothing at all.
+  const grant = parseYearGrant(['garbage', '20255', 'last year']);
+  assert.equal(grant.ok, false);
+  assert.equal(grant.value, null);
+  assert.deepEqual(grant.rejected, ['garbage', '20255', 'last year']);
+});
+
+test('a bare string is refused rather than read one character at a time', () => {
+  const grant = parseYearGrant('2025-2026');
+  assert.equal(grant.ok, false);
+  assert.equal(grant.value, null);
+});
+
+test('the good years survive and the bad ones are reported', () => {
+  const grant = parseYearGrant(['2024-2025', 'nope', '2025-2026']);
+  assert.equal(grant.ok, true);
+  assert.equal(grant.value, '2024-2025,2025-2026');
+  assert.deepEqual(grant.rejected, ['nope']);
+});
+
+test('a calendar-year label is a real year', () => {
+  const grant = parseYearGrant(['2025']);
+  assert.equal(grant.ok, true);
+  assert.equal(grant.value, '2025');
+});
+
+test('duplicates collapse and the order asked for is kept', () => {
+  const grant = parseYearGrant(['2025-2026', '2024-2025', '2025-2026']);
+  assert.equal(grant.value, '2025-2026,2024-2025');
+});
+
+test('too many years is refused rather than silently truncated', () => {
+  // financial_years is VARCHAR(255). Trimming the list would reshape somebody's
+  // access without telling them.
+  const many = Array.from({ length: 50 }, (_, i) => `${2000 + i}-${2001 + i}`);
+  const grant = parseYearGrant(many);
+  assert.equal(grant.ok, false);
+  assert.equal(grant.tooMany, true);
+});
+
+// --- How long the window lasts -------------------------------------------
+
+test('only the four offered window lengths are accepted', () => {
+  for (const good of [24, 48, 72, 96]) assert.equal(normaliseWindowHours(good), good);
+  // A string of a valid number is fine — it arrives from a form.
+  assert.equal(normaliseWindowHours('48'), 48);
+});
+
+test('any other window length is refused rather than rounded', () => {
+  for (const bad of [0, -1, 1, 25, 12, 120, 1000, null, undefined, '', 'lots', {}, NaN]) {
+    assert.equal(normaliseWindowHours(bad), null, String(bad));
+  }
+});
+
+test('the window is described the same way everywhere it is mentioned', () => {
+  assert.equal(describeWindow(24), '24 hours');
+  assert.equal(describeWindow(48), '2 days');
+  assert.equal(describeWindow(72), '3 days');
+  assert.equal(describeWindow(96), '4 days');
+  // An unreadable value falls back rather than rendering "NaN days" in an email.
+  assert.equal(describeWindow(null), '24 hours');
+  assert.equal(describeWindow(37), '24 hours');
 });

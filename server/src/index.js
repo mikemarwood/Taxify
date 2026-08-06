@@ -25,7 +25,8 @@ import { migrateReceiptFolders } from './migrations/receiptFolders.js';
 import { migrateCategoriesByYear } from './migrations/categoriesByYear.js';
 import { migrateCurrencyBase } from './migrations/currencyBase.js';
 import { migrateEntities } from './migrations/entities.js';
-import { purgeExpiredAssignments } from './auth/accountants.js';
+import { closeExpiredAssignments } from './auth/accountants.js';
+import { notify } from './lib/notify.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
@@ -198,13 +199,14 @@ setInterval(() => {
   runRecurringExpenses(pool).catch((err) => console.error('Failed to run recurring expenses', err));
 }, 60 * 60 * 1000);
 
-// Accountant access is meant to be gone 24 hours after it was first used.
-// Requests already refuse an expired assignment, but "removed" should be true
-// of the database whether or not anyone happens to log in and trigger it.
-purgeExpiredAssignments().catch((err) => console.error('Failed to purge expired accountant access', err));
-setInterval(() => {
-  purgeExpiredAssignments().catch((err) => console.error('Failed to purge expired accountant access', err));
-}, 15 * 60 * 1000);
+// Accountant access is meant to be gone once its window closes. Requests
+// already refuse an expired assignment, but "removed" should be true of the
+// database whether or not anyone happens to sign in and trigger it — and both
+// people should be told rather than finding out from an empty list.
+const closeAccountantAccess = () =>
+  closeExpiredAssignments(notify).catch((err) => console.error('Failed to close expired accountant access', err));
+closeAccountantAccess();
+setInterval(closeAccountantAccess, 15 * 60 * 1000);
 
 // Twice a day is enough for something measured in months, and keeps the
 // appointment reminder from slipping past its window if a restart lands badly.
