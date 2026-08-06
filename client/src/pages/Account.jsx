@@ -11,6 +11,7 @@ import Avatar from '../components/Avatar.jsx';
 import AvatarEditorModal from '../components/AvatarEditorModal.jsx';
 import { isSoundEnabled, setSoundEnabled } from '../lib/sounds.js';
 import PlanComparison from '../components/PlanComparison.jsx';
+import InvoiceList from '../components/InvoiceList.jsx';
 // Names and addresses are shown tidied rather than stored tidied — an
 // accountant's own name is theirs to spell, and rewriting the row would make
 // this page the thing that changed it.
@@ -42,7 +43,6 @@ function joinPhone(dial, number) {
   return `${dial || ''} ${n}`.trim();
 }
 import ChangeEmailSection from '../components/ChangeEmailSection.jsx';
-import { usePlanChange } from '../lib/usePlanChange.js';
 import { useFinancialYears } from '../lib/useFinancialYears.js';
 import { financialYearSpan } from '../lib/financialYear.js';
 import { formatDateLong, formatDateTime } from '../lib/dates.js';
@@ -264,6 +264,10 @@ function BillingSection({ user }) {
           be charged. */}
       <PlanComparison user={user} />
 
+      {/* Below the plans, because somebody opens this tab to change plan far
+          more often than to find a receipt for last year. */}
+      <InvoiceList />
+
       <div style={{ display: 'flex', gap: 10 }}>
         {user.subscriptionStatus === 'active' ? (
           <button className="btn btn-ghost" onClick={goToPortal} disabled={busy} style={{ fontSize: 13 }}>
@@ -468,7 +472,6 @@ function ManageAccess({ accountant, years, windowChoices, onDone }) {
 
 function AccountantSection({ user }) {
   const toast = useToast();
-  const { changePlan, busy: planBusy } = usePlanChange();
   // Only the years this account actually has — offering an accountant a year
   // with nothing in it is offering them nothing.
   const { years: grantableYears } = useFinancialYears();

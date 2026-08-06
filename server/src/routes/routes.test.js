@@ -87,7 +87,16 @@ const REQUIRED = {
   'expenses.routes.js': [['get', '/'], ['post', '/']],
   'entities.routes.js': [['get', '/'], ['post', '/']],
   'deductions.routes.js': [['post', '/vehicle-trips'], ['post', '/home-office']],
-  'billing.routes.js': [['post', '/checkout']],
+  'billing.routes.js': [
+    ['post', '/checkout'],
+    ['post', '/change-plan'],
+    ['get', '/change-preview'],
+    ['get', '/invoices'],
+    ['get', '/invoices/:id/pdf'],
+    // Stripe calls this one. Losing it silently means subscriptions stop
+    // being recorded and nobody finds out until somebody is locked out.
+    ['post', '/webhook'],
+  ],
 };
 
 // What Express actually mounted, read off the router rather than out of the

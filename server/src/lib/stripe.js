@@ -235,3 +235,23 @@ export async function getSignupPlans() {
   }
   return plans;
 }
+
+// The inverse of priceIdForPlan.
+//
+// Needed because a plan can change without us being asked: the Stripe billing
+// portal lets a customer move between plans directly, and the only thing that
+// arrives afterwards is a subscription webhook carrying a price id. Without
+// this the webhook updated the status and left plan_type alone, so somebody
+// could pay for one plan and keep the entitlement of the other.
+//
+// Returns null for a price we do not recognise — an old one, or a mode
+// mismatch. The caller leaves plan_type as it was rather than guessing, since
+// guessing wrong either bills for what they cannot use or gives away what they
+// have not bought.
+export async function planTypeForPriceId(priceId) {
+  if (!priceId) return null;
+  const { priceIndividual, priceBusiness, priceFamily } = await getStripeConfig();
+  if (priceId === priceIndividual) return 'individual';
+  if (priceId === priceBusiness || priceId === priceFamily) return 'business';
+  return null;
+}

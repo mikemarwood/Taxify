@@ -3,12 +3,13 @@ import { motion } from 'framer-motion';
 import { api } from '../lib/api.js';
 import { usePlanChange } from '../lib/usePlanChange.js';
 import { currentPlanType } from '../lib/plans.js';
+import PlanChangeDialog from './PlanChangeDialog.jsx';
 import Icon from './Icon.jsx';
 
 // Both plans in full, with the current one marked. Prices come from Stripe
 // rather than being written here, so what's quoted is what will be charged.
 export default function PlanComparison({ user, onChoose, chooseLabel }) {
-  const { changePlan, busy } = usePlanChange();
+  const { changePlan, busy, pending, confirmChange, cancelChange } = usePlanChange();
   const [plans, setPlans] = useState(null);
 
   useEffect(() => {
@@ -32,6 +33,7 @@ export default function PlanComparison({ user, onChoose, chooseLabel }) {
   // Switching plans used to say "contact support", which is not a feature.
 
   return (
+    <>
     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: 14, marginTop: 4 }}>
       {plans.map((plan) => {
         // Through the shared resolver, not a raw ===. A NULL plan_type used to
@@ -141,5 +143,17 @@ export default function PlanComparison({ user, onChoose, chooseLabel }) {
         );
       })}
     </div>
+
+    {/* The figure it quotes comes from Stripe's own preview of the invoice it
+        is about to raise, so what is shown here is what gets charged. */}
+    {pending && (
+      <PlanChangeDialog
+        planType={pending}
+        busy={busy}
+        onConfirm={confirmChange}
+        onCancel={cancelChange}
+      />
+    )}
+    </>
   );
 }

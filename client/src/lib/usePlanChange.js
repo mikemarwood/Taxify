@@ -2,33 +2,43 @@ import { useState } from 'react';
 import { api } from './api.js';
 import { useAuth } from './AuthContext.jsx';
 import { useToast } from '../components/Toast.jsx';
+import { currentPlanType, planLabel } from './plans.js';
 
 // Moving between plans means two different things depending on where you are.
 // With a live subscription the price on it is swapped and Stripe prorates the
 // difference; with a trial or a lapsed account there is nothing to swap, so it
 // is an ordinary checkout. Callers shouldn't have to know which — hence this.
+//
+// The confirmation is a dialog rather than window.confirm because it has a
+// figure in it that has to be fetched. It used to be a confirm() that talked
+// about removing a second full-access login, which has not existed since the
+// Family plan went, and that quoted no price at all — it said "pro rata" and
+// left somebody to guess what that meant in dollars.
+//
+// The dialog comes back as JSX for the caller to render, so the hook stays a
+// hook and nothing needs a provider.
 export function usePlanChange() {
   const { user, refresh } = useAuth();
   const toast = useToast();
   const [busy, setBusy] = useState(false);
+  const [pending, setPending] = useState(null);
 
-  async function changePlan(planType) {
+  function changePlan(planType) {
     if (busy) return;
-    if (user?.planType === planType) return;
+    if (currentPlanType(user) === planType) return;
+    setPending(planType);
+  }
 
-    const upgrading = planType === 'business';
-    const confirmed = window.confirm(
-      upgrading
-        ? 'Move to Small Business?\n\nThis lets you keep up to two businesses alongside your own tax, each with its own categories, reports and lodgement. If you already pay for Taxify, the difference is charged pro rata from today.'
-        : 'Move to the Individual plan?\n\nThe second full-access login must be removed first. If you already pay for Taxify, the difference is credited pro rata.'
-    );
-    if (!confirmed) return;
+  async function confirmChange() {
+    const planType = pending;
+    if (!planType || busy) return;
 
     setBusy(true);
     try {
       await api.post('/billing/change-plan', { planType });
       await refresh();
-      toast(`You're now on the ${upgrading ? 'Small Business' : 'Individual'} plan`, 'success');
+      setPending(null);
+      toast(`You're now on the ${planLabel(planType)} plan`, 'success');
     } catch (err) {
       // Nothing live to change — send them through checkout on the plan they
       // picked instead of telling them to contact support.
@@ -43,10 +53,11 @@ export function usePlanChange() {
       } else {
         toast(err.message, 'error');
       }
+      setPending(null);
     } finally {
       setBusy(false);
     }
   }
 
-  return { changePlan, busy };
+  return { changePlan, busy, pending, confirmChange, cancelChange: () => !busy && setPending(null) };
 }
