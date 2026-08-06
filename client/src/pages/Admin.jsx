@@ -402,8 +402,57 @@ function SettingsTab() {
               : 'Sign-ups are closed — existing accounts can still log in normally.'}
           </div>
         </div>
-        <button className="btn btn-primary" disabled={busy} onClick={toggle} style={{ flexShrink: 0 }}>
-          {registrationEnabled ? 'Turn off' : 'Turn on'}
+        <button
+          type="button"
+          role="switch"
+          aria-checked={registrationEnabled}
+          aria-label="New account registration"
+          disabled={busy}
+          onClick={toggle}
+          style={{
+            flexShrink: 0,
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: 10,
+            padding: '7px 13px 7px 9px',
+            borderRadius: 999,
+            cursor: busy ? 'wait' : 'pointer',
+            font: 'inherit',
+            fontSize: 12.5,
+            fontWeight: 700,
+            border: `1px solid ${registrationEnabled ? 'var(--emerald)' : 'var(--border-strong)'}`,
+            background: registrationEnabled ? 'rgba(16, 185, 129, 0.12)' : 'var(--bg-inset)',
+            color: registrationEnabled ? 'var(--emerald)' : 'var(--text-muted)',
+          }}
+        >
+          {/* The track and knob carry the state; the word beside them only
+              repeats it. Previously the button named the action instead — a
+              blue "Turn on" read as something that was already on. */}
+          <span
+            aria-hidden="true"
+            style={{
+              width: 34,
+              height: 20,
+              borderRadius: 999,
+              padding: 2,
+              flexShrink: 0,
+              display: 'flex',
+              justifyContent: registrationEnabled ? 'flex-end' : 'flex-start',
+              background: registrationEnabled ? 'var(--emerald)' : 'var(--border-strong)',
+              transition: 'background 0.15s ease',
+            }}
+          >
+            <span
+              style={{
+                width: 16,
+                height: 16,
+                borderRadius: 999,
+                background: '#fff',
+                boxShadow: '0 1px 3px rgba(0,0,0,0.3)',
+              }}
+            />
+          </span>
+          {registrationEnabled ? 'Open' : 'Closed'}
         </button>
       </div>
 
@@ -741,6 +790,9 @@ function StripeModeSection({ label, hint, section, values, secretDraft, onFieldC
 }
 
 function StripeSettingsTab() {
+  // Locked on every visit, never remembered — a lock that stays open is a
+  // decoration.
+  const [unlocked, setUnlocked] = useState(false);
   const toast = useToast();
   const [mode, setMode] = useState(null);
   const [live, setLive] = useState({});
@@ -852,7 +904,38 @@ function StripeSettingsTab() {
         </div>
       </div>
 
+      {/* Locked until asked for. These are the keys that take real money, and
+          they sit on a tab somebody opens to read a price id. Read it freely;
+          changing it takes one deliberate act first. */}
+      <div
+        className="card"
+        style={{
+          padding: '13px 16px',
+          display: 'flex',
+          alignItems: 'center',
+          gap: 12,
+          flexWrap: 'wrap',
+          borderLeft: `3px solid ${unlocked ? 'var(--amber)' : 'var(--border-strong)'}`,
+        }}
+      >
+        <Icon name={unlocked ? 'pencil' : 'lock'} size={16} style={{ color: unlocked ? 'var(--amber)' : 'var(--text-muted)' }} />
+        <span style={{ fontSize: 13, flex: 1, minWidth: 200, color: 'var(--text-muted)' }}>
+          {unlocked
+            ? 'Unlocked — changes here take effect for real payments as soon as they are saved.'
+            : 'Locked. Unlock to change any of these keys.'}
+        </span>
+        <button
+          type="button"
+          className={unlocked ? 'btn btn-ghost' : 'btn btn-primary'}
+          style={{ fontSize: 12.5 }}
+          onClick={() => setUnlocked((v) => !v)}
+        >
+          {unlocked ? 'Lock' : 'Unlock to edit'}
+        </button>
+      </div>
+
       <form onSubmit={onSave} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+        <fieldset disabled={!unlocked} style={{ border: 0, padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: 16, opacity: unlocked ? 1 : 0.6 }}>
         <StripeModeSection
           label="Live credentials"
           hint="Used for real customer payments when Active mode is set to Live."
@@ -877,10 +960,11 @@ function StripeSettingsTab() {
         />
 
         <div>
-          <button className="btn btn-primary" disabled={busy} type="submit">
+          <button className="btn btn-primary" disabled={busy || !unlocked} type="submit">
             Save
           </button>
         </div>
+        </fieldset>
       </form>
     </div>
   );

@@ -4,6 +4,11 @@ import { useToast } from './Toast.jsx';
 import Icon from './Icon.jsx';
 import { formatDateTime } from '../lib/dates.js';
 
+// .card is border and background only — padding is the caller's, everywhere
+// else in the admin panel. Named rather than repeated so these four cannot
+// drift from each other.
+const CARD = { padding: 20 };
+
 // The Firebase connection.
 //
 // Firebase is only ever about one thing here: raising notifications in the
@@ -91,13 +96,13 @@ export default function PushSettingsTab() {
     }
   }
 
-  if (!status) return <div className="card">Loading…</div>;
+  if (!status) return <div className="card" style={CARD}>Loading…</div>;
 
   const connected = status.configured && status.valid;
 
   return (
     <div style={{ display: 'grid', gap: 16 }}>
-      <div className="card">
+      <div className="card" style={CARD}>
         <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start', flexWrap: 'wrap' }}>
           <div
             style={{
@@ -158,10 +163,10 @@ export default function PushSettingsTab() {
         </div>
 
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 16 }}>
-          <button className="btn" onClick={verify} disabled={!status.configured || busy === 'verify'}>
+          <button className="btn btn-ghost" onClick={verify} disabled={!status.configured || busy === 'verify'}>
             {busy === 'verify' ? 'Checking…' : 'Test connection'}
           </button>
-          <button className="btn" onClick={test} disabled={!connected || busy === 'test'}>
+          <button className="btn btn-ghost" onClick={test} disabled={!connected || busy === 'test'}>
             {busy === 'test' ? 'Sending…' : 'Send myself a test notification'}
           </button>
           {status.configured && (
@@ -201,7 +206,25 @@ export default function PushSettingsTab() {
         )}
       </div>
 
-      <div className="card">
+      <div className="card" style={CARD}>
+        <h3 style={{ margin: '0 0 8px', fontSize: 15 }}>Why this is needed</h3>
+        <p style={{ margin: '0 0 10px', fontSize: 13, color: 'var(--text-muted)', lineHeight: 1.65 }}>
+          Taxify already shows notifications in the app — a recurring expense added, an accountant opening your books,
+          a lodgement date coming up. Those only appear while somebody has Taxify open.
+        </p>
+        <p style={{ margin: '0 0 10px', fontSize: 13, color: 'var(--text-muted)', lineHeight: 1.65 }}>
+          To reach a phone whose screen is off, the message has to go through the operating system's own delivery
+          service. On Android that service is Firebase Cloud Messaging, and Google does not offer another way in — an
+          app cannot wake itself to check for messages, which is deliberate, and is why your battery lasts a day.
+        </p>
+        <p style={{ margin: 0, fontSize: 13, color: 'var(--text-muted)', lineHeight: 1.65 }}>
+          <strong style={{ color: 'var(--text)' }}>Nothing breaks without it.</strong> Every notification still arrives
+          in the app and by email. Connecting Firebase only adds the phone's notification tray. No expense data is sent
+          to Google — a push carries a title, a line of text and the id of the page to open.
+        </p>
+      </div>
+
+      <div className="card" style={CARD}>
         <h3 style={{ margin: '0 0 8px', fontSize: 15 }}>
           {status.configured ? 'Replace the service account' : 'Connect Firebase'}
         </h3>
@@ -219,6 +242,7 @@ export default function PushSettingsTab() {
           </li>
         </ol>
         <textarea
+          className="input"
           value={json}
           onChange={(e) => setJson(e.target.value)}
           rows={9}
@@ -241,7 +265,7 @@ export default function PushSettingsTab() {
       </div>
 
       {devices && devices.length > 0 && (
-        <div className="card">
+        <div className="card" style={CARD}>
           <h3 style={{ margin: '0 0 4px', fontSize: 15 }}>Devices</h3>
           <p style={{ margin: '0 0 12px', fontSize: 12.5, color: 'var(--text-muted)' }}>
             Where a pushed notification would actually arrive. Usually the answer to “why didn’t I get it”.

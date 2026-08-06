@@ -1,5 +1,12 @@
 import { useEffect, useState } from 'react';
 import { api } from '../lib/api.js';
+import { sentenceCase } from '../lib/textCase.js';
+
+// Recomputed per render rather than held in a constant, so a tab left open
+// overnight does not still be offering yesterday.
+function today() {
+  return new Date().toISOString().slice(0, 10);
+}
 import { useToast } from './Toast.jsx';
 import { SkeletonList } from './Skeletons.jsx';
 
@@ -95,7 +102,7 @@ export default function PromoCodesTab() {
               value={form.description}
               maxLength={255}
               placeholder="Spring campaign — 25% off the first year"
-              onChange={(e) => set('description', e.target.value)}
+              onChange={(e) => set('description', sentenceCase(e.target.value))}
             />
           </div>
         </div>
@@ -146,7 +153,16 @@ export default function PromoCodesTab() {
           </div>
           <div>
             <label className="label">Expires</label>
-            <input className="input" type="date" value={form.expiresAt} onChange={(e) => set('expiresAt', e.target.value)} />
+            {/* A code that expired before it was made is not a code. The
+                picker refuses yesterday rather than accepting it and having
+                the code silently never work. */}
+            <input
+              className="input"
+              type="date"
+              min={today()}
+              value={form.expiresAt}
+              onChange={(e) => set('expiresAt', e.target.value)}
+            />
           </div>
         </div>
 
