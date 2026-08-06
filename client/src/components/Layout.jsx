@@ -17,6 +17,7 @@ import { playClick } from '../lib/sounds.js';
 import { formatMoney } from '../lib/money.js';
 import { describeSubscription } from '../lib/subscription.js';
 import { currentPlanType, planLabel as labelForPlan } from '../lib/plans.js';
+import SiteFooter from './SiteFooter.jsx';
 
 // Eight equal-weight links in one column give no sense of where anything is.
 // Grouping them under headings means the eye lands on a section first and a
@@ -427,12 +428,7 @@ export default function Layout({ children }) {
           >
             Log out
           </button>
-          <div style={{ fontSize: 11, color: 'var(--nav-text)', opacity: 0.75, padding: '4px 8px 0', lineHeight: 1.5 }}>
-            © {new Date().getFullYear()} Taxify · Powered by{' '}
-            <a href="https://mikesapphub.com" target="_blank" rel="noreferrer" style={{ color: 'var(--nav-accent)' }}>
-              Mikes App Hub
-            </a>
-          </div>
+          <SiteFooter tone="nav" align="left" style={{ padding: '4px 8px 0' }} />
         </div>
       </aside>
 

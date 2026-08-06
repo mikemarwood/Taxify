@@ -1,6 +1,7 @@
 import { motion } from 'framer-motion';
 import { Link } from 'react-router-dom';
 import AuthSplit from '../components/AuthSplit.jsx';
+import SiteFooter from '../components/SiteFooter.jsx';
 
 // Every signed-out page other than sign-up: log in, activate, accept an
 // invite. Sign-up has its own aside because it shows step progress there;
@@ -36,12 +37,7 @@ export default function AuthLayout({ title, subtitle, children }) {
           <Link to="/privacy" style={{ color: 'inherit' }}>
             Privacy
           </Link>
-          <span style={{ marginLeft: 'auto' }}>
-            © {new Date().getFullYear()} Taxify ·{' '}
-            <a href="https://mikesapphub.com" target="_blank" rel="noreferrer" style={{ color: 'var(--accent)' }}>
-              Mikes App Hub
-            </a>
-          </span>
+          <SiteFooter align="right" style={{ marginLeft: 'auto' }} />
         </div>
       </motion.div>
     </AuthSplit>

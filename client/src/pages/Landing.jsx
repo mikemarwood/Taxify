@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import AndroidDownloadButton from '../components/AndroidDownloadButton.jsx';
+import SiteFooter from '../components/SiteFooter.jsx';
 import Icon from '../components/Icon.jsx';
 import { api } from '../lib/api.js';
 
@@ -576,10 +577,7 @@ export default function Landing() {
           <span style={{ margin: '0 8px', opacity: 0.5 }}>·</span>
           <Link to="/privacy" style={{ color: 'var(--blue)' }}>Privacy Policy</Link>
         </div>
-        © {new Date().getFullYear()} Taxify · Powered by{' '}
-        <a href="https://mikesapphub.com" target="_blank" rel="noreferrer" style={{ color: 'var(--blue)' }}>
-          Mikes App Hub
-        </a>
+        <SiteFooter />
       </footer>
     </div>
   );

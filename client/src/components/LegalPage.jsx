@@ -1,20 +1,39 @@
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
+import Icon from './Icon.jsx';
+import SiteFooter from './SiteFooter.jsx';
 
 // The shell both legal pages share, so they cannot drift apart in tone or
 // layout. Readable at a phone width, with a contents list — nobody reads these
 // top to bottom, they arrive looking for one clause.
 
 export function LegalPage({ title, summary, updated, sections, children }) {
+  const navigate = useNavigate();
+
+  // Back to wherever they came from. Somebody who opened this from inside the
+  // app wants their own account back, not the marketing page — and somebody
+  // who arrived on it directly, from a link in an email, has no history to go
+  // back through, so that case falls to the landing page.
+  function goBack() {
+    if (window.history.length > 1) navigate(-1);
+    else navigate('/landing');
+  }
+
   return (
     <div style={{ minHeight: '100vh', display: 'flex', justifyContent: 'center', padding: '48px 20px 64px' }}>
       <div style={{ width: '100%', maxWidth: 760 }}>
-        <Link
-          to="/landing"
-          style={{ display: 'inline-flex', alignItems: 'center', gap: 10, marginBottom: 28, textDecoration: 'none', color: 'var(--text)' }}
-        >
-          <img src="/logo.svg" alt="" width="32" height="32" />
-          <span style={{ fontWeight: 800, fontSize: 20 }}>Taxify</span>
-        </Link>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 28, flexWrap: 'wrap' }}>
+          <button type="button" className="btn btn-ghost" onClick={goBack} style={{ fontSize: 13, gap: 7 }}>
+            <Icon name="arrow-left" size={15} />
+            Back
+          </button>
+          <Link
+            to="/landing"
+            style={{ display: 'inline-flex', alignItems: 'center', gap: 10, textDecoration: 'none', color: 'var(--text)' }}
+          >
+            <img src="/logo.svg" alt="" width="32" height="32" />
+            <span style={{ fontWeight: 800, fontSize: 20 }}>Taxify</span>
+          </Link>
+        </div>
 
         <div className="card" style={{ padding: 'clamp(20px, 4vw, 36px)' }}>
           <h1 style={{ fontSize: 'clamp(22px, 4vw, 27px)', margin: '0 0 6px', letterSpacing: -0.4 }}>{title}</h1>
@@ -70,6 +89,8 @@ export function LegalPage({ title, summary, updated, sections, children }) {
             Create an account
           </Link>
         </p>
+
+        <SiteFooter style={{ marginTop: 18 }} />
       </div>
     </div>
   );
