@@ -25,6 +25,7 @@ export function toPublicUser(user, mfaMode) {
     country: user.country || null,
     state: user.state || null,
     businessName: user.business_name || null,
+    practiceName: user.practice_name || null,
     // How dates should read for this person — from their country, not from
     // whatever the browser happens to be set to.
     locale: localeForCountry(user.country),

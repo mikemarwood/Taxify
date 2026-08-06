@@ -728,6 +728,17 @@ router.post(
   asyncHandler(async (req, res) => {
     if (!(await hasAssignments(req.user.id))) return res.status(403).json({ error: 'You do not act for any clients' });
 
+    // The door. This is the only route that issues a client-scoped token, and
+    // the moment a window would start — so the check belongs here rather than
+    // anywhere that merely reads. Refused before openAssignment, so a blocked
+    // attempt cannot start somebody's clock.
+    if (!req.user.accountantSetup?.ready) {
+      return res.status(403).json({
+        error: 'accountant_setup_required',
+        missing: req.user.accountantSetup?.missing || [],
+      });
+    }
+
     const ownerId = Number(req.params.ownerId);
     if (!Number.isInteger(ownerId)) return res.status(400).json({ error: 'Unknown client' });
 
@@ -1022,7 +1033,7 @@ router.get(
   asyncHandler(async (req, res) => {
     const [rows] = await pool.execute(
       `SELECT a.id, a.financial_years, a.window_hours, a.first_login_at, a.expires_at, a.created_at,
-              u.name, u.email, u.activated_at
+              u.name, u.email, u.activated_at, u.practice_name, u.phone
        FROM accountant_assignments a
        JOIN users u ON u.id = a.accountant_user_id
        WHERE a.owner_user_id = ? AND (a.expires_at IS NULL OR a.expires_at > NOW())
@@ -1034,6 +1045,8 @@ router.get(
         id: r.id,
         name: r.name,
         email: r.email,
+        practiceName: r.practice_name || null,
+        phone: r.phone || null,
         active: !!r.activated_at,
         financialYears: r.financial_years ? r.financial_years.split(',') : null,
         windowHours: normaliseWindowHours(r.window_hours) ?? ACCOUNTANT_WINDOW_HOURS,
@@ -1276,7 +1289,8 @@ router.patch(
     // Everything captured at sign-up can be corrected here except how they
     // heard about us — that's a one-time answer about a moment that's passed,
     // and letting it be edited later would only corrupt what it exists for.
-    const { firstName, lastName, dateOfBirth, phone, email, currency, country, state, businessName } = req.body || {};
+    const { firstName, lastName, dateOfBirth, phone, email, currency, country, state, businessName, practiceName } =
+      req.body || {};
 
     for (const [value, label, limits] of [
       [firstName, 'First name', LIMITS.firstName],
@@ -1314,11 +1328,17 @@ router.patch(
     const last = toPersonName(lastName);
     const fullName = `${first} ${last}`.trim();
     const trimmedBusinessName = businessName ? String(businessName).trim().slice(0, 120) : null;
+    // Only meaningful for someone who acts for clients, but stored for anyone
+    // who fills it in — an accountant who later starts their own account keeps
+    // both, and losing the firm name at that moment would be the wrong answer.
+    const trimmedPracticeName =
+      practiceName === undefined ? undefined : practiceName ? String(practiceName).trim().slice(0, 160) : null;
 
     try {
       await pool.execute(
         `UPDATE users SET name = ?, first_name = ?, last_name = ?, date_of_birth = ?, phone = ?, email = ?,
-         currency = ?, business_name = ? WHERE id = ?`,
+         currency = ?, business_name = ?${trimmedPracticeName === undefined ? '' : ', practice_name = ?'}
+         WHERE id = ?`,
         [
           fullName,
           first,
@@ -1328,6 +1348,7 @@ router.patch(
           normalizedEmail,
           finalCurrency,
           trimmedBusinessName,
+          ...(trimmedPracticeName === undefined ? [] : [trimmedPracticeName]),
           req.user.id,
         ]
       );
@@ -1351,6 +1372,7 @@ router.patch(
         country: matchedCountry?.name || req.user.country,
         state: fixedState,
         businessName: trimmedBusinessName,
+        ...(trimmedPracticeName === undefined ? {} : { practiceName: trimmedPracticeName }),
       },
     });
   })

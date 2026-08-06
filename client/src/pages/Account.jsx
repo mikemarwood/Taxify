@@ -605,8 +605,14 @@ function FamilySection({ user }) {
               }}
             >
               <Icon name="briefcase" size={16} style={{ color: 'var(--accent)' }} />
-              <span style={{ fontWeight: 600 }}>{a.name}</span>
-              <span style={{ color: 'var(--text-muted)', flex: 1, minWidth: 140 }}>{a.email}</span>
+              <span style={{ minWidth: 140, flex: 1 }}>
+                <span style={{ fontWeight: 600 }}>{a.practiceName || a.name}</span>
+                <span style={{ display: 'block', fontSize: 11.5, color: 'var(--text-muted)' }}>
+                  {a.practiceName ? `${a.name} · ` : ''}
+                  {a.email}
+                  {a.phone ? ` · ${a.phone}` : ''}
+                </span>
+              </span>
               <span style={{ fontSize: 11.5, color: 'var(--text-muted)' }}>
                 {a.financialYears ? `FY ${a.financialYears.join(', ')}` : 'All years'}
               </span>
@@ -808,6 +814,7 @@ export default function Account() {
   const [phone, setPhone] = useState(user.phone || '');
   const [currency, setCurrency] = useState(user.currency || 'AUD');
   const [businessName, setBusinessName] = useState(user.businessName || '');
+  const [practiceName, setPracticeName] = useState(user.practiceName || '');
   const [profileBusy, setProfileBusy] = useState(false);
   const [options, setOptions] = useState(null);
 
@@ -852,7 +859,8 @@ export default function Account() {
     dateOfBirth !== (user.dateOfBirth || '') ||
     phone.trim() !== (user.phone || '') ||
     currency !== (user.currency || '') ||
-    businessName.trim() !== (user.businessName || '');
+    businessName.trim() !== (user.businessName || '') ||
+    practiceName.trim() !== (user.practiceName || '');
 
   async function onSaveProfile(e) {
     e.preventDefault();
@@ -865,6 +873,7 @@ export default function Account() {
         phone: phone.trim(),
         currency,
         businessName: businessName.trim(),
+        practiceName: practiceName.trim(),
       });
       toast('Account details updated', 'success');
     } catch (err) {
@@ -1088,6 +1097,25 @@ export default function Account() {
             <label className="label">Business name (optional)</label>
             <input className="input" maxLength={120} value={businessName} onChange={(e) => setBusinessName(e.target.value)} />
           </div>
+          {/* A different fact from the business name above: that one is the
+              business whose expenses you track, this one is the firm you do
+              other people's returns under. Somebody can have both, so it is
+              shown only to people who actually act for clients. */}
+          {(user.isAccountant || user.role === 'accountant') && (
+            <div>
+              <label className="label">Practice or firm name</label>
+              <input
+                className="input"
+                maxLength={160}
+                value={practiceName}
+                placeholder="e.g. Chen & Co"
+                onChange={(e) => setPracticeName(e.target.value)}
+              />
+              <div style={{ fontSize: 11.5, color: 'var(--text-muted)', marginTop: 5 }}>
+                Shown to clients who share their books with you.
+              </div>
+            </div>
+          )}
         </div>
 
         <button className="btn btn-primary" type="submit" disabled={profileBusy || !profileChanged} style={{ alignSelf: 'flex-start' }}>

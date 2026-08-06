@@ -27,11 +27,105 @@ function remaining(expiresAt) {
   return `${minutes} ${minutes === 1 ? 'minute' : 'minutes'} left`;
 }
 
+// One step between an accountant and their clients, and the fix for it is on
+// the same page. Anything that sends somebody off to hunt through settings for
+// a switch they have never heard of is a wall, not a prompt.
+function SetupRequired({ missing, onDone }) {
+  const toast = useToast();
+  const { setOtpEnabled, refresh } = useAuth();
+  const [practice, setPractice] = useState('');
+  const [busy, setBusy] = useState(false);
+
+  async function enableMfa() {
+    setBusy(true);
+    try {
+      await setOtpEnabled(true);
+      toast('Two-factor is on — you will be sent a code each time you sign in', 'success');
+      onDone();
+    } catch (err) {
+      toast(err.message, 'error');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function savePractice(e) {
+    e.preventDefault();
+    setBusy(true);
+    try {
+      await api.patch('/auth/profile', { practiceName: practice.trim() });
+      await refresh();
+      toast('Saved', 'success');
+      onDone();
+    } catch (err) {
+      toast(err.message, 'error');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="card" style={{ padding: 22, marginBottom: 22, borderLeft: '4px solid var(--amber)' }}>
+      <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
+        <Icon name="lock" size={19} style={{ color: 'var(--amber)', flexShrink: 0, marginTop: 2 }} />
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 4 }}>
+            One step before you can open a client's books
+          </div>
+          <p style={{ fontSize: 13, color: 'var(--text-muted)', margin: '0 0 16px', lineHeight: 1.55 }}>
+            You are about to read somebody else's complete financial records. That is a higher bar than an ordinary
+            sign-in, and the people whose records they are did not get a say in it.
+          </p>
+
+          {missing.includes('mfa') && (
+            <div style={{ marginBottom: 16 }}>
+              <div style={{ fontWeight: 600, fontSize: 13.5, marginBottom: 4 }}>Turn on two-factor sign-in</div>
+              <p style={{ fontSize: 12.5, color: 'var(--text-muted)', margin: '0 0 10px', lineHeight: 1.5 }}>
+                We will email you a six-digit code each time you sign in. Nothing to install.
+              </p>
+              <button className="btn btn-primary" style={{ fontSize: 13 }} disabled={busy} onClick={enableMfa}>
+                {busy && <span className="spinner" />}
+                Turn it on
+              </button>
+            </div>
+          )}
+
+          {missing.includes('profile') && (
+            <form onSubmit={savePractice}>
+              <div style={{ fontWeight: 600, fontSize: 13.5, marginBottom: 4 }}>Add your practice or firm name</div>
+              <p style={{ fontSize: 12.5, color: 'var(--text-muted)', margin: '0 0 10px', lineHeight: 1.5 }}>
+                Your clients see it, so they know who they have shared their books with.
+              </p>
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                <input
+                  className="input"
+                  maxLength={160}
+                  required
+                  value={practice}
+                  placeholder="e.g. Chen & Co"
+                  onChange={(e) => setPractice(e.target.value)}
+                  style={{ maxWidth: 280 }}
+                />
+                <button className="btn btn-primary" style={{ fontSize: 13 }} disabled={busy || !practice.trim()}>
+                  Save
+                </button>
+              </div>
+            </form>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // Where an accountant lands. An accountant may act for several people, so the
 // first question is always whose books — never assumed, even when there is only
 // one, because opening a client is what starts their 24-hour window.
 export default function ClientPicker() {
   const { user, refresh, logout } = useAuth();
+  // What they still have to do. Sent with every /auth/me, so it is already here.
+  const setup = user?.accountantSetup;
+  const blocked = setup && !setup.ready;
   const navigate = useNavigate();
   const toast = useToast();
   const [clients, setClients] = useState(null);
@@ -106,6 +200,8 @@ export default function ClientPicker() {
           </button>
         </div>
 
+        {blocked && <SetupRequired missing={setup.missing} onDone={refresh} />}
+
         {clients === null ? (
           <SkeletonList rows={3} />
         ) : clients.length === 0 ? (
@@ -145,8 +241,8 @@ export default function ClientPicker() {
                 <motion.button
                   key={c.ownerId}
                   type="button"
-                  onClick={() => !opening && open(c)}
-                  disabled={!!opening}
+                  onClick={() => !opening && !blocked && open(c)}
+                  disabled={!!opening || blocked}
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: Math.min(i, 8) * 0.04 }}
@@ -161,7 +257,9 @@ export default function ClientPicker() {
                     color: 'var(--text)',
                     display: 'flex',
                     flexDirection: 'column',
-                    opacity: opening && !busy ? 0.5 : 1,
+                    // Still visible while blocked — they should be able to see
+                    // who is waiting for them, just not open it yet.
+                    opacity: blocked ? 0.55 : opening && !busy ? 0.5 : 1,
                   }}
                 >
                   <div style={{ padding: 18, display: 'flex', flexDirection: 'column', gap: 12, flex: 1 }}>

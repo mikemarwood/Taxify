@@ -71,6 +71,13 @@ export async function ensureSchema() {
   // referral_source and terms_accepted_at are one-time capture at signup.
   await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS country VARCHAR(80) NULL`);
   await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS business_name VARCHAR(255) NULL`);
+
+  // The firm somebody does other people's returns under, which is a different
+  // fact from business_name — that is the business whose expenses they track.
+  // One login can legitimately have both: an accountant who also keeps their
+  // own books. Two nullable columns rather than a table, because two nullable
+  // facts joined to the same row is a table's worth of ceremony for no gain.
+  await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS practice_name VARCHAR(160) NULL`);
   await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS referral_source VARCHAR(100) NULL`);
   await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS terms_accepted_at DATETIME NULL`);
 

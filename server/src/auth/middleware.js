@@ -4,6 +4,7 @@ import { asyncHandler } from '../lib/asyncHandler.js';
 import { toPublicUser } from './publicUser.js';
 import { computeAccessLocked, dataOwnerId, financialYearRuleFor } from './access.js';
 import { findAssignment, hasAssignments } from './accountants.js';
+import { accountantSetupState, blocksExistingSession } from './accountantOnboarding.js';
 import { resolveRequestEntity } from '../lib/entityScope.js';
 
 export const requireAuth = asyncHandler(async (req, res, next) => {
@@ -15,7 +16,7 @@ export const requireAuth = asyncHandler(async (req, res, next) => {
     `SELECT id, email, name, first_name, last_name, date_of_birth, phone, is_admin, avatar_path,
             otp_enabled, otp_last_prompted_at, role, account_holder_id, plan_type,
             fy_start_month, fy_start_day,
-            currency, country, state, business_name, activated_at, trial_ends_at,
+            currency, country, state, business_name, practice_name, activated_at, trial_ends_at,
             access_bypass, access_bypass_until,
             subscription_status, stripe_customer_id, stripe_subscription_id, subscription_current_period_end
      FROM users WHERE id = ?`,
@@ -35,7 +36,25 @@ export const requireAuth = asyncHandler(async (req, res, next) => {
   req.user.actingAsClient = null;
   req.user.allowedFinancialYears = null;
 
-  if (payload.clientId) {
+  // What they still have to do before they may act for anybody. Published on
+  // req.user so /auth/me carries it to the client without a route of its own.
+  req.user.accountantSetup = accountantSetupState({
+    isAccountant: req.user.isAccountant,
+    otpEnabled: req.user.otpEnabled,
+    practiceName: req.user.practiceName,
+  });
+
+  if (payload.clientId && blocksExistingSession(req.user.accountantSetup)) {
+    // Dropped rather than refused, and dropped *here* — before the year rule,
+    // the entity and accessLocked are all resolved against a client. Every
+    // scope function downstream then behaves as though no client is open, so a
+    // route written next year cannot read a client's records even if its author
+    // never heard of this rule. A 403 would only stop the routes that thought
+    // to check.
+    //
+    // This is the one thing that can end a session that is already open, and it
+    // can only happen to somebody who turned their own two-factor off.
+  } else if (payload.clientId) {
     const assignment = await findAssignment(req.user.id, payload.clientId);
     // A revoked or expired assignment drops the client from the session at
     // once — they land back on the picker rather than on stale books.

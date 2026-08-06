@@ -121,11 +121,16 @@ export default function Layout({ children }) {
   }, [location.pathname]);
 
   useEffect(() => {
-    if (user?.mfaPromptDue) {
+    // Not while an accountant is already being told the same thing on the
+    // client picker. That prompt offers "Not now" and this requirement does
+    // not, and two versions of one ask — one dismissible, one not — reads as a
+    // bug rather than as insistence.
+    const accountantMustAnyway = user?.accountantSetup && !user.accountantSetup.ready;
+    if (user?.mfaPromptDue && !accountantMustAnyway) {
       const id = setTimeout(() => setShowMfaPrompt(true), 800);
       return () => clearTimeout(id);
     }
-  }, [user?.mfaPromptDue]);
+  }, [user?.mfaPromptDue, user?.accountantSetup?.ready]);
 
   useEffect(() => {
     api
