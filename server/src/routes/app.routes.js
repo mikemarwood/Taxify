@@ -3,6 +3,7 @@ import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { asyncHandler } from '../lib/asyncHandler.js';
+import { publicOrigin } from '../lib/publicOrigin.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const versionFile = path.join(__dirname, '..', 'app-version.json');
@@ -14,7 +15,7 @@ const versionFile = path.join(__dirname, '..', 'app-version.json');
 // https unless it is a local address — a proxy that forwards without
 // X-Forwarded-Proto would otherwise hand out http:// for an https:// site.
 function apkDownloadUrl(req) {
-  const configured = process.env.CLIENT_ORIGIN;
+  const configured = publicOrigin();
   if (configured) return `${configured.replace(/\/+$/, '')}/downloads/taxify.apk`;
 
   const host = req.get('host') || '';

@@ -5,6 +5,7 @@ import {
   sendActivationReminderEmail,
 } from '../lib/mailer.js';
 import { generateActivationToken } from '../auth/activationToken.js';
+import { publicOrigin } from '../lib/publicOrigin.js';
 
 const UNACTIVATED_LIFETIME_DAYS = 5;
 
@@ -47,7 +48,7 @@ export async function purgeUnactivatedAccounts(pool) {
         user.id,
       ]);
 
-      const url = `${process.env.CLIENT_ORIGIN || 'http://localhost:5173'}/activate?token=${token}`;
+      const url = `${publicOrigin()}/activate?token=${token}`;
       try {
         await sendActivationReminderEmail(user.email, user.first_name || user.name, url, daysLeft);
         await markSent(pool, user.id, key);

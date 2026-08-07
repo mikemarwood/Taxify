@@ -47,7 +47,7 @@ export default function ChangeEmailSection({ user }) {
           if (id !== requestId.current) return;
           setCheck(
             res.data.available
-              ? { state: 'available', message: 'That address is free' }
+              ? { state: 'available', message: 'That address is available' }
               : { state: 'taken', message: res.data.reason || 'An account with that email already exists' }
           );
         })

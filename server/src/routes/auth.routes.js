@@ -53,6 +53,7 @@ import { createCaptcha, verifyCaptcha } from '../lib/captcha.js';
 import { assignAccountNumber } from '../lib/accountNumber.js';
 import { getSignupPlans } from '../lib/stripe.js';
 import { evaluatePromoCode, recordPromoRedemption } from '../lib/promoCodes.js';
+import { publicOrigin } from '../lib/publicOrigin.js';
 
 const TRIAL_DAYS = 14;
 
@@ -417,7 +418,7 @@ router.post(
 
     if (finalPromo) await recordPromoRedemption(finalPromo);
 
-    const activationUrl = `${process.env.CLIENT_ORIGIN || 'http://localhost:5173'}/activate?token=${token}`;
+    const activationUrl = `${publicOrigin()}/activate?token=${token}`;
     try {
       await sendActivationEmail(normalizedEmail, first, activationUrl, {
         planType: finalPlanType,
@@ -529,7 +530,7 @@ router.post(
       user.id,
     ]);
 
-    const activationUrl = `${process.env.CLIENT_ORIGIN || 'http://localhost:5173'}/activate?token=${token}`;
+    const activationUrl = `${publicOrigin()}/activate?token=${token}`;
     try {
       await sendActivationEmail(user.email, user.first_name || user.name, activationUrl, {
         planType: user.plan_type,
@@ -642,7 +643,7 @@ router.post(
           [found.id, req.user.id, yearScope, windowHours]
         );
 
-        const loginUrl = `${process.env.CLIENT_ORIGIN || 'http://localhost:5173'}/login`;
+        const loginUrl = `${publicOrigin()}/login`;
         let emailed = true;
         try {
           await sendAccountantAccessGrantedEmail(
@@ -682,7 +683,7 @@ router.post(
         [req.user.id, normalizedEmail, displayName, yearScope, windowHours, tokenHash, expiresAt]
       );
 
-      const acceptUrl = `${process.env.CLIENT_ORIGIN || 'http://localhost:5173'}/accept-invite?token=${token}`;
+      const acceptUrl = `${publicOrigin()}/accept-invite?token=${token}`;
       let emailed = true;
       try {
         await sendAccountantInviteEmail(
@@ -1160,7 +1161,7 @@ router.post(
       [tokenHash, expiresAt, invite.id]
     );
 
-    const acceptUrl = `${process.env.CLIENT_ORIGIN || 'http://localhost:5173'}/accept-invite?token=${token}`;
+    const acceptUrl = `${publicOrigin()}/accept-invite?token=${token}`;
     let emailed = true;
     try {
       await sendAccountantInviteEmail(
@@ -1286,7 +1287,7 @@ router.post(
     const [rows] = await pool.execute('SELECT * FROM users WHERE email = ?', [normalizedEmail]);
     const user = rows[0];
     if (!user || !verifyPassword(password, user.password_hash)) {
-      return res.status(401).json({ error: 'Invalid email or password' });
+      return res.status(401).json({ error: 'That email and password don’t match an account.' });
     }
 
     if (!user.activated_at) {
@@ -1439,7 +1440,7 @@ router.post(
         });
       }
       await pool.execute('UPDATE users SET otp_attempts = ? WHERE id = ?', [attempts, user.id]);
-      return res.status(401).json({ error: 'Incorrect code', attemptsRemaining: OTP_MAX_ATTEMPTS - attempts });
+      return res.status(401).json({ error: 'That code isn’t right.', attemptsRemaining: OTP_MAX_ATTEMPTS - attempts });
     }
 
     await pool.execute(
@@ -1711,7 +1712,7 @@ router.post(
       [normalized, tokenHash, expiresAt, req.user.id]
     );
 
-    const confirmUrl = `${process.env.CLIENT_ORIGIN || 'http://localhost:5173'}/confirm-email?token=${token}`;
+    const confirmUrl = `${publicOrigin()}/confirm-email?token=${token}`;
     try {
       await sendEmailChangeEmail(normalized, row.first_name || row.name, confirmUrl, EMAIL_CHANGE_HOURS, req.user.email);
     } catch (err) {
@@ -1852,7 +1853,7 @@ router.post(
         [tokenHash, expiresAt, user.id]
       );
 
-      const activationUrl = `${process.env.CLIENT_ORIGIN || 'http://localhost:5173'}/activate?token=${token}`;
+      const activationUrl = `${publicOrigin()}/activate?token=${token}`;
       try {
         await sendActivationEmail(user.email, user.first_name || user.name, activationUrl, {
           trialDays: TRIAL_DAYS,
@@ -1883,7 +1884,7 @@ router.post(
       [tokenHash, expiresAt, user.id]
     );
 
-    const resetUrl = `${process.env.CLIENT_ORIGIN || 'http://localhost:5173'}/reset-password?token=${token}`;
+    const resetUrl = `${publicOrigin()}/reset-password?token=${token}`;
     try {
       await sendPasswordResetEmail(user.email, user.first_name || user.name, resetUrl, RESET_TOKEN_HOURS);
     } catch (err) {

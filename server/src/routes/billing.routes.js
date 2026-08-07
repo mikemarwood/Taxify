@@ -8,10 +8,11 @@ import { fileURLToPath } from 'url';
 import { getStripe, getStripeConfig, priceIdForPlan, planTypeForPriceId } from '../lib/stripe.js';
 import { invoicesDir, invoiceFilename, shapeInvoice, isStored, storeInvoicePdf } from '../lib/invoiceStorage.js';
 import { serveAttachment } from '../lib/serveAttachment.js';
+import { publicOrigin } from '../lib/publicOrigin.js';
 
 const uploadsDir = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', '..', 'uploads');
 
-const CLIENT_ORIGIN = process.env.CLIENT_ORIGIN || 'http://localhost:5173';
+const CLIENT_ORIGIN = publicOrigin();
 
 const router = Router();
 
