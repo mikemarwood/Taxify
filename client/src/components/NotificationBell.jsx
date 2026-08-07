@@ -15,7 +15,9 @@ import { formatDateTime } from '../lib/dates.js';
 
 const POLL_MS = 2 * 60 * 1000;
 
-export default function NotificationBell() {
+// `compact` is the sidebar footer: an icon-only square beside Log out, rather
+// than two equal slabs of text competing for a row that is already narrow.
+export default function NotificationBell({ compact = false }) {
   const [data, setData] = useState(null);
   const [open, setOpen] = useState(false);
   const ref = useRef(null);
@@ -92,15 +94,27 @@ export default function NotificationBell() {
         className="btn nav-btn"
         onClick={openPanel}
         aria-label={unread > 0 ? `Notifications, ${unread} unread` : 'Notifications'}
-        style={{ fontSize: 13, position: 'relative', width: '100%', justifyContent: 'center', gap: 8 }}
+        title="Notifications"
+        style={{
+          fontSize: 13,
+          position: 'relative',
+          width: '100%',
+          justifyContent: 'center',
+          gap: compact ? 0 : 8,
+          // Without this the label can grow wider than the button and, because
+          // the content is centred, spill out of *both* edges — which is how a
+          // bell ended up floating outside its own box in the sidebar.
+          overflow: 'hidden',
+          padding: compact ? 0 : undefined,
+        }}
       >
         <Icon name="bell" size={15} />
-        Notifications
+        {!compact && <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>Notifications</span>}
         {unread > 0 && (
           <span
             style={{
-              minWidth: 18,
-              height: 18,
+              minWidth: compact ? 16 : 18,
+              height: compact ? 16 : 18,
               padding: '0 5px',
               borderRadius: 999,
               background: 'var(--red)',
@@ -110,6 +124,10 @@ export default function NotificationBell() {
               display: 'inline-flex',
               alignItems: 'center',
               justifyContent: 'center',
+              // Pinned to the corner when there's no label to sit beside.
+              ...(compact
+                ? { position: 'absolute', top: -5, right: -5, border: '2px solid var(--nav-bg)' }
+                : null),
             }}
           >
             {unread > 9 ? '9+' : unread}

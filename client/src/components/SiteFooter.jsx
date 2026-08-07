@@ -21,8 +21,12 @@ export default function SiteFooter({ tone = 'page', align = 'center', style }) {
         ...style,
       }}
     >
-      <div>
-        © {new Date().getFullYear()} Taxify · More apps at{' '}
+      {/* Two lines in the rail, one on a page. At the sidebar's width the single
+          line wrapped mid-link — "Mikes" on one row and "App Hub" on the next —
+          so the break is put where it belongs instead of left to chance. */}
+      <div>© {new Date().getFullYear()} Taxify</div>
+      <div style={{ marginTop: nav ? 1 : 0 }}>
+        More apps at{' '}
         {/* noreferrer as well as noopener: without it the new tab can reach
             back through window.opener. */}
         <a href={HUB} target="_blank" rel="noreferrer" style={{ color: link, fontWeight: 600 }}>

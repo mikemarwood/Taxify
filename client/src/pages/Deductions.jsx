@@ -11,6 +11,7 @@ import { formatDayMonth } from '../lib/dates.js';
 import { useFinancialYears } from '../lib/useFinancialYears.js';
 import { currentFinancialYear } from '../lib/financialYear.js';
 import { playSuccess, playError, onDigitKeyDown } from '../lib/sounds.js';
+import { useConfirm } from '../lib/ConfirmContext.jsx';
 
 // The deductions that aren't receipts: kilometres driven for work and hours
 // worked at home. Both are logged as they happen, because both are claimed at
@@ -66,6 +67,7 @@ function Panel({ title, icon, claim, rateNote, children }) {
 }
 
 export default function Deductions() {
+  const confirm = useConfirm();
   const { user } = useAuth();
   const toast = useToast();
   const { years } = useFinancialYears();
@@ -145,7 +147,7 @@ export default function Deductions() {
   }
 
   async function remove(kind, id) {
-    if (!window.confirm('Remove this entry?')) return;
+    if (!(await confirm({ tone: 'danger', title: 'Remove this entry?', confirmLabel: 'Remove' }))) return;
     try {
       await api.delete(`/deductions/${kind}/${id}`);
       load();

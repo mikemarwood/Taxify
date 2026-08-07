@@ -3,6 +3,7 @@ import { api } from '../lib/api.js';
 import { useToast } from './Toast.jsx';
 import Icon from './Icon.jsx';
 import { formatDateTime } from '../lib/dates.js';
+import { useConfirm } from '../lib/ConfirmContext.jsx';
 
 // .card is border and background only — padding is the caller's, everywhere
 // else in the admin panel. Named rather than repeated so these four cannot
@@ -24,6 +25,7 @@ const STEP_LABELS = {
 };
 
 export default function PushSettingsTab() {
+  const confirm = useConfirm();
   const toast = useToast();
   const [status, setStatus] = useState(null);
   const [devices, setDevices] = useState(null);
@@ -76,7 +78,7 @@ export default function PushSettingsTab() {
   }
 
   async function remove() {
-    if (!window.confirm('Disconnect Firebase? Notifications will still appear inside the app.')) return;
+    if (!(await confirm({ title: 'Disconnect Firebase?', body: 'Notifications will still appear inside the app — they just stop reaching the phone’s notification tray.', confirmLabel: 'Disconnect' }))) return;
     await api.patch('/admin/push-settings', { serviceAccount: '' }).catch(() => {});
     setCheck(null);
     load();

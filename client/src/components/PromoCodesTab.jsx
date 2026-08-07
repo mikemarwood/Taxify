@@ -9,10 +9,12 @@ function today() {
 }
 import { useToast } from './Toast.jsx';
 import { SkeletonList } from './Skeletons.jsx';
+import { useConfirm } from '../lib/ConfirmContext.jsx';
 
 // Promo codes applied during sign-up. Codes are always upper case — the field
 // forces it, so a code printed on a flyer matches whatever someone types in.
 export default function PromoCodesTab() {
+  const confirm = useConfirm();
   const toast = useToast();
   const [codes, setCodes] = useState(null);
   const [busy, setBusy] = useState(false);
@@ -64,7 +66,7 @@ export default function PromoCodesTab() {
   }
 
   async function remove(promo) {
-    if (!window.confirm(`Delete ${promo.code}? Accounts that already used it are unaffected.`)) return;
+    if (!(await confirm({ tone: 'danger', title: `Delete ${promo.code}?`, body: 'Accounts that already used it are unaffected.', confirmLabel: 'Delete' }))) return;
     try {
       await api.delete(`/admin/promo-codes/${promo.id}`);
       toast(`${promo.code} deleted`, 'success');

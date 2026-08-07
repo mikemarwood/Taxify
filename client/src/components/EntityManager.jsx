@@ -3,9 +3,10 @@ import { AnimatePresence, motion } from 'framer-motion';
 import { api } from '../lib/api.js';
 import { useToast } from './Toast.jsx';
 import { useEntities } from '../lib/EntityContext.jsx';
-import { titleCase } from '../lib/textCase.js';
+import { titleCase, titleCaseLive } from '../lib/textCase.js';
 import Icon from './Icon.jsx';
 import { playClick } from '../lib/sounds.js';
+import { useConfirm } from '../lib/ConfirmContext.jsx';
 
 // Creating and organising sets of books, on the page where categories live —
 // because a category belongs to one set of books, so "which business" has to be
@@ -37,7 +38,30 @@ function nameTaken(value, all, ignore = null) {
   return all.some((e) => sameName(e.name, value));
 }
 
+// Long enough to be a name, short enough to fit the picker and the sidebar
+// without being cut off. Spaces are counted after collapsing runs of them, so
+// trailing whitespace can't be used to pad a one-character name past the floor.
+const NAME_MIN = 2;
+const NAME_MAX = 40;
+
+function cleanName(value) {
+  return String(value ?? '').trim().replace(/\s+/g, ' ');
+}
+
+// The message under the field, or '' when there is nothing to say. Returned
+// rather than thrown so the same call can both disable the button and label
+// the reason.
+function nameProblem(value, all, ignore = null) {
+  const text = cleanName(value);
+  if (!text) return '';
+  if (text.length < NAME_MIN) return `At least ${NAME_MIN} characters`;
+  if (text.length > NAME_MAX) return `At most ${NAME_MAX} characters`;
+  if (nameTaken(text, all, ignore)) return 'You already have a set of books with that name';
+  return '';
+}
+
 export default function EntityManager() {
+  const confirm = useConfirm();
   const toast = useToast();
   const { entities, archived, allowance, selected, selectedId, choose, reload } = useEntities();
   const [adding, setAdding] = useState(false);
@@ -55,7 +79,7 @@ export default function EntityManager() {
   // Archived books are included: the name is still taken, the server still
   // refuses it, and restoring one is a single press away.
   const allNames = [...entities, ...(archived || [])];
-  const createClash = nameTaken(name, allNames);
+  const createProblem = nameProblem(name, allNames);
 
   function resetForm() {
     setName('');
@@ -102,7 +126,7 @@ export default function EntityManager() {
   }
 
   async function archive(entity) {
-    if (!window.confirm(`Archive ${entity.name}? Everything in it is kept — it just stops appearing.`)) return;
+    if (!(await confirm({ title: `Archive ${entity.name}?`, body: 'Everything in it is kept — it just stops appearing in the picker, and it still counts against your plan.', confirmLabel: 'Archive' }))) return;
     try {
       await api.post(`/entities/${entity.id}/archive`, { archived: true });
       await reload();
@@ -124,7 +148,7 @@ export default function EntityManager() {
   }
 
   async function remove(entity) {
-    if (!window.confirm(`Delete ${entity.name}? This cannot be undone.`)) return;
+    if (!(await confirm({ tone: 'danger', title: `Delete ${entity.name}?`, body: 'This cannot be undone.', confirmLabel: 'Delete' }))) return;
     try {
       await api.delete(`/entities/${entity.id}`);
       await reload();
@@ -305,15 +329,19 @@ export default function EntityManager() {
               <input
                 className="input"
                 required
-                maxLength={60}
+                maxLength={NAME_MAX}
                 value={name}
-                onChange={(ev) => setName(titleCase(ev.target.value))}
+                // titleCaseLive, not titleCase: the latter trims, so the space
+                // between two words was deleted as soon as it was typed and a
+                // name could never be more than one word.
+                onChange={(ev) => setName(titleCaseLive(ev.target.value))}
+                onBlur={() => setName(titleCase(name))}
                 placeholder="e.g. Marwood Plumbing"
-                aria-invalid={createClash ? 'true' : undefined}
-                style={createClash ? { borderColor: 'var(--red)' } : undefined}
+                aria-invalid={createProblem ? 'true' : undefined}
+                style={createProblem ? { borderColor: 'var(--red)' } : undefined}
               />
-              <div style={{ fontSize: 11.5, minHeight: 15, marginTop: 5, color: createClash ? 'var(--red)' : 'var(--text-muted)' }}>
-                {createClash ? 'You already have a set of books with that name' : ''}
+              <div style={{ fontSize: 11.5, minHeight: 15, marginTop: 5, color: createProblem ? 'var(--red)' : 'var(--text-muted)' }}>
+                {createProblem || `${NAME_MIN}–${NAME_MAX} characters. Spaces are fine.`}
               </div>
             </div>
 
@@ -359,7 +387,7 @@ export default function EntityManager() {
               </div>
             </div>
 
-            <button className="btn btn-primary" disabled={busy || !name.trim() || createClash} style={{ justifySelf: 'start' }}>
+            <button className="btn btn-primary" disabled={busy || !cleanName(name) || Boolean(createProblem)} style={{ justifySelf: 'start' }}>
               {busy ? 'Creating…' : 'Create'}
             </button>
           </motion.form>
@@ -428,13 +456,19 @@ function EditRow({ entity, busy, canBecomeBusiness, siblings = [], onSave, onArc
   // nothing to undo — a decision that belongs to the same Save as the name.
   const [cadence, setCadence] = useState(entity.cadence);
 
-  const clash = nameTaken(name, siblings, entity.name);
-  const renamed = name !== entity.name;
+  const problem = nameProblem(name, siblings, entity.name);
+  const renamed = cleanName(name) !== entity.name;
   const recadenced = cadence !== entity.cadence;
-  const canSave = !busy && name.trim() && !clash && (renamed || recadenced);
+  const canSave = !busy && cleanName(name) && !problem && (renamed || recadenced);
+
+  // Each group is a labelled row rather than a bare line of buttons. Without
+  // the labels this was a stack of chips — "Individual", then "Once a year" —
+  // with nothing saying what either of them was choosing.
+  const groupLabel = { fontSize: 11, fontWeight: 700, letterSpacing: 0.4, textTransform: 'uppercase', color: 'var(--text-muted)', marginBottom: 6 };
+  const chip = { fontSize: 12.5, padding: '7px 13px' };
 
   return (
-    <div style={{ display: 'grid', gap: 10, marginTop: 10, paddingTop: 10, borderTop: '1px solid var(--border)' }}>
+    <div style={{ display: 'grid', gap: 16, marginTop: 12, paddingTop: 14, borderTop: '1px solid var(--border)' }}>
       <div>
         <label className="label" style={{ fontSize: 11.5 }}>
           Name
@@ -442,56 +476,70 @@ function EditRow({ entity, busy, canBecomeBusiness, siblings = [], onSave, onArc
         <input
           className="input"
           value={name}
-          maxLength={60}
-          onChange={(e) => setName(titleCase(e.target.value))}
-          aria-invalid={clash ? 'true' : undefined}
-          style={{ fontSize: 13, borderColor: clash ? 'var(--red)' : undefined }}
+          maxLength={NAME_MAX}
+          // titleCaseLive while typing — titleCase trims, so the space between
+          // two words vanished the moment it was typed.
+          onChange={(e) => setName(titleCaseLive(e.target.value))}
+          onBlur={() => setName(titleCase(name))}
+          aria-invalid={problem ? 'true' : undefined}
+          style={{ fontSize: 13, borderColor: problem ? 'var(--red)' : undefined }}
         />
-        <div style={{ fontSize: 11.5, minHeight: 15, marginTop: 4, color: clash ? 'var(--red)' : 'var(--text-muted)' }}>
-          {clash ? 'You already have a set of books with that name' : ''}
+        <div style={{ fontSize: 11.5, minHeight: 15, marginTop: 4, color: problem ? 'var(--red)' : 'var(--text-muted)' }}>
+          {problem || `${NAME_MIN}–${NAME_MAX} characters. Spaces are fine.`}
         </div>
       </div>
-      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-        {/* The plan caps businesses, and switching a set of books to one is a
-            business as far as that cap goes. Offering the button and refusing
-            the click would be worse than not offering it. */}
-        {KINDS.filter((k) => k.value !== 'business' || canBecomeBusiness).map((k) => (
-          <button
-            key={k.value}
-            type="button"
-            className={entity.kind === k.value ? 'btn btn-primary' : 'btn btn-ghost'}
-            style={{ fontSize: 11.5, padding: '4px 8px' }}
-            onClick={() => onSave(entity, { kind: k.value })}
-          >
-            {k.label}
-          </button>
-        ))}
+
+      <div>
+        <div style={groupLabel}>What it is</div>
+        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+          {/* The plan caps businesses, and switching a set of books to one is a
+              business as far as that cap goes. Offering the button and refusing
+              the click would be worse than not offering it. */}
+          {KINDS.filter((k) => k.value !== 'business' || canBecomeBusiness).map((k) => (
+            <button
+              key={k.value}
+              type="button"
+              className={entity.kind === k.value ? 'btn btn-primary' : 'btn btn-ghost'}
+              style={chip}
+              onClick={() => onSave(entity, { kind: k.value })}
+            >
+              {k.label}
+            </button>
+          ))}
+        </div>
       </div>
-      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-        {CADENCES.map((c) => (
-          <button
-            key={c.value}
-            type="button"
-            className={cadence === c.value ? 'btn btn-primary' : 'btn btn-ghost'}
-            style={{ fontSize: 11.5, padding: '4px 8px' }}
-            onClick={() => setCadence(c.value)}
-          >
-            {c.label}
-          </button>
-        ))}
+
+      <div>
+        <div style={groupLabel}>How often it lodges</div>
+        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+          {CADENCES.map((c) => (
+            <button
+              key={c.value}
+              type="button"
+              className={cadence === c.value ? 'btn btn-primary' : 'btn btn-ghost'}
+              style={chip}
+              onClick={() => setCadence(c.value)}
+            >
+              {c.label}
+            </button>
+          ))}
+        </div>
       </div>
-      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+
+      {/* Save on its own line above a rule, then the things that are not
+          saving. Previously Delete sat immediately beside Save at the same
+          size, which is a bad place to keep an irreversible button. */}
+      <div style={{ display: 'grid', gap: 12, paddingTop: 12, borderTop: '1px solid var(--border)' }}>
         <button
           type="button"
-          className="btn btn-ghost"
           className="btn btn-primary"
-          style={{ fontSize: 13, padding: '9px 18px' }}
+          style={{ fontSize: 13, padding: '10px 20px', justifySelf: 'start' }}
           disabled={!canSave}
           onClick={() =>
             onSave(entity, {
               // Only what changed, so saving a rename never quietly restates
               // the lodgement cadence and vice versa.
-              ...(renamed ? { name } : {}),
+              ...(renamed ? { name: cleanName(name) } : {}),
               ...(recadenced ? { cadence } : {}),
             })
           }
@@ -499,12 +547,13 @@ function EditRow({ entity, busy, canBecomeBusiness, siblings = [], onSave, onArc
           <Icon name="check" size={15} />
           Save changes
         </button>
+
         {!entity.isDefault && (
-          <>
+          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
             <button
               type="button"
               className="btn btn-ghost"
-              style={{ fontSize: 11.5, padding: '4px 8px' }}
+              style={{ fontSize: 12, padding: '6px 11px' }}
               onClick={() => onSave(entity, { isDefault: true })}
             >
               Make default
@@ -512,7 +561,7 @@ function EditRow({ entity, busy, canBecomeBusiness, siblings = [], onSave, onArc
             <button
               type="button"
               className="btn btn-ghost"
-              style={{ fontSize: 11.5, padding: '4px 8px' }}
+              style={{ fontSize: 12, padding: '6px 11px' }}
               onClick={() => onArchive(entity)}
             >
               Archive
@@ -520,12 +569,12 @@ function EditRow({ entity, busy, canBecomeBusiness, siblings = [], onSave, onArc
             <button
               type="button"
               className="btn btn-ghost"
-              style={{ fontSize: 11.5, padding: '4px 8px', color: 'var(--red)' }}
+              style={{ fontSize: 12, padding: '6px 11px', color: 'var(--red)', marginLeft: 'auto' }}
               onClick={() => onDelete(entity)}
             >
               Delete
             </button>
-          </>
+          </div>
         )}
       </div>
     </div>

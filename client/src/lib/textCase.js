@@ -27,16 +27,28 @@ function capitaliseWord(word) {
 export function titleCase(value) {
   const text = String(value ?? '').trim().replace(/\s+/g, ' ');
   if (!text) return '';
-  return text
-    .split(' ')
-    .map((word) => {
-      if (!isUntidy(word)) return word;
-      const letters = word.replace(/[^a-zA-Z]/g, '');
-      // ATO, GST, NSW — an initialism, not shouting.
-      if (letters.length <= 3 && letters === letters.toUpperCase() && letters.length > 1) return word;
-      return capitaliseWord(word.toLowerCase());
-    })
-    .join(' ');
+  return text.split(' ').map(tidyWord).join(' ');
+}
+
+function tidyWord(word) {
+  if (!isUntidy(word)) return word;
+  const letters = word.replace(/[^a-zA-Z]/g, '');
+  // ATO, GST, NSW — an initialism, not shouting.
+  if (letters.length <= 3 && letters === letters.toUpperCase() && letters.length > 1) return word;
+  return capitaliseWord(word.toLowerCase());
+}
+
+// The same rule, with the spacing left exactly as typed.
+//
+// titleCase() trims and collapses runs of spaces, which is right for a value
+// being submitted and wrong on every keystroke: run it on each change and the
+// space someone just typed is removed before they can type the letter after
+// it, so a name can never get a second word. Use this while typing, and
+// titleCase() on the way out.
+export function titleCaseLive(value) {
+  const text = String(value ?? '');
+  if (!text) return '';
+  return text.split(' ').map(tidyWord).join(' ');
 }
 
 export function sentenceCase(value) {

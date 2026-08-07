@@ -4,6 +4,7 @@ import { api } from '../lib/api.js';
 import { useToast } from './Toast.jsx';
 import Icon from './Icon.jsx';
 import ReceiptLightbox from './ReceiptLightbox.jsx';
+import { useConfirm } from '../lib/ConfirmContext.jsx';
 
 function formatSize(bytes) {
   if (!bytes) return '';
@@ -80,6 +81,7 @@ export default function YearDocuments({
   // add or remove one. Everywhere else lists them and nothing more.
   manage = false,
 }) {
+  const confirm = useConfirm();
   const toast = useToast();
   const [documents, setDocuments] = useState(null);
   const [open, setOpen] = useState(!collapsible);
@@ -158,7 +160,7 @@ export default function YearDocuments({
   }
 
   async function remove(doc) {
-    if (!window.confirm(`Delete "${doc.documentName}"? The file is removed for good.`)) return;
+    if (!(await confirm({ tone: 'danger', title: `Delete “${doc.documentName}”?`, body: 'The file is removed for good.', confirmLabel: 'Delete' }))) return;
     try {
       await api.delete(
         `/categories/${doc.category.id}/documents/${encodeURIComponent(doc.filename)}?year=${encodeURIComponent(

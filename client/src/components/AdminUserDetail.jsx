@@ -65,16 +65,34 @@ function Field({ label, children, mono }) {
   );
 }
 
+// Each category is its own bordered block with a tinted header, rather than a
+// heading and a hairline. Ten sections separated only by a rule read as one
+// long scroll — you cannot see where "Activity" stops and "Billing" starts.
 function Section({ title, icon, children }) {
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-        <Icon name={icon} size={15} style={{ color: 'var(--accent)' }} />
-        <span style={{ fontWeight: 700, fontSize: 13 }}>{title}</span>
-        <span style={{ flex: 1, height: 1, background: 'var(--border)' }} />
+    <section
+      style={{
+        border: '1px solid var(--border)',
+        borderRadius: 10,
+        overflow: 'hidden',
+        background: 'var(--bg-card)',
+      }}
+    >
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 8,
+          padding: '9px 14px',
+          background: 'var(--bg-subtle)',
+          borderBottom: '1px solid var(--border)',
+        }}
+      >
+        <Icon name={icon} size={14} style={{ color: 'var(--accent)' }} />
+        <span style={{ fontWeight: 700, fontSize: 12.5 }}>{title}</span>
       </div>
-      {children}
-    </div>
+      <div style={{ padding: 14 }}>{children}</div>
+    </section>
   );
 }
 
@@ -92,6 +110,17 @@ export default function AdminUserDetail({ userId, me, onClose, onChanged, action
   // two can never be open at once.
   const [dialog, setDialog] = useState(NO_DIALOG);
   const [acting, setActing] = useState(false);
+
+  // Escape closes, since the backdrop deliberately doesn't. Not while a
+  // confirmation is up: that dialog owns Escape, and one key press should
+  // dismiss one thing.
+  useEffect(() => {
+    function onKey(e) {
+      if (e.key === 'Escape' && dialog === NO_DIALOG) onClose();
+    }
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [dialog, onClose]);
 
   useEffect(() => {
     let cancelled = false;
@@ -125,11 +154,14 @@ export default function AdminUserDetail({ userId, me, onClose, onChanged, action
 
   return (
     <AnimatePresence>
+      {/* The backdrop does not dismiss. This panel carries plan changes, free
+          access grants and a delete button, and it scrolls — a press that lands
+          beside the card while you are reading it should not throw the whole
+          thing away. Escape and the X are the ways out. */}
       <motion.div
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
-        onClick={onClose}
         style={{
           position: 'fixed',
           inset: 0,

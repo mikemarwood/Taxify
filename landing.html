@@ -770,14 +770,16 @@
         }
       }
 
-      // Picking a plan is the decision — so it goes straight to signup with
-      // that plan carried through, rather than highlighting the card and
-      // waiting for a second click on a button further down that some people
-      // never scrolled to.
+      // Choosing a plan marks it and nothing else. Navigating on the same
+      // click meant a card could not be compared against the other one without
+      // leaving the page — you pressed it to read it and were taken away.
+      //
+      // The button below carries the choice: its label and its link both follow
+      // the selection, so the decision is still only one press away.
       cards.forEach(function (card) {
         card.addEventListener('click', function () {
-          choose(card.dataset.plan);
-          window.location.href = taxifyUrl('/register?plan=' + card.dataset.plan);
+          var already = card.getAttribute('aria-pressed') === 'true';
+          choose(already ? null : card.dataset.plan);
         });
       });
     })();

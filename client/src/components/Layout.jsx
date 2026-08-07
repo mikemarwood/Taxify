@@ -432,21 +432,23 @@ export default function Layout({ children }) {
                 </span>
               </Link>
             )}
-            {/* Side by side on a phone rather than two full-width slabs. Both
-                are things you press rarely, and they were taking as much of the
-                drawer as the pages you actually go to. */}
+            {/* One row: the bell as an icon square, Log out taking the rest.
+                Two equal text buttons never fit the rail's width — the labels
+                overflowed their own boxes — and both are pressed rarely enough
+                not to deserve as much of the drawer as the pages you go to. */}
             <div className="nav-foot-actions">
-              <NotificationBell />
+              <NotificationBell compact />
 
               <button
                 className="btn nav-btn"
-                style={{ fontSize: 13 }}
+                style={{ fontSize: 13, gap: 7 }}
                 onClick={async () => {
                   playClick();
                   await logout();
                   navigate('/login');
                 }}
               >
+                <Icon name="log-out" size={15} />
                 Log out
               </button>
             </div>

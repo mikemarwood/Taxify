@@ -365,11 +365,13 @@ input[type="date"].input::-webkit-calendar-picker-indicator:hover { opacity: 1; 
 
 .scroll-hint { display: none; }
 
+/* The bell is a fixed square, Log out takes what's left. Two equal halves put
+   two labels in a rail narrower than either wanted, and the bell's own label
+   overflowed its box. */
 .nav-foot-actions { display: flex; gap: 8px; align-items: stretch; }
-.nav-foot-actions > div,
-.nav-foot-actions > .nav-btn { flex: 1 1 0; min-width: 0; }
-.nav-foot-actions > div > .nav-btn,
-.nav-foot-actions > .nav-btn { width: 100% !important; }
+.nav-foot-actions > div { flex: 0 0 40px; min-width: 0; }
+.nav-foot-actions > .nav-btn { flex: 1 1 auto; min-width: 0; height: 40px; justify-content: center; }
+.nav-foot-actions > div > .nav-btn { width: 40px !important; height: 40px; padding: 0 !important; }
 
 .nav-item { transition: background 0.12s var(--ease-standard), color 0.12s var(--ease-standard); }
 .nav-item:hover { background: var(--nav-hover) !important; color: var(--nav-text-active) !important; }
@@ -462,19 +464,23 @@ input[type="date"].input::-webkit-calendar-picker-indicator:hover { opacity: 1; 
   /* The two things at the foot of the drawer share a row. Full width each,
      they took as much of it as the pages somebody opened the menu to reach.
 
-     An even half each. The first attempt sized the bell to its content and let
-     Log out take everything left, which made Log out the largest thing in the
-     drawer and the two read as unrelated. `1 1 0` rather than `1`, so they
-     divide the row equally whatever words are in them. */
+     Even halves were the second attempt, and they put two labels in a row that
+     fits one comfortably — the bell's spilled out of its own box. Now the bell
+     is an icon square and Log out takes the rest, which is what the desktop
+     rail does too, so there is one rule rather than two that disagree. */
   .app-sidebar .nav-foot-actions { gap: 8px; }
-  .app-sidebar .nav-foot-actions > div,
-  .app-sidebar .nav-foot-actions > .nav-btn { flex: 1 1 0; min-width: 0; }
-  .app-sidebar .nav-foot-actions > div > .nav-btn,
+  .app-sidebar .nav-foot-actions > div { flex: 0 0 42px; min-width: 0; }
   .app-sidebar .nav-foot-actions > .nav-btn {
-    width: 100% !important;
-    padding: 9px 8px !important;
-    font-size: 12.5px !important;
-    gap: 6px !important;
+    flex: 1 1 auto;
+    min-width: 0;
+    height: 42px;
+    font-size: 13px !important;
+    gap: 7px !important;
+  }
+  .app-sidebar .nav-foot-actions > div > .nav-btn {
+    width: 42px !important;
+    height: 42px;
+    padding: 0 !important;
   }
 
   /* Five tabs wrapping onto three rows inside a bordered box is a block of

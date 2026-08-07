@@ -9,6 +9,7 @@ import { playSuccess, playError } from '../lib/sounds.js';
 import { formatDateShort, formatAppointmentTime } from '../lib/dates.js';
 import { lodgementPeriodsFor } from '../lib/lodgementPeriods.js';
 import { claimable } from '../lib/money.js';
+import { useConfirm } from '../lib/ConfirmContext.jsx';
 
 function formatWhen(value) {
   if (!value) return null;
@@ -64,6 +65,7 @@ const EMPTY_APPOINTMENT = { date: '', time: '09:00', company: '', accountant: ''
 // expenses are needed to work out what a single quarter claimed — the year
 // totals the page already has cannot be divided into quarters after the fact.
 export default function TaxYears({ years, spendByYear, expenses, onFinalisedChange }) {
+  const confirm = useConfirm();
   const toast = useToast();
   const { user } = useAuth();
   const [data, setData] = useState(null);
@@ -234,7 +236,7 @@ export default function TaxYears({ years, spendByYear, expenses, onFinalisedChan
   async function clearAppointment(key) {
     const row = byKey.get(key);
     if (!row) return;
-    if (!window.confirm(`Remove the ${row.label} tax appointment?`)) return;
+    if (!(await confirm({ title: `Remove the ${row.label} tax appointment?`, confirmLabel: 'Remove' }))) return;
     try {
       await api.delete(
         `/tax-years/${encodeURIComponent(row.financialYear)}/appointment?period=${row.period}&entityId=${row.entityId}`

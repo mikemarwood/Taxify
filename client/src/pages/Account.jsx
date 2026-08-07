@@ -46,6 +46,8 @@ import ChangeEmailSection from '../components/ChangeEmailSection.jsx';
 import { useFinancialYears } from '../lib/useFinancialYears.js';
 import { financialYearSpan } from '../lib/financialYear.js';
 import { formatDateLong, formatDateTime } from '../lib/dates.js';
+import { describeSubscription, toneColor } from '../lib/subscription.js';
+import { useConfirm } from '../lib/ConfirmContext.jsx';
 
 const MAX_AVATAR_BYTES = 10 * 1024 * 1024;
 
@@ -229,34 +231,58 @@ function BillingSection({ user }) {
 
   const planLabel = labelForPlan(currentPlanType(user));
 
+  // Read the state through describeSubscription rather than off
+  // user.subscriptionStatus. An account an administrator granted free access
+  // has no Stripe subscription at all, so its raw status is 'canceled' — which
+  // is how this panel came to say "Your access is currently restricted" and
+  // offer a Subscribe button to somebody the sidebar was calling Active.
+  const status = describeSubscription(user);
+
+  // What the dated lines say, in order of how much the reader cares.
+  let detail = status.detail;
+  if (status.state === 'trial' && user.trialEndsAt) {
+    detail = `Free trial ends ${formatDateLong(user.trialEndsAt)}`;
+  } else if (status.state === 'active' && user.subscriptionCurrentPeriodEnd) {
+    detail = `Renews ${formatDateLong(user.subscriptionCurrentPeriodEnd)}`;
+  } else if (status.state === 'granted') {
+    detail = user.accessBypassUntil
+      ? `Free access until ${formatDateLong(user.accessBypassUntil)} — nothing to pay`
+      : 'Free access — nothing to pay';
+  }
+
   return (
     <div className="card" style={{ padding: 20, display: 'flex', flexDirection: 'column', gap: 14 }}>
       <div style={{ fontWeight: 700 }}>Plan &amp; billing</div>
-      <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>
-        Plan: <strong style={{ color: 'var(--text)' }}>{planLabel}</strong>
+
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+        <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>
+          Plan: <strong style={{ color: 'var(--text)' }}>{planLabel}</strong>
+        </div>
+        <span
+          style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: 6,
+            fontSize: 11,
+            fontWeight: 700,
+            letterSpacing: 0.3,
+            textTransform: 'uppercase',
+            padding: '3px 9px',
+            borderRadius: 999,
+            color: toneColor(status.tone),
+            background: 'var(--bg-subtle)',
+            border: '1px solid var(--border)',
+          }}
+        >
+          <span style={{ width: 6, height: 6, borderRadius: '50%', background: toneColor(status.tone) }} />
+          {status.label}
+        </span>
       </div>
 
-      {user.subscriptionStatus === 'trialing' && user.trialEndsAt && (
-        <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>
-          Free trial ends{' '}
-          <strong style={{ color: 'var(--text)' }}>
-            {formatDateLong(user.trialEndsAt)}
-          </strong>
+      {detail && (
+        <div style={{ fontSize: 13, color: status.tone === 'bad' ? 'var(--red)' : 'var(--text-muted)' }}>
+          {detail}
         </div>
-      )}
-      {user.subscriptionStatus === 'active' && user.subscriptionCurrentPeriodEnd && (
-        <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>
-          Renews{' '}
-          <strong style={{ color: 'var(--text)' }}>
-            {formatDateLong(user.subscriptionCurrentPeriodEnd)}
-          </strong>
-        </div>
-      )}
-      {(user.subscriptionStatus === 'expired' || user.subscriptionStatus === 'canceled') && (
-        <div style={{ fontSize: 13, color: 'var(--red)' }}>Your access is currently restricted.</div>
-      )}
-      {user.subscriptionStatus === 'past_due' && (
-        <div style={{ fontSize: 13, color: 'var(--amber)' }}>Your last payment failed — please update your card.</div>
       )}
 
       {/* Both plans in full, with the current one marked. Prices come from
@@ -268,19 +294,23 @@ function BillingSection({ user }) {
           more often than to find a receipt for last year. */}
       <InvoiceList />
 
-      <div style={{ display: 'flex', gap: 10 }}>
-        {user.subscriptionStatus === 'active' ? (
-          <button className="btn btn-ghost" onClick={goToPortal} disabled={busy} style={{ fontSize: 13 }}>
-            {busy && <span className="spinner" />}
-            Manage billing
-          </button>
-        ) : (
-          <button className="btn btn-primary" onClick={goToCheckout} disabled={busy} style={{ fontSize: 13 }}>
-            {busy && <span className="spinner" />}
-            Subscribe to {planLabel}
-          </button>
-        )}
-      </div>
+      {/* A granted account has no Stripe customer, so there is neither anything
+          to buy nor a portal to open — offering either only leads to an error. */}
+      {status.state !== 'granted' && (
+        <div style={{ display: 'flex', gap: 10 }}>
+          {user.subscriptionStatus === 'active' || user.subscriptionStatus === 'past_due' ? (
+            <button className="btn btn-ghost" onClick={goToPortal} disabled={busy} style={{ fontSize: 13 }}>
+              {busy && <span className="spinner" />}
+              Manage billing
+            </button>
+          ) : (
+            <button className="btn btn-primary" onClick={goToCheckout} disabled={busy} style={{ fontSize: 13 }}>
+              {busy && <span className="spinner" />}
+              Subscribe to {planLabel}
+            </button>
+          )}
+        </div>
+      )}
     </div>
   );
 }
@@ -471,6 +501,7 @@ function ManageAccess({ accountant, years, windowChoices, onDone }) {
 }
 
 function AccountantSection({ user }) {
+  const confirm = useConfirm();
   const toast = useToast();
   // Only the years this account actually has — offering an accountant a year
   // with nothing in it is offering them nothing.
@@ -550,7 +581,7 @@ function AccountantSection({ user }) {
   }
 
   async function onCancelInvite(invite) {
-    if (!window.confirm(`Cancel the invitation to ${invite.email}? The link in their email stops working.`)) return;
+    if (!(await confirm({ title: `Cancel the invitation to ${invite.email}?`, body: 'The link in their email stops working immediately.', confirmLabel: 'Cancel invitation', cancelLabel: 'Keep it' }))) return;
     try {
       await api.delete(`/auth/accountant-invites/${invite.id}`);
       toast('Invitation cancelled', 'success');
@@ -561,7 +592,7 @@ function AccountantSection({ user }) {
   }
 
   async function onRevokeAccountant(assignment) {
-    if (!window.confirm(`Remove ${assignment.name}'s access to your account?`)) return;
+    if (!(await confirm({ title: `Remove ${assignment.name}’s access?`, body: 'They lose sight of your books straight away.', confirmLabel: 'Remove access' }))) return;
     try {
       await api.delete(`/auth/accountant-access/${assignment.id}`);
       toast('Accountant access removed', 'success');
