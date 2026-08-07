@@ -32,6 +32,16 @@ export async function ensureSchema() {
   await pool.query(`
     ALTER TABLE users ADD COLUMN IF NOT EXISTS avatar_path VARCHAR(500) NULL
   `);
+  // When this account last made an authenticated request. login_events answers
+  // "who signed in", which is not the same question as "who is here now" — a
+  // session lasts weeks, so somebody using Taxify daily may not have signed in
+  // since March. Written by requireAuth, at most once a minute per account.
+  await pool.query(`
+    ALTER TABLE users ADD COLUMN IF NOT EXISTS last_seen_at DATETIME NULL
+  `);
+  await pool.query(`
+    CREATE INDEX IF NOT EXISTS idx_users_last_seen ON users (last_seen_at)
+  `);
   await pool.query(`
     ALTER TABLE users ADD COLUMN IF NOT EXISTS otp_enabled TINYINT(1) NOT NULL DEFAULT 0
   `);
@@ -761,9 +771,26 @@ export async function ensureSchema() {
   await pool.query(`
     CREATE TABLE IF NOT EXISTS settings (
       \`key\` VARCHAR(64) PRIMARY KEY,
-      value VARCHAR(255) NOT NULL
+      value TEXT NOT NULL
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
   `);
+
+  // This column was VARCHAR(255), which fits every setting written when it was
+  // introduced and none of the ones written since. A Firebase service-account
+  // key is about 2.3 KB, so saving one failed on the insert and the admin page
+  // showed "Something went wrong" — the route's own validation had already
+  // passed, so nothing pointed at the length.
+  //
+  // Guarded by the current type rather than run unconditionally: MODIFY
+  // rebuilds the table, and doing that on every boot for a no-op is a cost
+  // paid forever.
+  const [valueColumn] = await pool.query(
+    `SELECT data_type FROM information_schema.columns
+      WHERE table_schema = DATABASE() AND table_name = 'settings' AND column_name = 'value'`
+  );
+  if (valueColumn[0] && String(valueColumn[0].data_type).toLowerCase() !== 'text') {
+    await pool.query(`ALTER TABLE settings MODIFY COLUMN value TEXT NOT NULL`);
+  }
 
   // Installs that predate the icon column ended up with every seeded category
   // showing the generic fallback. Give the defaults their intended icons back,

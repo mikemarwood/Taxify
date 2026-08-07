@@ -12,6 +12,7 @@ import { requireAuth, requireAdmin } from '../auth/middleware.js';
 import { signViewAsToken, cookieOptions, COOKIE_NAME } from '../auth/jwt.js';
 import { toPublicUser } from '../auth/publicUser.js';
 import { computeAccessLocked } from '../auth/access.js';
+import { collectStats } from '../lib/adminStats.js';
 import { asyncHandler } from '../lib/asyncHandler.js';
 import { toTitleCase } from '../lib/text.js';
 import {
@@ -1036,6 +1037,16 @@ router.patch(
       existing.id,
     ]);
     res.json({ category: updated[0] });
+  })
+);
+
+// Everything the live stats page draws, in one call. One request rather than
+// eight, because the page polls: eight endpoints on a timer is eight times the
+// chance of a half-drawn screen where the counts disagree with the chart.
+router.get(
+  '/stats',
+  asyncHandler(async (req, res) => {
+    res.json(await collectStats());
   })
 );
 

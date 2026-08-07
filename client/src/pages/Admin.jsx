@@ -14,6 +14,7 @@ import { useToast } from '../components/Toast.jsx';
 import { SkeletonList } from '../components/Skeletons.jsx';
 import Icon from '../components/Icon.jsx';
 import PromoCodesTab from '../components/PromoCodesTab.jsx';
+import AdminStatsTab from '../components/AdminStatsTab.jsx';
 import TaxRatesTab from '../components/TaxRatesTab.jsx';
 import PushSettingsTab from '../components/PushSettingsTab.jsx';
 import { IconPicker, ColourPicker, CategoryPreview, SWATCHES } from '../components/CategoryPickers.jsx';
@@ -33,14 +34,17 @@ function formatBytes(bytes) {
 }
 
 export default function Admin() {
-  const [tab, setTab] = useState('users');
+  const [tab, setTab] = useState('stats');
 
   return (
-    <div style={{ maxWidth: 760 }}>
+    <div style={{ maxWidth: tab === 'stats' ? 1100 : 760 }}>
       <h1 style={{ margin: '0 0 4px', fontSize: 26 }}>Administration</h1>
       <p style={{ color: 'var(--text-muted)', margin: '0 0 24px' }}>Manage user accounts and the default category template.</p>
 
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 20 }}>
+        <button className={tab === 'stats' ? 'btn btn-primary' : 'btn btn-ghost'} onClick={() => setTab('stats')}>
+          Live stats
+        </button>
         <button className={tab === 'users' ? 'btn btn-primary' : 'btn btn-ghost'} onClick={() => setTab('users')}>
           Users
         </button>
@@ -67,6 +71,7 @@ export default function Admin() {
         </button>
       </div>
 
+      {tab === 'stats' && <AdminStatsTab />}
       {tab === 'users' && <UsersTab />}
       {tab === 'categories' && <DefaultCategoriesTab />}
       {tab === 'settings' && <SettingsTab />}

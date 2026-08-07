@@ -6,6 +6,7 @@ import { computeAccessLocked, dataOwnerId, financialYearRuleFor } from './access
 import { findAssignment, hasAssignments } from './accountants.js';
 import { accountantSetupState, blocksExistingSession } from './accountantOnboarding.js';
 import { resolveRequestEntity } from '../lib/entityScope.js';
+import { touchLastSeen } from '../lib/presence.js';
 
 export const requireAuth = asyncHandler(async (req, res, next) => {
   const token = req.cookies?.[COOKIE_NAME];
@@ -27,6 +28,12 @@ export const requireAuth = asyncHandler(async (req, res, next) => {
 
   const mfaMode = await getMfaMode();
   req.user = toPublicUser(user, mfaMode);
+
+  // Not awaited. Presence is a statistic; nobody's request should wait on it,
+  // and nobody's request should fail because of it. Recorded against the
+  // signed-in account rather than dataOwnerId — an accountant reading a
+  // client's books is the one who is here, not the client.
+  touchLastSeen(user.id);
 
   // Acting for a client is a property of the *session*, not of the user. The
   // same login can be an account holder tracking their own expenses and an
