@@ -464,7 +464,7 @@ export default function Landing() {
                 items: [
                   'Every year kept, and comparable side by side',
                   'Your own tax plus up to two businesses, kept apart',
-                  'Read-only accountant access that closes on its own',
+                  'Hand the whole year to your accountant',
                   'Vehicle logbook and home-office hours, worked out for you',
                 ],
               },

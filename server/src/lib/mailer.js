@@ -66,9 +66,26 @@ const BRAND = 'Taxify';
 const BRAND_TAGLINE = 'Expense &amp; Receipt Tracking';
 const NAVY = '#1e3a8a';
 
-// Full-width bands rather than a floating rounded card: tables and solid
-// blocks are what render consistently across Outlook, Gmail and the phone
-// clients, where border-radius and box-shadow are routinely dropped.
+// One centred card on a tinted ground, which is what a modern transactional
+// email looks like and what people now expect one to look like.
+//
+// The old layout was three stacked navy bands — wordmark, tagline, then the
+// subject again — across 960px, with the message crammed underneath at 14px.
+// It read as a notice from a system rather than a note from a company, and at
+// 960 wide it was reflowed by every client that has an opinion, which is all
+// of them.
+//
+// Deliberately plain in construction, because email is not the web:
+//
+//   Tables and inline styles only. Outlook renders with Word, which has no
+//   flexbox, no grid, and no external stylesheet.
+//
+//   No images, not even the logo. Most clients block remote images by default,
+//   so anything load-bearing that is an image is load-bearing and invisible.
+//   The wordmark is text, so it always arrives.
+//
+//   600px, the width every client is designed around, and it degrades to full
+//   width on a phone.
 function renderEmail({ title, heading, bodyHtml }) {
   return `<!doctype html>
 <html lang="en">
@@ -76,37 +93,39 @@ function renderEmail({ title, heading, bodyHtml }) {
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="color-scheme" content="light only">
+<meta name="supported-color-schemes" content="light only">
 <title>${title}</title>
 </head>
-<body style="margin:0;padding:0;background:#ffffff;">
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#ffffff;font-family:'Segoe UI',Roboto,Helvetica,Arial,sans-serif;">
-  <tr><td align="center">
-    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width:960px;">
+<body style="margin:0;padding:0;background:#eef2f8;-webkit-font-smoothing:antialiased;">
+<!-- Shown in the inbox list beside the subject, then hidden. Without it the
+     preview is whatever the first words of the body happen to be. -->
+<div style="display:none;max-height:0;overflow:hidden;opacity:0;">${title} — ${BRAND}</div>
 
-      <tr><td style="background:${NAVY};padding:14px 20px;">
-        <span style="font-size:30px;font-weight:800;color:#ffffff;letter-spacing:-0.5px;">${BRAND}</span>
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#eef2f8;font-family:-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;">
+  <tr><td align="center" style="padding:28px 14px;">
+
+    <table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" style="width:100%;max-width:600px;">
+
+      <!-- Header -->
+      <tr><td style="background:${NAVY};border-radius:12px 12px 0 0;padding:22px 32px;">
+        <span style="font-size:23px;font-weight:800;color:#ffffff;letter-spacing:-0.4px;">${BRAND}</span>
+        <span style="font-size:11px;font-weight:600;color:#a8c0f0;letter-spacing:0.6px;text-transform:uppercase;padding-left:10px;">${BRAND_TAGLINE}</span>
       </td></tr>
 
-      <tr><td style="background:${NAVY};border-top:1px solid #2b4ba0;padding:6px 20px;">
-        <span style="font-size:11px;font-weight:700;color:#ffffff;letter-spacing:1.2px;text-transform:uppercase;">${BRAND_TAGLINE}</span>
-      </td></tr>
-
-      <tr><td style="background:${NAVY};border-top:1px solid #2b4ba0;padding:8px 20px;">
-        <span style="font-size:15px;font-weight:700;color:#ffffff;">${title}</span>
-      </td></tr>
-
-      <tr><td style="padding:14px 20px 20px;color:#1f2937;font-size:14px;line-height:1.5;">
-        <p style="margin:0 0 12px;font-size:14px;color:#1f2937;">${heading}</p>
+      <!-- The message -->
+      <tr><td style="background:#ffffff;padding:32px;border-left:1px solid #dfe6f2;border-right:1px solid #dfe6f2;">
+        <h1 style="margin:0 0 14px;font-size:20px;line-height:1.35;font-weight:700;color:#0f172a;">${title}</h1>
+        <p style="margin:0 0 18px;font-size:15px;line-height:1.6;color:#334155;">${heading}</p>
         ${bodyHtml}
       </td></tr>
 
-      <tr><td style="background:#eef1f6;padding:16px 20px;text-align:center;">
-        <div style="font-weight:700;color:#1f2937;font-size:13px;margin-bottom:4px;">${BRAND}</div>
-        <div style="font-size:12px;color:#6b7280;margin-bottom:4px;">
+      <!-- Footer, outside the card so it reads as small print -->
+      <tr><td style="background:#ffffff;border-radius:0 0 12px 12px;border:1px solid #dfe6f2;border-top:0;padding:20px 32px;">
+        <div style="font-size:12px;line-height:1.6;color:#94a3b8;">
           &copy; ${new Date().getFullYear()} ${BRAND} &middot;
-          <a href="https://mikesapphub.com" style="color:${NAVY};text-decoration:none;">Mikes App Hub</a>
+          <a href="https://mikesapphub.com" style="color:#475569;text-decoration:underline;">Mikes App Hub</a><br>
+          This message was sent automatically — replies to it are not read.
         </div>
-        <div style="font-size:11px;color:#9ca3af;">This is an automated message, please do not reply directly.</div>
       </td></tr>
 
     </table>
@@ -204,9 +223,9 @@ export async function sendOtpEmail(to, name, code, expiresMinutes) {
 
 function button(href, label) {
   return `
-    <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 16px;">
-      <tr><td style="background:${NAVY};border-radius:6px;">
-        <a href="${href}" style="display:inline-block;padding:13px 26px;color:#ffffff;font-size:14px;font-weight:700;text-decoration:none;">${label}</a>
+    <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:4px 0 22px;">
+      <tr><td style="background:${NAVY};border-radius:8px;">
+        <a href="${href}" style="display:inline-block;padding:14px 30px;color:#ffffff;font-size:15px;font-weight:700;text-decoration:none;">${label}</a>
       </td></tr>
     </table>`;
 }
