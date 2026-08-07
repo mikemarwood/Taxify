@@ -75,6 +75,19 @@ public class UpdateManager {
 
     private static void downloadAndInstall(Context context, String apkUrl) {
         String fileName = "taxify-update.apk";
+
+        // DownloadManager refuses to write over a file that is already there,
+        // and every update downloads to this same name. So the first update
+        // worked and every one after it failed — which is what "update failed
+        // every time" looks like once you have updated once.
+        //
+        // Clearing it also means a part-finished download from a dropped
+        // connection is never left to be mistaken for a complete one.
+        java.io.File previous = new java.io.File(context.getExternalFilesDir(null), fileName);
+        if (previous.exists() && !previous.delete()) {
+            android.util.Log.w("UpdateManager", "Could not remove the previous download at " + previous);
+        }
+
         DownloadManager.Request request = new DownloadManager.Request(Uri.parse(apkUrl));
         request.setTitle("Taxify update");
         request.setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED);

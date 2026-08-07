@@ -78,7 +78,12 @@ const PLANS = [
     price: '$49',
     period: '/year',
     text: 'Everything you need to track your own deductions, year round.',
-    features: ['1 user account', 'Unlimited expenses & receipts', 'Full reports & search', 'Optional read-only accountant access'],
+    features: [
+      'Your own individual tax — 1 set of books',
+      'Unlimited expenses and receipts',
+      'Year-over-year reports and exports',
+      'Read-only accountant access',
+    ],
     highlight: false,
   },
   {
@@ -86,8 +91,13 @@ const PLANS = [
     planType: 'business',
     price: '$79',
     period: '/year',
-    text: 'The same full feature set, shared across two people.',
-    features: ['Account holder + 1 extra full user', 'Each person tracks their own expenses', 'Optional read-only accountant access', 'Manage both users from one place'],
+    text: 'One individual tax return, plus up to two small businesses.',
+    features: [
+      'Your own individual tax — 1 set of books',
+      'Up to 2 small businesses, each with its own books',
+      'Separate reports and lodgement for each',
+      'Read-only accountant access',
+    ],
     highlight: true,
   },
 ];
@@ -301,6 +311,23 @@ export default function Landing() {
           </div>
         </motion.section>
 
+        {/* Shown before anything is claimed about it. Same drawing as the
+            static landing page — one file, so the two cannot drift. */}
+        <motion.div
+          initial={{ opacity: 0, y: 18 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, delay: 0.1, ease: [0.16, 1, 0.3, 1] }}
+          style={{ maxWidth: 940, margin: '0 auto clamp(48px, 8vw, 88px)' }}
+        >
+          <img
+            src="/media/shot-dashboard.svg"
+            alt="The Taxify dashboard showing a year's totals and spending by category, with the phone app photographing a receipt beside it"
+            width="940"
+            height="560"
+            style={{ display: 'block', width: '100%', height: 'auto' }}
+          />
+        </motion.div>
+
         {/* The whole product in five steps, of which you do two. */}
         <section style={{ marginBottom: 'clamp(48px, 8vw, 88px)' }}>
           <div style={{ textAlign: 'center', marginBottom: 36 }}>
@@ -359,6 +386,110 @@ export default function Landing() {
                 </div>
                 <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 5 }}>{title}</div>
                 <div style={{ fontSize: 12.5, color: 'var(--text-muted)', lineHeight: 1.5 }}>{text}</div>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        <section style={{ marginBottom: 'clamp(48px, 8vw, 88px)' }}>
+          <div style={{ textAlign: 'center', marginBottom: 36 }}>
+            <h2 style={{ fontSize: 'clamp(24px, 4vw, 32px)', margin: '0 0 12px', fontWeight: 800 }}>
+              What it actually looks like
+            </h2>
+            <p style={{ color: 'var(--text-muted)', fontSize: 15, maxWidth: 520, margin: '0 auto' }}>
+              The whole job is the first panel. The other two happen on their own.
+            </p>
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 'clamp(14px, 2.5vw, 26px)' }}>
+            {[
+              ['shot-capture', 'You do this', 'Photograph it and move on', 'One tap at the counter. Taxify reads the date and the total, and files it under the right category and year.'],
+              ['shot-expenses', 'Taxify does this', 'Everything in one place', 'Sorted, searchable, with the receipt attached to the expense — so a question in two years takes a moment, not an afternoon.'],
+              ['shot-reports', 'Come tax time', 'The numbers, already added up', 'Every category, every year side by side. Hand it to your accountant, or type it straight into myTax.'],
+            ].map(([file, step, title, text]) => (
+              <div key={file} style={{ minWidth: 0 }}>
+                <img
+                  src={`/media/${file}.svg`}
+                  alt={title}
+                  width="480"
+                  height="360"
+                  loading="lazy"
+                  style={{
+                    display: 'block',
+                    width: '100%',
+                    height: 'auto',
+                    borderRadius: 14,
+                    border: '1px solid var(--border)',
+                    background: 'var(--bg-card)',
+                  }}
+                />
+                <div style={{ fontSize: 10.5, fontWeight: 800, letterSpacing: 0.8, textTransform: 'uppercase', color: 'var(--text-muted)', margin: '14px 0 5px' }}>
+                  {step}
+                </div>
+                <div style={{ fontSize: 15, fontWeight: 700, marginBottom: 5 }}>{title}</div>
+                <div style={{ fontSize: 13, color: 'var(--text-muted)', lineHeight: 1.55 }}>{text}</div>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        {/* The objection nobody else answers. myDeductions is free and genuinely
+            useful; pretending otherwise would be obvious to anybody who has
+            tried it, and would cost more trust than it won. */}
+        <section style={{ marginBottom: 'clamp(48px, 8vw, 88px)' }}>
+          <div style={{ textAlign: 'center', marginBottom: 36 }}>
+            <h2 style={{ fontSize: 'clamp(24px, 4vw, 32px)', margin: '0 0 12px', fontWeight: 800 }}>
+              The ATO app is free. Why pay for this?
+            </h2>
+            <p style={{ color: 'var(--text-muted)', fontSize: 15, maxWidth: 540, margin: '0 auto' }}>
+              A fair question, and myDeductions is a decent tool. Here is the honest difference.
+            </p>
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 16, maxWidth: 820, margin: '0 auto' }}>
+            {[
+              {
+                head: 'ATO myDeductions',
+                sub: 'Free, and fine if this is all you need.',
+                ours: false,
+                items: [
+                  'Holds the current year, then hands it to myTax',
+                  'One set of records — no separate businesses',
+                  'Nothing to give an accountant but a file',
+                  'No way to compare this year against last',
+                ],
+              },
+              {
+                head: 'Taxify',
+                sub: `From ${plans[0]?.price || '$49'} a year, and deductible.`,
+                ours: true,
+                items: [
+                  'Every year kept, and comparable side by side',
+                  'Your own tax plus up to two businesses, kept apart',
+                  'Read-only accountant access that closes on its own',
+                  'Vehicle logbook and home-office hours, worked out for you',
+                ],
+              },
+            ].map((col) => (
+              <div
+                key={col.head}
+                className="card"
+                style={{
+                  padding: 22,
+                  border: col.ours ? '1px solid rgba(59, 130, 246, 0.45)' : undefined,
+                  boxShadow: col.ours ? '0 0 0 1px rgba(59, 130, 246, 0.14)' : undefined,
+                }}
+              >
+                <div style={{ fontSize: 14.5, fontWeight: 800, marginBottom: 4 }}>{col.head}</div>
+                <div style={{ fontSize: 12.5, color: 'var(--text-muted)', marginBottom: 16 }}>{col.sub}</div>
+                <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'flex', flexDirection: 'column', gap: 10 }}>
+                  {col.items.map((item) => (
+                    <li key={item} style={{ display: 'flex', gap: 9, fontSize: 13, lineHeight: 1.5, color: 'var(--text-muted)' }}>
+                      <span style={{ flexShrink: 0, marginTop: 1, color: col.ours ? 'var(--emerald)' : 'var(--text-subtle)' }}>
+                        {col.ours ? '✓' : '•'}
+                      </span>
+                      <span>{item}</span>
+                    </li>
+                  ))}
+                </ul>
               </div>
             ))}
           </div>

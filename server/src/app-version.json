@@ -1,5 +1,5 @@
 {
-  "versionCode": 3,
-  "versionName": "1.0.2",
-  "notes": "Startup screen now credits Mikes App Hub under the name."
+  "versionCode": 4,
+  "versionName": "1.0.3",
+  "notes": "Updating the app works more than once, and it stops offering an update it already has."
 }
