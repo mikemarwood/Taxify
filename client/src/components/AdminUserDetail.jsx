@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import ConfirmDialog from './ConfirmDialog.jsx';
 import { AnimatePresence, motion } from 'framer-motion';
 import { api } from '../lib/api.js';
 import { useToast } from './Toast.jsx';
@@ -42,6 +43,10 @@ function deviceLabel(d) {
   return where ? `${kind} — ${where}` : kind;
 }
 
+// The confirmations this panel asks for. Named rather than boolean so two
+// cannot be open at once.
+const NO_DIALOG = null;
+
 function Field({ label, children, mono }) {
   return (
     <div style={{ minWidth: 0 }}>
@@ -83,6 +88,10 @@ function Section({ title, icon, children }) {
 export default function AdminUserDetail({ userId, me, onClose, onChanged, actions }) {
   const toast = useToast();
   const [data, setData] = useState(null);
+  // Which confirmation is showing. One value rather than a boolean each, so
+  // two can never be open at once.
+  const [dialog, setDialog] = useState(NO_DIALOG);
+  const [acting, setActing] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -400,15 +409,17 @@ export default function AdminUserDetail({ userId, me, onClose, onChanged, action
                 <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                   {!isSelf && (
                     <>
-                      <button className="btn btn-ghost" style={{ fontSize: 12.5 }} onClick={() => actions.viewAs(u)}>
-                        View as this user
-                      </button>
+                      {/* An account that never opened its activation link has
+                          no session to stand in — there is nothing to look at
+                          and nothing it could show you. */}
                       <button
                         className="btn btn-ghost"
                         style={{ fontSize: 12.5 }}
-                        onClick={() => actions.toggleAdmin(u).then(refresh)}
+                        disabled={!u.active}
+                        title={u.active ? undefined : 'This account has never been activated'}
+                        onClick={() => setDialog('viewAs')}
                       >
-                        {u.isAdmin ? 'Remove administrator' : 'Make administrator'}
+                        View as this user
                       </button>
                       {/* Admins are never deletable — losing the last one locks
                           everyone out of this panel for good. */}
@@ -416,12 +427,7 @@ export default function AdminUserDetail({ userId, me, onClose, onChanged, action
                         <button
                           className="btn btn-ghost"
                           style={{ fontSize: 12.5, color: 'var(--red)' }}
-                          onClick={() =>
-                            actions.deleteUser(u).then((deleted) => {
-                              if (deleted) onClose();
-                              else refresh();
-                            })
-                          }
+                          onClick={() => setDialog('delete')}
                         >
                           Delete account
                         </button>
@@ -429,11 +435,61 @@ export default function AdminUserDetail({ userId, me, onClose, onChanged, action
                     </>
                   )}
                 </div>
+                {!u.active && !isSelf && (
+                  <p style={{ margin: 0, fontSize: 11.5, color: 'var(--text-muted)', lineHeight: 1.5 }}>
+                    Viewing as this account is unavailable until they open their activation link.
+                  </p>
+                )}
               </Section>
             </div>
           )}
         </motion.div>
       </motion.div>
+
+      {/* The confirmations. Both were window.confirm, which cannot be styled,
+          looks like a browser warning rather than something this app said, and
+          on a phone is a system sheet with no relationship to the page. */}
+      <ConfirmDialog
+        open={dialog === 'viewAs'}
+        title={`View Taxify as ${u?.name || 'this user'}?`}
+        body="You will see their account exactly as they do."
+        detail="Nothing can be changed while you are in there — every route is read-only — and a banner stays on screen until you leave."
+        confirmLabel="View as this user"
+        busy={acting}
+        onCancel={() => setDialog(NO_DIALOG)}
+        onConfirm={async () => {
+          setActing(true);
+          try {
+            await actions.viewAs(u);
+          } finally {
+            setActing(false);
+            setDialog(NO_DIALOG);
+          }
+        }}
+      />
+
+      <ConfirmDialog
+        open={dialog === 'delete'}
+        tone="danger"
+        title="Delete this account?"
+        body={`Everything belonging to ${u?.email || 'this account'} is removed: expenses, categories, receipts and documents.`}
+        detail={`${formatBytes(u?.storageBytes)} of files will be deleted from disk. There is no undo, and no copy kept.`}
+        confirmLabel="Delete permanently"
+        requireText={u?.email}
+        busy={acting}
+        onCancel={() => setDialog(NO_DIALOG)}
+        onConfirm={async () => {
+          setActing(true);
+          try {
+            const deleted = await actions.deleteUser(u);
+            setDialog(NO_DIALOG);
+            if (deleted) onClose();
+            else refresh();
+          } finally {
+            setActing(false);
+          }
+        }}
+      />
     </AnimatePresence>
   );
 }
@@ -448,33 +504,24 @@ function PlanAndBilling({ user, onSaved }) {
   const toast = useToast();
   const [planType, setPlanType] = useState(user.planType === 'business' ? 'business' : 'individual');
   const [complimentary, setComplimentary] = useState(!!user.accessBypass);
-  const [until, setUntil] = useState(user.accessBypassUntil ? String(user.accessBypassUntil).slice(0, 10) : '');
   const [busy, setBusy] = useState(false);
+  const [confirming, setConfirming] = useState(false);
 
   const label = planType === 'business' ? 'Small Business' : 'Individual';
   const dirty =
     planType !== (user.planType === 'business' ? 'business' : 'individual') ||
     complimentary !== !!user.accessBypass ||
-    (complimentary && until !== (user.accessBypassUntil ? String(user.accessBypassUntil).slice(0, 10) : ''));
+    false;
+
+  const moving = planType !== (user.planType === 'business' ? 'business' : 'individual');
 
   async function save() {
-    const lines = [`Move ${user.email} to ${label}.`];
-    if (complimentary) {
-      lines.push(until ? `They will not be charged, until ${until}.` : 'They will not be charged, open-ended.');
-    } else if (user.accessBypass) {
-      lines.push('They will be billed normally from now on.');
-    }
-    if (planType !== (user.planType === 'business' ? 'business' : 'individual')) {
-      lines.push('They will be emailed about the change.');
-    }
-    if (!window.confirm(lines.join('\n\n'))) return;
-
     setBusy(true);
     try {
       await api.patch(`/admin/users/${user.id}/plan`, {
         planType,
         complimentary,
-        until: complimentary && until ? until : null,
+        until: null,
       });
       toast('Plan updated', 'success');
       onSaved();
@@ -514,38 +561,43 @@ function PlanAndBilling({ user, onSaved }) {
         <span>
           <strong>Free — do not charge for this plan</strong>
           <span style={{ display: 'block', fontSize: 12, color: 'var(--text-muted)', lineHeight: 1.5 }}>
-            Full use of the plan with no subscription. Any Stripe subscription they already have is untouched —
-            this only stops the app requiring one.
+            Free until you turn it off. Full use of the plan with no subscription — any Stripe subscription they
+            already have is untouched, so cancel that in Stripe if you mean to.
           </span>
         </span>
       </label>
 
-      {complimentary && (
-        <div>
-          <label className="label" htmlFor={`comp-until-${user.id}`}>
-            Until (optional)
-          </label>
-          <input
-            id={`comp-until-${user.id}`}
-            className="input"
-            type="date"
-            value={until}
-            onChange={(e) => setUntil(e.target.value)}
-            style={{ maxWidth: 200 }}
-          />
-          {/* An open-ended grant nobody remembers making is how a paid product
-              quietly stops being one. */}
-          <div style={{ fontSize: 11.5, color: 'var(--text-muted)', marginTop: 5 }}>
-            Leave blank for open-ended — but a date is easier to remember than a promise.
-          </div>
-        </div>
-      )}
-
       <div>
-        <button className="btn btn-primary" style={{ fontSize: 12.5 }} disabled={!dirty || busy} onClick={save}>
-          {busy && <span className="spinner" />}
+        <button
+          className="btn btn-primary"
+          style={{ fontSize: 12.5 }}
+          disabled={!dirty || busy}
+          onClick={() => setConfirming(true)}
+        >
           Apply
         </button>
+
+        <ConfirmDialog
+          open={confirming}
+          title={`Move this account to ${label}?`}
+          body={`${user.email} will be on the ${label} plan.`}
+          detail={
+            complimentary
+              ? 'They will not be charged for it, and it stays that way until somebody turns it off here. Any Stripe subscription they already have is untouched — cancel that in Stripe if you mean to.'
+              : user.accessBypass
+              ? 'They will be billed normally from now on.'
+              : moving
+              ? 'They will be emailed about the change, the same as if they had made it themselves.'
+              : undefined
+          }
+          confirmLabel="Apply"
+          busy={busy}
+          onCancel={() => setConfirming(false)}
+          onConfirm={async () => {
+            await save();
+            setConfirming(false);
+          }}
+        />
       </div>
     </div>
   );

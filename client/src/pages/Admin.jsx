@@ -117,17 +117,9 @@ function UsersTab() {
     api.get('/admin/users').then((res) => setUsers(res.data.users));
   }
   useEffect(load, []);
+  // Confirmed by AdminUserDetail before this is called — it can ask in a
+  // dialog that looks like the rest of the app, which window.confirm cannot.
   async function viewAs(u) {
-    if (
-      !window.confirm(
-        `View Taxify as ${u.name} (${u.email})?\n\n` +
-          'You will see their account exactly as they do, but nothing can be changed. ' +
-          'A banner stays on screen until you exit.'
-      )
-    ) {
-      return;
-    }
-
     try {
       const res = await api.post(`/admin/users/${u.id}/view-as`);
       setUser(res.data.user);
@@ -137,33 +129,11 @@ function UsersTab() {
     }
   }
 
-  async function toggleAdmin(u) {
-    try {
-      await api.patch(`/admin/users/${u.id}`, { isAdmin: !u.isAdmin });
-      load();
-    } catch (err) {
-      toast(err.message, 'error');
-    }
-  }
-
-  // Two steps on purpose. This removes an account and every trace of it —
-  // expenses, categories, receipts, documents — with no undo, so typing the
-  // email is the check that the right row is being deleted.
+  // The confirmation, and the typing of the email that goes with it, happen
+  // in AdminUserDetail. The email still has to be typed — it is the only check
+  // that the row being deleted is the row that was meant, and a mis-click
+  // cannot pass it.
   async function deleteUser(u) {
-    const first = window.confirm(
-      `Delete ${u.name} (${u.email})?\n\n` +
-        `This permanently removes their expenses, categories, receipts and documents ` +
-        `(${formatBytes(u.storageBytes)} of files). It cannot be undone.`
-    );
-    if (!first) return;
-
-    const typed = window.prompt(`Type the email address to confirm:\n${u.email}`);
-    if (typed === null) return false;
-    if (typed.trim().toLowerCase() !== u.email.toLowerCase()) {
-      toast('That didn’t match — nothing was deleted', 'error');
-      return false;
-    }
-
     try {
       const res = await api.delete(`/admin/users/${u.id}`);
       const extra = res.data?.deletedDependents
@@ -361,7 +331,7 @@ function UsersTab() {
           me={me}
           onClose={() => setDetailId(null)}
           onChanged={load}
-          actions={{ viewAs, toggleAdmin, deleteUser }}
+          actions={{ viewAs, deleteUser }}
         />
       )}
     </div>

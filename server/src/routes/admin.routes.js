@@ -425,6 +425,15 @@ router.post(
     const target = rows[0];
     if (!target) return res.status(404).json({ error: 'User not found' });
 
+    // An account that has never opened its activation link has no password and
+    // has never signed in, so there is nothing to stand in for — the session
+    // would show an empty account and imply it was theirs. Refused here as
+    // well as hidden in the panel, because a disabled button is a courtesy and
+    // this is the actual rule.
+    if (!target.activated_at) {
+      return res.status(409).json({ error: 'That account has never been activated — there is nothing to view yet.' });
+    }
+
     console.log(`[admin] ${req.user.email} started viewing as ${target.email}`);
     res.cookie(COOKIE_NAME, signViewAsToken(target, req.user.id), cookieOptions(false));
 
