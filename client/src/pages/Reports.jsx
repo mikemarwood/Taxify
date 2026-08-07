@@ -178,7 +178,7 @@ export default function Reports() {
           ))}
 
           <motion.div
-            className="card scrollbar-slim"
+            className="card scrollbar-slim report-scroll"
             initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.15 }}
@@ -194,7 +194,7 @@ export default function Reports() {
                     </th>
                   ))}
                   <th style={{ ...thStyle('right'), fontWeight: 800 }}>Total</th>
-                  <th style={{ ...thStyle('left'), width: 90 }}>Share</th>
+                  <th className="col-share" style={{ ...thStyle('left'), width: 90 }}>Share</th>
                 </tr>
               </thead>
               <tbody>
@@ -223,7 +223,7 @@ export default function Reports() {
                         </td>
                       ))}
                       <td style={{ ...tdStyle('right'), fontWeight: 700 }}>{fmt(total)}</td>
-                      <td style={tdStyle('left')}>
+                      <td className="col-share" style={tdStyle('left')}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                           <div style={{ flex: 1, height: 6, borderRadius: 999, background: 'var(--bg-elevated)', overflow: 'hidden' }}>
                             <motion.div
@@ -254,6 +254,10 @@ export default function Reports() {
               </tbody>
             </table>
           </motion.div>
+
+          <p className="scroll-hint" style={{ fontSize: 12, color: 'var(--text-muted)', margin: '-14px 0 24px', textAlign: 'center' }}>
+            Swipe the table sideways to see every year.
+          </p>
 
           {categoryFilter && (
             <div style={{ marginTop: 24 }}>

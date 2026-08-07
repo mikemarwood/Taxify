@@ -363,6 +363,8 @@ input[type="date"].input::-webkit-calendar-picker-indicator:hover { opacity: 1; 
    a gap between them read as two unrelated things stacked at the bottom. */
 .admin-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 14px; }
 
+.scroll-hint { display: none; }
+
 .nav-foot-actions { display: flex; gap: 8px; align-items: stretch; }
 .nav-foot-actions > div,
 .nav-foot-actions > .nav-btn { flex: 1 1 0; min-width: 0; }
@@ -490,6 +492,22 @@ input[type="date"].input::-webkit-calendar-picker-indicator:hover { opacity: 1; 
      and its value less room than either needed, and the panel read as a wall. */
   .admin-grid { grid-template-columns: 1fr !important; gap: 10px !important; }
   .admin-detail { margin-top: 8px !important; margin-bottom: 8px !important; }
+
+  /* The year-on-year table is a comparison grid — six columns of figures —
+     and there is no honest way to fit that in 375px. So it scrolls, and three
+     things make that work rather than look broken:
+
+     the share bar goes, because a bar is the least useful column when space is
+     short and it was taking 90px of it; the padding halves so the remaining
+     columns are read rather than guessed at; and a line under the table says
+     it scrolls, since a grid with its right-hand side off screen and nothing
+     saying so just looks cut off. */
+  .report-scroll .col-share { display: none; }
+  .report-scroll table { min-width: 480px; }
+  .report-scroll th,
+  .report-scroll td { padding-left: 10px !important; padding-right: 10px !important; }
+  .report-scroll th { font-size: 11.5px !important; }
+  .scroll-hint { display: block !important; }
 
   /* A finger, not a cursor. 44px is the guideline and these were 35. */
   .app-sidebar .nav-item {
