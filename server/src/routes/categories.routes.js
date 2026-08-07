@@ -566,9 +566,21 @@ router.delete(
     const category = await loadRentalCategory(req, res);
     if (!category) return;
 
+    // The year narrows it when the caller knows one, and it needs to.
+    //
+    // A document is unique on (category, year, filename), so one property can
+    // hold a "rates-notice.pdf" for 2024-2025 and another for 2025-2026.
+    // Matching on filename alone took whichever row came back first, so
+    // deleting from one year could remove the other year's row and its file
+    // from disk. Now that these are deleted from a per-year panel rather than
+    // a per-property one, that is the ordinary case rather than bad luck.
+    const year = req.query.year && isFinancialYearLabel(req.query.year) ? req.query.year : null;
     const [rows] = await pool.execute(
-      'SELECT id, filename, financial_year FROM category_documents WHERE category_id = ? AND user_id = ? AND filename = ?',
-      [category.id, req.user.id, req.params.filename]
+      `SELECT id, filename, financial_year FROM category_documents
+       WHERE category_id = ? AND user_id = ? AND filename = ?${year ? ' AND financial_year = ?' : ''}`,
+      year
+        ? [category.id, req.user.id, req.params.filename, year]
+        : [category.id, req.user.id, req.params.filename]
     );
     if (!rows[0]) return res.status(404).json({ error: 'Document not found' });
 

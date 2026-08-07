@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { api } from '../lib/api.js';
+import { useToast } from './Toast.jsx';
 import Icon from './Icon.jsx';
 import ReceiptLightbox from './ReceiptLightbox.jsx';
 
@@ -71,15 +72,34 @@ function Thumb({ doc }) {
 // on a report or beside that year's expenses. Which category it came from is a
 // label here, not the way in: at tax time you want the year's documents
 // together, whatever they were attached to.
-export default function YearDocuments({ financialYear, title = 'Documents for this year', collapsible = true }) {
+export default function YearDocuments({
+  financialYear,
+  title = 'Documents for this year',
+  collapsible = true,
+  // Reports is where these are kept, so that is the only place that offers to
+  // add or remove one. Everywhere else lists them and nothing more.
+  manage = false,
+}) {
+  const toast = useToast();
   const [documents, setDocuments] = useState(null);
   const [open, setOpen] = useState(!collapsible);
   const [preview, setPreview] = useState(null);
 
-  useEffect(() => {
-    if (!financialYear || financialYear === 'all') {
+  // Which property a new document belongs to. Rental categories only, because
+  // that is what the upload route accepts, and they are per financial year.
+  const [properties, setProperties] = useState([]);
+  const [adding, setAdding] = useState(false);
+  const [propertyId, setPropertyId] = useState('');
+  const [documentName, setDocumentName] = useState('');
+  const [files, setFiles] = useState([]);
+  const [busy, setBusy] = useState(false);
+
+  const usable = financialYear && financialYear !== 'all';
+
+  function load() {
+    if (!usable) {
       setDocuments([]);
-      return;
+      return undefined;
     }
     setDocuments(null);
     let cancelled = false;
@@ -90,10 +110,74 @@ export default function YearDocuments({ financialYear, title = 'Documents for th
     return () => {
       cancelled = true;
     };
-  }, [financialYear]);
+  }
 
-  // Nothing filed for this year is not worth a panel saying so.
-  if (!financialYear || financialYear === 'all' || (documents && documents.length === 0)) return null;
+  useEffect(load, [financialYear]);
+
+  useEffect(() => {
+    if (!manage || !usable) return undefined;
+    let cancelled = false;
+    api
+      .get(`/categories?financialYear=${encodeURIComponent(financialYear)}`)
+      .then((res) => {
+        if (cancelled) return;
+        const rentals = (res.data.categories || []).filter((c) => c.isPropertyRental);
+        setProperties(rentals);
+        setPropertyId((current) =>
+          rentals.some((c) => String(c.id) === String(current)) ? current : String(rentals[0]?.id || '')
+        );
+      })
+      .catch(() => !cancelled && setProperties([]));
+    return () => {
+      cancelled = true;
+    };
+  }, [manage, financialYear, usable]);
+
+  async function upload(e) {
+    e.preventDefault();
+    if (files.length === 0 || !propertyId) return;
+    setBusy(true);
+    try {
+      const form = new FormData();
+      for (const file of files) form.append('documents', file);
+      form.append('financialYear', financialYear);
+      if (documentName.trim()) form.append('documentName', documentName.trim());
+      await api.post(`/categories/${propertyId}/documents`, form, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      });
+      toast(`${files.length} document${files.length === 1 ? '' : 's'} filed`, 'success');
+      setFiles([]);
+      setDocumentName('');
+      setAdding(false);
+      load();
+    } catch (err) {
+      toast(err.message, 'error');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function remove(doc) {
+    if (!window.confirm(`Delete "${doc.documentName}"? The file is removed for good.`)) return;
+    try {
+      await api.delete(
+        `/categories/${doc.category.id}/documents/${encodeURIComponent(doc.filename)}?year=${encodeURIComponent(
+          doc.financialYear || financialYear
+        )}`
+      );
+      toast('Document deleted', 'success');
+      load();
+    } catch (err) {
+      toast(err.message, 'error');
+    }
+  }
+
+  // A year with nothing filed is not worth a panel — unless this is the place
+  // documents are added, where an empty panel is the only way to add the first
+  // one. With no rental property there is nothing to attach a document to
+  // either, so there is still nothing to show.
+  if (!usable) return null;
+  if (documents && documents.length === 0 && !(manage && properties.length > 0)) return null;
 
   const count = documents?.length ?? 0;
   const totalBytes = (documents || []).reduce((sum, d) => sum + (d.sizeBytes || 0), 0);
@@ -122,6 +206,8 @@ export default function YearDocuments({ financialYear, title = 'Documents for th
         <span style={{ fontSize: 12.5, color: 'var(--text-muted)' }}>
           {documents === null
             ? 'loading…'
+            : count === 0
+            ? `FY ${financialYear} · nothing filed yet`
             : `FY ${financialYear} · ${count} file${count === 1 ? '' : 's'}${
                 totalBytes ? ` · ${formatSize(totalBytes)}` : ''
               }`}
@@ -206,8 +292,115 @@ export default function YearDocuments({ financialYear, title = 'Documents for th
                   >
                     <Icon name="download" size={16} />
                   </a>
+                  {manage && (
+                    <button
+                      type="button"
+                      title="Delete this document"
+                      onClick={() => remove(d)}
+                      style={{
+                        display: 'flex',
+                        background: 'none',
+                        border: 'none',
+                        cursor: 'pointer',
+                        color: 'var(--text-muted)',
+                        padding: 6,
+                        margin: -6,
+                      }}
+                    >
+                      <Icon name="trash" size={15} />
+                    </button>
+                  )}
                 </div>
               ))}
+
+              {manage && properties.length > 0 && (
+                <div style={{ marginTop: documents.length > 0 ? 6 : 0 }}>
+                  {!adding ? (
+                    <button
+                      type="button"
+                      className="btn btn-ghost"
+                      style={{ fontSize: 12.5, gap: 7 }}
+                      onClick={() => setAdding(true)}
+                    >
+                      <Icon name="upload" size={14} />
+                      Add a document
+                    </button>
+                  ) : (
+                    <form
+                      onSubmit={upload}
+                      style={{
+                        display: 'grid',
+                        gap: 10,
+                        padding: 13,
+                        borderRadius: 'var(--radius-sm)',
+                        background: 'var(--bg-inset)',
+                        border: '1px solid var(--border)',
+                      }}
+                    >
+                      <div>
+                        <label className="label">Which property</label>
+                        <select
+                          className="input"
+                          value={propertyId}
+                          onChange={(e) => setPropertyId(e.target.value)}
+                        >
+                          {properties.map((c) => (
+                            <option key={c.id} value={c.id}>
+                              {c.name}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+
+                      <div>
+                        <label className="label">Name it (optional)</label>
+                        <input
+                          className="input"
+                          value={documentName}
+                          maxLength={200}
+                          placeholder="e.g. Council rates notice"
+                          onChange={(e) => setDocumentName(e.target.value)}
+                        />
+                      </div>
+
+                      <div>
+                        <label className="label">File</label>
+                        <input
+                          className="input"
+                          type="file"
+                          multiple
+                          onChange={(e) => setFiles([...e.target.files])}
+                        />
+                        <div style={{ fontSize: 11.5, color: 'var(--text-muted)', marginTop: 5 }}>
+                          Filed under FY {financialYear}. Several at once share the name you give them.
+                        </div>
+                      </div>
+
+                      <div style={{ display: 'flex', gap: 9 }}>
+                        <button className="btn btn-primary" style={{ fontSize: 12.5 }} disabled={busy || files.length === 0}>
+                          {busy && <span className="spinner" />}
+                          {busy
+                            ? 'Filing…'
+                            : files.length === 0
+                            ? 'Choose a file'
+                            : `File ${files.length} document${files.length === 1 ? '' : 's'}`}
+                        </button>
+                        <button
+                          type="button"
+                          className="btn btn-ghost"
+                          style={{ fontSize: 12.5 }}
+                          onClick={() => {
+                            setAdding(false);
+                            setFiles([]);
+                          }}
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    </form>
+                  )}
+                </div>
+              )}
             </div>
           </motion.div>
         )}

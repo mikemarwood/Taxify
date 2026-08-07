@@ -165,7 +165,7 @@ export default function Reports() {
               the category it happened to be uploaded to — one collapsed panel
               per year that has any, newest first. */}
           {[...years].reverse().map((y) => (
-            <YearDocuments key={y} financialYear={y} title={`Documents filed for FY ${y}`} />
+            <YearDocuments key={y} financialYear={y} title={`Documents filed for FY ${y}`} manage />
           ))}
 
           <motion.div

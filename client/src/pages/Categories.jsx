@@ -4,7 +4,6 @@ import { api } from '../lib/api.js';
 import { useToast } from '../components/Toast.jsx';
 import { SkeletonList } from '../components/Skeletons.jsx';
 import Icon from '../components/Icon.jsx';
-import CategoryDocuments from '../components/CategoryDocuments.jsx';
 import { formatMoney } from '../lib/money.js';
 import { IconPicker, ColourPicker, CategoryPreview, SWATCHES } from '../components/CategoryPickers.jsx';
 import { defaultFinancialYear } from '../lib/financialYear.js';
@@ -454,7 +453,6 @@ export default function Categories() {
                     </>
                   )}
 
-                  {!editing && c.isPropertyRental && <CategoryDocuments category={c} />}
                 </motion.div>
               );
             })}
