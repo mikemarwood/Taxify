@@ -20,6 +20,7 @@ import Dashboard from './pages/Dashboard.jsx';
 import Expenses from './pages/Expenses.jsx';
 import AddExpense from './pages/AddExpense.jsx';
 import Categories from './pages/Categories.jsx';
+import Books from './pages/Books.jsx';
 import Reports from './pages/Reports.jsx';
 import Deductions from './pages/Deductions.jsx';
 import Admin from './pages/Admin.jsx';
@@ -107,6 +108,7 @@ export default function App() {
       <Route path="/expenses" element={<Protected><Expenses /></Protected>} />
       <Route path="/add" element={<Protected><AddExpense /></Protected>} />
       <Route path="/categories" element={<Protected><Categories /></Protected>} />
+      <Route path="/books" element={<Protected><Books /></Protected>} />
       <Route path="/reports" element={<Protected><Reports /></Protected>} />
       <Route path="/deductions" element={<Protected><Deductions /></Protected>} />
       <Route path="/account" element={<Protected><Account /></Protected>} />

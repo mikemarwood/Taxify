@@ -4,13 +4,14 @@ import { api } from '../lib/api.js';
 import { useToast } from '../components/Toast.jsx';
 import { SkeletonList } from '../components/Skeletons.jsx';
 import Icon from '../components/Icon.jsx';
-import EntityManager from '../components/EntityManager.jsx';
 import CategoryDocuments from '../components/CategoryDocuments.jsx';
 import { formatMoney } from '../lib/money.js';
 import { IconPicker, ColourPicker, CategoryPreview, SWATCHES } from '../components/CategoryPickers.jsx';
 import { defaultFinancialYear } from '../lib/financialYear.js';
 import { useFinancialYears } from '../lib/useFinancialYears.js';
+import { Link } from 'react-router-dom';
 import { useAuth } from '../lib/AuthContext.jsx';
+import { useEntities } from '../lib/EntityContext.jsx';
 
 import {
   MAX_NAME_LENGTH,
@@ -48,6 +49,9 @@ export default function Categories() {
   const [year, setYear] = useState(() => defaultFinancialYear(null, user?.financialYearRule));
   const [years, setYears] = useState([]);
   const { years: expenseYears } = useFinancialYears();
+  // Which books these categories belong to — stated on the page now that the
+  // books block has one of its own.
+  const { entity: filingInto, showSwitcher } = useEntities();
 
   function load(forYear = year) {
     setCategories(null);
@@ -130,10 +134,6 @@ export default function Categories() {
 
   return (
     <div style={{ maxWidth: 940 }}>
-      {/* Which books, then which year, then the categories in it — the order
-          the questions actually depend on each other. */}
-      <EntityManager />
-
       <div style={{ display: 'flex', alignItems: 'flex-end', gap: 16, flexWrap: 'wrap', marginBottom: 22 }}>
         <div style={{ flex: 1, minWidth: 240 }}>
           <h1 style={{ margin: '0 0 4px', fontSize: 26 }}>Categories</h1>
@@ -229,6 +229,34 @@ export default function Categories() {
           </motion.form>
         )}
       </AnimatePresence>
+
+      {/* Categories belong to one set of books, so which one has to be on the
+          screen. It used to be implied by the books block that sat above the
+          title; with that on its own page, it gets said. */}
+      {filingInto && showSwitcher && (
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 8,
+            flexWrap: 'wrap',
+            marginBottom: 16,
+            padding: '9px 12px',
+            borderRadius: 'var(--radius-sm)',
+            background: 'var(--bg-inset)',
+            fontSize: 12.5,
+            color: 'var(--text-muted)',
+          }}
+        >
+          <Icon name={filingInto.kind === 'business' ? 'briefcase' : 'user'} size={14} />
+          <span>
+            Categories for <strong style={{ color: 'var(--text)' }}>{filingInto.name}</strong>
+          </span>
+          <Link to="/books" style={{ marginLeft: 'auto', color: 'var(--accent)', fontWeight: 600 }}>
+            Your books
+          </Link>
+        </div>
+      )}
 
       {categories === null ? (
         <SkeletonList rows={4} />

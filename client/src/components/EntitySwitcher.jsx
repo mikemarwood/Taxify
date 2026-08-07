@@ -140,6 +140,20 @@ export default function EntitySwitcher({ compact = false }) {
                   onClick={() => pick(ALL_ENTITIES)}
                 />
               )}
+
+              {/* This is where somebody is already thinking about their books, so
+                  it is where 'and I want another one' occurs to them. The row
+                  that used to be here pointed at the Categories page, which was
+                  never a sensible place for it. */}
+              <div style={{ height: 1, background: 'var(--border)', margin: '5px 2px' }} />
+              <Row
+                icon="book"
+                title="Manage your books"
+                onClick={() => {
+                  setOpen(false);
+                  navigate('/books');
+                }}
+              />
             </motion.div>
           )}
         </AnimatePresence>,

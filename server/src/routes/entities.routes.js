@@ -85,8 +85,20 @@ router.get(
     const usedBusinesses = all.filter((e) => e.kind === 'business').length;
     const allowedBusinesses = entityAllowance(req.user.planType).businesses;
 
+    // Sent separately rather than mixed into `entities`, so every caller that
+    // reads that list today — the picker, the expense form, the deductions
+    // page, exports — keeps getting exactly what it gets now.
+    //
+    // Listed at all because they still count against the cap above. Without
+    // them, archiving a business and then being refused another reads as the
+    // app contradicting itself: "you have all 2" with one on the screen.
+    const archived = all
+      .filter((e) => e.archived_at)
+      .map((row) => shapeEntity(row));
+
     res.json({
       entities,
+      archived,
       selected: req.user.entityId || null,
       allowance: {
         businesses: allowedBusinesses,

@@ -193,9 +193,14 @@ An account holds one **Individual** and, on Small Business, up to two businesses
 to exactly one of them, and that is what decides whether it is asked for a business-use percentage —
 personal records never are.
 
-- Managed on the **Categories** page, and switched from the picker at the top of the nav. The picker
-  is hidden entirely while an account has only one set of books, so an account that has never made a
-  business sees nothing new.
+- Managed on **Your books** (`/books`, under Settings), and switched from the picker at the top of
+  the nav — which also links there, since that is where somebody is already thinking about books.
+  They lived above the Categories page title until they earned a page, which made that page two
+  features stacked.
+- **Archived books still count against the plan cap**, because a cap you can step around by
+  archiving is not a cap. `GET /entities` therefore returns them in a separate `archived` array and
+  Your books lists them with a Restore — without that, archiving a business and then being refused
+  another reads as the app contradicting itself.
 - **Everything** is a combined view. It is a way of looking, not a place to file, so reads allow it
   and writes refuse it — the expense form asks which books instead.
 - The selection travels as an `X-Taxify-Entity` header on every request. Downloads carry

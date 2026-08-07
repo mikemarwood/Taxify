@@ -22,7 +22,7 @@ const CADENCES = [
 
 export default function EntityManager() {
   const toast = useToast();
-  const { entities, allowance, selected, selectedId, choose, reload } = useEntities();
+  const { entities, archived, allowance, selected, selectedId, choose, reload } = useEntities();
   const [adding, setAdding] = useState(false);
   const [editing, setEditing] = useState(null);
   const [busy, setBusy] = useState(false);
@@ -91,6 +91,16 @@ export default function EntityManager() {
     }
   }
 
+  async function restore(entity) {
+    try {
+      await api.post(`/entities/${entity.id}/archive`, { archived: false });
+      toast(`${entity.name} restored`, 'success');
+      reload();
+    } catch (err) {
+      toast(err.message, 'error');
+    }
+  }
+
   async function remove(entity) {
     if (!window.confirm(`Delete ${entity.name}? This cannot be undone.`)) return;
     try {
@@ -104,14 +114,7 @@ export default function EntityManager() {
   }
 
   return (
-    <div style={{ marginBottom: 22 }}>
-      <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, marginBottom: 10, flexWrap: 'wrap' }}>
-        <h2 style={{ margin: 0, fontSize: 15, fontWeight: 700 }}>Your books</h2>
-        <span style={{ fontSize: 12.5, color: 'var(--text-muted)' }}>
-          Categories, expenses and lodgements all belong to one of these.
-        </span>
-      </div>
-
+    <div>
       <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
         {entities.map((e) => {
           const active = String(selected) === String(e.id);
@@ -334,6 +337,58 @@ export default function EntityManager() {
           </motion.form>
         )}
       </AnimatePresence>
+
+      {/* Shown because they still count against the plan. Without this,
+          archiving a business and then being refused another reads as the app
+          contradicting itself — "you have all 2" with one on the screen and no
+          way to find the other. */}
+      {archived?.length > 0 && (
+        <div style={{ marginTop: 26 }}>
+          <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, flexWrap: 'wrap', marginBottom: 4 }}>
+            <h2 style={{ margin: 0, fontSize: 14, fontWeight: 700 }}>Archived</h2>
+            <span style={{ fontSize: 12.5, color: 'var(--text-muted)' }}>
+              Still counted by your plan, because unarchiving is one press.
+            </span>
+          </div>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 10 }}>
+            {archived.map((e) => (
+              <div
+                key={e.id}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 10,
+                  flexWrap: 'wrap',
+                  padding: '10px 13px',
+                  borderRadius: 'var(--radius-sm)',
+                  background: 'var(--bg-inset)',
+                  border: '1px dashed var(--border-strong)',
+                  fontSize: 13,
+                }}
+              >
+                <Icon
+                  name={e.kind === 'business' ? 'briefcase' : 'user'}
+                  size={15}
+                  style={{ color: 'var(--text-muted)', flexShrink: 0 }}
+                />
+                <span style={{ flex: 1, minWidth: 120, fontWeight: 600 }}>{e.name}</span>
+                <span style={{ fontSize: 11.5, color: 'var(--text-muted)' }}>
+                  {e.kind === 'business' ? 'Small business' : 'Individual'}
+                </span>
+                <button
+                  type="button"
+                  className="btn btn-ghost"
+                  style={{ fontSize: 12, padding: '5px 11px' }}
+                  onClick={() => restore(e)}
+                >
+                  Restore
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -25,6 +25,7 @@ function storageKey(user) {
 export function EntityProvider({ children }) {
   const { user } = useAuth();
   const [entities, setEntities] = useState([]);
+  const [archived, setArchived] = useState([]);
   // What the plan allows, so the page can say so before somebody types a name.
   const [allowance, setAllowance] = useState(null);
   const [selected, setSelected] = useState(ALL_ENTITIES);
@@ -35,12 +36,14 @@ export function EntityProvider({ children }) {
   const load = useCallback(async () => {
     if (!user) {
       setEntities([]);
+      setArchived([]);
       setLoading(false);
       return;
     }
     try {
       const { data } = await api.get('/entities');
       setEntities(data.entities || []);
+      setArchived(data.archived || []);
       setAllowance(data.allowance || null);
 
       const stored = key ? window.localStorage.getItem(key) : null;
@@ -53,6 +56,7 @@ export function EntityProvider({ children }) {
       setEntityId(next === ALL_ENTITIES ? null : next);
     } catch {
       setEntities([]);
+      setArchived([]);
     } finally {
       setLoading(false);
     }
@@ -76,6 +80,11 @@ export function EntityProvider({ children }) {
     const current = entities.find((e) => String(e.id) === String(selected)) || null;
     return {
       entities,
+      // Kept apart from the list above on purpose: archived books are not
+      // somewhere you can file, so nothing that offers a choice should see
+      // them. They are listed only where they need explaining — Books.jsx,
+      // because they still count against the plan.
+      archived,
       allowance,
       loading,
       selected,
@@ -91,7 +100,7 @@ export function EntityProvider({ children }) {
       choose,
       reload: load,
     };
-  }, [entities, allowance, selected, loading, choose, load]);
+  }, [entities, archived, allowance, selected, loading, choose, load]);
 
   return <EntityContext.Provider value={value}>{children}</EntityContext.Provider>;
 }
