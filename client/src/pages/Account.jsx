@@ -1078,7 +1078,7 @@ export default function Account() {
                 placeholder="412 345 678"
                 value={phone}
                 onChange={(e) => setPhone(e.target.value.replace(/[^\d\s()-]/g, ''))}
-                style={{ minWidth: 0 }}
+                style={{ flex: 1, minWidth: 0 }}
               />
             </div>
           </div>

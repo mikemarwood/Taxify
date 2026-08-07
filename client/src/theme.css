@@ -504,6 +504,21 @@ input[type="date"].input::-webkit-calendar-picker-indicator:hover { opacity: 1; 
   h1 { font-size: 21px !important; }
 }
 
+/* Back, a line of prose, and Next on one row is fine with room and cramped
+   without it — the prose ends up a narrow column wedged between two buttons.
+   Below this width it drops to its own line under them. */
+@media (max-width: 560px) {
+  .register-actions { flex-wrap: wrap; }
+  .register-actions > button { flex: 1 1 auto; }
+  .register-actions > .register-signin {
+    order: 3;
+    flex: 1 1 100%;
+    text-align: center;
+    margin-top: 6px;
+  }
+  .register-actions > .register-signin:empty { display: none; }
+}
+
 @media (max-width: 520px) {
   .btn { padding: 9px 14px; }
   .app-shell-main { padding: 12px !important; }

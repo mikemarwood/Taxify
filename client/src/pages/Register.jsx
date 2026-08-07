@@ -511,7 +511,7 @@ export default function Register() {
                       autoComplete="bday"
                     />
                   </Field>
-                  <Field label="Phone number" error={errors.phone} hint="Optional">
+                  <Field label="Phone number" error={errors.phone} hint="Optional" span>
                     <div style={{ display: 'flex', gap: 6 }}>
                       <select
                         className="input"
@@ -521,7 +521,7 @@ export default function Register() {
                           setDialCode(e.target.value);
                           setDialTouched(true);
                         }}
-                        style={{ width: 104, flexShrink: 0, paddingLeft: 8, paddingRight: 4 }}
+                        style={{ width: 96, flexShrink: 0, paddingLeft: 8, paddingRight: 4 }}
                       >
                         {dialOptions.map((d) => (
                           <option key={d.code} value={d.dial}>
@@ -537,7 +537,7 @@ export default function Register() {
                         placeholder="412 345 678"
                         onChange={(e) => setPhone(e.target.value.replace(/[^\d\s()-]/g, ''))}
                         autoComplete="tel-national"
-                        style={{ minWidth: 0 }}
+                        style={{ flex: 1, minWidth: 0 }}
                       />
                     </div>
                   </Field>
@@ -864,7 +864,10 @@ export default function Register() {
               )}
           </motion.div>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 22, paddingTop: 18, borderTop: '1px solid var(--border)' }}>
+          <div
+            className="register-actions"
+            style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 22, paddingTop: 18, borderTop: '1px solid var(--border)' }}
+          >
             <button
               type="button"
               className="btn btn-ghost"
@@ -874,7 +877,7 @@ export default function Register() {
               {step === 0 ? 'Cancel' : 'Back'}
             </button>
 
-            <span style={{ flex: 1, fontSize: 12.5, color: 'var(--text-muted)' }}>
+            <span className="register-signin" style={{ flex: 1, fontSize: 12.5, color: 'var(--text-muted)' }}>
               {isLast ? null : (
                 <>
                   Already have an account?{' '}
