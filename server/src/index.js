@@ -134,7 +134,17 @@ app.use((err, req, res, next) => {
   if (err?.status && err.status < 500) {
     return res.status(err.status).json({ error: err.message });
   }
-  console.error(err);
+  // Which request failed, not only how. A bare stack in pm2's log gives no way
+  // to tell which button somebody pressed, and "Something went wrong" is all
+  // the person who pressed it ever sees — so this line is the only record of
+  // what actually happened. A MariaDB error carries its own code and the
+  // offending column, both worth having.
+  console.error(
+    `[500] ${req.method} ${req.originalUrl}` +
+      (req.user?.id ? ` user=${req.user.id}` : '') +
+      (err?.code ? ` code=${err.code}` : ''),
+    err
+  );
   res.status(500).json({ error: 'Something went wrong' });
 });
 

@@ -41,8 +41,8 @@ function clearDraft() {
 }
 
 const LIMITS = {
-  firstName: { max: 60 },
-  lastName: { max: 60 },
+  firstName: { min: 2, max: 60 },
+  lastName: { min: 2, max: 60 },
   phone: { min: 6, max: 20 },
   email: { max: 254 },
   businessName: { max: 120 },
@@ -258,6 +258,14 @@ export default function Register() {
     if (confirmEmail && confirmEmail.trim().toLowerCase() !== email.trim().toLowerCase()) {
       e.confirmEmail = 'The two addresses don’t match';
     }
+    // A single letter is a slip, not a name. Only complained about once
+    // something has been typed, so the form is not red before anyone starts.
+    if (firstName.trim() && firstName.trim().length < LIMITS.firstName.min) {
+      e.firstName = `At least ${LIMITS.firstName.min} characters`;
+    }
+    if (lastName.trim() && lastName.trim().length < LIMITS.lastName.min) {
+      e.lastName = `At least ${LIMITS.lastName.min} characters`;
+    }
     const digits = phone.replace(/\D/g, '');
     if (digits.length > 0 && digits.length < LIMITS.phone.min) e.phone = 'That looks too short';
     if (dateOfBirth) {
@@ -274,7 +282,14 @@ export default function Register() {
   // must not be able to silently re-point a gate at the wrong screen.
   const stepKey = STEPS[step].key;
   const validByKey = {
-    you: firstName.trim() && lastName.trim() && dateOfBirth && !errors.dateOfBirth && !errors.phone,
+    you:
+      firstName.trim() &&
+      lastName.trim() &&
+      !errors.firstName &&
+      !errors.lastName &&
+      dateOfBirth &&
+      !errors.dateOfBirth &&
+      !errors.phone,
     email: email.trim() && confirmEmail.trim() && emailStatus.state === 'free' && !errors.confirmEmail,
     // The financial year has to be answered too when we do not know it —
     // otherwise the server rejects the whole registration at the last step.
@@ -553,7 +568,7 @@ export default function Register() {
 
               {stepKey === 'you' && (
                 <Grid>
-                  <Field label="First name" required>
+                  <Field label="First name" required error={errors.firstName}>
                     <input
                       className="input"
                       autoFocus={autoFocusFields}
@@ -563,7 +578,7 @@ export default function Register() {
                       autoComplete="given-name"
                     />
                   </Field>
-                  <Field label="Last name" required>
+                  <Field label="Last name" required error={errors.lastName}>
                     <input
                       className="input"
                       value={lastName}

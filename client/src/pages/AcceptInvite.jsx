@@ -2,6 +2,9 @@ import { useEffect, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import AuthLayout from './AuthLayout.jsx';
 import { api } from '../lib/api.js';
+import PasswordFields, { isStrongPassword } from '../components/PasswordFields.jsx';
+import { nameProblem, companyProblem, NAME_MAX, COMPANY_MAX } from '../lib/inviteFields.js';
+import { titleCase, titleCaseLive } from '../lib/textCase.js';
 import { useAuth } from '../lib/AuthContext.jsx';
 import { useToast } from '../components/Toast.jsx';
 
@@ -34,6 +37,27 @@ export default function AcceptInvite() {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [busy, setBusy] = useState(false);
 
+  // Only complained about once something has been typed, so an untouched
+  // form is not covered in red before anyone has done anything wrong.
+  const firstProblem = firstName.trim() ? nameProblem(firstName, 'First name') : '';
+  const lastProblem = lastName.trim() ? nameProblem(lastName, 'Last name') : '';
+  const practiceProblem = practiceName.trim() ? companyProblem(practiceName) : '';
+  const passwordsMatch = password.length > 0 && password === confirmPassword;
+
+  const canSubmit =
+    !nameProblem(firstName, 'First name') &&
+    !nameProblem(lastName, 'Last name') &&
+    // Required here, unlike on the invitation, where the client may not know
+    // the firm's name. The server refuses anything shorter than two either way.
+    Boolean(practiceName.trim()) &&
+    !practiceProblem &&
+    isStrongPassword(password) &&
+    passwordsMatch &&
+    !busy;
+
+  // The family flow has no name or practice fields — only the password pair.
+  const canSubmitFamily = isStrongPassword(password) && passwordsMatch && !busy;
+
   // An accountant invitation is a row of its own; a family one is not. A 404
   // here therefore means "this is the family kind", not "this is broken" — the
   // old flow still handles those and is left alone on purpose.
@@ -46,9 +70,18 @@ export default function AcceptInvite() {
       .get(`/auth/accountant-invite/check?token=${encodeURIComponent(token)}`)
       .then((res) => {
         setInvite(res.data);
-        const [first = '', ...rest] = String(res.data.name || '').split(' ');
-        setFirstName(first);
-        setLastName(rest.join(' '));
+        // The parts if the client typed them, otherwise split the one name
+        // older invitations carry. Editable either way — whoever invited them
+        // may have spelled it wrong, and it is their own name.
+        if (res.data.firstName || res.data.lastName) {
+          setFirstName(res.data.firstName || '');
+          setLastName(res.data.lastName || '');
+        } else {
+          const [first = '', ...rest] = String(res.data.name || '').split(' ');
+          setFirstName(first);
+          setLastName(rest.join(' '));
+        }
+        if (res.data.practiceName) setPracticeName(res.data.practiceName);
       })
       .catch((err) => {
         if (err.message === 'expired' || err.message === 'already_accepted') setProblem(err.message);
@@ -151,32 +184,16 @@ export default function AcceptInvite() {
     );
   }
 
+  // The same live checklist Activate and ResetPassword use. This page listed
+  // the rule as a sentence and then let you submit a password that broke it,
+  // so the first you knew was the server refusing it.
   const passwordFields = (
-    <>
-      <div>
-        <label className="label">Password</label>
-        <input
-          className="input"
-          required
-          type="password"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-        />
-        <p style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 6 }}>
-          8+ characters, with an uppercase letter, a lowercase letter, and a number.
-        </p>
-      </div>
-      <div>
-        <label className="label">Confirm password</label>
-        <input
-          className="input"
-          required
-          type="password"
-          value={confirmPassword}
-          onChange={(e) => setConfirmPassword(e.target.value)}
-        />
-      </div>
-    </>
+    <PasswordFields
+      password={password}
+      setPassword={setPassword}
+      confirmPassword={confirmPassword}
+      setConfirmPassword={setConfirmPassword}
+    />
   );
 
   if (!invite) {
@@ -184,7 +201,7 @@ export default function AcceptInvite() {
       <AuthLayout title="Set your password" subtitle="Finish creating your account to accept the invitation.">
         <form onSubmit={acceptAsFamily} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
           {passwordFields}
-          <button className="btn btn-primary" disabled={busy} type="submit" style={{ marginTop: 8 }}>
+          <button className="btn btn-primary" disabled={!canSubmitFamily} type="submit" style={{ marginTop: 8 }}>
             {busy && <span className="spinner" />}
             Activate my account
           </button>
@@ -222,11 +239,31 @@ export default function AcceptInvite() {
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
           <div>
             <label className="label">First name</label>
-            <input className="input" required value={firstName} onChange={(e) => setFirstName(e.target.value)} />
+            <input
+              className="input"
+              required
+              maxLength={NAME_MAX}
+              value={firstName}
+              onChange={(e) => setFirstName(titleCaseLive(e.target.value))}
+              onBlur={() => setFirstName(titleCase(firstName))}
+              aria-invalid={firstProblem ? 'true' : undefined}
+              style={firstProblem ? { borderColor: 'var(--red)' } : undefined}
+            />
+            <div style={{ fontSize: 11.5, minHeight: 15, marginTop: 4, color: 'var(--red)' }}>{firstProblem}</div>
           </div>
           <div>
             <label className="label">Last name</label>
-            <input className="input" required value={lastName} onChange={(e) => setLastName(e.target.value)} />
+            <input
+              className="input"
+              required
+              maxLength={NAME_MAX}
+              value={lastName}
+              onChange={(e) => setLastName(titleCaseLive(e.target.value))}
+              onBlur={() => setLastName(titleCase(lastName))}
+              aria-invalid={lastProblem ? 'true' : undefined}
+              style={lastProblem ? { borderColor: 'var(--red)' } : undefined}
+            />
+            <div style={{ fontSize: 11.5, minHeight: 15, marginTop: 4, color: 'var(--red)' }}>{lastProblem}</div>
           </div>
         </div>
         <div>
@@ -234,11 +271,17 @@ export default function AcceptInvite() {
           <input
             className="input"
             required
-            maxLength={160}
+            maxLength={COMPANY_MAX}
             placeholder="e.g. Chen & Co"
             value={practiceName}
-            onChange={(e) => setPracticeName(e.target.value)}
+            onChange={(e) => setPracticeName(titleCaseLive(e.target.value))}
+            onBlur={() => setPracticeName(titleCase(practiceName))}
+            aria-invalid={practiceProblem ? 'true' : undefined}
+            style={practiceProblem ? { borderColor: 'var(--red)' } : undefined}
           />
+          {practiceProblem && (
+            <div style={{ fontSize: 11.5, marginTop: 4, color: 'var(--red)' }}>{practiceProblem}</div>
+          )}
           <p style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 6 }}>
             Your clients see this, so they know who they have shared their books with.
           </p>
@@ -259,7 +302,7 @@ export default function AcceptInvite() {
           </Link>
           .
         </p>
-        <button className="btn btn-primary" disabled={busy} type="submit" style={{ marginTop: 4 }}>
+        <button className="btn btn-primary" disabled={!canSubmit} type="submit" style={{ marginTop: 4 }}>
           {busy && <span className="spinner" />}
           Create my accountant login
         </button>

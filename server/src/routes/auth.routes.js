@@ -55,6 +55,7 @@ import { getSignupPlans } from '../lib/stripe.js';
 import { evaluatePromoCode, recordPromoRedemption } from '../lib/promoCodes.js';
 import { publicOrigin } from '../lib/publicOrigin.js';
 import { titleCase } from '../lib/text.js';
+import { inviteFieldsProblem, tidy } from '../lib/inviteFields.js';
 
 const TRIAL_DAYS = 14;
 
@@ -557,10 +558,19 @@ router.post(
 
     // Older clients send a single `name`; the form sends the parts. Accept
     // both rather than breaking a session that was open across the deploy.
-    const firstName = titleCase(String(rawFirst ?? '').trim()) || null;
-    const lastName = titleCase(String(rawLast ?? '').trim()) || null;
-    const companyName = titleCase(String(rawCompany ?? '').trim()) || null;
-    const composed = [firstName, lastName].filter(Boolean).join(' ') || String(name ?? '').trim();
+    const sentParts = Boolean(tidy(rawFirst) || tidy(rawLast) || tidy(rawCompany));
+    const firstName = titleCase(tidy(rawFirst)) || null;
+    const lastName = titleCase(tidy(rawLast)) || null;
+    const companyName = titleCase(tidy(rawCompany)) || null;
+    const composed = [firstName, lastName].filter(Boolean).join(' ') || tidy(name);
+
+    // The length rules apply to what the form sends. A client still posting a
+    // single `name` is only checked for being present — it was never split, so
+    // there is nothing to hold a first or last name to.
+    if (sentParts) {
+      const problem = inviteFieldsProblem({ firstName: rawFirst, lastName: rawLast, companyName: rawCompany });
+      if (problem) return res.status(400).json({ error: problem });
+    }
 
     if (!composed) return res.status(400).json({ error: 'A first and last name are required' });
     if (!email || !String(email).trim()) return res.status(400).json({ error: 'Email is required' });
@@ -887,6 +897,13 @@ router.get(
     res.json({
       email: invite.email,
       name: invite.name || existing[0]?.name || null,
+      // What the client typed when inviting, so the accountant's own sign-up
+      // form arrives filled in rather than asking them to type their name
+      // again for somebody who already knew it. All three stay editable — the
+      // client may well have spelled it wrong.
+      firstName: invite.first_name || null,
+      lastName: invite.last_name || null,
+      practiceName: invite.company_name || null,
       inviterName: invite.owner_name,
       financialYears: invite.financial_years ? invite.financial_years.split(',') : null,
       windowHours: invite.window_hours,

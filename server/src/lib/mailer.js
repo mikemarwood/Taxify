@@ -572,6 +572,24 @@ function scopeSentence(yearScope) {
 // Somebody who has no Taxify login yet. The invitation itself grants nothing —
 // it is an offer, and it expires, and until it is accepted there is no account
 // anywhere with their name on it.
+
+// One labelled row of the invitation's summary panel. Tables and inline styles
+// only, like everything else here — Outlook renders with Word.
+function termRow(label, value, last = false) {
+  return `
+      <tr>
+        <td style="padding:9px 14px;font-size:12px;color:#64748b;white-space:nowrap;vertical-align:top;border-bottom:${last ? '0' : '1px solid #e6ecf5'};">${label}</td>
+        <td style="padding:9px 14px;font-size:13px;color:#1f2937;line-height:1.5;border-bottom:${last ? '0' : '1px solid #e6ecf5'};">${value}</td>
+      </tr>`;
+}
+
+function termsPanel(rows) {
+  return `
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="border:1px solid #e6ecf5;border-radius:10px;background:#f8fafd;margin:0 0 18px;">
+      ${rows.join('')}
+    </table>`;
+}
+
 export async function sendAccountantInviteEmail(to, name, clientName, acceptUrl, yearScope, windowLabel, expiryLabel) {
   await sendMail({
     to,
@@ -585,12 +603,15 @@ export async function sendAccountantInviteEmail(to, name, clientName, acceptUrl,
       </p>
       ${button(acceptUrl, 'Accept and set up my login')}
       ${linkFallback(acceptUrl)}
-      <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 16px;">
-        ${bullet('Your access is <strong>read-only</strong> \u2014 you can read and export, never change.')}
-        ${bullet(`It lasts <strong>${windowLabel}</strong>, counted from the first time you open their books \u2014 not from now.`)}
-        ${bullet('They can end it at any time, and it is removed automatically when the time is up.')}
-        ${bullet('You will be asked to turn on two-factor sign-in. Their records deserve it.')}
-      </table>
+      ${termsPanel([
+        termRow('Client', escapeHtml(clientName)),
+        termRow('Access', 'Read-only \u2014 you can read and export, never change'),
+        termRow('Lasts', `${windowLabel}, counted from the first time you open their books \u2014 not from now`),
+        termRow('Ends', 'Automatically when the time is up, or whenever they choose', true),
+      ])}
+      <p style="font-size:13px;color:#4b5563;margin:0 0 16px;line-height:1.55;">
+        You will be asked to turn on two-factor sign-in before you can open anybody's books. Their records deserve it.
+      </p>
       <p style="font-size:13px;color:#4b5563;margin:0;line-height:1.55;">
         This invitation expires ${expiryLabel}. If you were not expecting it, ignore this email \u2014 nothing has been
         created and nobody has been given anything.

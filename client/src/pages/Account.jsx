@@ -16,6 +16,7 @@ import InvoiceList from '../components/InvoiceList.jsx';
 // accountant's own name is theirs to spell, and rewriting the row would make
 // this page the thing that changed it.
 import { titleCase, titleCaseLive, lowerEmail } from '../lib/textCase.js';
+import { nameProblem, companyProblem, NAME_MAX, COMPANY_MAX } from '../lib/inviteFields.js';
 import { currentPlanType, planLabel as labelForPlan } from '../lib/plans.js';
 
 // The window a date of birth may fall in — matches the sign-up form, so an
@@ -500,6 +501,12 @@ function ManageAccess({ accountant, years, windowChoices, onDone }) {
   );
 }
 
+// A fixed-height line under a field, so the form does not jump by 15px every
+// time a message appears or clears while somebody is typing.
+function FieldNote({ problem }) {
+  return <div style={{ fontSize: 11.5, minHeight: 15, marginTop: 4, color: 'var(--red)' }}>{problem || ''}</div>;
+}
+
 function AccountantSection({ user }) {
   const confirm = useConfirm();
   const toast = useToast();
@@ -618,9 +625,14 @@ function AccountantSection({ user }) {
   // already waiting is the same commitment as a granted one.
   const alreadyShared = (accountants?.length || 0) > 0 || invites.length > 0;
 
+  const firstProblem = inviteFirst.trim() ? nameProblem(inviteFirst, 'First name') : '';
+  const lastProblem = inviteLast.trim() ? nameProblem(inviteLast, 'Last name') : '';
+  const companyIssue = companyProblem(inviteCompany);
+
   const canSubmit =
-    inviteFirst.trim() &&
-    inviteLast.trim() &&
+    !nameProblem(inviteFirst, 'First name') &&
+    !nameProblem(inviteLast, 'Last name') &&
+    !companyIssue &&
     emailLooksReal &&
     (allYears || pickedYears.length > 0);
 
@@ -754,34 +766,52 @@ function AccountantSection({ user }) {
             book name: titleCase trims, so running it on every keystroke eats
             the space before a second word can be started. */}
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-          <input
-            className="input"
-            required
-            placeholder="First name"
-            autoComplete="off"
-            value={inviteFirst}
-            onChange={(e) => setInviteFirst(titleCaseLive(e.target.value))}
-            onBlur={() => setInviteFirst(titleCase(inviteFirst))}
-          />
-          <input
-            className="input"
-            required
-            placeholder="Last name"
-            autoComplete="off"
-            value={inviteLast}
-            onChange={(e) => setInviteLast(titleCaseLive(e.target.value))}
-            onBlur={() => setInviteLast(titleCase(inviteLast))}
-          />
+          <div>
+            <input
+              className="input"
+              required
+              maxLength={NAME_MAX}
+              placeholder="First name"
+              autoComplete="off"
+              value={inviteFirst}
+              onChange={(e) => setInviteFirst(titleCaseLive(e.target.value))}
+              onBlur={() => setInviteFirst(titleCase(inviteFirst))}
+              aria-invalid={firstProblem ? 'true' : undefined}
+              style={firstProblem ? { borderColor: 'var(--red)' } : undefined}
+            />
+            <FieldNote problem={firstProblem} />
+          </div>
+          <div>
+            <input
+              className="input"
+              required
+              maxLength={NAME_MAX}
+              placeholder="Last name"
+              autoComplete="off"
+              value={inviteLast}
+              onChange={(e) => setInviteLast(titleCaseLive(e.target.value))}
+              onBlur={() => setInviteLast(titleCase(inviteLast))}
+              aria-invalid={lastProblem ? 'true' : undefined}
+              style={lastProblem ? { borderColor: 'var(--red)' } : undefined}
+            />
+            <FieldNote problem={lastProblem} />
+          </div>
         </div>
 
-        <input
-          className="input"
-          placeholder="Company or practice name (optional)"
-          autoComplete="off"
-          value={inviteCompany}
-          onChange={(e) => setInviteCompany(titleCaseLive(e.target.value))}
-          onBlur={() => setInviteCompany(titleCase(inviteCompany))}
-        />
+        <div>
+          <input
+            className="input"
+            maxLength={COMPANY_MAX}
+            placeholder="Practice or firm name (optional)"
+            autoComplete="off"
+            value={inviteCompany}
+            onChange={(e) => setInviteCompany(titleCaseLive(e.target.value))}
+            onBlur={() => setInviteCompany(titleCase(inviteCompany))}
+            aria-invalid={companyIssue ? 'true' : undefined}
+            style={companyIssue ? { borderColor: 'var(--red)' } : undefined}
+          />
+          <FieldNote problem={companyIssue} />
+        </div>
 
         <input
           className="input"
