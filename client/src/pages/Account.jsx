@@ -15,7 +15,7 @@ import InvoiceList from '../components/InvoiceList.jsx';
 // Names and addresses are shown tidied rather than stored tidied — an
 // accountant's own name is theirs to spell, and rewriting the row would make
 // this page the thing that changed it.
-import { titleCase, lowerEmail } from '../lib/textCase.js';
+import { titleCase, titleCaseLive, lowerEmail } from '../lib/textCase.js';
 import { currentPlanType, planLabel as labelForPlan } from '../lib/plans.js';
 
 // The window a date of birth may fall in — matches the sign-up form, so an
@@ -517,7 +517,9 @@ function AccountantSection({ user }) {
   // Invitations nobody has accepted yet. Kept apart from the granted list
   // because they are a different thing: a promise, not access.
   const [invites, setInvites] = useState([]);
-  const [inviteName, setInviteName] = useState('');
+  const [inviteFirst, setInviteFirst] = useState('');
+  const [inviteLast, setInviteLast] = useState('');
+  const [inviteCompany, setInviteCompany] = useState('');
   const [inviteEmail, setInviteEmail] = useState('');
 
   const [allYears, setAllYears] = useState(true);
@@ -543,7 +545,9 @@ function AccountantSection({ user }) {
     setBusy(true);
     try {
       await api.post('/auth/invite', {
-        name: inviteName.trim(),
+        firstName: inviteFirst.trim(),
+        lastName: inviteLast.trim(),
+        companyName: inviteCompany.trim() || null,
         email: inviteEmail.trim().toLowerCase(),
         role: 'accountant',
         // Omitted entirely for a family member — the server ignores it, and
@@ -558,7 +562,9 @@ function AccountantSection({ user }) {
           : {}),
       });
       toast('Invitation sent', 'success');
-      setInviteName('');
+      setInviteFirst('');
+    setInviteLast('');
+    setInviteCompany('');
       setInviteEmail('');
       setPickedYears([]);
       setAllYears(true);
@@ -605,7 +611,7 @@ function AccountantSection({ user }) {
   // A shape check, not a promise the address exists — that is what sending to
   // it proves. It only has to stop the obvious: a missing @, a missing dot, a
   // stray space.
-  const emailLooksReal = /^[^s@]+@[^s@]+.[^s@]{2,}$/.test(inviteEmail.trim());
+  const emailLooksReal = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(inviteEmail.trim());
 
   // One accountant at a time. Two people holding read-only access to somebody
   // else's tax records is twice the exposure for no benefit, and an invitation
@@ -613,7 +619,8 @@ function AccountantSection({ user }) {
   const alreadyShared = (accountants?.length || 0) > 0 || invites.length > 0;
 
   const canSubmit =
-    inviteName.trim() &&
+    inviteFirst.trim() &&
+    inviteLast.trim() &&
     emailLooksReal &&
     (allYears || pickedYears.length > 0);
 
@@ -743,23 +750,47 @@ function AccountantSection({ user }) {
         </p>
       ) : (
       <form onSubmit={onInvite} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+        {/* titleCaseLive while typing and titleCase on blur, the same as the
+            book name: titleCase trims, so running it on every keystroke eats
+            the space before a second word can be started. */}
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
           <input
             className="input"
             required
-            placeholder="Name"
-            value={inviteName}
-            onChange={(e) => setInviteName(titleCase(e.target.value))}
+            placeholder="First name"
+            autoComplete="off"
+            value={inviteFirst}
+            onChange={(e) => setInviteFirst(titleCaseLive(e.target.value))}
+            onBlur={() => setInviteFirst(titleCase(inviteFirst))}
           />
           <input
             className="input"
             required
-            type="email"
-            placeholder="Email"
-            value={inviteEmail}
-            onChange={(e) => setInviteEmail(e.target.value.toLowerCase())}
+            placeholder="Last name"
+            autoComplete="off"
+            value={inviteLast}
+            onChange={(e) => setInviteLast(titleCaseLive(e.target.value))}
+            onBlur={() => setInviteLast(titleCase(inviteLast))}
           />
         </div>
+
+        <input
+          className="input"
+          placeholder="Company or practice name (optional)"
+          autoComplete="off"
+          value={inviteCompany}
+          onChange={(e) => setInviteCompany(titleCaseLive(e.target.value))}
+          onBlur={() => setInviteCompany(titleCase(inviteCompany))}
+        />
+
+        <input
+          className="input"
+          required
+          type="email"
+          placeholder="Email"
+          value={inviteEmail}
+          onChange={(e) => setInviteEmail(e.target.value.toLowerCase())}
+        />
 
         {true && (
           <div

@@ -119,22 +119,47 @@ const DEVICE_LABEL = {
   unknown: 'Unknown',
 };
 
+// Colour belongs to the kind of device, not to its position in the list.
+//
+// Picking by index meant every refresh could repaint the chart: the page
+// reloads every ten seconds, and the moment two counts crossed — or merely
+// tied — the segments swapped places and swapped colours with them. A legend
+// whose colours move is worse than no legend, because it is read as the data
+// having changed.
+const DEVICE_COLOUR = {
+  'android-app': 'var(--emerald)',
+  mobile: 'var(--accent)',
+  tablet: 'var(--amber)',
+  desktop: '#7c6bd8',
+  unknown: 'var(--text-muted)',
+};
+const FALLBACK_COLOUR = 'var(--border)';
+
 function DeviceSplit({ devices }) {
   const total = devices.reduce((sum, d) => sum + d.count, 0);
   if (!total) return <div style={{ fontSize: 12.5, color: 'var(--text-muted)' }}>No sign-ins in the last 30 days.</div>;
 
-  const colours = ['var(--accent)', 'var(--emerald)', 'var(--amber)', 'var(--text-muted)', 'var(--border)'];
+  // Ordered here as well as in SQL, so the row cannot depend on what the
+  // database happened to return.
+  const ordered = [...devices].sort((a, b) => b.count - a.count || a.device.localeCompare(b.device));
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
       <div style={{ display: 'flex', height: 10, borderRadius: 999, overflow: 'hidden', background: 'var(--bg-subtle)' }}>
-        {devices.map((d, i) => (
-          <div key={d.device} style={{ width: `${(d.count / total) * 100}%`, background: colours[i % colours.length] }} />
+        {ordered.map((d) => (
+          <div
+            key={d.device}
+            title={`${DEVICE_LABEL[d.device] || d.device} — ${d.count}`}
+            style={{ width: `${(d.count / total) * 100}%`, background: DEVICE_COLOUR[d.device] || FALLBACK_COLOUR }}
+          />
         ))}
       </div>
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px 14px' }}>
-        {devices.map((d, i) => (
+        {ordered.map((d) => (
           <span key={d.device} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12 }}>
-            <span style={{ width: 8, height: 8, borderRadius: 2, background: colours[i % colours.length] }} />
+            <span
+              style={{ width: 8, height: 8, borderRadius: 2, background: DEVICE_COLOUR[d.device] || FALLBACK_COLOUR }}
+            />
             {DEVICE_LABEL[d.device] || d.device}
             <strong style={{ fontVariantNumeric: 'tabular-nums' }}>{d.count}</strong>
           </span>

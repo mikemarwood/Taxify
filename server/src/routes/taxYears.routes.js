@@ -195,6 +195,50 @@ router.put(
   })
 );
 
+// Close a period without recording a refund.
+//
+// Finalising used to be something that happened *because* you recorded a
+// refund, which quietly assumed every return produces one. Plenty don't — a
+// year can end with a bill, or with nothing owed either way — and those years
+// could not be closed at all. The lock is about the return having been
+// assessed, not about money arriving.
+//
+// The amount and notes are left exactly as they are, so finalising a year that
+// already has a refund recorded keeps it.
+router.post(
+  '/:financialYear/finalise',
+  asyncHandler(async (req, res) => {
+    const { financialYear } = req.params;
+    if (!financialYearRange(financialYear, req.user.financialYearRule)) {
+      return res.status(400).json({ error: 'Expected a financial year like 2025-2026' });
+    }
+
+    const refusal = canWrite(req.user, financialYear);
+    if (refusal === 'subscription_required') return res.status(403).json({ error: 'subscription_required' });
+    if (refusal) return res.status(403).json({ error: refusal });
+
+    const period = requestedPeriod(req);
+    if (!period) return res.status(400).json({ error: 'Unknown lodgement period' });
+    const entityId = await booksFor(req);
+    if (!entityId) return res.status(400).json({ error: 'Choose which business this is for' });
+
+    const ownerId = accountOwnerId(req.user);
+    await ensureRow(ownerId, entityId, financialYear, period);
+    // COALESCE, so finalising something already closed is a no-op rather than
+    // rewriting who closed it and when.
+    await pool.execute(
+      `UPDATE tax_years
+       SET finalised_at = COALESCE(finalised_at, NOW()),
+           finalised_by = COALESCE(finalised_by, ?),
+           updated_at = NOW()
+       WHERE user_id = ? AND entity_id = ? AND financial_year = ? AND period = ?`,
+      [req.user.id, ownerId, entityId, financialYear, period]
+    );
+
+    res.json({ year: await readYear(ownerId, entityId, financialYear, period) });
+  })
+);
+
 // When the return is being done and with whom. Only offered while the year is
 // still open — an appointment for a year that's already been assessed is a
 // note about the past, not something to count down to.

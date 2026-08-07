@@ -54,6 +54,7 @@ import { assignAccountNumber } from '../lib/accountNumber.js';
 import { getSignupPlans } from '../lib/stripe.js';
 import { evaluatePromoCode, recordPromoRedemption } from '../lib/promoCodes.js';
 import { publicOrigin } from '../lib/publicOrigin.js';
+import { titleCase } from '../lib/text.js';
 
 const TRIAL_DAYS = 14;
 
@@ -551,8 +552,17 @@ router.post(
   requireAuth,
   requireAccountOwner,
   asyncHandler(async (req, res) => {
-    const { name, email, role, financialYears } = req.body || {};
-    if (!name || !String(name).trim()) return res.status(400).json({ error: 'Name is required' });
+    const { name, firstName: rawFirst, lastName: rawLast, companyName: rawCompany, email, role, financialYears } =
+      req.body || {};
+
+    // Older clients send a single `name`; the form sends the parts. Accept
+    // both rather than breaking a session that was open across the deploy.
+    const firstName = titleCase(String(rawFirst ?? '').trim()) || null;
+    const lastName = titleCase(String(rawLast ?? '').trim()) || null;
+    const companyName = titleCase(String(rawCompany ?? '').trim()) || null;
+    const composed = [firstName, lastName].filter(Boolean).join(' ') || String(name ?? '').trim();
+
+    if (!composed) return res.status(400).json({ error: 'A first and last name are required' });
     if (!email || !String(email).trim()) return res.status(400).json({ error: 'Email is required' });
     // The only kind of invitation there is. A second login on one account was
     // removed with the Family plan — two people means two accounts.
@@ -561,7 +571,7 @@ router.post(
     }
 
     const normalizedEmail = String(email).trim().toLowerCase();
-    const displayName = String(name).trim();
+    const displayName = composed;
 
     // A family member is a second person on this account, so there is only ever
     // room for one and only on the plan that includes them.
@@ -674,13 +684,15 @@ router.post(
       // in db.js for the three things that went wrong when one was.
       const { token, tokenHash, expiresAt } = generateInviteToken();
       await pool.execute(
-        `INSERT INTO accountant_invites (owner_user_id, email, name, financial_years, window_hours, token_hash, expires_at, last_sent_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, NOW())
+        `INSERT INTO accountant_invites (owner_user_id, email, name, first_name, last_name, company_name, financial_years, window_hours, token_hash, expires_at, last_sent_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
          ON DUPLICATE KEY UPDATE
-           name = VALUES(name), financial_years = VALUES(financial_years), window_hours = VALUES(window_hours),
+           name = VALUES(name), first_name = VALUES(first_name), last_name = VALUES(last_name),
+           company_name = VALUES(company_name),
+           financial_years = VALUES(financial_years), window_hours = VALUES(window_hours),
            token_hash = VALUES(token_hash), expires_at = VALUES(expires_at), last_sent_at = NOW(),
            accepted_at = NULL, accepted_user_id = NULL`,
-        [req.user.id, normalizedEmail, displayName, yearScope, windowHours, tokenHash, expiresAt]
+        [req.user.id, normalizedEmail, displayName, firstName, lastName, companyName, yearScope, windowHours, tokenHash, expiresAt]
       );
 
       const acceptUrl = `${publicOrigin()}/accept-invite?token=${token}`;

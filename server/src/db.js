@@ -223,6 +223,13 @@ export async function ensureSchema() {
     `last_sent_at DATETIME NULL`,
     `accepted_at DATETIME NULL`,
     `accepted_user_id INT NULL`,
+    // Kept alongside `name` rather than replacing it. `name` is what the
+    // invitation email, the sign-up page and every existing row already read,
+    // so it stays as the composed display name; these are what was actually
+    // typed, and what fills the accountant's own profile when they accept.
+    `first_name VARCHAR(120) NULL`,
+    `last_name VARCHAR(120) NULL`,
+    `company_name VARCHAR(160) NULL`,
   ]) {
     await pool.query(`ALTER TABLE accountant_invites ADD COLUMN IF NOT EXISTS ${column}`);
   }

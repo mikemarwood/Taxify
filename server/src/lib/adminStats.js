@@ -105,7 +105,8 @@ export async function collectStats() {
   const [devices] = await pool.query(
     `SELECT COALESCE(device, 'unknown') AS device, COUNT(DISTINCT user_id) AS count
        FROM login_events WHERE at >= NOW() - INTERVAL 30 DAY
-      GROUP BY COALESCE(device, 'unknown') ORDER BY count DESC`
+      GROUP BY COALESCE(device, 'unknown')
+      ORDER BY count DESC, device ASC`
   );
 
   // Who is here right now, by name. The number alone is not much use at the

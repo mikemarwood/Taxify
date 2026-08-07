@@ -250,6 +250,42 @@ export default function TaxYears({ years, spendByYear, expenses, onFinalisedChan
     }
   }
 
+  // Close the period and leave the money alone. Whatever refund is recorded —
+  // including none — stays exactly as it is.
+  async function finaliseOnly(key) {
+    const row = byKey.get(key);
+    if (!row) return;
+    if (
+      !(await confirm({
+        title: `Finalise ${row.label}?`,
+        body:
+          'Its expenses and receipts become read-only, so nothing can change what was claimed. ' +
+          'No refund is recorded — you can still add one later if the year turns out to have one. ' +
+          (canReopen
+            ? 'You can reopen it from this page if you need to correct something.'
+            : 'Only the account holder can reopen it afterwards.'),
+        confirmLabel: 'Finalise',
+      }))
+    ) {
+      return;
+    }
+
+    setBusy(true);
+    try {
+      await api.post(`/tax-years/${encodeURIComponent(row.financialYear)}/finalise`, {
+        period: row.period,
+        entityId: row.entityId,
+      });
+      playSuccess();
+      toast(`${row.label} finalised`, 'success');
+      load();
+    } catch (err) {
+      toast(err.message, 'error');
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function reopen(key) {
     const row = byKey.get(key);
     if (!row) return;
@@ -368,6 +404,22 @@ export default function TaxYears({ years, spendByYear, expenses, onFinalisedChan
                       >
                         <Icon name="pencil" size={13} />
                         {entry?.amount != null ? 'Edit refund' : 'Record refund'}
+                      </button>
+                    )}
+                    {/* Closing a year without recording a refund. Not every
+                        return produces one — a year can end with a bill, or
+                        with nothing owed either way — and those years could
+                        not be closed at all while finalising was something
+                        that only happened as a side effect of entering money. */}
+                    {!finalised && canEdit && (
+                      <button
+                        className="btn btn-ghost"
+                        style={{ fontSize: 12, padding: '6px 11px', gap: 6 }}
+                        disabled={busy}
+                        onClick={() => finaliseOnly(year)}
+                      >
+                        <Icon name="lock" size={13} />
+                        Finalise
                       </button>
                     )}
                     {finalised && canReopen && (
