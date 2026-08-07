@@ -29,20 +29,15 @@ export default function EntitySwitcher({ compact = false }) {
     return () => document.removeEventListener('mousedown', onClickOutside);
   }, []);
 
-  if (!showSwitcher) return null;
-
-  const label = isAll ? 'Everything' : entity?.name || 'Choose books';
-  const kindIcon = isAll ? 'list' : entity?.kind === 'business' ? 'briefcase' : 'user';
-
-  function pick(id) {
-    playClick();
-    choose(id);
-    setOpen(false);
-  }
-
   // Measured off the button, because the list is drawn outside the sidebar —
   // which scrolls, and therefore clips anything that reaches past its edge. On
   // a phone that meant the list was cut off the moment it opened.
+  //
+  // Above the `showSwitcher` return, and it has to stay there. Both of these
+  // are hooks, and hooks have to run in the same order on every render. Below
+  // that return they ran only once entities had loaded — four hooks on the
+  // first render, six on the next — which is React error #310, and it took the
+  // whole page down because Layout renders this outside any boundary.
   const place = useCallback(() => {
     const el = ref.current;
     if (!el) return;
@@ -63,6 +58,17 @@ export default function EntitySwitcher({ compact = false }) {
       window.removeEventListener('scroll', place, true);
     };
   }, [open, place]);
+
+  if (!showSwitcher) return null;
+
+  const label = isAll ? 'Everything' : entity?.name || 'Choose books';
+  const kindIcon = isAll ? 'list' : entity?.kind === 'business' ? 'briefcase' : 'user';
+
+  function pick(id) {
+    playClick();
+    choose(id);
+    setOpen(false);
+  }
 
   return (
     <div ref={ref} style={{ position: 'relative' }}>

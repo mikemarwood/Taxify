@@ -29,7 +29,11 @@
         color: #eaf1fb;
         font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
       }
-      #boot img { width: 78px; height: 78px; border-radius: 19px; box-shadow: 0 12px 34px -12px rgba(0,0,0,.6); }
+      /* 16px, not a round number picked by eye: logo.svg is a 128 square with
+         rx=26, so its corners are 20.3% and at 78px that is 15.8. A larger
+         radius shaved the blue corners off the artwork and left the shadow
+         tracing a shape the logo does not have. */
+      #boot img { width: 78px; height: 78px; border-radius: 16px; box-shadow: 0 12px 34px -12px rgba(0,0,0,.6); }
       #boot span { font-size: 27px; font-weight: 800; letter-spacing: -0.5px; }
       #boot i {
         width: 132px; height: 3px; border-radius: 999px; overflow: hidden;

@@ -32,7 +32,10 @@ export default function StartupScreen({ message = 'Loading your account' }) {
         initial={{ opacity: 0, scale: 0.82, y: 6 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
         transition={{ type: 'spring', stiffness: 260, damping: 20 }}
-        style={{ borderRadius: 20, boxShadow: '0 12px 34px -12px rgba(0, 0, 0, .6)' }}
+        // 17 rather than 20: logo.svg carries its own 20.3% corners, so at
+        // 82px anything larger clips into the mark and the shadow follows an
+        // outline the artwork does not have.
+        style={{ borderRadius: 17, boxShadow: '0 12px 34px -12px rgba(0, 0, 0, .6)' }}
       />
 
       <motion.div
