@@ -169,7 +169,7 @@ const PLAN_COPY = {
     name: 'Individual',
     tagline: 'For one person keeping their own records.',
     features: [
-      'Your own tax, one set of books',
+      'Your own individual tax — 1 set of books',
       'Unlimited expenses and receipts',
       'Year-over-year reports and exports',
       'Read-only accountant access',
@@ -177,11 +177,11 @@ const PLAN_COPY = {
   },
   business: {
     name: 'Small Business',
-    tagline: 'For a sole trader running one or two businesses alongside their own tax.',
+    tagline: 'One individual tax return, plus up to two small businesses.',
     features: [
-      'Your own tax, plus up to 2 businesses',
-      'Each business kept separately, with its own reports',
-      'Quarterly or yearly lodgement per business',
+      'Your own individual tax — 1 set of books',
+      'Up to 2 small businesses, each with its own books',
+      'Separate reports and lodgement for each',
       'Read-only accountant access',
     ],
   },

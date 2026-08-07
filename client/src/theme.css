@@ -423,6 +423,35 @@ input[type="date"].input::-webkit-calendar-picker-indicator:hover { opacity: 1; 
     width: 264px !important;
   }
   .app-sidebar[data-open='true'] { transform: translateX(0); }
+
+  /* A drawer is not a rail. It is opened to press one thing and then closed,
+     so it gets room to breathe and drops everything the bar above it already
+     shows — the brand, and a second copy of the books picker. */
+  .app-sidebar {
+    width: min(84vw, 300px) !important;
+    padding: 14px 12px !important;
+    gap: 14px !important;
+  }
+  .app-sidebar .nav-brand,
+  .app-sidebar .nav-scope,
+  .app-sidebar .nav-footer { display: none; }
+
+  /* Quieter, and further apart. A stack of shouted labels between short lists
+     was doing more separating than the space around them ever needed. */
+  .app-sidebar .nav-group-title {
+    opacity: 0.4 !important;
+    letter-spacing: 1px !important;
+    font-size: 10px !important;
+    margin-bottom: 5px !important;
+  }
+  .app-sidebar nav { gap: 20px !important; }
+
+  /* A finger, not a cursor. 44px is the guideline and these were 35. */
+  .app-sidebar .nav-item {
+    padding: 11px 12px !important;
+    font-size: 14.5px !important;
+    border-radius: 10px !important;
+  }
   .app-shell-main { padding: 16px !important; }
   .app-topbar { display: flex !important; }
 
@@ -457,13 +486,28 @@ input[type="date"].input::-webkit-calendar-picker-indicator:hover { opacity: 1; 
    else, so the row wraps: date and amount on the first line with the name, the
    category badge beneath. Nothing is dropped — it just uses two lines. */
 @media (max-width: 700px) {
-  .expense-row { flex-wrap: wrap !important; row-gap: 4px !important; padding: 10px 14px !important; }
-  .expense-row > span:first-child { width: auto !important; order: 1; }
-  .expense-row > span:nth-child(2) { order: 2; flex-basis: 0; min-width: 120px; }
-  .expense-row > span:last-child { order: 3; margin-left: auto; }
-  .expense-row > .category-badge,
-  .expense-row > button { order: 4; }
-  .expense-row > .category-badge { flex-basis: 100%; }
+  .expense-row { flex-wrap: nowrap !important; gap: 9px !important; padding: 11px 14px !important; }
+
+  /* Date first, small and quiet — it is a reference, not a headline. */
+  .expense-row > span:first-child { width: auto !important; order: 1; flex-shrink: 0; font-size: 11.5px; }
+
+  /* The category becomes its colour and its icon. Both are enough to tell one
+     apart at a glance, and the full name is a tap away in the expense itself.
+     It used to take a line of its own on every single row, which is what made
+     a list of ten expenses twenty lines long. */
+  .expense-row > .category-badge {
+    order: 2;
+    flex-shrink: 0;
+    flex-basis: auto;
+    padding: 5px !important;
+    gap: 0 !important;
+  }
+  .expense-row > .category-badge > .category-badge-name { display: none; }
+  .expense-row > .category-badge > .category-badge-dash { display: none; }
+
+  .expense-row > span:nth-child(2) { order: 3; flex: 1 1 auto; min-width: 0; }
+  .expense-row > button { order: 4; flex-shrink: 0; }
+  .expense-row > span:last-child { order: 5; margin-left: auto; flex-shrink: 0; }
 }
 
 /* A deduction row is date / vehicle / kilometres / purpose, and the purpose is

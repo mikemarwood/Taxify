@@ -22,17 +22,11 @@ export default function SiteFooter({ tone = 'page', align = 'center', style }) {
       }}
     >
       <div>
-        © {new Date().getFullYear()} Taxify · Powered by{' '}
+        © {new Date().getFullYear()} Taxify · More apps at{' '}
         {/* noreferrer as well as noopener: without it the new tab can reach
             back through window.opener. */}
         <a href={HUB} target="_blank" rel="noreferrer" style={{ color: link, fontWeight: 600 }}>
           Mikes App Hub
-        </a>
-      </div>
-      <div style={{ marginTop: 3, opacity: 0.85 }}>
-        Looking for our other apps?{' '}
-        <a href={HUB} target="_blank" rel="noreferrer" style={{ color: link, fontWeight: 600 }}>
-          Visit Mikes App Hub
         </a>
       </div>
     </div>

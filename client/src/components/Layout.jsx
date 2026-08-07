@@ -256,14 +256,18 @@ export default function Layout({ children }) {
           overflowY: 'auto',
         }}
       >
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '0 8px' }}>
+        <div className="nav-brand" style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '0 8px' }}>
           <img src="/logo.svg" alt="Taxify" width="34" height="34" />
           <span style={{ fontWeight: 700, fontSize: 19, letterSpacing: -0.4, color: 'var(--nav-text-active)' }}>Taxify</span>
         </div>
 
         {/* A scope control for everything below it, so it sits above the nav
-            rather than in the account card at the foot. */}
-        <EntitySwitcher />
+            rather than in the account card at the foot. Hidden on a phone,
+            where the bar across the top already carries one — two of the same
+            control on one screen is most of what made the drawer feel busy. */}
+        <div className="nav-scope">
+          <EntitySwitcher />
+        </div>
 
         <nav style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
           {navGroups
@@ -287,6 +291,7 @@ export default function Layout({ children }) {
               <div key={group.title || 'main'} style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
                 {group.title && (
                   <div
+                    className="nav-group-title"
                     style={{
                       fontSize: 10.5,
                       fontWeight: 700,
@@ -428,7 +433,9 @@ export default function Layout({ children }) {
           >
             Log out
           </button>
-          <SiteFooter tone="nav" align="left" style={{ padding: '4px 8px 0' }} />
+          <div className="nav-footer">
+            <SiteFooter tone="nav" align="left" style={{ padding: '4px 8px 0' }} />
+          </div>
         </div>
       </aside>
 

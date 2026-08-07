@@ -4,7 +4,8 @@ export default function CategoryBadge({ category }) {
   if (!category) {
     return (
       <span className="category-badge" style={{ fontSize: 12, color: 'var(--text-muted)', padding: '4px 10px', borderRadius: 999, border: '1px solid var(--border)' }}>
-        Uncategorised
+        <span className="category-badge-name">Uncategorised</span>
+        <span className="category-badge-dash" aria-hidden="true">—</span>
       </span>
     );
   }
@@ -26,7 +27,10 @@ export default function CategoryBadge({ category }) {
       }}
     >
       <Icon name={category.icon} size={15} strokeWidth={1.9} />
-      {category.name}
+      {/* Wrapped so a narrow screen can drop the words and keep the colour and
+          the icon, which are what actually identify a category at a glance.
+          A name like 'Software Subscriptions' took a whole line on every row. */}
+      <span className="category-badge-name">{category.name}</span>
     </span>
   );
 }
