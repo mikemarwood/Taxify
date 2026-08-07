@@ -22,11 +22,15 @@ export function isValidPromoCodeFormat(code) {
 export async function evaluatePromoCode(rawCode, planType, amountPerYear) {
   const code = normalisePromoCode(rawCode);
   if (!code) return { ok: false, reason: 'Enter a promo code' };
-  if (!isValidPromoCodeFormat(code)) return { ok: false, reason: 'That code contains characters we don’t use' };
+  // Deliberately the same wording as a code that simply is not in the table.
+  // Telling somebody their code has the wrong characters in it explains our
+  // validation rather than their problem, and either way the answer is that
+  // this code will not work.
+  if (!isValidPromoCodeFormat(code)) return { ok: false, reason: 'Invalid promo code' };
 
   const [rows] = await pool.execute('SELECT * FROM promo_codes WHERE code = ?', [code]);
   const promo = rows[0];
-  if (!promo) return { ok: false, reason: 'That code isn’t recognised' };
+  if (!promo) return { ok: false, reason: 'Invalid promo code' };
   if (!promo.active) return { ok: false, reason: 'That code is no longer active' };
   if (promo.expires_at && new Date(promo.expires_at) < new Date()) {
     return { ok: false, reason: 'That code has expired' };

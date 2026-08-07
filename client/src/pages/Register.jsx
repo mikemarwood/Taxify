@@ -571,7 +571,7 @@ export default function Register() {
                       autoComplete="email"
                     />
                   </Field>
-                  <Field label="Confirm email" required span error={errors.confirmEmail} hint="So a typo cannot lock you out">
+                  <Field label="Confirm email" required span error={errors.confirmEmail}>
                     <input
                       type="email"
                       className="input"
