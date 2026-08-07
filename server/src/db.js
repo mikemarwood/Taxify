@@ -324,6 +324,26 @@ export async function ensureSchema() {
     await pool.query(`ALTER TABLE entities ADD COLUMN IF NOT EXISTS ${column}`);
   }
 
+  // Every account should have exactly one default set of books — the one that
+  // opens on sign-in. is_default was never set on create, so an account only
+  // had one if somebody pressed "Make default", and most never did.
+  //
+  // The oldest gets it: for almost every account that is the individual return
+  // created at sign-up, and it is the only choice that does not depend on a
+  // name or a kind that may since have changed. Accounts that already have a
+  // default are left exactly as they are.
+  await pool.query(`
+    UPDATE entities e
+      JOIN (
+        SELECT user_id, MIN(id) AS first_id
+          FROM entities
+         WHERE archived_at IS NULL
+         GROUP BY user_id
+        HAVING SUM(is_default) = 0
+      ) missing ON missing.first_id = e.id
+       SET e.is_default = 1
+  `);
+
   await pool.query(`
     CREATE TABLE IF NOT EXISTS categories (
       id INT PRIMARY KEY AUTO_INCREMENT,

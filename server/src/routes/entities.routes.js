@@ -149,10 +149,17 @@ router.post(
     const conn = await pool.getConnection();
     try {
       await conn.beginTransaction();
+      // The first set of books an account has is its default — the one opened
+      // on sign-in and the one an expense is filed into when nothing else is
+      // chosen. Every account needs one, and until now none was ever set on
+      // create, so an account only had a default if somebody pressed the
+      // button. `existing` is every set of books including archived ones, so
+      // archiving the only one does not quietly hand the title to the next.
+      const isFirst = existing.length === 0 ? 1 : 0;
       const [result] = await conn.execute(
         `INSERT INTO entities (user_id, name, kind, lodgement_cadence, is_default, path_segment)
-         VALUES (?, ?, ?, ?, 0, NULL)`,
-        [ownerId, name, kind, cadence]
+         VALUES (?, ?, ?, ?, ?, NULL)`,
+        [ownerId, name, kind, cadence, isFirst]
       );
       const id = result.insertId;
 

@@ -81,6 +81,18 @@ export default function EntityManager() {
   const allNames = [...entities, ...(archived || [])];
   const createProblem = nameProblem(name, allNames);
 
+  // An account has one individual return, and the server refuses a second. The
+  // button is dropped rather than offered and then rejected — archived books
+  // count, because the name and the slot are both still taken until one is
+  // deleted.
+  const hasIndividual = allNames.some((e) => e.kind === 'individual');
+  const kindChoices = KINDS.filter((k) => k.value !== 'individual' || !hasIndividual);
+
+  // If the selected kind is no longer on offer — an individual created in
+  // another tab while this form was open — fall back rather than leave the
+  // form with nothing highlighted and a value the server will refuse.
+  const activeKind = kindChoices.some((k) => k.value === kind) ? kind : kindChoices[0]?.value;
+
   function resetForm() {
     setName('');
     setKind('business');
@@ -99,7 +111,7 @@ export default function EntityManager() {
     e.preventDefault();
     setBusy(true);
     try {
-      const { data } = await api.post('/entities', { name, kind, cadence });
+      const { data } = await api.post('/entities', { name: cleanName(name), kind: activeKind, cadence });
       await reload();
       choose(data.entity.id);
       resetForm();
@@ -348,12 +360,12 @@ export default function EntityManager() {
             <div>
               <label className="label">What is it</label>
               <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                {KINDS.map((k) => (
+                {kindChoices.map((k) => (
                   <button
                     key={k.value}
                     type="button"
                     onClick={() => pickKind(k.value)}
-                    className={kind === k.value ? 'btn btn-primary' : 'btn btn-ghost'}
+                    className={activeKind === k.value ? 'btn btn-primary' : 'btn btn-ghost'}
                     style={{ fontSize: 12.5, padding: '7px 12px' }}
                   >
                     {k.label}
@@ -361,7 +373,7 @@ export default function EntityManager() {
                 ))}
               </div>
               <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 6 }}>
-                {kind === 'business'
+                {activeKind === 'business'
                   ? 'Expenses here can be claimed at part business use.'
                   : 'Expenses here are always claimed in full — no percentage to fill in.'}
               </div>

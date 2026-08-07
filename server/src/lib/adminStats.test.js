@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { changeBetween, fillDays } from '../src/lib/adminStats.js';
-import { shouldTouch, resetPresenceThrottle, ONLINE_WINDOW_MINUTES } from '../src/lib/presence.js';
+import { changeBetween, fillDays } from './adminStats.js';
+import { shouldTouch, resetPresenceThrottle, ONLINE_WINDOW_MINUTES } from './presence.js';
 
 test('growth from nothing is reported as new, not as a percentage', () => {
   // The naive version divides by the previous period and puts "+Infinity%" on

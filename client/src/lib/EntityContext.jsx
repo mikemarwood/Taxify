@@ -51,7 +51,12 @@ export function EntityProvider({ children }) {
       // An account with one set of books is always inside it — the combined
       // view of one thing is the thing, and offering both would be noise.
       const only = data.entities?.length === 1 ? String(data.entities[0].id) : null;
-      const next = only || (known ? stored : ALL_ENTITIES);
+      // Nothing stored — first visit, or a browser that was cleared — opens
+      // the default set of books rather than the combined view. "Everything"
+      // is a way of looking at records, not a place to put one, so landing
+      // there means the first expense somebody adds has to be filed by hand.
+      const fallback = data.entities?.find((e) => e.isDefault);
+      const next = only || (known ? stored : fallback ? String(fallback.id) : ALL_ENTITIES);
       setSelected(next);
       setEntityId(next === ALL_ENTITIES ? null : next);
     } catch {

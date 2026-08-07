@@ -124,7 +124,7 @@ function renderEmail({ title, heading, bodyHtml }) {
         <div style="font-size:12px;line-height:1.6;color:#94a3b8;">
           &copy; ${new Date().getFullYear()} ${BRAND} &middot;
           <a href="https://mikesapphub.com" style="color:#475569;text-decoration:underline;">Mikes App Hub</a><br>
-          This message was sent automatically — replies to it are not read.
+          <strong style="color:#64748b;">Please do not reply to this email — this inbox is not monitored.</strong>
         </div>
       </td></tr>
 
@@ -152,7 +152,7 @@ function htmlToText(heading, bodyHtml) {
     .replace(/[ \t]+/g, ' ')
     .replace(/\n{3,}/g, '\n\n')
     .trim();
-  return `${heading}\n\n${body}\n\n--\n${BRAND}\nThis is an automated message, please do not reply directly.`;
+  return `${heading}\n\n${body}\n\n--\n${BRAND}\nPlease do not reply to this email — this inbox is not monitored.`;
 }
 
 // "Taxify <no-reply@example.com>" -> "no-reply@example.com". The envelope and

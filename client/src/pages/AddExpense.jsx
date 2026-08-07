@@ -232,7 +232,7 @@ export default function AddExpense() {
               {entities.map((e) => (
                 <option key={e.id} value={e.id}>
                   {e.name}
-                  {e.kind === 'business' ? ' — business' : ''}
+                  {e.kind === 'business' ? ' — Business' : ' — Individual'}
                 </option>
               ))}
             </select>
