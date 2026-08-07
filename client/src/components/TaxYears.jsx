@@ -180,14 +180,16 @@ export default function TaxYears({ years, spendByYear, expenses, onFinalisedChan
     // Closing the year stops anyone editing what it contained, so it is asked
     // plainly beforehand rather than discovered afterwards.
     if (!alreadyFinalised) {
-      const confirmed = window.confirm(
-        `Record ${formatMoney(value)} as the refund for ${row.label}?\n\n` +
+      const confirmed = await confirm({
+        title: `Record ${formatMoney(value)} as the refund for ${row.label}?`,
+        body:
           'This finalises it. Its expenses and receipts become read-only, so nothing can change what was ' +
-          'claimed after the return was assessed.\n\n' +
+          'claimed after the return was assessed. ' +
           (canReopen
             ? 'You can reopen the year from this page if you need to correct something.'
-            : 'Only the account holder can reopen it afterwards.')
-      );
+            : 'Only the account holder can reopen it afterwards.'),
+        confirmLabel: 'Finalise',
+      });
       if (!confirmed) return;
     }
 
@@ -252,7 +254,11 @@ export default function TaxYears({ years, spendByYear, expenses, onFinalisedChan
     const row = byKey.get(key);
     if (!row) return;
     if (
-      !window.confirm(`Reopen ${row.label}?\n\nIts expenses and receipts become editable again. The refund is kept.`)
+      !(await confirm({
+        title: `Reopen ${row.label}?`,
+        body: 'Its expenses and receipts become editable again. The refund is kept.',
+        confirmLabel: 'Reopen',
+      }))
     ) {
       return;
     }

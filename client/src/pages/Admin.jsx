@@ -14,6 +14,7 @@ import { useToast } from '../components/Toast.jsx';
 import { SkeletonList } from '../components/Skeletons.jsx';
 import Icon from '../components/Icon.jsx';
 import PromoCodesTab from '../components/PromoCodesTab.jsx';
+import { useConfirm } from '../lib/ConfirmContext.jsx';
 import AdminStatsTab from '../components/AdminStatsTab.jsx';
 import TaxRatesTab from '../components/TaxRatesTab.jsx';
 import PushSettingsTab from '../components/PushSettingsTab.jsx';
@@ -789,6 +790,7 @@ function StripeModeSection({ label, hint, section, values, secretDraft, onFieldC
 }
 
 function StripeSettingsTab() {
+  const confirm = useConfirm();
   // Locked on every visit, never remembered — a lock that stays open is a
   // decoration.
   const [unlocked, setUnlocked] = useState(false);
@@ -803,13 +805,23 @@ function StripeSettingsTab() {
   // Asked before it is switched, because this is the difference between taking
   // somebody's money and pretending to. Nothing about the screen tells you
   // which one a click is about to choose until after it has chosen.
-  function confirmMode(next) {
+  async function confirmMode(next) {
     if (next === mode) return;
-    const message =
+    const ok = await confirm(
       next === 'live'
-        ? 'Switch to LIVE mode?\n\nCheckout, the billing portal and webhooks will use your live keys, and customers will be charged real money.'
-        : 'Switch to TEST mode?\n\nCheckout and webhooks will use your test keys. Real cards stop working and nobody can subscribe until you switch back.';
-    if (window.confirm(message)) setMode(next);
+        ? {
+            tone: 'danger',
+            title: 'Switch to LIVE mode?',
+            body: 'Checkout, the billing portal and webhooks will use your live keys, and customers will be charged real money.',
+            confirmLabel: 'Go live',
+          }
+        : {
+            title: 'Switch to TEST mode?',
+            body: 'Checkout and webhooks will use your test keys. Real cards stop working and nobody can subscribe until you switch back.',
+            confirmLabel: 'Switch to test',
+          }
+    );
+    if (ok) setMode(next);
   }
   const [busy, setBusy] = useState(false);
   const [testingMode, setTestingMode] = useState(null);
