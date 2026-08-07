@@ -571,9 +571,19 @@ function AccountantSection({ user }) {
     }
   }
 
+  // A shape check, not a promise the address exists — that is what sending to
+  // it proves. It only has to stop the obvious: a missing @, a missing dot, a
+  // stray space.
+  const emailLooksReal = /^[^s@]+@[^s@]+.[^s@]{2,}$/.test(inviteEmail.trim());
+
+  // One accountant at a time. Two people holding read-only access to somebody
+  // else's tax records is twice the exposure for no benefit, and an invitation
+  // already waiting is the same commitment as a granted one.
+  const alreadyShared = (accountants?.length || 0) > 0 || invites.length > 0;
+
   const canSubmit =
     inviteName.trim() &&
-    inviteEmail.trim() &&
+    emailLooksReal &&
     (allYears || pickedYears.length > 0);
 
   return (
@@ -696,6 +706,11 @@ function AccountantSection({ user }) {
         </div>
       )}
 
+      {alreadyShared ? (
+        <p style={{ margin: 0, fontSize: 12.5, color: 'var(--text-muted)', lineHeight: 1.55 }}>
+          Access is given to one accountant at a time. Remove the access above to invite somebody else.
+        </p>
+      ) : (
       <form onSubmit={onInvite} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
           <input
@@ -703,7 +718,7 @@ function AccountantSection({ user }) {
             required
             placeholder="Name"
             value={inviteName}
-            onChange={(e) => setInviteName(e.target.value)}
+            onChange={(e) => setInviteName(titleCase(e.target.value))}
           />
           <input
             className="input"
@@ -804,6 +819,7 @@ function AccountantSection({ user }) {
           Invite accountant
         </button>
       </form>
+      )}
 
     </div>
   );
