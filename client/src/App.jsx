@@ -55,19 +55,30 @@ function Protected({ children, adminOnly }) {
 
   if (!adminOnly && user.accessLocked && location.pathname !== '/account') {
     return (
-      <Layout>
-        <SubscriptionRequired />
-      </Layout>
+      <ErrorBoundary key={`shell|${location.pathname}`}>
+        <Layout>
+          <SubscriptionRequired />
+        </Layout>
+      </ErrorBoundary>
     );
   }
+  // Two boundaries, because they catch different things.
+  //
+  // The outer one wraps Layout itself. Layout renders the nav, the books
+  // picker and the notification bell, and a throw in any of them used to take
+  // the whole page with it — a white screen with no message, and nothing sent
+  // to /api/app/client-error either, because the only boundary was inside. The
+  // one failure that gives you nothing to go on was the one it could not catch.
+  //
+  // The inner one keeps a page error from costing you the navigation, and is
+  // keyed on the books as well as the path so switching between them remounts
+  // the page and it refetches.
   return (
-    <Layout>
-      {/* Keyed on the books as well as the path, so switching between them
-          remounts the page and it refetches. One line, rather than every page
-          having to remember to watch for the change — including pages written
-          after this one. */}
-      <ErrorBoundary key={`${location.pathname}|${selectedId ?? 'all'}`}>{children}</ErrorBoundary>
-    </Layout>
+    <ErrorBoundary key={`shell|${location.pathname}`}>
+      <Layout>
+        <ErrorBoundary key={`${location.pathname}|${selectedId ?? 'all'}`}>{children}</ErrorBoundary>
+      </Layout>
+    </ErrorBoundary>
   );
 }
 
