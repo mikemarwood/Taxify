@@ -11,7 +11,7 @@ import Icon from './Icon.jsx';
 // like this is forgetting you're in it and reading someone else's numbers as
 // your own.
 export default function ViewAsBanner() {
-  const { user, setUser } = useAuth();
+  const { user, setUser, logout } = useAuth();
   const navigate = useNavigate();
   const toast = useToast();
   const [busy, setBusy] = useState(false);
@@ -25,8 +25,16 @@ export default function ViewAsBanner() {
       setUser(res.data.user);
       navigate('/admin');
     } catch (err) {
-      toast(err.message, 'error');
-      setBusy(false);
+      // Being stuck inside somebody else's account with no way out is worse
+      // than the failure that caused it, so there is always a way out: signing
+      // out drops the view-as cookie entirely, which cannot fail for the same
+      // reason handing the session back can.
+      toast(`${err.message} — signing you out instead`, 'error');
+      try {
+        await logout();
+      } finally {
+        window.location.href = '/login';
+      }
     }
   }
 

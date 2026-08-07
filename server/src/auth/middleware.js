@@ -113,8 +113,13 @@ export const requireAuth = asyncHandler(async (req, res, next) => {
     req.user.viewedBy = { id: admin.id, name: admin.name, email: admin.email };
     req.user.readOnly = true;
 
-    const isExit = req.originalUrl.includes('/auth/exit-view-as');
-    if (req.method !== 'GET' && !isExit) {
+    // The two ways out. Everything else is refused, but a support session
+    // has to be leavable — refusing the exit or the sign-out would trap an
+    // administrator inside somebody else's account with the only escape being
+    // to clear cookies by hand.
+    const isWayOut =
+      req.originalUrl.includes('/auth/exit-view-as') || req.originalUrl.includes('/auth/logout');
+    if (req.method !== 'GET' && !isWayOut) {
       return res.status(403).json({ error: 'You are viewing this account as an administrator — it is read-only.' });
     }
   }

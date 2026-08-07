@@ -271,10 +271,36 @@ router.post(
     if (!customerId) return res.status(400).json({ error: 'No billing account yet — subscribe first' });
 
     const stripe = await getStripe();
-    const session = await stripe.billingPortal.sessions.create({
-      customer: customerId,
-      return_url: `${CLIENT_ORIGIN}/account`,
-    });
+
+    // Stripe refuses to open a portal until a portal configuration has been
+    // saved in the dashboard, and it is not created for you — a Stripe account
+    // that has never visited Settings > Billing > Customer portal has none. The
+    // error it throws is about 'no configuration provided', which means nothing
+    // to whoever pressed the button and looks exactly like the button being
+    // broken. Said plainly instead, with the place to go and fix it.
+    let session;
+    try {
+      session = await stripe.billingPortal.sessions.create({
+        customer: customerId,
+        return_url: `${CLIENT_ORIGIN}/account`,
+      });
+    } catch (err) {
+      const message = String(err?.message || '');
+      console.error('Stripe billing portal failed', message);
+
+      if (/configuration/i.test(message)) {
+        return res.status(503).json({
+          error:
+            'The billing portal has not been set up in Stripe yet. In the Stripe dashboard: Settings, Billing, Customer portal — save a configuration, then this will work.',
+        });
+      }
+      if (/No such customer/i.test(message)) {
+        return res.status(409).json({
+          error: 'Your billing record was not found in Stripe. This can happen after switching between live and test mode.',
+        });
+      }
+      return res.status(502).json({ error: `Stripe could not open the billing portal: ${message}` });
+    }
 
     res.json({ url: session.url });
   })
