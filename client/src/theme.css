@@ -358,6 +358,15 @@ input[type="date"].input::-webkit-calendar-picker-indicator:hover { opacity: 1; 
 }
 
 /* Fluent's navigation rows reveal a subtle fill on hover rather than a border. */
+/* Notifications and Log out are one pair, so they sit on one row and share
+   it evenly — on the rail as well as in the drawer. Two full-width blocks with
+   a gap between them read as two unrelated things stacked at the bottom. */
+.nav-foot-actions { display: flex; gap: 8px; align-items: stretch; }
+.nav-foot-actions > div,
+.nav-foot-actions > .nav-btn { flex: 1 1 0; min-width: 0; }
+.nav-foot-actions > div > .nav-btn,
+.nav-foot-actions > .nav-btn { width: 100% !important; }
+
 .nav-item { transition: background 0.12s var(--ease-standard), color 0.12s var(--ease-standard); }
 .nav-item:hover { background: var(--nav-hover) !important; color: var(--nav-text-active) !important; }
 
@@ -448,11 +457,21 @@ input[type="date"].input::-webkit-calendar-picker-indicator:hover { opacity: 1; 
 
   /* The two things at the foot of the drawer share a row. Full width each,
      they took as much of it as the pages somebody opened the menu to reach.
-     The bell keeps its own width; Log out takes what is left. */
-  .app-sidebar .nav-foot-actions { display: flex; gap: 8px; align-items: stretch; }
-  .app-sidebar .nav-foot-actions > div { flex: 0 0 auto; }
-  .app-sidebar .nav-foot-actions > div > .nav-btn { width: auto !important; padding: 8px 12px !important; }
-  .app-sidebar .nav-foot-actions > .nav-btn { flex: 1; padding: 8px 12px !important; }
+
+     An even half each. The first attempt sized the bell to its content and let
+     Log out take everything left, which made Log out the largest thing in the
+     drawer and the two read as unrelated. `1 1 0` rather than `1`, so they
+     divide the row equally whatever words are in them. */
+  .app-sidebar .nav-foot-actions { gap: 8px; }
+  .app-sidebar .nav-foot-actions > div,
+  .app-sidebar .nav-foot-actions > .nav-btn { flex: 1 1 0; min-width: 0; }
+  .app-sidebar .nav-foot-actions > div > .nav-btn,
+  .app-sidebar .nav-foot-actions > .nav-btn {
+    width: 100% !important;
+    padding: 9px 8px !important;
+    font-size: 12.5px !important;
+    gap: 6px !important;
+  }
 
   /* A finger, not a cursor. 44px is the guideline and these were 35. */
   .app-sidebar .nav-item {

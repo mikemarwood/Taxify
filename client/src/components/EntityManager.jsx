@@ -20,6 +20,22 @@ const CADENCES = [
   { value: 'quarterly', label: 'Every quarter' },
 ];
 
+// Compared the way the server compares them — trimmed, collapsed and
+// case-insensitively — so "Acme  Plumbing" and "acme plumbing" are recognised
+// as the same books before the request goes rather than coming back a 409.
+function sameName(a, b) {
+  return String(a ?? '').trim().replace(/\s+/g, ' ').toLowerCase() ===
+    String(b ?? '').trim().replace(/\s+/g, ' ').toLowerCase();
+}
+
+// `ignore` is the name being edited, so renaming a set of books to what it is
+// already called is not reported as clashing with itself.
+function nameTaken(value, all, ignore = null) {
+  if (!String(value ?? '').trim()) return false;
+  if (ignore && sameName(value, ignore)) return false;
+  return all.some((e) => sameName(e.name, value));
+}
+
 export default function EntityManager() {
   const toast = useToast();
   const { entities, archived, allowance, selected, selectedId, choose, reload } = useEntities();
@@ -34,6 +50,11 @@ export default function EntityManager() {
   // Archived books count against the plan, which is why this comes from the
   // server rather than from the visible list.
   const atLimit = !!allowance && allowance.businessesLeft <= 0;
+
+  // Archived books are included: the name is still taken, the server still
+  // refuses it, and restoring one is a single press away.
+  const allNames = [...entities, ...(archived || [])];
+  const createClash = nameTaken(name, allNames);
 
   function resetForm() {
     setName('');
@@ -190,6 +211,7 @@ export default function EntityManager() {
                       entity={e}
                       busy={busy}
                       canBecomeBusiness={atLimit ? e.kind === 'business' : true}
+                      siblings={allNames}
                       onSave={save}
                       onArchive={archive}
                       onDelete={remove}
@@ -286,7 +308,12 @@ export default function EntityManager() {
                 value={name}
                 onChange={(ev) => setName(ev.target.value)}
                 placeholder="e.g. Marwood Plumbing"
+                aria-invalid={createClash ? 'true' : undefined}
+                style={createClash ? { borderColor: 'var(--red)' } : undefined}
               />
+              <div style={{ fontSize: 11.5, minHeight: 15, marginTop: 5, color: createClash ? 'var(--red)' : 'var(--text-muted)' }}>
+                {createClash ? 'You already have a set of books with that name' : ''}
+              </div>
             </div>
 
             <div>
@@ -331,7 +358,7 @@ export default function EntityManager() {
               </div>
             </div>
 
-            <button className="btn btn-primary" disabled={busy || !name.trim()} style={{ justifySelf: 'start' }}>
+            <button className="btn btn-primary" disabled={busy || !name.trim() || createClash} style={{ justifySelf: 'start' }}>
               {busy ? 'Creating…' : 'Create'}
             </button>
           </motion.form>
@@ -393,18 +420,30 @@ export default function EntityManager() {
   );
 }
 
-function EditRow({ entity, busy, canBecomeBusiness, onSave, onArchive, onDelete }) {
+function EditRow({ entity, busy, canBecomeBusiness, siblings = [], onSave, onArchive, onDelete }) {
   const [name, setName] = useState(entity.name);
+
+  const clash = nameTaken(name, siblings, entity.name);
+  const canRename = !busy && name.trim() && name !== entity.name && !clash;
 
   return (
     <div style={{ display: 'grid', gap: 10, marginTop: 10, paddingTop: 10, borderTop: '1px solid var(--border)' }}>
-      <input
-        className="input"
-        value={name}
-        maxLength={60}
-        onChange={(e) => setName(e.target.value)}
-        style={{ fontSize: 12.5 }}
-      />
+      <div>
+        <label className="label" style={{ fontSize: 11.5 }}>
+          Name
+        </label>
+        <input
+          className="input"
+          value={name}
+          maxLength={60}
+          onChange={(e) => setName(e.target.value)}
+          aria-invalid={clash ? 'true' : undefined}
+          style={{ fontSize: 13, borderColor: clash ? 'var(--red)' : undefined }}
+        />
+        <div style={{ fontSize: 11.5, minHeight: 15, marginTop: 4, color: clash ? 'var(--red)' : 'var(--text-muted)' }}>
+          {clash ? 'You already have a set of books with that name' : ''}
+        </div>
+      </div>
       <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
         {/* The plan caps businesses, and switching a set of books to one is a
             business as far as that cap goes. Offering the button and refusing
@@ -438,11 +477,13 @@ function EditRow({ entity, busy, canBecomeBusiness, onSave, onArchive, onDelete 
         <button
           type="button"
           className="btn btn-ghost"
-          style={{ fontSize: 11.5, padding: '4px 8px' }}
-          disabled={busy || name === entity.name}
+          className="btn btn-primary"
+          style={{ fontSize: 13, padding: '9px 18px' }}
+          disabled={!canRename}
           onClick={() => onSave(entity, { name })}
         >
-          Rename
+          <Icon name="check" size={15} />
+          Save name
         </button>
         {!entity.isDefault && (
           <>

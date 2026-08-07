@@ -117,6 +117,26 @@ function UsersTab() {
     api.get('/admin/users').then((res) => setUsers(res.data.users));
   }
   useEffect(load, []);
+  async function viewAs(u) {
+    if (
+      !window.confirm(
+        `View Taxify as ${u.name} (${u.email})?\n\n` +
+          'You will see their account exactly as they do, but nothing can be changed. ' +
+          'A banner stays on screen until you exit.'
+      )
+    ) {
+      return;
+    }
+
+    try {
+      const res = await api.post(`/admin/users/${u.id}/view-as`);
+      setUser(res.data.user);
+      navigate('/');
+    } catch (err) {
+      toast(err.message, 'error');
+    }
+  }
+
   async function toggleAdmin(u) {
     try {
       await api.patch(`/admin/users/${u.id}`, { isAdmin: !u.isAdmin });
@@ -793,12 +813,25 @@ function StripeSettingsTab() {
   // Locked on every visit, never remembered — a lock that stays open is a
   // decoration.
   const [unlocked, setUnlocked] = useState(false);
+
   const toast = useToast();
   const [mode, setMode] = useState(null);
   const [live, setLive] = useState({});
   const [test, setTest] = useState({});
   const [liveSecret, setLiveSecret] = useState('');
   const [testSecret, setTestSecret] = useState('');
+
+  // Asked before it is switched, because this is the difference between taking
+  // somebody's money and pretending to. Nothing about the screen tells you
+  // which one a click is about to choose until after it has chosen.
+  function confirmMode(next) {
+    if (next === mode) return;
+    const message =
+      next === 'live'
+        ? 'Switch to LIVE mode?\n\nCheckout, the billing portal and webhooks will use your live keys, and customers will be charged real money.'
+        : 'Switch to TEST mode?\n\nCheckout and webhooks will use your test keys. Real cards stop working and nobody can subscribe until you switch back.';
+    if (window.confirm(message)) setMode(next);
+  }
   const [busy, setBusy] = useState(false);
   const [testingMode, setTestingMode] = useState(null);
 
@@ -890,14 +923,14 @@ function StripeSettingsTab() {
           <button
             type="button"
             className={mode === 'live' ? 'btn btn-primary' : 'btn btn-ghost'}
-            onClick={() => setMode('live')}
+            onClick={() => confirmMode('live')}
           >
             Live
           </button>
           <button
             type="button"
             className={mode === 'test' ? 'btn btn-primary' : 'btn btn-ghost'}
-            onClick={() => setMode('test')}
+            onClick={() => confirmMode('test')}
           >
             Test
           </button>
