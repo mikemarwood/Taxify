@@ -12,14 +12,36 @@ import Icon from './Icon.jsx';
 export default class ErrorBoundary extends Component {
   constructor(props) {
     super(props);
-    this.state = { error: null };
+    this.state = { error: null, info: null, copied: false };
   }
 
   static getDerivedStateFromError(error) {
     return { error };
   }
 
+  copyDetails = () => {
+    const { error, info } = this.state;
+    const text = [
+      `Taxify error at ${window.location.pathname}`,
+      String(error?.message || error),
+      String(error?.stack || ''),
+      String(info?.componentStack || ''),
+    ]
+      .filter(Boolean)
+      .join('\n\n');
+    // Best effort. If the clipboard is refused the text is on screen anyway,
+    // which is the point of showing it.
+    Promise.resolve(navigator.clipboard?.writeText(text))
+      .then(() => this.setState({ copied: true }))
+      .catch(() => {});
+  };
+
   componentDidCatch(error, info) {
+    // Kept so it can be shown and copied, not only posted. A card that says
+    // "something went wrong" and nothing else leaves somebody with exactly as
+    // much to report as a blank page did.
+    this.setState({ info });
+
     // Best-effort, and deliberately not queued or retried: if this fails too,
     // the fallback below is still on screen, which is the part that matters.
     try {
@@ -62,21 +84,65 @@ export default class ErrorBoundary extends Component {
             </Link>
           </div>
 
-          {import.meta.env.DEV && (
-            <pre
+          {/* The message itself, in production too.
+              
+              It used to be development-only, which meant the people who
+              actually hit the error — on a phone, on the live site — had
+              nothing to tell anyone, and the only copy was in a server log
+              nobody was going to read. The bundle is public, so a stack trace
+              gives away nothing that reading the JavaScript would not. */}
+          <div style={{ marginTop: 22, textAlign: 'left' }}>
+            <div
               style={{
-                marginTop: 20,
-                textAlign: 'left',
-                fontSize: 11,
-                whiteSpace: 'pre-wrap',
+                fontFamily: 'ui-monospace, Consolas, monospace',
+                fontSize: 11.5,
+                lineHeight: 1.5,
                 color: 'var(--red)',
-                maxHeight: 220,
-                overflow: 'auto',
+                background: 'var(--bg-inset)',
+                border: '1px solid var(--border)',
+                borderRadius: 'var(--radius-sm)',
+                padding: '10px 12px',
+                wordBreak: 'break-word',
               }}
             >
-              {String(this.state.error?.stack || this.state.error)}
-            </pre>
-          )}
+              {String(this.state.error?.message || this.state.error)}
+            </div>
+
+            <div style={{ display: 'flex', gap: 10, alignItems: 'center', marginTop: 10, flexWrap: 'wrap' }}>
+              <button
+                type="button"
+                className="btn btn-ghost"
+                style={{ fontSize: 12, padding: '5px 11px' }}
+                onClick={this.copyDetails}
+              >
+                {this.state.copied ? 'Copied' : 'Copy details'}
+              </button>
+              <span style={{ fontSize: 11.5, color: 'var(--text-muted)' }}>
+                Send this over and it can be fixed properly.
+              </span>
+            </div>
+
+            {(this.state.error?.stack || this.state.info?.componentStack) && (
+              <details style={{ marginTop: 10 }}>
+                <summary style={{ fontSize: 11.5, color: 'var(--text-muted)', cursor: 'pointer' }}>
+                  Technical details
+                </summary>
+                <pre
+                  style={{
+                    marginTop: 8,
+                    fontSize: 10.5,
+                    whiteSpace: 'pre-wrap',
+                    color: 'var(--text-muted)',
+                    maxHeight: 220,
+                    overflow: 'auto',
+                  }}
+                >
+                  {String(this.state.error?.stack || '')}
+                  {String(this.state.info?.componentStack || '')}
+                </pre>
+              </details>
+            )}
+          </div>
         </div>
       </div>
     );
