@@ -7,6 +7,22 @@ import { asyncHandler } from '../lib/asyncHandler.js';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const versionFile = path.join(__dirname, '..', 'app-version.json');
 
+// The absolute URL of the APK.
+//
+// CLIENT_ORIGIN when it is set, because that is the one place the public
+// address is already written down. Otherwise the request's own host, forced to
+// https unless it is a local address — a proxy that forwards without
+// X-Forwarded-Proto would otherwise hand out http:// for an https:// site.
+function apkDownloadUrl(req) {
+  const configured = process.env.CLIENT_ORIGIN;
+  if (configured) return `${configured.replace(/\/+$/, '')}/downloads/taxify.apk`;
+
+  const host = req.get('host') || '';
+  const local = /^(localhost|127\.0\.0\.1|\[::1\])(:\d+)?$/.test(host);
+  const scheme = local ? req.protocol : 'https';
+  return `${scheme}://${host}/downloads/taxify.apk`;
+}
+
 const router = Router();
 
 // The APK itself, so the page can state its real size and when it was built
@@ -38,7 +54,12 @@ router.get(
       sizeBytes,
       updatedAt,
       available: sizeBytes !== null,
-      url: `${req.protocol}://${req.get('host')}/downloads/taxify.apk`,
+      // https unless this is genuinely local. Android will not download an
+      // APK over cleartext, so getting this wrong does not degrade — it fails
+      // outright, in Download Manager, with nothing on screen explaining it.
+      // Belt and braces alongside trust proxy: one misconfigured proxy header
+      // should not silently break every install in the field.
+      url: apkDownloadUrl(req),
     });
   })
 );

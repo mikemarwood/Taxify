@@ -37,6 +37,18 @@ import { sendAccountantInviteLapsedEmail } from './lib/mailer.js';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
 const PORT = process.env.PORT || 4000;
+
+// One hop, because there is exactly one: the reverse proxy in front of this.
+//
+// Without it req.protocol is always http — the proxy terminates TLS and talks
+// to us in the clear — so anything built from it hands out an http:// URL for
+// an https:// site. That is what broke the Android updater: Download Manager
+// refuses cleartext on Android 9 and later, so every update failed with
+// 'Download unsuccessful' and nothing said why.
+//
+// A number rather than true: trusting every hop lets a client forge
+// X-Forwarded-For and with it whatever reads req.ip.
+app.set('trust proxy', 1);
 const isProd = process.env.NODE_ENV === 'production';
 
 // Stripe requires the raw request body to verify webhook signatures, so this

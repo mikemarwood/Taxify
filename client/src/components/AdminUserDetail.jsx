@@ -476,6 +476,7 @@ export default function AdminUserDetail({ userId, me, onClose, onChanged, action
         detail={`${formatBytes(u?.storageBytes)} of files will be deleted from disk. There is no undo, and no copy kept.`}
         confirmLabel="Delete permanently"
         requireText={u?.email}
+        dismissOnBackdrop={false}
         busy={acting}
         onCancel={() => setDialog(NO_DIALOG)}
         onConfirm={async () => {

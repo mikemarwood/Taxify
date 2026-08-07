@@ -6,6 +6,7 @@ import { useToast } from '../components/Toast.jsx';
 import { onDigitKeyDown } from '../lib/sounds.js';
 import { api } from '../lib/api.js';
 import Toggle from '../components/Toggle.jsx';
+import Icon from '../components/Icon.jsx';
 import { homePathFor } from '../lib/home.js';
 import AndroidDownloadButton from '../components/AndroidDownloadButton.jsx';
 
@@ -24,6 +25,7 @@ export default function Login() {
   const [password, setPassword] = useState('');
   const [publicDevice, setPublicDevice] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [signInError, setSignInError] = useState('');
 
   // { userId, deadline } — deadline is an absolute timestamp fixed when the
   // code was issued, never recomputed. See the effect below for why.
@@ -99,6 +101,7 @@ export default function Login() {
   async function onSubmit(e) {
     e.preventDefault();
     setBusy(true);
+    setSignInError('');
     try {
       const result = await login(email, password, publicDevice);
       if (result.otpRequired) {
@@ -110,7 +113,13 @@ export default function Login() {
       }
     } catch (err) {
       if (err.lockedUntil) lockAccount(err.lockedUntil, err.lockedForSeconds);
-      toast(err.message, 'error');
+      // On the form, not in a toast. A wrong password is about the two fields
+      // directly above it, and a message that appears in the far corner and
+      // then removes itself is the one somebody misses — especially on a phone,
+      // where it can be behind the keyboard.
+      setSignInError(err.message);
+      // Kept, since the attempts-remaining warning is worth saying twice.
+      if (err.attemptsRemaining !== undefined) toast(err.message, 'error');
     } finally {
       setBusy(false);
     }
@@ -252,9 +261,37 @@ export default function Login() {
   return (
     <AuthLayout title="Welcome back" subtitle="Log in to keep tracking your deductions.">
       <form onSubmit={onSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+        {signInError && (
+          <div
+            role="alert"
+            style={{
+              display: 'flex',
+              gap: 10,
+              padding: '12px 14px',
+              borderRadius: 'var(--radius-sm)',
+              background: 'rgba(239, 68, 68, 0.1)',
+              border: '1px solid rgba(239, 68, 68, 0.35)',
+              fontSize: 13,
+              lineHeight: 1.5,
+              color: 'var(--text)',
+            }}
+          >
+            <Icon name="alert" size={16} style={{ color: 'var(--red)', flexShrink: 0, marginTop: 1 }} />
+            <span>{signInError}</span>
+          </div>
+        )}
         <div>
           <label className="label">Email</label>
-          <input className="input" type="email" required value={email} onChange={(e) => setEmail(e.target.value.toLowerCase())} />
+          <input
+            className="input"
+            type="email"
+            required
+            value={email}
+            onChange={(e) => {
+              setSignInError('');
+              setEmail(e.target.value.toLowerCase());
+            }}
+          />
         </div>
         <div>
           <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 10 }}>
@@ -263,7 +300,10 @@ export default function Login() {
               Forgot password?
             </Link>
           </div>
-          <input className="input" type="password" required value={password} onChange={(e) => setPassword(e.target.value)} />
+          <input className="input" type="password" required value={password} onChange={(e) => {
+                setSignInError('');
+                setPassword(e.target.value);
+              }} />
         </div>
         <Toggle
           checked={publicDevice}

@@ -432,7 +432,6 @@ export default function Layout({ children }) {
                 </span>
               </Link>
             )}
-            <div style={{ height: 1, background: 'var(--nav-border)', margin: '2px -10px 0' }} />
             {/* Side by side on a phone rather than two full-width slabs. Both
                 are things you press rarely, and they were taking as much of the
                 drawer as the pages you actually go to. */}

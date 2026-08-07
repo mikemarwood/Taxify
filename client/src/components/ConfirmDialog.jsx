@@ -22,6 +22,9 @@ export default function ConfirmDialog({
   cancelLabel = 'Cancel',
   tone = 'default',
   requireText = null,
+  // A mis-click outside a dialog should not be the same gesture as Cancel when
+  // the dialog is the last thing between somebody and an irreversible action.
+  dismissOnBackdrop = true,
   busy = false,
   onConfirm,
   onCancel,
@@ -36,11 +39,11 @@ export default function ConfirmDialog({
 
   useEffect(() => {
     function onKey(e) {
-      if (e.key === 'Escape' && !busy) onCancel();
+      if (e.key === 'Escape' && !busy && dismissOnBackdrop) onCancel();
     }
     document.addEventListener('keydown', onKey);
     return () => document.removeEventListener('keydown', onKey);
-  }, [busy, onCancel]);
+  }, [busy, onCancel, dismissOnBackdrop]);
 
   const matched = !requireText || typed.trim().toLowerCase() === String(requireText).trim().toLowerCase();
   const danger = tone === 'danger';
@@ -52,7 +55,7 @@ export default function ConfirmDialog({
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-          onClick={() => !busy && onCancel()}
+          onClick={() => dismissOnBackdrop && !busy && onCancel()}
           style={{
             position: 'fixed',
             inset: 0,
