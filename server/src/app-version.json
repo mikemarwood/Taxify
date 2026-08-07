@@ -1,5 +1,5 @@
 {
-  "versionCode": 1,
-  "versionName": "1.0.0",
-  "notes": "Initial Android release."
+  "versionCode": 2,
+  "versionName": "1.0.1",
+  "notes": "Correct app icon, and the current sign-up and books changes."
 }

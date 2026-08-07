@@ -2,12 +2,22 @@
 <!--
   The Taxify mark for the adaptive launcher icon.
 
-  Adaptive icons crop the outer ~18% on every edge — the system decides the
-  shape, so anything near the border is at risk. The mark is therefore drawn
-  inside the safe 66dp circle rather than at the edges of the 108dp canvas.
+  The path data is lifted verbatim from client/public/logo.svg, which is drawn
+  on a 128 viewport, and placed on the 108 canvas an adaptive icon needs by one
+  group transform. Copying the numbers rather than redrawing them is the point:
+  the previous version was hand-redrawn at these proportions and the two arrows
+  ended up overlapping instead of stacked, so the launcher showed something
+  close to the logo rather than the logo.
+
+  The transform: the mark occupies x 28..100, y 30..99 of the 128 viewport, so
+  its centre is (64, 64.5). Scaled by 0.72 it becomes 52x50, which sits inside
+  the 66dp circle adaptive icons guarantee to show whatever mask the launcher
+  picks. Translating by (54 - 64*0.72, 54 - 64.5*0.72) lands that centre on the
+  centre of the canvas.
 
   A vector, not a set of PNGs: one file, sharp at every density, and it cannot
-  drift out of step with the web logo the way five bitmaps quietly do.
+  drift out of step with the web logo the way five bitmaps quietly do — which
+  is exactly what happened to the icons this replaces.
 -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="108dp"
@@ -15,19 +25,27 @@
     android:viewportWidth="108"
     android:viewportHeight="108">
 
-    <!-- Money out. -->
-    <path
-        android:fillColor="#7cb8ff"
-        android:pathData="M36,44.5 h24 a5.5,5.5 0 0 1 0,11 h-24 a5.5,5.5 0 0 1 0,-11 z" />
-    <path
-        android:fillColor="#7cb8ff"
-        android:pathData="M55.5,39 L77,50 L55.5,61 Z" />
+    <group
+        android:scaleX="0.72"
+        android:scaleY="0.72"
+        android:translateX="7.92"
+        android:translateY="7.56">
 
-    <!-- Money back. -->
-    <path
-        android:fillColor="#ffffff"
-        android:pathData="M48,52.5 h24 a5.5,5.5 0 0 1 0,11 h-24 a5.5,5.5 0 0 1 0,-11 z" />
-    <path
-        android:fillColor="#ffffff"
-        android:pathData="M52.5,47 L31,58 L52.5,69 Z" />
+        <!-- Money out. -->
+        <path
+            android:fillColor="#7cb8ff"
+            android:pathData="M36.5,40 h37 a6.5,6.5 0 0 1 0,13 h-37 a6.5,6.5 0 0 1 0,-13 z" />
+        <path
+            android:fillColor="#7cb8ff"
+            android:pathData="M74,30 L100,46.5 L74,63 Z" />
+
+        <!-- Money back. A 180° rotation of the pair above about the centre, so
+             the mark is balanced either way up. -->
+        <path
+            android:fillColor="#ffffff"
+            android:pathData="M54.5,76 h37 a6.5,6.5 0 0 1 0,13 h-37 a6.5,6.5 0 0 1 0,-13 z" />
+        <path
+            android:fillColor="#ffffff"
+            android:pathData="M54,66 L28,82.5 L54,99 Z" />
+    </group>
 </vector>
