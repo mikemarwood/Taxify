@@ -426,19 +426,24 @@ export default function Layout({ children }) {
             )}
           </div>
 
-          <NotificationBell />
+          {/* Side by side on a phone rather than two full-width slabs. Both
+              are things you press rarely, and they were taking as much of the
+              drawer as the pages you actually go to. */}
+          <div className="nav-foot-actions">
+            <NotificationBell />
 
-          <button
-            className="btn nav-btn"
-            style={{ fontSize: 13 }}
-            onClick={async () => {
-              playClick();
-              await logout();
-              navigate('/login');
-            }}
-          >
-            Log out
-          </button>
+            <button
+              className="btn nav-btn"
+              style={{ fontSize: 13 }}
+              onClick={async () => {
+                playClick();
+                await logout();
+                navigate('/login');
+              }}
+            >
+              Log out
+            </button>
+          </div>
           <div className="nav-footer">
             <SiteFooter tone="nav" align="left" style={{ padding: '4px 8px 0' }} />
           </div>

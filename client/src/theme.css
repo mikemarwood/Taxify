@@ -446,6 +446,14 @@ input[type="date"].input::-webkit-calendar-picker-indicator:hover { opacity: 1; 
   }
   .app-sidebar nav { gap: 20px !important; }
 
+  /* The two things at the foot of the drawer share a row. Full width each,
+     they took as much of it as the pages somebody opened the menu to reach.
+     The bell keeps its own width; Log out takes what is left. */
+  .app-sidebar .nav-foot-actions { display: flex; gap: 8px; align-items: stretch; }
+  .app-sidebar .nav-foot-actions > div { flex: 0 0 auto; }
+  .app-sidebar .nav-foot-actions > div > .nav-btn { width: auto !important; padding: 8px 12px !important; }
+  .app-sidebar .nav-foot-actions > .nav-btn { flex: 1; padding: 8px 12px !important; }
+
   /* A finger, not a cursor. 44px is the guideline and these were 35. */
   .app-sidebar .nav-item {
     padding: 11px 12px !important;
