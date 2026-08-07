@@ -1,4 +1,4 @@
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import Icon from './Icon.jsx';
 import SiteFooter from './SiteFooter.jsx';
 
@@ -7,6 +7,17 @@ import SiteFooter from './SiteFooter.jsx';
 // top to bottom, they arrive looking for one clause.
 
 export function LegalPage({ title, summary, updated, sections, children }) {
+  const navigate = useNavigate();
+
+  // Back to whatever opened this. These are read halfway through signing up —
+  // the form keeps its draft, so going back lands on the same step with the
+  // same answers. Somebody who arrived from a link in an email has nothing to
+  // go back to, and sign-in is the useful place to put them.
+  function goBack() {
+    if (window.history.length > 1) navigate(-1);
+    else navigate('/login');
+  }
+
   return (
     <div style={{ minHeight: '100vh', display: 'flex', justifyContent: 'center', padding: '48px 20px 64px' }}>
       <div style={{ width: '100%', maxWidth: 760 }}>
@@ -25,10 +36,10 @@ export function LegalPage({ title, summary, updated, sections, children }) {
             paddingBottom: 12,
           }}
         >
-          <Link to="/login" className="btn btn-ghost" style={{ fontSize: 13, gap: 7, textDecoration: 'none' }}>
+          <button type="button" className="btn btn-ghost" onClick={goBack} style={{ fontSize: 13, gap: 7 }}>
             <Icon name="arrow-left" size={15} />
             Back
-          </Link>
+          </button>
           <Link
             to="/landing"
             style={{ display: 'inline-flex', alignItems: 'center', gap: 10, textDecoration: 'none', color: 'var(--text)' }}

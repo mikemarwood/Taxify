@@ -11,6 +11,35 @@ import { playClick, playError, playSuccess } from '../lib/sounds.js';
 import { financialYearSpan } from '../lib/financialYear.js';
 import { autoFocusFields } from '../lib/device.js';
 
+// What has been filled in so far, kept for the length of the tab.
+//
+// Reading the terms is a normal thing to do halfway through signing up, and
+// they open in this window — so the form unmounts. Without this, coming back
+// lands on an empty first step and everything typed is gone, which is a good
+// way to lose somebody who was almost finished.
+//
+// sessionStorage, not local: it belongs to this tab and this sitting. No
+// password is collected here — one is set later from the activation link — so
+// nothing secret is being written down.
+const DRAFT_KEY = 'taxify.signup.draft';
+
+function readDraft() {
+  try {
+    return JSON.parse(window.sessionStorage.getItem(DRAFT_KEY) || '{}') || {};
+  } catch {
+    // Malformed, or storage refused. Start fresh rather than fail.
+    return {};
+  }
+}
+
+function clearDraft() {
+  try {
+    window.sessionStorage.removeItem(DRAFT_KEY);
+  } catch {
+    // Nothing to do.
+  }
+}
+
 const LIMITS = {
   firstName: { max: 60 },
   lastName: { max: 60 },
@@ -83,39 +112,43 @@ export default function Register() {
   const toast = useToast();
   const navigate = useNavigate();
 
-  const [step, setStep] = useState(0);
+  // Read once, before the fields below take their initial values from it.
+  const [draft] = useState(readDraft);
+
+  const [step, setStep] = useState(() => (Number.isInteger(draft.step) ? draft.step : 0));
   const [direction, setDirection] = useState(1);
 
   const [options, setOptions] = useState(null);
   const [plans, setPlans] = useState([]);
   const [captcha, setCaptcha] = useState(null);
 
-  const [firstName, setFirstName] = useState('');
-  const [lastName, setLastName] = useState('');
-  const [dateOfBirth, setDateOfBirth] = useState('');
-  const [phone, setPhone] = useState('');
-  const [dialCode, setDialCode] = useState('');
+  const [firstName, setFirstName] = useState(draft.firstName || '');
+  const [lastName, setLastName] = useState(draft.lastName || '');
+  const [dateOfBirth, setDateOfBirth] = useState(draft.dateOfBirth || '');
+  const [phone, setPhone] = useState(draft.phone || '');
+  const [dialCode, setDialCode] = useState(draft.dialCode || '');
   // Set once from the country, and then left alone — somebody with an overseas
   // mobile living here should not have it changed back under them.
-  const [dialTouched, setDialTouched] = useState(false);
-  const [email, setEmail] = useState('');
-  const [confirmEmail, setConfirmEmail] = useState('');
-  const [country, setCountry] = useState('');
+  const [dialTouched, setDialTouched] = useState(!!draft.dialTouched);
+  const [email, setEmail] = useState(draft.email || '');
+  const [confirmEmail, setConfirmEmail] = useState(draft.confirmEmail || '');
+  const [country, setCountry] = useState(draft.country || '');
   // Only asked when we don't already know the country's tax year.
-  const [fyMonth, setFyMonth] = useState(0);
-  const [fyDay, setFyDay] = useState(1);
-  const [state, setState] = useState('');
-  const [currency, setCurrency] = useState('AUD');
+  const [fyMonth, setFyMonth] = useState(draft.fyMonth ?? 0);
+  const [fyDay, setFyDay] = useState(draft.fyDay ?? 1);
+  const [state, setState] = useState(draft.state || '');
+  const [currency, setCurrency] = useState(draft.currency || 'AUD');
   // Honours ?plan= from the landing page, so a plan picked there is already
   // chosen here rather than being asked for a second time. Anything unknown
   // falls back rather than leaving the step blank.
   const [planType, setPlanType] = useState(() => {
     const asked = new URLSearchParams(window.location.search).get('plan');
-    return asked === 'business' || asked === 'individual' ? asked : 'individual';
+    if (asked === 'business' || asked === 'individual') return asked;
+    return draft.planType === 'business' || draft.planType === 'individual' ? draft.planType : 'individual';
   });
-  const [promoCode, setPromoCode] = useState('');
-  const [referralSource, setReferralSource] = useState('');
-  const [termsAccepted, setTermsAccepted] = useState(false);
+  const [promoCode, setPromoCode] = useState(draft.promoCode || '');
+  const [referralSource, setReferralSource] = useState(draft.referralSource || '');
+  const [termsAccepted, setTermsAccepted] = useState(!!draft.termsAccepted);
   const [captchaAnswer, setCaptchaAnswer] = useState('');
   const [captchaError, setCaptchaError] = useState('');
 
@@ -251,6 +284,42 @@ export default function Register() {
   };
   const stepValid = STEPS.map((s) => validByKey[s.key]);
 
+  // Written on every change, so leaving for the terms and coming back lands
+  // on the same step with the same answers.
+  useEffect(() => {
+    try {
+      window.sessionStorage.setItem(
+        DRAFT_KEY,
+        JSON.stringify({
+          step,
+          firstName,
+          lastName,
+          dateOfBirth,
+          phone,
+          dialCode,
+          dialTouched,
+          email,
+          confirmEmail,
+          country,
+          fyMonth,
+          fyDay,
+          state,
+          currency,
+          planType,
+          promoCode,
+          referralSource,
+          termsAccepted,
+        })
+      );
+    } catch {
+      // Private mode, or the quota is full. Losing the draft is a worse
+      // experience, not a broken one.
+    }
+  }, [
+    step, firstName, lastName, dateOfBirth, phone, dialCode, dialTouched, email, confirmEmail,
+    country, fyMonth, fyDay, state, currency, planType, promoCode, referralSource, termsAccepted,
+  ]);
+
   const isLast = step === STEPS.length - 1;
 
   function go(next) {
@@ -297,6 +366,7 @@ export default function Register() {
         captchaAnswer,
       });
       playSuccess();
+      clearDraft();
       setPendingEmail(email.trim().toLowerCase());
     } catch (err) {
       playError();
@@ -852,14 +922,17 @@ export default function Register() {
                     />
                     <span>
                       I agree to the{' '}
-                      <a href="/terms" target="_blank" rel="noreferrer" style={{ color: 'var(--accent)', fontWeight: 600 }}>
+                      {/* Same window on purpose. A new tab on a phone is a
+                          second window somebody has to find their way out of,
+                          and the draft above means nothing is lost by leaving. */}
+                      <Link to="/terms" style={{ color: 'var(--accent)', fontWeight: 600 }}>
                         Terms of Service
-                      </a>{' '}
+                      </Link>{' '}
                       and{' '}
-                      <a href="/privacy" target="_blank" rel="noreferrer" style={{ color: 'var(--accent)', fontWeight: 600 }}>
+                      <Link to="/privacy" style={{ color: 'var(--accent)', fontWeight: 600 }}>
                         Privacy Policy
-                      </a>
-                      . Both open in a new tab.
+                      </Link>
+                      .
                     </span>
                   </label>
                 </Grid>
@@ -1027,7 +1100,11 @@ function PlanCard({ plan, selected, discounted, trialDays, onSelect }) {
 function PendingActivation({ email }) {
   const { resendActivation } = useAuth();
   const toast = useToast();
-  const [secondsLeft, setSecondsLeft] = useState(0);
+  // Not zero. The email is on its way as this page appears, and a button that
+  // can be pressed straight away invites somebody to press it three times
+  // before the first one arrives — which sends three emails and invalidates
+  // the link in the first two.
+  const [secondsLeft, setSecondsLeft] = useState(5);
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
@@ -1069,6 +1146,13 @@ function PendingActivation({ email }) {
         className="card"
         style={{ width: '100%', maxWidth: 480, padding: 34, textAlign: 'center' }}
       >
+        {/* This page is reached by submitting a form and then leaving, so it can
+            be the last thing somebody sees for days. It should say whose it is. */}
+        <div style={{ display: 'inline-flex', alignItems: 'center', gap: 10, marginBottom: 22 }}>
+          <img src="/logo.svg" alt="" width="30" height="30" />
+          <span style={{ fontWeight: 800, fontSize: 19, letterSpacing: -0.4 }}>Taxify</span>
+        </div>
+
         <motion.div
           initial={{ scale: 0.5, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}

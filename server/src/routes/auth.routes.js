@@ -1821,14 +1821,48 @@ router.post(
 
     const neutral = { ok: true };
 
-    // Only activated accounts: an account still waiting on its activation link
-    // has no password to reset, and should follow that link instead.
+    // Every branch below answers { ok: true }. Saying "no such account" or
+    // "that one is not activated" would turn this form into a way of finding
+    // out who has an account here, which is worth more to somebody guessing
+    // addresses than it is to the person who forgot their password.
     const [rows] = await pool.execute(
-      'SELECT id, email, first_name, name, password_reset_requested_at FROM users WHERE email = ? AND activated_at IS NOT NULL',
+      `SELECT id, email, first_name, name, activated_at, password_reset_requested_at,
+              activation_token_expires_at
+       FROM users WHERE email = ?`,
       [normalizedEmail]
     );
     const user = rows[0];
     if (!user) return res.json(neutral);
+
+    // An account still waiting on its activation link has no password to
+    // reset. It used to be filtered out by the query, which was correct and
+    // also a dead end: the page said to check your email and no email ever
+    // came. Send the activation link instead — it is the thing that actually
+    // gets them in, and the answer on screen does not change either way.
+    if (!user.activated_at) {
+      const throttled =
+        user.password_reset_requested_at &&
+        Date.now() - new Date(user.password_reset_requested_at).getTime() < RESET_COOLDOWN_MS;
+      if (throttled) return res.json(neutral);
+
+      const { token, tokenHash, expiresAt } = generateActivationToken();
+      await pool.execute(
+        `UPDATE users SET activation_token_hash = ?, activation_token_expires_at = ?,
+         password_reset_requested_at = NOW() WHERE id = ?`,
+        [tokenHash, expiresAt, user.id]
+      );
+
+      const activationUrl = `${process.env.CLIENT_ORIGIN || 'http://localhost:5173'}/activate?token=${token}`;
+      try {
+        await sendActivationEmail(user.email, user.first_name || user.name, activationUrl, {
+          trialDays: TRIAL_DAYS,
+          expiryDays: ACTIVATION_TOKEN_DAYS,
+        });
+      } catch (err) {
+        console.error('Failed to send activation email from the reset form', err);
+      }
+      return res.json(neutral);
+    }
 
     // Throttled so this can't be used to bombard someone's inbox. Silent —
     // saying "wait five minutes" would confirm the account exists.

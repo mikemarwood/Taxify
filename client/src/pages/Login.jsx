@@ -231,7 +231,10 @@ export default function Login() {
             onClick={onResend}
           >
             {resending && <span className="spinner" />}
-            {resendIn > 0 ? `Resend available in ${msToClock(resendIn * 1000)}` : 'Send a new code'}
+            {/* No second clock. The line above already counts the same five
+                minutes down, and two of them side by side read as the page
+                being confused rather than as two different facts. */}
+            Send a new code
           </button>
           <button
             type="button"

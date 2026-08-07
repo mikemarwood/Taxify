@@ -361,6 +361,8 @@ input[type="date"].input::-webkit-calendar-picker-indicator:hover { opacity: 1; 
 /* Notifications and Log out are one pair, so they sit on one row and share
    it evenly — on the rail as well as in the drawer. Two full-width blocks with
    a gap between them read as two unrelated things stacked at the bottom. */
+.admin-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 14px; }
+
 .nav-foot-actions { display: flex; gap: 8px; align-items: stretch; }
 .nav-foot-actions > div,
 .nav-foot-actions > .nav-btn { flex: 1 1 0; min-width: 0; }
@@ -483,6 +485,11 @@ input[type="date"].input::-webkit-calendar-picker-indicator:hover { opacity: 1; 
     -webkit-overflow-scrolling: touch;
   }
   .account-tabs > button { flex: 0 0 auto; scroll-snap-align: start; }
+
+  /* One fact per line. Two columns of 150px on a 360px screen gave a label
+     and its value less room than either needed, and the panel read as a wall. */
+  .admin-grid { grid-template-columns: 1fr !important; gap: 10px !important; }
+  .admin-detail { margin-top: 8px !important; margin-bottom: 8px !important; }
 
   /* A finger, not a cursor. 44px is the guideline and these were 35. */
   .app-sidebar .nav-item {

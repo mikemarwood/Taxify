@@ -73,7 +73,9 @@ function Section({ title, icon, children }) {
   );
 }
 
-const GRID = { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 14 };
+// A class rather than an inline object, so a phone can collapse it to one
+// column. Two columns of 150px on a 360px screen put a label and its value in
+// less room than either needed.
 
 // Everything known about one account, in one place. The list used to carry
 // every fact and every action in a single row, which is why it was unreadable
@@ -136,7 +138,7 @@ export default function AdminUserDetail({ userId, me, onClose, onChanged, action
           animate={{ opacity: 1, y: 0 }}
           exit={{ opacity: 0, y: 16 }}
           onClick={(e) => e.stopPropagation()}
-          className="card"
+          className="card admin-detail"
           style={{ width: '100%', maxWidth: 720, padding: 0, marginTop: 24, marginBottom: 24, overflow: 'hidden' }}
         >
           <div
@@ -169,7 +171,7 @@ export default function AdminUserDetail({ userId, me, onClose, onChanged, action
           ) : (
             <div style={{ padding: 20, display: 'flex', flexDirection: 'column', gap: 22 }}>
               <Section title="Account" icon="user">
-                <div style={GRID}>
+                <div className="admin-grid">
                   <Field label="Role">
                     {u.isAdmin ? 'Administrator' : u.role === 'sub_user' ? 'Second login (legacy)' : u.role === 'accountant' ? 'Accountant' : 'Account holder'}
                   </Field>
@@ -203,7 +205,7 @@ export default function AdminUserDetail({ userId, me, onClose, onChanged, action
               </Section>
 
               <Section title="Contact & details" icon="mail">
-                <div style={GRID}>
+                <div className="admin-grid">
                   <Field label="First name">{u.firstName}</Field>
                   <Field label="Last name">{u.lastName}</Field>
                   <Field label="Phone">{u.phone}</Field>
@@ -219,7 +221,7 @@ export default function AdminUserDetail({ userId, me, onClose, onChanged, action
               </Section>
 
               <Section title="Activity" icon="chart">
-                <div style={GRID}>
+                <div className="admin-grid">
                   <Field label="Expenses">{s.expenses}</Field>
                   <Field label="With a receipt">
                     {s.withReceipt}
@@ -242,7 +244,7 @@ export default function AdminUserDetail({ userId, me, onClose, onChanged, action
               </Section>
 
               <Section title="Billing" icon="credit-card">
-                <div style={GRID}>
+                <div className="admin-grid">
                   <Field label="Trial ends">{date(u.trialEndsAt)}</Field>
                   <Field label="Renews / ends">{date(u.subscriptionCurrentPeriodEnd)}</Field>
                   <Field label="Granted access until">
@@ -329,7 +331,7 @@ export default function AdminUserDetail({ userId, me, onClose, onChanged, action
                   </div>
                 ) : (
                   <>
-                    <div style={GRID}>
+                    <div className="admin-grid">
                       <Field label="Total sign-ins">{data.logins.total}</Field>
                       <Field label="First seen">{dateTime(data.logins.firstAt)}</Field>
                       <Field label="Last seen">{dateTime(data.logins.lastAt)}</Field>

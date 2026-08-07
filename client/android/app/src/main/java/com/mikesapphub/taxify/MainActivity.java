@@ -16,6 +16,22 @@ public class MainActivity extends BridgeActivity {
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
+        // The real build number, appended to the user agent.
+        //
+        // capacitor.config.json hard-codes TaxifyAndroid/1, so every build ever
+        // installed told the server it was version 1 and was offered an update
+        // it already had. Taken from BuildConfig, it cannot fall behind the
+        // versionCode it is reporting against.
+        if (getBridge() != null && getBridge().getWebView() != null) {
+            android.webkit.WebSettings settings = getBridge().getWebView().getSettings();
+            String ua = settings.getUserAgentString();
+            if (ua != null && !ua.contains("TaxifyAndroid/" + BuildConfig.VERSION_CODE)) {
+                settings.setUserAgentString(
+                    ua.replaceAll("\\s*TaxifyAndroid/\\d+", "") + " TaxifyAndroid/" + BuildConfig.VERSION_CODE
+                );
+            }
+        }
+
         NotificationHelper.ensureChannel(this);
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU && !NotificationHelper.hasPermission(this)) {
             notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS);
