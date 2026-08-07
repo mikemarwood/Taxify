@@ -3,6 +3,7 @@ import { AnimatePresence, motion } from 'framer-motion';
 import { api } from '../lib/api.js';
 import { useToast } from './Toast.jsx';
 import { useEntities } from '../lib/EntityContext.jsx';
+import { titleCase } from '../lib/textCase.js';
 import Icon from './Icon.jsx';
 import { playClick } from '../lib/sounds.js';
 
@@ -306,7 +307,7 @@ export default function EntityManager() {
                 required
                 maxLength={60}
                 value={name}
-                onChange={(ev) => setName(ev.target.value)}
+                onChange={(ev) => setName(titleCase(ev.target.value))}
                 placeholder="e.g. Marwood Plumbing"
                 aria-invalid={createClash ? 'true' : undefined}
                 style={createClash ? { borderColor: 'var(--red)' } : undefined}
@@ -422,9 +423,15 @@ export default function EntityManager() {
 
 function EditRow({ entity, busy, canBecomeBusiness, siblings = [], onSave, onArchive, onDelete }) {
   const [name, setName] = useState(entity.name);
+  // Held here until Save. Pressing "Every quarter" used to change how the
+  // books lodge the instant it was pressed, with nothing to confirm and
+  // nothing to undo — a decision that belongs to the same Save as the name.
+  const [cadence, setCadence] = useState(entity.cadence);
 
   const clash = nameTaken(name, siblings, entity.name);
-  const canRename = !busy && name.trim() && name !== entity.name && !clash;
+  const renamed = name !== entity.name;
+  const recadenced = cadence !== entity.cadence;
+  const canSave = !busy && name.trim() && !clash && (renamed || recadenced);
 
   return (
     <div style={{ display: 'grid', gap: 10, marginTop: 10, paddingTop: 10, borderTop: '1px solid var(--border)' }}>
@@ -436,7 +443,7 @@ function EditRow({ entity, busy, canBecomeBusiness, siblings = [], onSave, onArc
           className="input"
           value={name}
           maxLength={60}
-          onChange={(e) => setName(e.target.value)}
+          onChange={(e) => setName(titleCase(e.target.value))}
           aria-invalid={clash ? 'true' : undefined}
           style={{ fontSize: 13, borderColor: clash ? 'var(--red)' : undefined }}
         />
@@ -465,9 +472,9 @@ function EditRow({ entity, busy, canBecomeBusiness, siblings = [], onSave, onArc
           <button
             key={c.value}
             type="button"
-            className={entity.cadence === c.value ? 'btn btn-primary' : 'btn btn-ghost'}
+            className={cadence === c.value ? 'btn btn-primary' : 'btn btn-ghost'}
             style={{ fontSize: 11.5, padding: '4px 8px' }}
-            onClick={() => onSave(entity, { cadence: c.value })}
+            onClick={() => setCadence(c.value)}
           >
             {c.label}
           </button>
@@ -479,11 +486,18 @@ function EditRow({ entity, busy, canBecomeBusiness, siblings = [], onSave, onArc
           className="btn btn-ghost"
           className="btn btn-primary"
           style={{ fontSize: 13, padding: '9px 18px' }}
-          disabled={!canRename}
-          onClick={() => onSave(entity, { name })}
+          disabled={!canSave}
+          onClick={() =>
+            onSave(entity, {
+              // Only what changed, so saving a rename never quietly restates
+              // the lodgement cadence and vice versa.
+              ...(renamed ? { name } : {}),
+              ...(recadenced ? { cadence } : {}),
+            })
+          }
         >
           <Icon name="check" size={15} />
-          Save name
+          Save changes
         </button>
         {!entity.isDefault && (
           <>
