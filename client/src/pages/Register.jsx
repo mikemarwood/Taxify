@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { AnimatePresence, motion } from 'framer-motion';
 import Icon from '../components/Icon.jsx';
-import { AuthSplitFrame } from '../components/AuthSplit.jsx';
+import { AuthSplitFrame, AuthMobileBrand } from '../components/AuthSplit.jsx';
 import SignupArtwork from '../components/SignupArtwork.jsx';
 import { api } from '../lib/api.js';
 import { useAuth } from '../lib/AuthContext.jsx';
@@ -456,6 +456,7 @@ export default function Register() {
           }}
         >
           <div style={{ width: '100%', maxWidth: 560, margin: '0 auto', display: 'flex', flexDirection: 'column', flex: 1, justifyContent: 'center' }}>
+          <AuthMobileBrand />
           {/* No AnimatePresence here, deliberately.
               
               This was `mode="wait"`, which holds the incoming step back until
@@ -871,22 +872,23 @@ export default function Register() {
             <button
               type="button"
               className="btn btn-ghost"
-              onClick={() => (step === 0 ? navigate(-1) : go(step - 1))}
+              onClick={() => {
+                if (step > 0) return go(step - 1);
+                // Cancel is the only way off this page now that the sign-in
+                // prompt has gone, and going back does nothing for somebody
+                // who opened it directly — from a plan card, or a link.
+                if (window.history.length > 1) navigate(-1);
+                else navigate('/landing');
+              }}
               disabled={busy}
             >
               {step === 0 ? 'Cancel' : 'Back'}
             </button>
 
-            <span className="register-signin" style={{ flex: 1, fontSize: 12.5, color: 'var(--text-muted)' }}>
-              {isLast ? null : (
-                <>
-                  Already have an account?{' '}
-                  <Link to="/login" style={{ color: 'var(--accent)', fontWeight: 600 }}>
-                    Sign in
-                  </Link>
-                </>
-              )}
-            </span>
+            {/* A spacer, so Back sits left and Next sits right. The sign-in
+                prompt that used to fill it is on the brand panel and, on a
+                phone, was a sentence wedged between two buttons. */}
+            <span style={{ flex: 1 }} />
 
             <motion.button
               type="submit"

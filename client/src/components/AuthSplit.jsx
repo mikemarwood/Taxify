@@ -1,6 +1,7 @@
 import { motion } from 'framer-motion';
 import Icon from './Icon.jsx';
 import SignupArtwork from './SignupArtwork.jsx';
+import { useKeyboardOpen } from '../lib/useKeyboardOpen.js';
 
 // The shared frame for every signed-out page: a navy brand side running edge
 // to edge, and the form on paper beside it. Full bleed rather than a centred
