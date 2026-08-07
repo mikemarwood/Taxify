@@ -33,16 +33,34 @@ export default function InvoiceList() {
       .catch(() => setFailed(true));
   }, []);
 
-  // Nothing bought yet. A heading over an empty box invites the question of
-  // whether something is broken, so there is simply nothing here.
-  if (failed || (invoices && invoices.length === 0)) return null;
+  // Shown even with nothing in it. Hiding the section entirely meant somebody
+  // looking for a receipt could not tell whether there were none or whether
+  // the page had lost them — "no invoices yet" answers that, an absence does
+  // not.
+  const empty = failed || (invoices && invoices.length === 0);
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
       <div style={{ fontWeight: 700, fontSize: 13.5 }}>Invoices</div>
 
-      {invoices === null ? (
+      {invoices === null && !failed ? (
         <div style={{ fontSize: 12.5, color: 'var(--text-muted)' }}>Loading…</div>
+      ) : empty ? (
+        <div
+          style={{
+            padding: '14px 15px',
+            borderRadius: 'var(--radius-sm)',
+            background: 'var(--bg-elevated)',
+            border: '1px dashed var(--border-strong)',
+            fontSize: 12.5,
+            color: 'var(--text-muted)',
+            lineHeight: 1.55,
+          }}
+        >
+          {failed
+            ? 'Invoices could not be loaded just now. Nothing is wrong with your account — try again shortly.'
+            : 'No invoices yet. One appears here each time a payment is taken, and stays available to download afterwards.'}
+        </div>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
           {invoices.map((inv) => {
@@ -94,9 +112,11 @@ export default function InvoiceList() {
         </div>
       )}
 
-      <p style={{ margin: 0, fontSize: 11.5, color: 'var(--text-muted)', lineHeight: 1.5 }}>
-        Every invoice is kept with your account, so they stay available here after they leave your inbox.
-      </p>
+      {!empty && (
+        <p style={{ margin: 0, fontSize: 11.5, color: 'var(--text-muted)', lineHeight: 1.5 }}>
+          Every invoice is kept with your account, so they stay available here after they leave your inbox.
+        </p>
+      )}
     </div>
   );
 }

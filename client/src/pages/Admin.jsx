@@ -212,49 +212,53 @@ function UsersTab() {
   return (
     <div>
       {users !== null && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 14 }}>
-          <input
-            className="input"
-            type="search"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search by name or email"
-            aria-label="Search users"
-            style={{ maxWidth: 320 }}
-          />
+        <div
+          style={{
+            display: 'flex',
+            gap: 10,
+            marginBottom: 14,
+            flexWrap: 'wrap',
+            alignItems: 'flex-end',
+          }}
+        >
+          <div style={{ flex: '1 1 220px', minWidth: 0 }}>
+            <label className="label" htmlFor="admin-user-search">
+              Search
+            </label>
+            <input
+              id="admin-user-search"
+              className="input"
+              type="search"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Name or email"
+            />
+          </div>
 
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-            {FILTERS.map((f) => {
-              const count = users.filter(f.match).length;
-              const on = f.key === filter;
-              return (
-                <button
-                  key={f.key}
-                  type="button"
-                  onClick={() => setFilter(f.key)}
-                  aria-pressed={on}
-                  style={{
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: 6,
-                    padding: '5px 11px',
-                    borderRadius: 999,
-                    fontSize: 12.5,
-                    fontWeight: 600,
-                    cursor: 'pointer',
-                    border: `1px solid ${on ? 'var(--accent)' : 'var(--border)'}`,
-                    background: on ? 'var(--accent-soft)' : 'var(--bg-elevated)',
-                    color: on ? 'var(--accent)' : 'var(--text-muted)',
-                    font: 'inherit',
-                  }}
-                >
-                  {f.label}
-                  {/* The count is the useful part — "Payment due 3" is a job to
-                      do, "Payment due" is a category. */}
-                  <span style={{ opacity: 0.75, fontVariantNumeric: 'tabular-nums' }}>{count}</span>
-                </button>
-              );
-            })}
+          {/* One control rather than ten chips. The counts were the useful part
+              — "Payment due (3)" is a job to do — so they come with it, but a
+              wrapping row of ten of them was most of what made this page look
+              busy before a single account had loaded. */}
+          <div style={{ flex: '0 1 250px', minWidth: 180 }}>
+            <label className="label" htmlFor="admin-user-filter">
+              Show
+            </label>
+            <select
+              id="admin-user-filter"
+              className="input"
+              value={filter}
+              onChange={(e) => setFilter(e.target.value)}
+            >
+              {FILTERS.map((f) => (
+                <option key={f.key} value={f.key}>
+                  {f.label} ({users.filter(f.match).length})
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div style={{ fontSize: 12.5, color: 'var(--text-muted)', paddingBottom: 10, whiteSpace: 'nowrap' }}>
+            {shown.length} shown
           </div>
         </div>
       )}

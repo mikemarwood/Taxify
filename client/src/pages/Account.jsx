@@ -959,6 +959,7 @@ export default function Account() {
 
       <div
         role="tablist"
+        className="account-tabs scrollbar-slim"
         style={{
           display: 'flex',
           flexWrap: 'wrap',
@@ -985,6 +986,7 @@ export default function Account() {
               border: 0,
               cursor: 'pointer',
               fontSize: 13,
+              whiteSpace: 'nowrap',
               fontWeight: 600,
               color: t.id === tab ? 'var(--text)' : 'var(--text-muted)',
               background: t.id === tab ? 'var(--bg-elevated)' : 'transparent',

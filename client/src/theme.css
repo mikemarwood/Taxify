@@ -473,6 +473,17 @@ input[type="date"].input::-webkit-calendar-picker-indicator:hover { opacity: 1; 
     gap: 6px !important;
   }
 
+  /* Five tabs wrapping onto three rows inside a bordered box is a block of
+     buttons, not a tab strip. One row that scrolls instead — the pattern every
+     phone app uses, and the current tab stays where you left it. */
+  .account-tabs {
+    flex-wrap: nowrap !important;
+    overflow-x: auto;
+    scroll-snap-type: x proximity;
+    -webkit-overflow-scrolling: touch;
+  }
+  .account-tabs > button { flex: 0 0 auto; scroll-snap-align: start; }
+
   /* A finger, not a cursor. 44px is the guideline and these were 35. */
   .app-sidebar .nav-item {
     padding: 11px 12px !important;

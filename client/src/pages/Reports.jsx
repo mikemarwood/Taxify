@@ -85,20 +85,29 @@ export default function Reports() {
 
   return (
     <div>
-      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 16, marginBottom: 24 }}>
-        <div>
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'flex-start',
+          justifyContent: 'space-between',
+          gap: 16,
+          marginBottom: 24,
+          flexWrap: 'wrap',
+        }}
+      >
+        <div style={{ minWidth: 0, flex: '1 1 220px' }}>
           <h1 style={{ margin: '0 0 4px', fontSize: 26 }}>Reports</h1>
           <p style={{ color: 'var(--text-muted)', margin: 0 }}>Compare spending by category across tax years.</p>
         </div>
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 12 }}>
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 12, flexWrap: 'wrap' }}>
           <ExportMenu baseUrl="/api/export/categories" label="Export summary" />
-          <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8 }}>
+          <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
             <select
               className="input"
               aria-label="Financial year to archive"
               value={archiveYear}
               onChange={(e) => setArchiveYear(e.target.value)}
-              style={{ width: 128, fontSize: 12.5, padding: '7px 9px' }}
+              style={{ flex: '1 1 128px', minWidth: 110, maxWidth: 160, fontSize: 12.5, padding: '7px 9px' }}
             >
               {years.map((y) => (
                 <option key={y} value={y}>
