@@ -9,6 +9,7 @@ import { useAuth } from '../lib/AuthContext.jsx';
 import { useToast } from '../components/Toast.jsx';
 import { playClick, playError, playSuccess } from '../lib/sounds.js';
 import { financialYearSpan } from '../lib/financialYear.js';
+import { autoFocusFields } from '../lib/device.js';
 
 const LIMITS = {
   firstName: { max: 60 },
@@ -485,7 +486,7 @@ export default function Register() {
                   <Field label="First name" required>
                     <input
                       className="input"
-                      autoFocus
+                      autoFocus={autoFocusFields}
                       value={firstName}
                       maxLength={LIMITS.firstName.max}
                       onChange={(e) => setFirstName(toPersonName(e.target.value))}
@@ -563,7 +564,7 @@ export default function Register() {
                     <input
                       type="email"
                       className="input"
-                      autoFocus
+                      autoFocus={autoFocusFields}
                       value={email}
                       maxLength={LIMITS.email.max}
                       onChange={(e) => setEmail(e.target.value.toLowerCase())}
@@ -592,7 +593,7 @@ export default function Register() {
                   <Field label="Country" required>
                     <select
                       className="input"
-                      autoFocus
+                      autoFocus={autoFocusFields}
                       value={country}
                       onChange={(e) => {
                         setCountry(e.target.value);
@@ -779,7 +780,7 @@ export default function Register() {
                   <Field label="How did you hear about us?" required span>
                     <select
                       className="input"
-                      autoFocus
+                      autoFocus={autoFocusFields}
                       value={referralSource}
                       onChange={(e) => setReferralSource(e.target.value)}
                     >

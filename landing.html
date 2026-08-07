@@ -80,7 +80,17 @@
   .btn-primary { background: var(--gradient-brand); color: white; }
   .btn-lg { padding: 13px 28px; font-size: 15px; }
 
-  main { max-width: 1200px; margin: 0 auto; padding: 0 clamp(20px, 5vw, 64px) 80px; }
+  /* Scoped to our own main.
+
+     This page is also served wrapped inside Mikes App Hub, which puts its own
+     <main> around it — and a bare `main` selector styled that one too, so the
+     padding applied at every level and compounded. Our styles are guests on
+     that page and should touch only what belongs to us.
+
+     min-width: 0 so it can shrink inside whatever the host lays it out with,
+     rather than insisting on the width of its widest child. */
+  main.lp { max-width: 1200px; min-width: 0; margin: 0 auto; padding: 0 clamp(20px, 5vw, 64px) 80px; }
+  main.lp img, main.lp svg, main.lp video { max-width: 100%; height: auto; }
 
   .hero { text-align: center; padding: clamp(40px, 8vw, 96px) 0 clamp(32px, 6vw, 56px); }
   .badge {
@@ -349,7 +359,7 @@
     </div>
   </header>
 
-  <main>
+  <main class="lp">
     <section class="hero">
       <div class="badge">✨ Built for workers, tradies &amp; small business owners</div>
       <h1>Track every deduction, cleanly and simply.</h1>

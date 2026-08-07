@@ -18,6 +18,7 @@ import { formatMoney } from '../lib/money.js';
 import { describeSubscription } from '../lib/subscription.js';
 import { currentPlanType, planLabel as labelForPlan } from '../lib/plans.js';
 import SiteFooter from './SiteFooter.jsx';
+import { useKeyboardOpen } from '../lib/useKeyboardOpen.js';
 
 // Eight equal-weight links in one column give no sense of where anything is.
 // Grouping them under headings means the eye lands on a section first and a
@@ -142,6 +143,9 @@ export default function Layout({ children }) {
   // The drawer, on small screens only. Closed on every navigation, or it would
   // stay over the page someone just asked for.
   const [navOpen, setNavOpen] = useState(false);
+  // With the keyboard up every row counts, and the bar is the one row that is
+  // pure decoration once you are typing.
+  const keyboardOpen = useKeyboardOpen();
   const billing = describeSubscription(user);
 
   useEffect(() => {
@@ -221,8 +225,12 @@ export default function Layout({ children }) {
         >
           <Icon name={navOpen ? 'x' : 'menu'} size={19} />
         </button>
-        <img src="/logo.svg" alt="" width="26" height="26" />
-        <span style={{ fontWeight: 700, fontSize: 16.5, letterSpacing: -0.3 }}>Taxify</span>
+        {!keyboardOpen && (
+          <>
+            <img src="/logo.svg" alt="" width="26" height="26" />
+            <span style={{ fontWeight: 700, fontSize: 16.5, letterSpacing: -0.3 }}>Taxify</span>
+          </>
+        )}
         <div style={{ marginLeft: 'auto', maxWidth: 190, minWidth: 0 }}>
           <EntitySwitcher compact />
         </div>

@@ -1,6 +1,6 @@
 import { motion } from 'framer-motion';
 import { Link } from 'react-router-dom';
-import AuthSplit, { AuthMobileBrand } from '../components/AuthSplit.jsx';
+import AuthSplit from '../components/AuthSplit.jsx';
 import SiteFooter from '../components/SiteFooter.jsx';
 
 // Every signed-out page other than sign-up: log in, activate, accept an
@@ -15,7 +15,6 @@ export default function AuthLayout({ title, subtitle, children }) {
         transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
         style={{ width: '100%', maxWidth: 420, margin: '0 auto' }}
       >
-        <AuthMobileBrand />
         <h1 style={{ fontSize: 'clamp(22px, 2.4vw, 28px)', margin: '0 0 5px', letterSpacing: -0.5 }}>{title}</h1>
         <p style={{ fontSize: 14, color: 'var(--text-muted)', margin: '0 0 26px' }}>{subtitle}</p>
         {children}

@@ -6,6 +6,7 @@ import PasswordFields, { isStrongPassword } from '../components/PasswordFields.j
 import { api } from '../lib/api.js';
 import { useToast } from '../components/Toast.jsx';
 import { playError, playSuccess } from '../lib/sounds.js';
+import { autoFocusFields } from '../lib/device.js';
 
 export default function ResetPassword() {
   const navigate = useNavigate();
@@ -131,7 +132,7 @@ export default function ResetPassword() {
           setPassword={setPassword}
           confirmPassword={confirmPassword}
           setConfirmPassword={setConfirmPassword}
-          autoFocus
+          autoFocus={autoFocusFields}
         />
 
         <button className="btn btn-primary" type="submit" disabled={!canSubmit || status === 'saving'}>

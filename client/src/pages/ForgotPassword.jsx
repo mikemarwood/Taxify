@@ -5,6 +5,7 @@ import Icon from '../components/Icon.jsx';
 import { api } from '../lib/api.js';
 import { useToast } from '../components/Toast.jsx';
 import { playError, playSuccess } from '../lib/sounds.js';
+import { autoFocusFields } from '../lib/device.js';
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 
@@ -90,7 +91,7 @@ export default function ForgotPassword() {
             className="input"
             type="email"
             required
-            autoFocus
+            autoFocus={autoFocusFields}
             value={email}
             maxLength={254}
             onChange={(e) => setEmail(e.target.value.toLowerCase())}

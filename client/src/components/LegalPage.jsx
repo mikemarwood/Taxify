@@ -1,4 +1,4 @@
-import { Link, useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import Icon from './Icon.jsx';
 import SiteFooter from './SiteFooter.jsx';
 
@@ -7,25 +7,28 @@ import SiteFooter from './SiteFooter.jsx';
 // top to bottom, they arrive looking for one clause.
 
 export function LegalPage({ title, summary, updated, sections, children }) {
-  const navigate = useNavigate();
-
-  // Back to wherever they came from. Somebody who opened this from inside the
-  // app wants their own account back, not the marketing page — and somebody
-  // who arrived on it directly, from a link in an email, has no history to go
-  // back through, so that case falls to the landing page.
-  function goBack() {
-    if (window.history.length > 1) navigate(-1);
-    else navigate('/landing');
-  }
-
   return (
     <div style={{ minHeight: '100vh', display: 'flex', justifyContent: 'center', padding: '48px 20px 64px' }}>
       <div style={{ width: '100%', maxWidth: 760 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 28, flexWrap: 'wrap' }}>
-          <button type="button" className="btn btn-ghost" onClick={goBack} style={{ fontSize: 13, gap: 7 }}>
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 14,
+            marginBottom: 28,
+            flexWrap: 'wrap',
+            position: 'sticky',
+            top: 0,
+            zIndex: 5,
+            background: 'var(--bg)',
+            paddingTop: 12,
+            paddingBottom: 12,
+          }}
+        >
+          <Link to="/login" className="btn btn-ghost" style={{ fontSize: 13, gap: 7, textDecoration: 'none' }}>
             <Icon name="arrow-left" size={15} />
             Back
-          </button>
+          </Link>
           <Link
             to="/landing"
             style={{ display: 'inline-flex', alignItems: 'center', gap: 10, textDecoration: 'none', color: 'var(--text)' }}
@@ -83,10 +86,6 @@ export function LegalPage({ title, summary, updated, sections, children }) {
           <span style={{ margin: '0 10px', opacity: 0.5 }}>·</span>
           <Link to="/privacy" style={{ color: 'var(--accent)', fontWeight: 600 }}>
             Privacy Policy
-          </Link>
-          <span style={{ margin: '0 10px', opacity: 0.5 }}>·</span>
-          <Link to="/register" style={{ color: 'var(--accent)', fontWeight: 600 }}>
-            Create an account
           </Link>
         </p>
 
