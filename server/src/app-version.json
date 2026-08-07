@@ -1,5 +1,5 @@
 {
-  "versionCode": 4,
-  "versionName": "1.0.3",
-  "notes": "Updating the app works more than once, and it stops offering an update it already has."
+  "versionCode": 5,
+  "versionName": "1.0.4",
+  "notes": "Notifications can now reach the phone, and the app stops offering an update it already has."
 }
