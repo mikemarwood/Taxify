@@ -950,10 +950,20 @@ export async function sendPlanChangedEmail(to, name, { fromLabel, toLabel, compl
 // The message itself, quoted rather than paraphrased. Whitespace is preserved
 // because people write in paragraphs and a wall of run-together text reads as
 // carelessness on our part.
-function quotedMessage(body) {
+// Deliberately no quoting of the message.
+//
+// A support thread carries somebody's tax affairs, and people attach
+// screenshots of their own records to one. Email is the wrong place for any of
+// it: it sits unencrypted in two mailboxes, gets forwarded without thought, and
+// a notification arriving on a phone puts its first line on a lock screen for
+// whoever happens to be looking at it.
+//
+// So these emails say that something is waiting and where to read it, and
+// nothing whatever about what it says.
+function waitingNotice(text) {
   return `
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="border:1px solid #e6ecf5;border-left:3px solid #94a3b8;border-radius:8px;background:#f8fafd;margin:0 0 18px;">
-      <tr><td style="padding:14px 16px;font-size:14px;line-height:1.6;color:#1f2937;white-space:pre-wrap;">${escapeHtml(body)}</td></tr>
+      <tr><td style="padding:14px 16px;font-size:13.5px;line-height:1.6;color:#4b5563;">${text}</td></tr>
     </table>`;
 }
 
@@ -981,8 +991,9 @@ export async function sendSupportTicketRaisedEmail(to, name, { reference, subjec
       </p>
       ${button(url, 'View my ticket')}
       ${linkFallback(url)}
-      <p style="font-size:13px;color:#4b5563;margin:0;line-height:1.55;">This is what you sent:</p>
-      ${quotedMessage(body)}
+      ${waitingNotice(
+        'Your message is on the ticket rather than in this email. We keep what you write on the site, where it is behind your link and not sitting in an inbox.'
+      )}
     `,
   });
 }
@@ -999,7 +1010,11 @@ export async function sendSupportReplyEmail(to, name, { reference, subject, cate
       : `${escapeHtml(name || 'A customer')} has replied and is waiting on you.`,
     bodyHtml: `
       ${ticketHeader(reference, subject, category)}
-      ${quotedMessage(body)}
+      ${waitingNotice(
+        fromSupport
+          ? 'The reply is on your ticket. We do not put what is written on a support ticket into an email — it stays on the site, where only you can open it.'
+          : 'Their reply is on the ticket rather than in this email.'
+      )}
       ${button(url, fromSupport ? 'Read and reply' : 'Open the ticket')}
       ${linkFallback(url)}
       <p style="font-size:13px;color:#4b5563;margin:0;line-height:1.55;">

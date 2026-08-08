@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import AuthLayout from './AuthLayout.jsx';
 import { useAuth } from '../lib/AuthContext.jsx';
+import { autoFocusFields } from '../lib/device.js';
 import { useToast } from '../components/Toast.jsx';
 import { onDigitKeyDown } from '../lib/sounds.js';
 import { api } from '../lib/api.js';
@@ -286,6 +287,10 @@ export default function Login() {
             className="input"
             type="email"
             required
+            // Desktop only. On a phone this summons the keyboard before anybody
+            // has decided to type, covering half the screen — which is why the
+            // check is shared rather than written out here.
+            autoFocus={autoFocusFields}
             value={email}
             onChange={(e) => {
               setSignInError('');
