@@ -597,10 +597,6 @@ function AccountantSection({ user }) {
   // is about to change. A year with nothing in the shared books is an empty
   // folder, and offering it makes the choice look meaningful when it grants
   // nothing.
-  const { years: grantableYears } = useFinancialYears({
-    entityIds: allBooks ? null : pickedBooks,
-  });
-
   const [accountants, setAccountants] = useState(null);
   const [windowHours, setWindowHours] = useState(24);
   const [windowChoices, setWindowChoices] = useState([24, 48, 72, 96]);
@@ -620,6 +616,21 @@ function AccountantSection({ user }) {
   const [allBooks, setAllBooks] = useState(true);
   const [inviteCanWrite, setInviteCanWrite] = useState(false);
   const [pickedBooks, setPickedBooks] = useState([]);
+
+  // Below the state it reads, not above it.
+  //
+  // This sat further up the component, where `allBooks` and `pickedBooks` had
+  // not been declared yet — a const in its temporal dead zone, which throws
+  // "Cannot access before initialization" the moment the tab renders. It read
+  // fine and crashed the page.
+  //
+  // Only the years the *chosen* books actually have. Which years exist depends
+  // on which books are shared, so a year with nothing in them is an empty
+  // folder, and offering it makes the choice look meaningful when it grants
+  // nothing.
+  const { years: grantableYears } = useFinancialYears({
+    entityIds: allBooks ? null : pickedBooks,
+  });
   const [pickedYears, setPickedYears] = useState([]);
   const [busy, setBusy] = useState(false);
 
