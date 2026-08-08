@@ -423,7 +423,27 @@ export default function SupportThread({
             : 'This request has been closed. If it is not resolved, let us know and we will reopen it.'}
         </div>
       ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+        <div
+          style={{
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 8,
+            // Sticky rather than fixed: it belongs to the conversation, so it
+            // should stop at the end of it rather than float over whatever
+            // comes after. Sticky needs no ancestor to have an overflow rule —
+            // checked, and none does — or it silently stops working.
+            position: 'sticky',
+            bottom: 0,
+            zIndex: 3,
+            // Its own ground, or the messages show through it as they pass
+            // underneath. The negative margin and matching padding let that
+            // ground reach the edges of the card it sits in.
+            background: 'var(--bg-card)',
+            margin: '0 -4px -4px',
+            padding: '10px 4px 4px',
+            borderTop: '1px solid var(--border)',
+          }}
+        >
           <textarea
             className="input"
             rows={4}

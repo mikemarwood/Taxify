@@ -668,3 +668,12 @@ input[type="date"].input::-webkit-calendar-picker-indicator:hover { opacity: 1; 
   select.input,
   textarea.input { font-size: 16px; }
 }
+
+/* The ticket header and the reply box both stay in view while a long thread
+   scrolls past them. On a phone the app has its own sticky bar across the top,
+   so the header has to start below it rather than under it — sticky does not
+   know about other sticky things, it only knows the offset it is given. */
+.support-sticky-top { position: sticky; top: 0; z-index: 4; }
+@media (max-width: 900px) {
+  .support-sticky-top { top: 56px; }
+}

@@ -576,7 +576,10 @@ export function SupportTicketByToken() {
 
 function TicketHeading({ ticket }) {
   return (
-    <div className="card" style={{ padding: 18, display: 'flex', flexDirection: 'column', gap: 10 }}>
+    <div
+      className="card support-sticky-top"
+      style={{ padding: 18, display: 'flex', flexDirection: 'column', gap: 10 }}
+    >
       <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10, flexWrap: 'wrap' }}>
         <div style={{ flex: 1, minWidth: 180 }}>
           <div

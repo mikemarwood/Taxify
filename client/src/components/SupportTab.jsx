@@ -232,7 +232,19 @@ export default function SupportTab() {
           </div>
         ) : (
           <div className="card" style={{ padding: 18, display: 'flex', flexDirection: 'column', gap: 16 }}>
-            <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10, flexWrap: 'wrap' }}>
+            <div
+              className="support-sticky-top"
+              style={{
+                display: 'flex',
+                alignItems: 'flex-start',
+                gap: 10,
+                flexWrap: 'wrap',
+                background: 'var(--bg-card)',
+                margin: '-18px -18px 0',
+                padding: '18px 18px 12px',
+                borderBottom: '1px solid var(--border)',
+              }}
+            >
               <div style={{ flex: 1, minWidth: 180 }}>
                 <div style={{ fontSize: 16, fontWeight: 800 }}>{thread.ticket.subject}</div>
                 <div style={{ fontSize: 11.5, color: 'var(--text-muted)', marginTop: 3 }}>
