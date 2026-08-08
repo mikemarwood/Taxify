@@ -93,7 +93,8 @@ export default function TaxRatesTab() {
       >
         <Icon name="alert" size={16} style={{ color: 'var(--amber)', marginTop: 1, flexShrink: 0 }} />
         <span>
-          <strong>Check these against current ATO guidance before entering them.</strong> Nothing here is seeded with a
+          <strong>Check these against your revenue authority's current guidance before entering them.</strong>{' '}
+          Taxify is used from several countries and the rates differ in every one, so nothing here is seeded with a
           default — a wrong rate produces a wrong claim that looks exactly like a right one.
         </span>
       </div>
