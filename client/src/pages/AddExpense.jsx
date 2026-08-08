@@ -52,6 +52,9 @@ export default function AddExpense() {
   // should never be asked what percentage of their groceries was work.
   const asksBusinessUse = filingInto?.kind === 'business';
   const [conversion, setConversion] = useState({ loading: false, error: null, baseAmount: null, rate: null });
+  // What was agreed, or null. Held as the figure itself rather than a flag, so
+  // it cannot drift out of step with what was on screen when it was pressed.
+  const [confirmedBase, setConfirmedBase] = useState(null);
   const [categoryTouched, setCategoryTouched] = useState(false);
   const [isRecurring, setIsRecurring] = useState(false);
   const [frequency, setFrequency] = useState('monthly');
@@ -155,6 +158,12 @@ export default function AddExpense() {
     return () => clearTimeout(id);
   }, [foreignCurrency, amount, currency, purchaseDate, manualRate]);
 
+  // The amount, the currency, the date and the rate all feed the conversion, so
+  // any of them changing means the confirmed figure describes something else.
+  useEffect(() => {
+    setConfirmedBase(null);
+  }, [amount, currency, purchaseDate, manualRate]);
+
   // Only complained about once something has been typed, so an untouched form
   // is not covered in red before anybody has done anything wrong.
   // The number behind the grouped text in the field. Number('3,350.00') is
@@ -164,7 +173,14 @@ export default function AddExpense() {
   const itemIssue = itemName.trim() && itemName.trim().length < ITEM_MIN ? `At least ${ITEM_MIN} characters` : '';
   const amountIssue = Boolean(amount.trim()) && !(amountValue > 0 && amountValue <= AMOUNT_MAX);
 
+  // A converted expense is not complete until the converted figure has been
+  // agreed to. Everything else about the form can be right while the number
+  // that actually gets claimed is one nobody looked at.
+  const conversionSettled =
+    !foreignCurrency || (conversion.baseAmount !== null && confirmedBase === conversion.baseAmount);
+
   const formComplete =
+    conversionSettled &&
     itemName.trim().length >= ITEM_MIN &&
     amountValue > 0 &&
     amountValue <= AMOUNT_MAX &&
@@ -345,9 +361,26 @@ export default function AddExpense() {
                   ) : conversion.error ? (
                     <span style={{ color: 'var(--amber)' }}>{conversion.error}</span>
                   ) : conversion.baseAmount !== null ? (
-                    <span>
-                      <strong>{formatMoney(conversion.baseAmount, baseCurrency)}</strong>{' '}
-                      <span style={{ color: 'var(--text-muted)' }}>at {conversion.rate}</span>
+                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+                      <span>
+                        <strong>{formatMoney(conversion.baseAmount, baseCurrency)}</strong>{' '}
+                        <span style={{ color: 'var(--text-muted)' }}>at {conversion.rate}</span>
+                      </span>
+                      {confirmedBase === conversion.baseAmount ? (
+                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, color: 'var(--emerald)', fontWeight: 700 }}>
+                          <Icon name="check" size={13} />
+                          Confirmed
+                        </span>
+                      ) : (
+                        <button
+                          type="button"
+                          className="btn btn-primary"
+                          style={{ fontSize: 12, padding: '4px 10px' }}
+                          onClick={() => setConfirmedBase(conversion.baseAmount)}
+                        >
+                          Use this amount
+                        </button>
+                      )}
                     </span>
                   ) : (
                     <span style={{ color: 'var(--text-muted)' }}>Enter an amount to see the conversion</span>

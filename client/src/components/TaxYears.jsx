@@ -5,7 +5,7 @@ import { useToast } from './Toast.jsx';
 import { useAuth } from '../lib/AuthContext.jsx';
 import Icon from './Icon.jsx';
 import { formatMoney, amountWhileTyping, amountOnBlur, parseAmount } from '../lib/money.js';
-import { sentenceCase } from '../lib/textCase.js';
+import { sentenceCase, titleCase, titleCaseLive } from '../lib/textCase.js';
 import { playSuccess, playError } from '../lib/sounds.js';
 import { formatDateShort, formatAppointmentTime } from '../lib/dates.js';
 import { lodgementPeriodsFor } from '../lib/lodgementPeriods.js';
@@ -65,6 +65,11 @@ const EMPTY_APPOINTMENT = { date: '', time: '09:00', company: '', accountant: ''
 // they are one story told in order.
 // expenses are needed to work out what a single quarter claimed — the year
 // totals the page already has cannot be divided into quarters after the fact.
+// Long enough for a real firm's name, short enough to stay on one line in the
+// row it is shown in.
+const NAME_MIN = 2;
+const NAME_MAX = 120;
+
 function todayIso(d = new Date()) {
   return [d.getFullYear(), String(d.getMonth() + 1).padStart(2, '0'), String(d.getDate()).padStart(2, '0')].join('-');
 }
@@ -600,6 +605,7 @@ export default function TaxYears({ years, spendByYear, expenses, onFinalisedChan
                           className="input"
                           type="date"
                           autoFocus
+                          min={todayIso()}
                           value={booking.date}
                           onChange={(e) => setBooking((b) => ({ ...b, date: e.target.value }))}
                         />
@@ -618,25 +624,49 @@ export default function TaxYears({ years, spendByYear, expenses, onFinalisedChan
                         <input
                           className="input"
                           maxLength={160}
+                          maxLength={NAME_MAX}
                           placeholder="e.g. H&R Block Parramatta"
                           value={booking.company}
-                          onChange={(e) => setBooking((b) => ({ ...b, company: e.target.value }))}
+                          // titleCaseLive while typing — titleCase trims, so a
+                          // space would be eaten before the second word.
+                          onChange={(e) => setBooking((b) => ({ ...b, company: titleCaseLive(e.target.value) }))}
+                          onBlur={() => setBooking((b) => ({ ...b, company: titleCase(b.company) }))}
                         />
+                        <div style={{ fontSize: 11.5, minHeight: 15, marginTop: 4, color: 'var(--red)' }}>
+                          {booking.company.trim() && booking.company.trim().length < NAME_MIN
+                            ? `At least ${NAME_MIN} characters`
+                            : ''}
+                        </div>
                       </div>
                       <div style={{ flex: 1, minWidth: 160 }}>
                         <label className="label">Accountant (optional)</label>
                         <input
                           className="input"
                           maxLength={160}
+                          maxLength={NAME_MAX}
                           placeholder="Who you're seeing"
                           value={booking.accountant}
-                          onChange={(e) => setBooking((b) => ({ ...b, accountant: e.target.value }))}
+                          onChange={(e) => setBooking((b) => ({ ...b, accountant: titleCaseLive(e.target.value) }))}
+                          onBlur={() => setBooking((b) => ({ ...b, accountant: titleCase(b.accountant) }))}
                         />
+                        <div style={{ fontSize: 11.5, minHeight: 15, marginTop: 4, color: 'var(--red)' }}>
+                          {booking.accountant.trim() && booking.accountant.trim().length < NAME_MIN
+                            ? `At least ${NAME_MIN} characters`
+                            : ''}
+                        </div>
                       </div>
                       <button
                         className="btn btn-primary"
                         style={{ fontSize: 13 }}
-                        disabled={busy || !booking.date || !booking.time || !booking.company.trim()}
+                        disabled={
+                          busy ||
+                          !booking.date ||
+                          booking.date < todayIso() ||
+                          !booking.time ||
+                          booking.company.trim().length < NAME_MIN ||
+                          booking.company.trim().length > NAME_MAX ||
+                          (booking.accountant.trim().length > 0 && booking.accountant.trim().length < NAME_MIN)
+                        }
                         onClick={() => saveAppointment(year)}
                       >
                         {busy && <span className="spinner" />}

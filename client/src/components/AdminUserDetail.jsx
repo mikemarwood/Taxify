@@ -668,7 +668,36 @@ function PlanAndBilling({ user, onSaved }) {
         <ConfirmDialog
           open={confirming}
           title={`Move this account to ${label}?`}
-          body={`${user.email} will be on the ${label} plan.`}
+          // What the plan actually gives them, not just its name. An
+          // administrator moving somebody between plans is making a decision
+          // about what that person can do, and 'Small Business' does not say
+          // what that is.
+          body={
+            <>
+              <div style={{ marginBottom: 10 }}>{user.email} will be on the {label} plan.</div>
+              <div style={{ fontSize: 12.5, fontWeight: 700, marginBottom: 5 }}>What they get</div>
+              <ul style={{ margin: 0, paddingLeft: 18, fontSize: 12.5, lineHeight: 1.7, color: 'var(--text-muted)' }}>
+                {(planType === 'business'
+                  ? [
+                      'Their own individual tax — 1 set of books',
+                      'Up to 2 small businesses, each with its own books',
+                      'Separate reports and lodgement for each',
+                      'Unlimited expenses and receipts',
+                      'Accountant access',
+                    ]
+                  : [
+                      'Their own individual tax — 1 set of books',
+                      'Unlimited expenses and receipts',
+                      'Year-over-year reports and exports',
+                      'Accountant access',
+                      'No business books — any they have stop being reachable',
+                    ]
+                ).map((line) => (
+                  <li key={line}>{line}</li>
+                ))}
+              </ul>
+            </>
+          }
           detail={
             complimentary
               ? 'They will not be charged for it, and it stays that way until somebody turns it off here. Any Stripe subscription they already have is untouched — cancel that in Stripe if you mean to.'

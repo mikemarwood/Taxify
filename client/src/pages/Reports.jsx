@@ -99,7 +99,11 @@ export default function Reports() {
           <h1 style={{ margin: '0 0 4px', fontSize: 26 }}>Reports</h1>
           <p style={{ color: 'var(--text-muted)', margin: 0 }}>Compare spending by category across tax years.</p>
         </div>
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 12, flexWrap: 'wrap' }}>
+        {/* Export and download on one line. They were stacked, which read as
+            two unrelated features rather than the two ways of getting your
+            records out — and put a summary export a full row away from the
+            archive it belongs beside. */}
+        <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
           <ExportMenu baseUrl="/api/export/categories" label="Export summary" />
           <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
             <select

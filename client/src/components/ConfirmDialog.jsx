@@ -104,8 +104,12 @@ export default function ConfirmDialog({
               </span>
               <div style={{ minWidth: 0 }}>
                 <h2 style={{ margin: '0 0 5px', fontSize: 17 }}>{title}</h2>
+                {/* A div, not a p. Callers pass lists and headings as well as
+                    sentences, and a block element inside a paragraph is closed
+                    early by the browser — the rest then escapes the styling and
+                    lands somewhere unintended. */}
                 {body && (
-                  <p style={{ margin: 0, fontSize: 13.5, color: 'var(--text-muted)', lineHeight: 1.55 }}>{body}</p>
+                  <div style={{ margin: 0, fontSize: 13.5, color: 'var(--text-muted)', lineHeight: 1.55 }}>{body}</div>
                 )}
               </div>
             </div>
