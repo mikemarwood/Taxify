@@ -795,6 +795,41 @@ export async function ensureSchema() {
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
   `);
 
+  // Somebody asking to move between plans, and what happened next.
+  //
+  // A row exists because the change is not self-serve: an administrator quotes
+  // it, sends an invoice, and the plan moves when that invoice is paid. Kept
+  // rather than acted on immediately so there is a record of who asked for
+  // what, what they were charged, and when it took effect — which is the first
+  // thing wanted when somebody says they paid for something they do not have.
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS plan_change_requests (
+      id INT PRIMARY KEY AUTO_INCREMENT,
+      user_id INT NOT NULL,
+      from_plan VARCHAR(20) NULL,
+      to_plan VARCHAR(20) NOT NULL,
+      -- pending -> invoiced -> paid, or cancelled from either of the first two.
+      status VARCHAR(20) NOT NULL DEFAULT 'pending',
+      note VARCHAR(500) NULL,
+      stripe_invoice_id VARCHAR(255) NULL,
+      invoice_url VARCHAR(500) NULL,
+      invoice_amount_cents INT NULL,
+      invoice_currency VARCHAR(10) NULL,
+      invoiced_at DATETIME NULL,
+      invoiced_by INT NULL,
+      paid_at DATETIME NULL,
+      cancelled_at DATETIME NULL,
+      created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      updated_at DATETIME NULL,
+      KEY idx_plan_requests_user (user_id, status),
+      KEY idx_plan_requests_status (status, created_at),
+      -- The webhook finds the request by the invoice it was paid against.
+      KEY idx_plan_requests_invoice (stripe_invoice_id),
+      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+      FOREIGN KEY (invoiced_by) REFERENCES users(id) ON DELETE SET NULL
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+  `);
+
   await pool.query(`
     CREATE TABLE IF NOT EXISTS settings (
       \`key\` VARCHAR(64) PRIMARY KEY,

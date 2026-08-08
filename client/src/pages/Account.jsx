@@ -12,6 +12,7 @@ import AvatarEditorModal from '../components/AvatarEditorModal.jsx';
 import { isSoundEnabled, setSoundEnabled } from '../lib/sounds.js';
 import PlanComparison from '../components/PlanComparison.jsx';
 import InvoiceList from '../components/InvoiceList.jsx';
+import PlanChangeRequest from '../components/PlanChangeRequest.jsx';
 // Names and addresses are shown tidied rather than stored tidied — an
 // accountant's own name is theirs to spell, and rewriting the row would make
 // this page the thing that changed it.
@@ -290,6 +291,11 @@ function BillingSection({ user }) {
           Stripe rather than being written here, so what's quoted is what will
           be charged. */}
       <PlanComparison user={user} />
+
+      {/* The way through for anybody Stripe's own switch cannot serve: a
+          granted plan, a lapsed one, or a price the published list does not
+          carry. */}
+      <PlanChangeRequest user={user} />
 
       {/* Below the plans, because somebody opens this tab to change plan far
           more often than to find a receipt for last year. */}

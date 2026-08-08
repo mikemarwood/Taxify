@@ -222,3 +222,20 @@ export async function verifyFcm() {
     return { ok: false, steps, projectId: creds.project_id };
   }
 }
+
+// Everybody who can act on it.
+//
+// A plan change waits for an administrator to quote and invoice it, so the
+// request has to reach a person rather than sit in a table nobody opens. Sent
+// to every administrator rather than one: there is no assignment or rota here,
+// and a request that reached only the administrator who happened to be on
+// holiday is the same as one that reached nobody.
+export async function notifyAdmins({ title, body = null, url = null, kind = null }) {
+  const [admins] = await pool.query('SELECT id FROM users WHERE is_admin = 1');
+  const results = [];
+  for (const admin of admins) {
+    // One failing must not stop the others being told.
+    results.push(await notify(admin.id, { title, body, url, kind }));
+  }
+  return { admins: admins.length, results };
+}

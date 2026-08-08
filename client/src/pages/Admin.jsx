@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { api } from '../lib/api.js';
 import { useAuth } from '../lib/AuthContext.jsx';
@@ -16,6 +16,7 @@ import Icon from '../components/Icon.jsx';
 import PromoCodesTab from '../components/PromoCodesTab.jsx';
 import { useConfirm } from '../lib/ConfirmContext.jsx';
 import AdminStatsTab from '../components/AdminStatsTab.jsx';
+import PlanRequestsTab from '../components/PlanRequestsTab.jsx';
 import TaxRatesTab from '../components/TaxRatesTab.jsx';
 import PushSettingsTab from '../components/PushSettingsTab.jsx';
 import { IconPicker, ColourPicker, CategoryPreview, SWATCHES } from '../components/CategoryPickers.jsx';
@@ -34,8 +35,34 @@ function formatBytes(bytes) {
   return `${(n / (1024 * 1024 * 1024)).toFixed(2)} GB`;
 }
 
+// Every tab this page has. Used to decide whether a ?tab= is one we know,
+// rather than trusting the URL and rendering nothing.
+const TAB_KEYS = [
+  'stats',
+  'plan-requests',
+  'users',
+  'categories',
+  'settings',
+  'email',
+  'stripe',
+  'promos',
+  'rates',
+  'push',
+];
+
 export default function Admin() {
-  const [tab, setTab] = useState('stats');
+  // ?tab= opens a particular one, because the notifications link straight here.
+  // "Somebody wants to change plan" is no use if the link lands on Live stats
+  // and leaves you to find the right tab yourself.
+  const [searchParams, setSearchParams] = useSearchParams();
+  const requested = searchParams.get('tab');
+  const [tab, setTabState] = useState(TAB_KEYS.includes(requested) ? requested : 'stats');
+
+  // Kept in the URL, so the tab survives a refresh and can be linked to.
+  function setTab(next) {
+    setTabState(next);
+    setSearchParams(next === 'stats' ? {} : { tab: next }, { replace: true });
+  }
 
   return (
     <div style={{ maxWidth: tab === 'stats' ? 1100 : 760 }}>
@@ -45,6 +72,9 @@ export default function Admin() {
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 20 }}>
         <button className={tab === 'stats' ? 'btn btn-primary' : 'btn btn-ghost'} onClick={() => setTab('stats')}>
           Live stats
+        </button>
+        <button className={tab === 'plan-requests' ? 'btn btn-primary' : 'btn btn-ghost'} onClick={() => setTab('plan-requests')}>
+          Plan requests
         </button>
         <button className={tab === 'users' ? 'btn btn-primary' : 'btn btn-ghost'} onClick={() => setTab('users')}>
           Users
@@ -73,6 +103,7 @@ export default function Admin() {
       </div>
 
       {tab === 'stats' && <AdminStatsTab />}
+      {tab === 'plan-requests' && <PlanRequestsTab />}
       {tab === 'users' && <UsersTab />}
       {tab === 'categories' && <DefaultCategoriesTab />}
       {tab === 'settings' && <SettingsTab />}

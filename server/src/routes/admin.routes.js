@@ -13,6 +13,8 @@ import { signViewAsToken, cookieOptions, COOKIE_NAME } from '../auth/jwt.js';
 import { toPublicUser } from '../auth/publicUser.js';
 import { computeAccessLocked } from '../auth/access.js';
 import { collectStats } from '../lib/adminStats.js';
+import { getStripe } from '../lib/stripe.js';
+import { amountProblem, canTransition } from '../lib/planRequests.js';
 import { asyncHandler } from '../lib/asyncHandler.js';
 import { toTitleCase } from '../lib/text.js';
 import {
@@ -1047,6 +1049,164 @@ router.get(
   '/stats',
   asyncHandler(async (req, res) => {
     res.json(await collectStats());
+  })
+);
+
+
+// ---------------------------------------------------------------------------
+// Plan changes waiting on an administrator.
+// ---------------------------------------------------------------------------
+
+router.get(
+  '/plan-requests',
+  asyncHandler(async (req, res) => {
+    const [rows] = await pool.query(
+      `SELECT r.*, u.name, u.email, u.avatar_path, u.plan_type, u.stripe_customer_id
+         FROM plan_change_requests r
+         JOIN users u ON u.id = r.user_id
+        ORDER BY
+          -- Anything still waiting on us first, oldest first within that.
+          FIELD(r.status, 'pending', 'invoiced', 'paid', 'cancelled'),
+          r.created_at ASC
+        LIMIT 100`
+    );
+    res.json({
+      requests: rows.map((r) => ({
+        id: r.id,
+        userId: r.user_id,
+        name: r.name,
+        email: r.email,
+        avatarUrl: r.avatar_path ? `/api/auth/avatar/${r.user_id}` : null,
+        currentPlan: r.plan_type,
+        fromPlan: r.from_plan,
+        toPlan: r.to_plan,
+        status: r.status,
+        note: r.note,
+        hasBillingAccount: Boolean(r.stripe_customer_id),
+        invoiceUrl: r.invoice_url,
+        invoiceAmountCents: r.invoice_amount_cents,
+        invoiceCurrency: r.invoice_currency,
+        invoicedAt: r.invoiced_at,
+        paidAt: r.paid_at,
+        createdAt: r.created_at,
+      })),
+    });
+  })
+);
+
+// Quote it and send it. The amount is typed rather than calculated: this path
+// exists precisely for the cases the price list does not cover — a part year,
+// an agreed discount, two businesses at a negotiated rate.
+router.post(
+  '/plan-requests/:id/invoice',
+  asyncHandler(async (req, res) => {
+    const amount = Number(req.body?.amount);
+    const badAmount = amountProblem(req.body?.amount);
+    if (badAmount) return res.status(400).json({ error: badAmount });
+
+    const description = String(req.body?.description || '').trim().slice(0, 300);
+    const daysUntilDue = Math.min(90, Math.max(1, Number(req.body?.daysUntilDue) || 14));
+
+    const [rows] = await pool.execute(
+      `SELECT r.*, u.email, u.name, u.stripe_customer_id
+         FROM plan_change_requests r JOIN users u ON u.id = r.user_id
+        WHERE r.id = ?`,
+      [req.params.id]
+    );
+    const request = rows[0];
+    if (!request) return res.status(404).json({ error: 'Not found' });
+    // The state machine decides, not a status string compared by hand — an
+    // already-invoiced request being invoiced again bills somebody twice.
+    if (!canTransition(request.status, 'invoiced')) {
+      return res.status(409).json({ error: `That request is already ${request.status}` });
+    }
+
+    const stripe = await getStripe();
+
+    // Somebody who has never paid has no Stripe customer yet, and an invoice
+    // needs one. Created here rather than at registration so an account that
+    // never buys anything leaves nothing behind in Stripe.
+    let customerId = request.stripe_customer_id;
+    if (!customerId) {
+      const customer = await stripe.customers.create({
+        email: request.email,
+        name: request.name || undefined,
+        metadata: { userId: String(request.user_id) },
+      });
+      customerId = customer.id;
+      await pool.execute('UPDATE users SET stripe_customer_id = ? WHERE id = ?', [customerId, request.user_id]);
+    }
+
+    const currency = (req.body?.currency || 'aud').toLowerCase();
+    const line = description || `Taxify — change to the ${request.to_plan === 'business' ? 'Small Business' : 'Individual'} plan`;
+
+    // The invoice is created empty, then the item is attached to it by id.
+    // Creating the item first and letting it attach itself to "the customer's
+    // next invoice" is how a pending item from an abandoned attempt ends up on
+    // somebody's subscription renewal.
+    const invoice = await stripe.invoices.create({
+      customer: customerId,
+      collection_method: 'send_invoice',
+      days_until_due: daysUntilDue,
+      description: line,
+      // Read back by the webhook. Without it there is no way to tell which
+      // request a payment belongs to, and the plan would never move.
+      metadata: {
+        planChangeRequestId: String(request.id),
+        userId: String(request.user_id),
+        toPlan: request.to_plan,
+      },
+    });
+
+    await stripe.invoiceItems.create({
+      customer: customerId,
+      invoice: invoice.id,
+      amount: Math.round(amount * 100),
+      currency,
+      description: line,
+    });
+
+    const finalised = await stripe.invoices.finalizeInvoice(invoice.id);
+    const sent = await stripe.invoices.sendInvoice(finalised.id);
+
+    await pool.execute(
+      `UPDATE plan_change_requests
+          SET status = 'invoiced', stripe_invoice_id = ?, invoice_url = ?, invoice_amount_cents = ?,
+              invoice_currency = ?, invoiced_at = NOW(), invoiced_by = ?, updated_at = NOW()
+        WHERE id = ?`,
+      [sent.id, sent.hosted_invoice_url || null, Math.round(amount * 100), currency, req.user.id, request.id]
+    );
+
+    // Stripe emails the invoice itself. This is so it is waiting for them in
+    // the app as well, where they asked for the change in the first place.
+    try {
+      await notify(request.user_id, {
+        title: 'Your plan change is ready to pay',
+        body: `${line} — your plan moves across as soon as it is paid.`,
+        url: '/account?tab=billing',
+        kind: 'billing',
+      });
+    } catch (err) {
+      console.error('Could not notify about the plan invoice', err);
+    }
+
+    res.json({ ok: true, invoiceUrl: sent.hosted_invoice_url || null });
+  })
+);
+
+router.delete(
+  '/plan-requests/:id',
+  asyncHandler(async (req, res) => {
+    // Deliberately does not void anything in Stripe. An invoice that has been
+    // sent is a document somebody has received, and withdrawing it is a
+    // decision to make in Stripe with the rest of the billing record.
+    const [result] = await pool.execute(
+      `UPDATE plan_change_requests SET status = 'cancelled', cancelled_at = NOW(), updated_at = NOW()
+        WHERE id = ? AND status IN ('pending', 'invoiced')`,
+      [req.params.id]
+    );
+    if (result.affectedRows === 0) return res.status(404).json({ error: 'Not found' });
+    res.json({ ok: true });
   })
 );
 

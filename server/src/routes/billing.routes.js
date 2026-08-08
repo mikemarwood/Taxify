@@ -9,12 +9,34 @@ import { getStripe, getStripeConfig, priceIdForPlan, planTypeForPriceId } from '
 import { invoicesDir, invoiceFilename, shapeInvoice, isStored, storeInvoicePdf } from '../lib/invoiceStorage.js';
 import { serveAttachment } from '../lib/serveAttachment.js';
 import { publicOrigin } from '../lib/publicOrigin.js';
+import { notify, notifyAdmins } from '../lib/notify.js';
+import { planLabel } from '../lib/planLimits.js';
+import { shouldApplyPayment } from '../lib/planRequests.js';
 
 const uploadsDir = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', '..', 'uploads');
 
 const CLIENT_ORIGIN = publicOrigin();
 
 const router = Router();
+
+function shapeRequest(row) {
+  return {
+    id: row.id,
+    userId: row.user_id,
+    fromPlan: row.from_plan,
+    toPlan: row.to_plan,
+    status: row.status,
+    note: row.note,
+    invoiceUrl: row.invoice_url,
+    invoiceAmountCents: row.invoice_amount_cents,
+    invoiceCurrency: row.invoice_currency,
+    stripeInvoiceId: row.stripe_invoice_id,
+    invoicedAt: row.invoiced_at,
+    paidAt: row.paid_at,
+    createdAt: row.created_at,
+  };
+}
+
 
 router.post(
   '/checkout',
@@ -307,6 +329,94 @@ router.post(
   })
 );
 
+
+// ---------------------------------------------------------------------------
+// Plan changes that go through an administrator.
+//
+// Self-serve checkout still exists and is still the normal path. This is the
+// other one: somebody asks to move plan, an administrator quotes it and sends
+// an invoice, and the plan moves when that invoice is paid. Nothing here
+// charges a card — the money is Stripe's business, and the plan only follows
+// once Stripe says it arrived.
+// ---------------------------------------------------------------------------
+
+// What this account has asked for, so the page can show it rather than letting
+// somebody ask three times.
+router.get(
+  '/plan-change-request',
+  requireAuth,
+  requireAccountOwner,
+  asyncHandler(async (req, res) => {
+    const [rows] = await pool.execute(
+      `SELECT * FROM plan_change_requests
+        WHERE user_id = ? AND status IN ('pending', 'invoiced')
+        ORDER BY created_at DESC LIMIT 1`,
+      [req.user.id]
+    );
+    res.json({ request: rows[0] ? shapeRequest(rows[0]) : null });
+  })
+);
+
+router.post(
+  '/plan-change-request',
+  requireAuth,
+  requireAccountOwner,
+  asyncHandler(async (req, res) => {
+    const toPlan = req.body?.planType === 'business' ? 'business' : 'individual';
+    const note = req.body?.note ? String(req.body.note).trim().slice(0, 500) : null;
+
+    if (toPlan === req.user.planType) {
+      return res.status(400).json({ error: 'You are already on that plan' });
+    }
+
+    // One open request at a time. Two invoices for the same move is the worst
+    // outcome here, and "I already asked" is the more common complaint than
+    // "I could not ask twice".
+    const [open] = await pool.execute(
+      `SELECT id FROM plan_change_requests WHERE user_id = ? AND status IN ('pending', 'invoiced')`,
+      [req.user.id]
+    );
+    if (open[0]) return res.status(409).json({ error: 'You already have a plan change waiting' });
+
+    const [result] = await pool.execute(
+      `INSERT INTO plan_change_requests (user_id, from_plan, to_plan, note) VALUES (?, ?, ?, ?)`,
+      [req.user.id, req.user.planType || null, toPlan, note]
+    );
+
+    await notifyAdmins({
+      title: `${req.user.name || req.user.email} wants to move to ${planLabel(toPlan)}`,
+      body: note || `Currently on ${planLabel(req.user.planType)}. Send them an invoice to complete it.`,
+      url: '/admin?tab=plan-requests',
+      kind: 'billing',
+    });
+
+    const [rows] = await pool.execute('SELECT * FROM plan_change_requests WHERE id = ?', [result.insertId]);
+    res.json({ request: shapeRequest(rows[0]) });
+  })
+);
+
+router.delete(
+  '/plan-change-request/:id',
+  requireAuth,
+  requireAccountOwner,
+  asyncHandler(async (req, res) => {
+    const [result] = await pool.execute(
+      `UPDATE plan_change_requests SET status = 'cancelled', cancelled_at = NOW(), updated_at = NOW()
+        WHERE id = ? AND user_id = ? AND status IN ('pending', 'invoiced')`,
+      [req.params.id, req.user.id]
+    );
+    if (result.affectedRows === 0) return res.status(404).json({ error: 'Not found' });
+
+    await notifyAdmins({
+      title: `${req.user.name || req.user.email} cancelled their plan change`,
+      body: 'Nothing to invoice. Void the invoice in Stripe if one was already sent.',
+      url: '/admin?tab=plan-requests',
+      kind: 'billing',
+    });
+    res.json({ ok: true });
+  })
+);
+
 router.post(
   '/webhook',
   asyncHandler(async (req, res) => {
@@ -321,6 +431,83 @@ router.post(
     }
 
     switch (event.type) {
+      // An invoice an administrator raised for a plan change has been paid.
+      //
+      // This is the only thing that moves a plan on this path. Stripe saying
+      // the money arrived is the authority — an administrator marking it paid
+      // by hand would be a guess, and the customer's own word even more so.
+      case 'invoice.paid': {
+        const invoice = event.data.object;
+        const requestId = Number(invoice.metadata?.planChangeRequestId);
+        // Subscription renewals are invoices too. Without this, every renewal
+        // would fall through the lookup below.
+        if (!requestId) break;
+
+        const [rows] = await pool.execute('SELECT * FROM plan_change_requests WHERE id = ?', [requestId]);
+        const request = rows[0];
+
+        const verdict = shouldApplyPayment({ requestId, request });
+        if (!verdict.apply) {
+          // Money that arrived against a request somebody had already cancelled
+          // is a real payment for something we are not about to grant, so it is
+          // said out loud rather than dropped.
+          if (verdict.reason === 'cancelled_but_paid') {
+            console.error(`Invoice ${invoice.id} paid against cancelled plan request ${requestId}`);
+            await notifyAdmins({
+              title: 'A cancelled plan change was paid',
+              body: 'Stripe took a payment for a request that had been cancelled. Refund it, or reinstate the plan by hand.',
+              url: '/admin?tab=plan-requests',
+              kind: 'billing',
+            }).catch(() => {});
+          }
+          break;
+        }
+
+        await pool.execute(
+          `UPDATE plan_change_requests SET status = 'paid', paid_at = NOW(), updated_at = NOW() WHERE id = ?`,
+          [requestId]
+        );
+
+        // The change they paid for. Only plan_type moves: whatever subscription
+        // they already had keeps its own dates and status, because this invoice
+        // was a one-off and did not renew anything.
+        await pool.execute('UPDATE users SET plan_type = ? WHERE id = ?', [request.to_plan, request.user_id]);
+
+        // Kept now, while there is a URL that has not expired. The customer's
+        // invoice list stores lazily when it is opened, and somebody who never
+        // opens it would otherwise have no copy of what they paid.
+        try {
+          if (!isStored(uploadsDir, request.user_id, invoice)) {
+            await storeInvoicePdf(uploadsDir, request.user_id, invoice);
+          }
+        } catch (err) {
+          console.error(`Could not store plan-change invoice ${invoice.id}`, err.message);
+        }
+
+        const [who] = await pool.execute('SELECT name, email FROM users WHERE id = ?', [request.user_id]);
+        const label = planLabel(request.to_plan);
+
+        try {
+          await notify(request.user_id, {
+            title: `You are now on ${label}`,
+            body: 'Your payment came through and the plan has been applied. The invoice is on your billing page.',
+            url: '/account?tab=billing',
+            kind: 'billing',
+          });
+          await notifyAdmins({
+            title: `${who[0]?.name || who[0]?.email || 'A customer'} paid for ${label}`,
+            body: 'The plan has been applied automatically and the invoice is stored against their account.',
+            url: '/admin?tab=plan-requests',
+            kind: 'billing',
+          });
+        } catch (err) {
+          // The plan has already moved and the money has already arrived.
+          // Failing the webhook here would make Stripe retry a payment that was
+          // fully handled.
+          console.error('Could not send plan-change notifications', err);
+        }
+        break;
+      }
       case 'checkout.session.completed': {
         const session = event.data.object;
         const userId = Number(session.client_reference_id || session.metadata?.userId);
