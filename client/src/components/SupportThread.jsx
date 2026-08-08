@@ -83,15 +83,32 @@ function RoleBadge({ role }) {
   );
 }
 
+export const MIN_MESSAGE = 20;
+export const MAX_MESSAGE = 5000;
+
+// What is wrong with this text, or '' if nothing is. Mirrors messageProblem on
+// the server so the same words come back either way.
+export function messageProblem(body, { note = false } = {}) {
+  const text = String(body ?? '').trim();
+  if (!text) return 'Write a message first';
+  if (!note && text.length < MIN_MESSAGE) return `Tell us a little more — at least ${MIN_MESSAGE} characters`;
+  if (text.length > MAX_MESSAGE) return `Messages can be at most ${MAX_MESSAGE} characters`;
+  return '';
+}
+
 function Message({ message, canEdit, canDelete, onDelete, onEdit, onPreview }) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(message.body);
   const [showHistory, setShowHistory] = useState(false);
   const [saving, setSaving] = useState(false);
 
+  const trimmed = draft.trim();
+  const changed = trimmed !== message.body.trim();
+  const problem = messageProblem(draft, { note: message.role === 'note' });
+
   async function save() {
-    const next = draft.trim();
-    if (!next || next === message.body) return setEditing(false);
+    const next = trimmed;
+    if (!changed || problem) return setEditing(false);
     setSaving(true);
     try {
       await onEdit(message, next);
@@ -248,13 +265,26 @@ function Message({ message, canEdit, canDelete, onDelete, onEdit, onPreview }) {
             <textarea
               className="input"
               rows={4}
-              maxLength={5000}
+              maxLength={MAX_MESSAGE}
               value={draft}
               onChange={(e) => setDraft(sentenceCaseLive(e.target.value))}
               style={{ resize: 'vertical', fontSize: 13.5, lineHeight: 1.6 }}
             />
+
+            {/* Said while there is still something to do about it, and only
+                once they have actually changed something — telling somebody
+                their untouched message is too short is not help. */}
+            {changed && problem && (
+              <span style={{ fontSize: 11.5, color: 'var(--red)' }}>{problem}</span>
+            )}
+
             <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-              <button className="btn btn-primary" style={{ fontSize: 12.5 }} disabled={saving || !draft.trim()} onClick={save}>
+              <button
+                className="btn btn-primary"
+                style={{ fontSize: 12.5 }}
+                disabled={saving || !changed || Boolean(problem)}
+                onClick={save}
+              >
                 {saving && <span className="spinner" />}
                 Save
               </button>
@@ -485,7 +515,7 @@ export default function SupportThread({
           <textarea
             className="input"
             rows={4}
-            maxLength={5000}
+            maxLength={MAX_MESSAGE}
             placeholder={admin ? 'Write your reply…' : 'Add anything else that might help…'}
             value={draft}
             // Capitals fixed as you type. Safe per keystroke because it only
@@ -538,15 +568,19 @@ export default function SupportThread({
             <button
               className="btn btn-primary"
               style={{ fontSize: 13 }}
-              disabled={!draft.trim() || sending || busy}
+              disabled={Boolean(messageProblem(draft)) || sending || busy}
               onClick={send}
             >
               {sending && <span className="spinner" />}
               Send reply
             </button>
 
-            <span style={{ fontSize: 11.5, color: 'var(--text-muted)' }}>
-              {admin ? 'They are emailed as soon as you send this.' : 'We will email you as soon as we reply.'}
+            <span style={{ fontSize: 11.5, color: draft.trim() && messageProblem(draft) ? 'var(--red)' : 'var(--text-muted)' }}>
+              {draft.trim() && messageProblem(draft)
+                ? messageProblem(draft)
+                : admin
+                ? 'They are emailed as soon as you send this.'
+                : 'We will email you as soon as we reply.'}
             </span>
           </div>
         </div>

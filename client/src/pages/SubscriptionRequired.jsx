@@ -35,6 +35,9 @@ export default function SubscriptionRequired() {
   const confirm = useConfirm();
   const toast = useToast();
   const [busy, setBusy] = useState(false);
+  // Bumped after a request is lodged, so the plan cards refetch and the one
+  // that was pressed says Pending instead of inviting a second ticket.
+  const [asked, setAsked] = useState(0);
   const isOwner = user?.role === 'owner';
   const billing = describeSubscription(user);
 
@@ -67,6 +70,9 @@ export default function SubscriptionRequired() {
     setBusy(true);
     try {
       await api.post('/billing/plan-change-request', { planType: plan.planType });
+      // So the card they just pressed flips to Pending rather than sitting
+      // there still inviting a second identical ticket.
+      setAsked((n) => n + 1);
       toast('Sent — we will email you an invoice', 'success');
     } catch (err) {
       toast(err.message, 'error');
@@ -121,7 +127,12 @@ export default function SubscriptionRequired() {
           <>
             <div className="card" style={{ padding: 20, display: 'flex', flexDirection: 'column', gap: 12 }}>
               <div style={{ fontWeight: 700 }}>Choose your plan</div>
-              <PlanComparison user={user} onChoose={(plan) => !busy && requestPlan(plan)} chooseLabel="Ask us about" />
+              <PlanComparison
+                user={user}
+                onChoose={(plan) => !busy && requestPlan(plan)}
+                chooseLabel="Ask us about"
+                refreshKey={asked}
+              />
               <div style={{ fontSize: 11.5, color: 'var(--text-muted)' }}>
                 Prices are in AUD and billed yearly. Payment is handled by Stripe — Taxify never sees your card details.
               </div>

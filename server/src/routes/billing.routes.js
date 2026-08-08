@@ -36,8 +36,28 @@ function shapeRequest(row) {
     invoicedAt: row.invoiced_at,
     paidAt: row.paid_at,
     createdAt: row.created_at,
+    ticketId: row.ticket_id ?? null,
+    ticketReference: row.ticket_reference ?? null,
+    ticketStatus: row.ticket_status ?? null,
   };
 }
+
+// What counts as a request still in the way.
+//
+// A request used to block another simply by being pending or invoiced, for
+// ever. So somebody who asked to move, was answered, and had the ticket closed
+// without an invoice could never ask again — the card sat inert with nothing
+// on the other end of it.
+//
+// The rule now follows the conversation: a request that has not been invoiced
+// stops blocking once its ticket is closed, because the closing of the ticket
+// is what says we are done with it. An invoiced one keeps blocking whatever the
+// ticket says, since there is real money outstanding against it and a second
+// request for the same move is how somebody ends up with two invoices.
+const OUTSTANDING = `
+  r.status = 'invoiced'
+  OR (r.status = 'pending' AND (t.id IS NULL OR t.status <> 'closed'))
+`;
 
 
 router.post(
@@ -376,9 +396,11 @@ router.get(
   requireAccountOwner,
   asyncHandler(async (req, res) => {
     const [rows] = await pool.execute(
-      `SELECT * FROM plan_change_requests
-        WHERE user_id = ? AND status IN ('pending', 'invoiced')
-        ORDER BY created_at DESC LIMIT 1`,
+      `SELECT r.*, t.id AS ticket_id, t.reference AS ticket_reference, t.status AS ticket_status
+         FROM plan_change_requests r
+         LEFT JOIN support_tickets t ON t.plan_change_request_id = r.id
+        WHERE r.user_id = ? AND (${OUTSTANDING})
+        ORDER BY r.created_at DESC LIMIT 1`,
       [req.user.id]
     );
     res.json({ request: rows[0] ? shapeRequest(rows[0]) : null });
@@ -401,7 +423,9 @@ router.post(
     // outcome here, and "I already asked" is the more common complaint than
     // "I could not ask twice".
     const [open] = await pool.execute(
-      `SELECT id FROM plan_change_requests WHERE user_id = ? AND status IN ('pending', 'invoiced')`,
+      `SELECT r.id FROM plan_change_requests r
+         LEFT JOIN support_tickets t ON t.plan_change_request_id = r.id
+        WHERE r.user_id = ? AND (${OUTSTANDING}) LIMIT 1`,
       [req.user.id]
     );
     if (open[0]) return res.status(409).json({ error: 'You already have a plan change waiting' });

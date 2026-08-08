@@ -340,13 +340,13 @@ function BillingSection({ user }) {
           works for an account with a live subscription, which excludes anybody
           on a granted plan or a lapsed one — so the card raises a request, an
           administrator quotes it, and the plan moves when the invoice is paid. */}
-      <PlanComparison user={user} onChoose={requestPlan} chooseLabel="Ask to move to" />
+      <PlanComparison user={user} onChoose={requestPlan} chooseLabel="Ask to move to" refreshKey={openRequest?.id || 0} />
 
       {openRequest && (
         <div
           style={{
             border: '1px solid var(--border)',
-            borderLeft: `3px solid ${openRequest.status === 'invoiced' ? 'var(--amber)' : 'var(--accent)'}`,
+            borderLeft: `3px solid ${openRequest.status === 'invoiced' ? 'var(--emerald)' : 'var(--accent)'}`,
             borderRadius: 10,
             padding: 14,
             background: 'var(--bg-subtle)',

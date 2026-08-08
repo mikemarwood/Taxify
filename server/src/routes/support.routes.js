@@ -622,7 +622,12 @@ router.get(
 // finished record, and letting somebody rewrite what they said after it was
 // answered would make the whole thread unreliable as evidence of itself.
 async function editMessage(req, res, message, ticket, { includeNotes = false } = {}) {
-  const problem = messageProblem(req.body?.message);
+  const problem =
+    message.author_role === 'note'
+      ? String(req.body?.message ?? '').trim()
+        ? ''
+        : 'Write the note first'
+      : messageProblem(req.body?.message);
   if (problem) return res.status(400).json({ error: problem });
 
   if (ticket.status === 'closed') {

@@ -358,6 +358,12 @@ const PATHS = {
       <path d="M12 17.5h.01" />
     </>
   ),
+  clock: (
+    <>
+      <circle cx="12" cy="12" r="9" />
+      <path d="M12 7v5.2l3.2 1.9" />
+    </>
+  ),
 };
 
 export default function Icon({ name, size = 16, strokeWidth = 1.7, style, title, ...rest }) {

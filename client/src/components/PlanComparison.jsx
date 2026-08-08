@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { api } from '../lib/api.js';
 import { usePlanChange } from '../lib/usePlanChange.js';
@@ -8,9 +9,13 @@ import Icon from './Icon.jsx';
 
 // Both plans in full, with the current one marked. Prices come from Stripe
 // rather than being written here, so what's quoted is what will be charged.
-export default function PlanComparison({ user, onChoose, chooseLabel }) {
+export default function PlanComparison({ user, onChoose, chooseLabel, refreshKey = 0 }) {
   const { changePlan, busy, pending, confirmChange, cancelChange } = usePlanChange();
   const [plans, setPlans] = useState(null);
+  // A move already asked for. Offering the same card again produced a second
+  // ticket for a question already in the queue, and the person asking had no
+  // sign that the first one had landed.
+  const [asked, setAsked] = useState(null);
 
   useEffect(() => {
     api
@@ -18,6 +23,15 @@ export default function PlanComparison({ user, onChoose, chooseLabel }) {
       .then((res) => setPlans(res.data.plans))
       .catch(() => setPlans([]));
   }, []);
+
+  useEffect(() => {
+    api
+      .get('/billing/plan-change-request')
+      .then((res) => setAsked(res.data.request))
+      // An accountant, or anybody the route will not answer for. No request is
+      // the right answer for them, and it is not worth a message.
+      .catch(() => setAsked(null));
+  }, [refreshKey]);
 
   if (!plans || plans.length === 0) return null;
 
@@ -39,31 +53,37 @@ export default function PlanComparison({ user, onChoose, chooseLabel }) {
         // Through the shared resolver, not a raw ===. A NULL plan_type used to
         // match neither card while the heading above said Individual.
         const current = currentPlanType(user) === plan.planType;
+        // Already asked for, and still being dealt with. The card says so and
+        // goes inert, the same as the plan you are already on — the difference
+        // is that this one points at the conversation.
+        const waiting = !current && asked?.toPlan === plan.planType;
+        const invoiced = waiting && asked?.status === 'invoiced';
         // The plan you already have is not something to pick again — the whole
         // card goes inert and says so, rather than offering a button that
         // would do nothing.
-        const Tag = current ? 'div' : 'button';
+        const inert = current || waiting;
+        const Tag = inert ? 'div' : 'button';
         return (
           <motion.div
             key={plan.planType}
-            whileHover={current ? undefined : { y: -3 }}
+            whileHover={inert ? undefined : { y: -3 }}
             transition={{ type: 'spring', stiffness: 400, damping: 28 }}
             style={{ display: 'flex' }}
           >
             <Tag
-              type={current ? undefined : 'button'}
+              type={inert ? undefined : 'button'}
               aria-current={current ? 'true' : undefined}
-              onClick={current || busy ? undefined : () => (onChoose ? onChoose(plan) : changePlan(plan.planType))}
+              onClick={inert || busy ? undefined : () => (onChoose ? onChoose(plan) : changePlan(plan.planType))}
               style={{
                 position: 'relative',
                 flex: 1,
                 padding: 0,
                 overflow: 'hidden',
                 borderRadius: 'var(--radius)',
-                border: `2px solid ${current ? 'var(--accent)' : 'var(--border)'}`,
+                border: `2px solid ${current ? 'var(--accent)' : waiting ? 'var(--text-muted)' : 'var(--border)'}`,
                 background: current ? 'var(--accent-soft)' : 'var(--bg-card)',
-                boxShadow: current ? 'none' : 'var(--shadow-sm)',
-                cursor: current ? 'default' : 'pointer',
+                boxShadow: inert ? 'none' : 'var(--shadow-sm)',
+                cursor: inert ? 'default' : 'pointer',
                 textAlign: 'left',
                 font: 'inherit',
                 color: 'var(--text)',
@@ -81,7 +101,7 @@ export default function PlanComparison({ user, onChoose, chooseLabel }) {
                   letterSpacing: 0.7,
                   textTransform: 'uppercase',
                   color: current ? '#fff' : 'var(--text-muted)',
-                  background: current ? 'var(--accent)' : 'var(--bg-inset)',
+                  background: current ? 'var(--accent)' : waiting ? 'var(--bg-subtle)' : 'var(--bg-inset)',
                   borderBottom: '1px solid var(--border)',
                   display: 'flex',
                   alignItems: 'center',
@@ -92,6 +112,11 @@ export default function PlanComparison({ user, onChoose, chooseLabel }) {
                   <>
                     <Icon name="check-circle" size={13} />
                     Your current plan
+                  </>
+                ) : waiting ? (
+                  <>
+                    <Icon name="clock" size={12} />
+                    Pending · {invoiced ? 'invoice sent' : 'with us'}
                   </>
                 ) : (
                   <>
@@ -128,15 +153,31 @@ export default function PlanComparison({ user, onChoose, chooseLabel }) {
                     paddingTop: 12,
                     fontSize: 12.5,
                     fontWeight: 700,
-                    color: current ? 'var(--text-muted)' : 'var(--accent)',
+                    color: inert ? 'var(--text-muted)' : 'var(--accent)',
                   }}
                 >
                   {current
                     ? "You're on this plan"
+                    : waiting
+                    ? invoiced
+                      ? 'Already asked for — the invoice is on its way'
+                      : 'Already asked for — we are looking at it'
                     : onChoose
                     ? `${chooseLabel || 'Subscribe to'} ${plan.name} →`
                     : `Switch to ${plan.name} →`}
                 </span>
+
+                {/* Where the answer will arrive. A card that says "pending"
+                    and nothing else leaves somebody with nowhere to go and no
+                    way to chase it. */}
+                {waiting && asked?.ticketId && (
+                  <Link
+                    to={`/support/${asked.ticketId}`}
+                    style={{ fontSize: 12, fontWeight: 700, color: 'var(--accent)', textDecoration: 'none' }}
+                  >
+                    Open the conversation{asked.ticketReference ? ` · ${asked.ticketReference}` : ''} →
+                  </Link>
+                )}
               </div>
             </Tag>
           </motion.div>
