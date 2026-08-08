@@ -88,11 +88,21 @@ const NAVY = '#1e3a8a';
 //   width on a phone.
 function renderEmail({ title, heading, bodyHtml }) {
   return `<!doctype html>
-<html lang="en">
+<html lang="en" xmlns:v="urn:schemas-microsoft-com:vml" xmlns:o="urn:schemas-microsoft-com:office:office">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="color-scheme" content="light only">
+<!--[if mso]>
+<style>
+  /* Word has no web fonts and no line-height inheritance worth relying on, so
+     the whole message is pinned to a face it definitely has and to line
+     heights it will not reinterpret. */
+  body, table, td, p, a, span { font-family: 'Segoe UI', Arial, sans-serif !important; }
+  table { border-collapse: collapse; mso-table-lspace: 0pt; mso-table-rspace: 0pt; }
+  p, td { mso-line-height-rule: exactly; }
+</style>
+<![endif]-->
 <meta name="supported-color-schemes" content="light only">
 <title>${title}</title>
 </head>
@@ -224,9 +234,22 @@ export async function sendOtpEmail(to, name, code, expiresMinutes) {
 function button(href, label) {
   return `
     <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:4px 0 22px;">
-      <tr><td style="background:${NAVY};border-radius:8px;">
-        <a href="${href}" style="display:inline-block;padding:14px 30px;color:#ffffff;font-size:15px;font-weight:700;text-decoration:none;">${label}</a>
-      </td></tr>
+      <tr>
+        <!--[if mso]>
+        <td>
+          <v:roundrect xmlns:v="urn:schemas-microsoft-com:vml" xmlns:w="urn:schemas-microsoft-com:office:word"
+            href="${href}" style="height:46px;v-text-anchor:middle;width:260px;" arcsize="18%" stroke="f" fillcolor="${NAVY}">
+            <w:anchorlock/>
+            <center style="color:#ffffff;font-family:Segoe UI,Arial,sans-serif;font-size:15px;font-weight:700;">${label}</center>
+          </v:roundrect>
+        </td>
+        <![endif]-->
+        <!--[if !mso]><!-->
+        <td style="background:${NAVY};border-radius:8px;padding:14px 30px;" align="center">
+          <a href="${href}" style="color:#ffffff;font-size:15px;font-weight:700;text-decoration:none;display:inline-block;">${label}</a>
+        </td>
+        <!--<![endif]-->
+      </tr>
     </table>`;
 }
 
@@ -241,7 +264,7 @@ function linkFallback(url) {
 }
 
 function bullet(text) {
-  return `<tr><td style="padding:3px 0;font-size:13.5px;color:#1f2937;line-height:1.5;">• ${text}</td></tr>`;
+  return `<tr><td style="padding:0 0 6px;font-size:13.5px;color:#1f2937;line-height:1.45;mso-line-height-rule:exactly;">• ${text}</td></tr>`;
 }
 
 export async function sendActivationEmail(to, name, activationUrl, options = {}) {
@@ -337,7 +360,7 @@ export async function sendAccountActivatedEmail(to, name, options = {}) {
       <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 18px;">
         ${bullet('Add an expense and drag its receipt in — that\'s the whole loop')}
         ${bullet('Check Categories: a starter set is already there, and you can rename or add your own')}
-        ${bullet('Turn on two-factor login from Account if you\'d like the extra step')}
+        ${bullet('Two-factor sign-in is already on — every account has it, and it cannot be turned off')}
       </table>
 
       <p style="font-size:13px;color:#4b5563;margin:0;line-height:1.55;">
@@ -610,7 +633,7 @@ export async function sendAccountantInviteEmail(to, name, clientName, acceptUrl,
         termRow('Ends', 'Automatically when the time is up, or whenever they choose', true),
       ])}
       <p style="font-size:13px;color:#4b5563;margin:0 0 16px;line-height:1.55;">
-        You will be asked to turn on two-factor sign-in before you can open anybody's books. Their records deserve it.
+        Two-factor sign-in is set up as part of creating your login — every Taxify account has it, and it cannot be turned off.
       </p>
       <p style="font-size:13px;color:#4b5563;margin:0;line-height:1.55;">
         This invitation expires ${expiryLabel}. If you were not expecting it, ignore this email \u2014 nothing has been

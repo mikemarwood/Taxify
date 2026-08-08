@@ -112,14 +112,15 @@ export async function defaultEntityFor(ownerId) {
 // Tax" reads as theirs in a list beside "Acme Plumbing"; "Individual" reads as
 // a category. Falls back when there is no name to use — an account created by
 // an import, or one being repaired before its profile is filled in.
-export async function personalBooksName(ownerId) {
-  const [rows] = await pool.execute('SELECT first_name, name FROM users WHERE id = ?', [ownerId]);
-  const row = rows[0];
-  // first_name when it exists, otherwise the first word of the display name.
-  const first = String(row?.first_name || row?.name || '').trim().split(/\s+/)[0];
-  if (!first) return 'My Tax';
-  // "Chris" -> "Chris' Tax", not "Chris's Tax".
-  return /s$/i.test(first) ? `${first}' Tax` : `${first}'s Tax`;
+export async function personalBooksName() {
+  // "My Tax" for everybody, rather than a possessive of their first name.
+  //
+  // The possessive read well beside a business name, but this is the account
+  // holder's own list and they already know whose it is — and it came out
+  // wrong for anybody whose profile carried an initial, a company, or the
+  // wrong case. Renaming it is one press away for anybody who wants their own
+  // name on it.
+  return 'My Tax';
 }
 
 export async function ensureDefaultEntity(ownerId) {

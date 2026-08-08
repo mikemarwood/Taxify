@@ -12,7 +12,6 @@ import AvatarEditorModal from '../components/AvatarEditorModal.jsx';
 import { isSoundEnabled, setSoundEnabled } from '../lib/sounds.js';
 import PlanComparison from '../components/PlanComparison.jsx';
 import InvoiceList from '../components/InvoiceList.jsx';
-import PlanChangeRequest from '../components/PlanChangeRequest.jsx';
 import AccountantBooksPicker from '../components/AccountantBooksPicker.jsx';
 // Names and addresses are shown tidied rather than stored tidied — an
 // accountant's own name is theirs to spell, and rewriting the row would make
@@ -207,6 +206,58 @@ function AvatarSection({ user, setUser }) {
 }
 
 function BillingSection({ user }) {
+  const confirmRequest = useConfirm();
+  const [requesting, setRequesting] = useState(false);
+  const [openRequest, setOpenRequest] = useState(null);
+
+  // What has already been asked for, so the cards can say so rather than
+  // letting somebody ask twice and receive two invoices.
+  useEffect(() => {
+    api
+      .get('/billing/plan-change-request')
+      .then((res) => setOpenRequest(res.data.request))
+      .catch(() => setOpenRequest(null));
+  }, []);
+
+  // Choosing a plan asks us to move them. Stripe's own switch prorates
+  // instantly but only for an account with a live subscription — which
+  // excludes anybody on a granted plan, anybody whose subscription lapsed, and
+  // any move needing a price the published list cannot express.
+  async function requestPlan(plan) {
+    if (requesting) return;
+    if (openRequest) {
+      toast('You already have a plan change waiting — we will be in touch', 'error');
+      return;
+    }
+
+    const ok = await confirmRequest({
+      title: `Ask us to move you to ${plan.name}?`,
+      body: (
+        <>
+          <div style={{ marginBottom: 8 }}>
+            We will work out what you owe for the rest of your year and email you an invoice. Nothing is charged until
+            you pay it, and your plan stays exactly as it is until then.
+          </div>
+          <div>This opens a support ticket, so you can follow it and reply to us in one place.</div>
+        </>
+      ),
+      confirmLabel: 'Ask us to move me',
+      cancelLabel: 'Not now',
+    });
+    if (!ok) return;
+
+    setRequesting(true);
+    try {
+      const res = await api.post('/billing/plan-change-request', { planType: plan.planType });
+      setOpenRequest(res.data.request);
+      toast('Sent — we will email you an invoice', 'success');
+    } catch (err) {
+      toast(err.message, 'error');
+    } finally {
+      setRequesting(false);
+    }
+  }
+
   const toast = useToast();
   const [busy, setBusy] = useState(false);
 
@@ -291,12 +342,46 @@ function BillingSection({ user }) {
       {/* Both plans in full, with the current one marked. Prices come from
           Stripe rather than being written here, so what's quoted is what will
           be charged. */}
-      <PlanComparison user={user} />
+      {/* Choosing a plan here asks us to move them. Stripe's own switch only
+          works for an account with a live subscription, which excludes anybody
+          on a granted plan or a lapsed one — so the card raises a request, an
+          administrator quotes it, and the plan moves when the invoice is paid. */}
+      <PlanComparison user={user} onChoose={requestPlan} chooseLabel="Ask to move to" />
+
+      {openRequest && (
+        <div
+          style={{
+            border: '1px solid var(--border)',
+            borderLeft: `3px solid ${openRequest.status === 'invoiced' ? 'var(--amber)' : 'var(--accent)'}`,
+            borderRadius: 10,
+            padding: 14,
+            background: 'var(--bg-subtle)',
+            fontSize: 12.5,
+            lineHeight: 1.6,
+          }}
+        >
+          {openRequest.status === 'invoiced' ? (
+            <>
+              Your invoice for <strong>{labelForPlan(openRequest.toPlan)}</strong> is ready.{' '}
+              {openRequest.invoiceUrl && (
+                <a href={openRequest.invoiceUrl} target="_blank" rel="noreferrer" style={{ color: 'var(--accent)', fontWeight: 600 }}>
+                  Pay it here
+                </a>
+              )}{' '}
+              — your plan moves across as soon as the payment clears.
+            </>
+          ) : (
+            <>
+              We have your request to move to <strong>{labelForPlan(openRequest.toPlan)}</strong> and will email you an
+              invoice. It is on your support tickets if you want to add anything.
+            </>
+          )}
+        </div>
+      )}
 
       {/* The way through for anybody Stripe's own switch cannot serve: a
           granted plan, a lapsed one, or a price the published list does not
           carry. */}
-      <PlanChangeRequest user={user} />
 
       {/* Below the plans, because somebody opens this tab to change plan far
           more often than to find a receipt for last year. */}

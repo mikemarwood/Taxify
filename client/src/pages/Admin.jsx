@@ -266,6 +266,7 @@ function UsersTab() {
     { key: 'business', label: 'Small Business', match: (u) => u.role === 'owner' && u.planType === 'business' },
     { key: 'accountant', label: 'Accountants', match: (u) => u.role === 'accountant' },
     { key: 'admin', label: 'Administrators', match: (u) => !!u.isAdmin },
+    { key: 'support', label: 'Support team', match: (u) => !!u.isSupport },
   ];
 
   const active = FILTERS.find((f) => f.key === filter) || FILTERS[0];
@@ -394,9 +395,23 @@ function UsersTab() {
                       it for the same line — which is what made this unreadable
                       on a phone. */}
                   <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, marginTop: 5 }}>
-                    <Badge tone={u.isAdmin ? 'red' : u.role === 'sub_user' || u.role === 'accountant' ? 'amber' : 'accent'}>
+                    {/* Support staff are marked the way administrators are.
+                        They can read every customer's support conversation, and
+                        that is worth seeing in a list of accounts rather than
+                        only by opening each one. */}
+                    <Badge
+                      tone={
+                        u.isAdmin || u.isSupport
+                          ? 'red'
+                          : u.role === 'sub_user' || u.role === 'accountant'
+                          ? 'amber'
+                          : 'accent'
+                      }
+                    >
                       {u.isAdmin
                         ? 'Administrator'
+                        : u.isSupport
+                        ? 'Support team'
                         : u.role === 'sub_user'
                         ? 'Second login (legacy)'
                         : u.role === 'accountant'

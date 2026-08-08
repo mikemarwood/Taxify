@@ -52,8 +52,8 @@ const navGroups = [
       // where every expense, report and lodgement in the app belongs. It lived
       // above the Categories page's own title until it earned this.
       { to: '/books', label: 'Your books', icon: 'book' },
-      { to: '/account', label: 'My account', icon: 'settings' },
       { to: '/support', label: 'Support', icon: 'mail' },
+      { to: '/account', label: 'My account', icon: 'settings' },
     ],
     adminItems: [{ to: '/admin', label: 'Administration', icon: 'wrench' }],
     // Only for someone who actually acts for clients — a way back to the
