@@ -62,7 +62,7 @@ const FEATURES = [
   {
     icon: 'users',
     title: 'Share it with your partner',
-    text: 'Small Business keeps your own tax and up to two businesses side by side — separate categories, separate reports, separate lodgement, one login.',
+    text: 'Small Business keeps your own tax and up to two businesses side by side — separate categories, separate reports, separate returns, one login.',
   },
   {
     icon: 'lock',
@@ -95,7 +95,7 @@ const PLANS = [
     features: [
       'Your own individual tax — 1 set of books',
       'Up to 2 small businesses, each with its own books',
-      'Separate reports and lodgement for each',
+      'Separate reports and filing for each',
       'Read-only accountant access',
     ],
     highlight: true,

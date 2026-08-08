@@ -1,5 +1,7 @@
 import EntityManager from '../components/EntityManager.jsx';
 import { useEntities } from '../lib/EntityContext.jsx';
+import { useAuth } from '../lib/AuthContext.jsx';
+import { filingNoun } from '../lib/taxWords.js';
 
 // Your books.
 //
@@ -9,6 +11,8 @@ import { useEntities } from '../lib/EntityContext.jsx';
 // every expense, receipt, report and lodgement — they warrant their own page.
 
 export default function Books() {
+  const { user } = useAuth();
+  const filingWord = filingNoun(user?.country);
   const { allowance } = useEntities();
 
   const businesses = allowance?.businesses ?? 0;
@@ -19,7 +23,7 @@ export default function Books() {
       <div style={{ marginBottom: 22 }}>
         <h1 style={{ margin: '0 0 4px', fontSize: 26 }}>Your books</h1>
         <p style={{ color: 'var(--text-muted)', margin: 0 }}>
-          Every expense, category, report and lodgement belongs to one of these.
+          Every expense, category, report and {filingWord} belongs to one of these.
         </p>
       </div>
 
@@ -42,7 +46,7 @@ export default function Books() {
           {businesses === 0 ? (
             <>
               Your plan covers <strong style={{ color: 'var(--text)' }}>your own tax</strong>. Small Business adds up
-              to two businesses alongside it, each kept separately with its own reports and lodgement.
+              to two businesses alongside it, each kept separately with its own reports and {filingWord}.
             </>
           ) : (
             <>

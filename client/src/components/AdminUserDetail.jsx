@@ -681,7 +681,7 @@ function PlanAndBilling({ user, onSaved }) {
                   ? [
                       'Their own individual tax — 1 set of books',
                       'Up to 2 small businesses, each with its own books',
-                      'Separate reports and lodgement for each',
+                      'Separate reports and filing for each',
                       'Unlimited expenses and receipts',
                       'Accountant access',
                     ]

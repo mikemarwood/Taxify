@@ -25,7 +25,7 @@ export default function Terms() {
       title="Terms of Service"
       updated={UPDATED}
       sections={SECTIONS}
-      summary="Taxify keeps a tidy record of what you spent and the receipts that prove it. It is a record-keeping tool, not a tax adviser — it does not decide what you may claim, and it does not lodge anything on your behalf. What you or your accountant put in a return remains yours to stand behind."
+      summary="Taxify keeps a tidy record of what you spent and the receipts that prove it. It is a record-keeping tool, not a tax adviser — it does not decide what you may claim, and it does not file anything on your behalf. What you or your accountant put in a return remains yours to stand behind."
     >
       <Section n={1} title="What Taxify is, and what it is not">
         <P>
@@ -34,7 +34,7 @@ export default function Terms() {
         </P>
         <P>
           <strong>It is not tax, accounting, financial or legal advice.</strong> Whether an expense is deductible,
-          what percentage of it was business use, which lodgement period it belongs in and what you finally claim are
+          what percentage of it was business use, which filing period it belongs in and what you finally claim are
           your decisions, or your accountant’s. The deduction rates the app uses are entered by an administrator and
           should be checked against current guidance from your tax authority before you rely on them.
         </P>

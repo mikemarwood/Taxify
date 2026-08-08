@@ -1,4 +1,6 @@
 import { useEffect, useState } from 'react';
+import { useAuth } from '../lib/AuthContext.jsx';
+import { filingNoun } from '../lib/taxWords.js';
 import { useLockBodyScroll } from '../lib/useLockBodyScroll.js';
 import { AnimatePresence, motion } from 'framer-motion';
 import { api } from '../lib/api.js';
@@ -22,6 +24,8 @@ function money(cents, currency) {
 }
 
 export default function PlanChangeDialog({ planType, busy, onConfirm, onCancel }) {
+  const { user } = useAuth();
+  const filingWord = filingNoun(user?.country);
   // The page behind must not move while this is over it.
   useLockBodyScroll(open);
   const [preview, setPreview] = useState(undefined); // undefined = still asking
@@ -86,7 +90,7 @@ export default function PlanChangeDialog({ planType, busy, onConfirm, onCancel }
             <h2 style={{ margin: '0 0 6px', fontSize: 19 }}>Move to {label}</h2>
             <p style={{ margin: 0, fontSize: 13.5, color: 'var(--text-muted)', lineHeight: 1.55 }}>
               {upgrading
-                ? 'Your own tax plus up to two businesses, each with its own categories, reports and lodgement.'
+                ? `Your own tax plus up to two businesses, each with its own categories, reports and ${filingWord}.`
                 : 'Your own tax, one set of books. Any businesses you already have are kept — you just cannot add more.'}
             </p>
           </div>

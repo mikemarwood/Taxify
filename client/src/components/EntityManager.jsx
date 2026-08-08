@@ -4,6 +4,8 @@ import { api } from '../lib/api.js';
 import { useToast } from './Toast.jsx';
 import { useEntities } from '../lib/EntityContext.jsx';
 import { titleCase, titleCaseLive } from '../lib/textCase.js';
+import { useAuth } from '../lib/AuthContext.jsx';
+import { fileVerb, filingNoun, FilingNoun, taxOffice } from '../lib/taxWords.js';
 import Icon from './Icon.jsx';
 import { playClick } from '../lib/sounds.js';
 import { useConfirm } from '../lib/ConfirmContext.jsx';
@@ -60,7 +62,22 @@ function nameProblem(value, all, ignore = null) {
   return '';
 }
 
+
+// The local words for this account's country, in one place per component.
+function useTaxWords() {
+  const { user } = useAuth();
+  const country = user?.country;
+  return {
+    fileWord: fileVerb(country),
+    filesVerb: `${fileVerb(country)}s`,
+    filingWord: filingNoun(country),
+    FilingWord: FilingNoun(country),
+    office: taxOffice(country),
+  };
+}
+
 export default function EntityManager() {
+  const { fileWord, filesVerb, filingWord, FilingWord } = useTaxWords();
   const confirm = useConfirm();
   const toast = useToast();
   const { entities, archived, allowance, selected, selectedId, choose, reload } = useEntities();
@@ -224,7 +241,7 @@ export default function EntityManager() {
 
               <div style={{ fontSize: 11.5, color: 'var(--text-muted)', marginTop: 6 }}>
                 {e.kind === 'business' ? 'Small business' : 'Individual'} ·{' '}
-                {e.cadence === 'quarterly' ? 'lodges quarterly' : 'lodges yearly'}
+                {e.cadence === 'quarterly' ? `${filesVerb} quarterly` : `${filesVerb} yearly`}
               </div>
               <div style={{ fontSize: 11.5, color: 'var(--text-subtle)', marginTop: 2 }}>
                 {e.counts?.expenses ?? 0} expense{e.counts?.expenses === 1 ? '' : 's'} ·{' '}
@@ -383,7 +400,7 @@ export default function EntityManager() {
             </div>
 
             <div>
-              <label className="label">Lodges</label>
+              <label className="label">{FilingWord}</label>
               <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                 {CADENCES.map((c) => (
                   <button
@@ -465,6 +482,7 @@ export default function EntityManager() {
 }
 
 function EditRow({ entity, busy, canBecomeBusiness, siblings = [], onSave, onArchive }) {
+  const { fileWord } = useTaxWords();
   const [name, setName] = useState(entity.name);
   // Held here until Save. Pressing "Every quarter" used to change how the
   // books lodge the instant it was pressed, with nothing to confirm and
@@ -525,7 +543,7 @@ function EditRow({ entity, busy, canBecomeBusiness, siblings = [], onSave, onArc
       </div>
 
       <div>
-        <div style={groupLabel}>How often it lodges</div>
+        <div style={groupLabel}>How often it {fileWord}s</div>
         <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
           {CADENCES.map((c) => (
             <button
@@ -592,7 +610,7 @@ function EditRow({ entity, busy, canBecomeBusiness, siblings = [], onSave, onArc
                 deletion is rare enough to be worth asking for. */}
             <div style={{ fontSize: 11.5, color: 'var(--text-muted)', lineHeight: 1.55 }}>
               <strong style={{ color: 'var(--text)' }}>Archiving</strong> hides these books from the picker and from
-              your reports. Nothing is deleted — every expense, receipt and lodgement is kept, and you can restore them
+              your reports. Nothing is deleted — every expense, receipt and {filingWord} is kept, and you can restore them
               at any time from below. Archived books still count towards your plan's limit.
             </div>
           </div>

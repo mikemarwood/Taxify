@@ -212,7 +212,7 @@ export default function PushSettingsTab() {
         <h3 style={{ margin: '0 0 8px', fontSize: 15 }}>Why this is needed</h3>
         <p style={{ margin: '0 0 10px', fontSize: 13, color: 'var(--text-muted)', lineHeight: 1.65 }}>
           Taxify already shows notifications in the app — a recurring expense added, an accountant opening your books,
-          a lodgement date coming up. Those only appear while somebody has Taxify open.
+          a filing date coming up. Those only appear while somebody has Taxify open.
         </p>
         <p style={{ margin: '0 0 10px', fontSize: 13, color: 'var(--text-muted)', lineHeight: 1.65 }}>
           To reach a phone whose screen is off, the message has to go through the operating system's own delivery

@@ -1,4 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { useAuth } from '../lib/AuthContext.jsx';
+import { fileVerb } from '../lib/taxWords.js';
 import { createPortal } from 'react-dom';
 import { AnimatePresence, motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
@@ -13,6 +15,9 @@ import { playClick } from '../lib/sounds.js';
 // new at all.
 
 export default function EntitySwitcher({ compact = false }) {
+  const { user } = useAuth();
+  // "Lodges" in Australia and New Zealand, "Files" everywhere else.
+  const filesWord = fileVerb(user?.country) === 'lodge' ? 'Lodges' : 'Files';
   const { entities, selected, entity, isAll, showSwitcher, choose } = useEntities();
   const [open, setOpen] = useState(false);
   const ref = useRef(null);
@@ -127,7 +132,7 @@ export default function EntitySwitcher({ compact = false }) {
                 key={e.id}
                 icon={e.kind === 'business' ? 'briefcase' : 'user'}
                 title={e.name}
-                subtitle={`${e.cadence === 'quarterly' ? 'Lodges quarterly' : 'Lodges yearly'} · ${e.counts?.expenses ?? 0} expense${e.counts?.expenses === 1 ? '' : 's'}`}
+                subtitle={`${filesWord} ${e.cadence === 'quarterly' ? 'quarterly' : 'yearly'} · ${e.counts?.expenses ?? 0} expense${e.counts?.expenses === 1 ? '' : 's'}`}
                 active={String(selected) === String(e.id)}
                 onClick={() => pick(e.id)}
               />
