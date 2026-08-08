@@ -14,7 +14,7 @@ export const requireAuth = asyncHandler(async (req, res, next) => {
   if (!payload) return res.status(401).json({ error: 'Not authenticated' });
 
   const [rows] = await pool.execute(
-    `SELECT id, email, name, first_name, last_name, date_of_birth, phone, is_admin, avatar_path,
+    `SELECT id, email, name, first_name, last_name, date_of_birth, phone, is_admin, is_support, avatar_path,
             otp_enabled, otp_last_prompted_at, role, account_holder_id, plan_type,
             fy_start_month, fy_start_day,
             currency, country, state, business_name, practice_name, activated_at, trial_ends_at,
@@ -140,6 +140,19 @@ export const requireAuth = asyncHandler(async (req, res, next) => {
 
 export function requireAdmin(req, res, next) {
   if (!req.user?.isAdmin) return res.status(403).json({ error: 'Admin access required' });
+  next();
+}
+
+// The support queue, and only that.
+//
+// An administrator qualifies because they can already do everything this
+// allows. Support staff qualify for these routes and no others — which is the
+// entire point of the flag, so it must never be widened into a general admin
+// check by somebody looking for a shorter line to write.
+export function requireSupportStaff(req, res, next) {
+  if (!req.user?.isAdmin && !req.user?.isSupport) {
+    return res.status(403).json({ error: 'Support access required' });
+  }
   next();
 }
 

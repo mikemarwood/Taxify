@@ -8,6 +8,9 @@ export function toPublicUser(user, mfaMode) {
     email: user.email,
     name: user.name,
     isAdmin: !!user.is_admin,
+    // Support staff. Separate from isAdmin on purpose: it grants the ticket
+    // queue and nothing else.
+    isSupport: !!user.is_support,
     avatarUrl: user.avatar_path ? `/api/auth/avatar/${user.id}` : null,
     otpEnabled,
     mfaMode,

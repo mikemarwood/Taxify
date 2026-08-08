@@ -8,7 +8,7 @@ import { normalisePromoCode, isValidPromoCodeFormat } from '../lib/promoCodes.js
 import pool, { getSetting, setSetting, getMfaMode } from '../db.js';
 import { sendPlanChangedEmail } from '../lib/mailer.js';
 import { planLabel as planLabelFor } from '../lib/planLimits.js';
-import { requireAuth, requireAdmin } from '../auth/middleware.js';
+import { requireAuth, requireAdmin, requireSupportStaff } from '../auth/middleware.js';
 import { signViewAsToken, cookieOptions, COOKIE_NAME } from '../auth/jwt.js';
 import { toPublicUser } from '../auth/publicUser.js';
 import { computeAccessLocked } from '../auth/access.js';
@@ -77,7 +77,7 @@ router.get(
   '/users',
   asyncHandler(async (req, res) => {
     const [users] = await pool.execute(
-      `SELECT u.id, u.name, u.email, u.is_admin, u.avatar_path, u.created_at, u.activated_at,
+      `SELECT u.id, u.name, u.email, u.is_admin, u.is_support, u.avatar_path, u.created_at, u.activated_at,
               u.access_bypass, u.access_bypass_until, u.subscription_status, u.trial_ends_at,
               u.role, u.account_holder_id, holder.name AS holder_name,
               (SELECT COUNT(*) FROM expenses e WHERE e.user_id = u.id) AS expense_count
@@ -92,6 +92,7 @@ router.get(
         email: u.email,
         isAdmin: !!u.is_admin,
         avatarUrl: u.avatar_path ? `/api/auth/avatar/${u.id}` : null,
+        isSupport: Boolean(u.is_support),
         createdAt: u.created_at,
         active: !!u.activated_at,
         expenseCount: u.expense_count,
@@ -117,15 +118,54 @@ router.patch(
   '/users/:id',
   asyncHandler(async (req, res) => {
     const targetId = Number(req.params.id);
-    const { isAdmin } = req.body || {};
-    if (typeof isAdmin !== 'boolean') return res.status(400).json({ error: 'isAdmin must be a boolean' });
+    const { isAdmin, isSupport } = req.body || {};
 
-    if (targetId === req.user.id) {
+    const setsAdmin = typeof isAdmin === 'boolean';
+    const setsSupport = typeof isSupport === 'boolean';
+    if (!setsAdmin && !setsSupport) {
+      return res.status(400).json({ error: 'Nothing to change' });
+    }
+
+    // Changing your own administrator status is refused; putting yourself on
+    // the support team is not. One is the ability to grant yourself everything
+    // back after losing it, the other is answering tickets.
+    if (setsAdmin && targetId === req.user.id) {
       return res.status(400).json({ error: "You can't change your own admin status" });
     }
 
-    const [result] = await pool.execute('UPDATE users SET is_admin = ? WHERE id = ?', [isAdmin ? 1 : 0, targetId]);
+    const sets = [];
+    const params = [];
+    if (setsAdmin) {
+      sets.push('is_admin = ?');
+      params.push(isAdmin ? 1 : 0);
+    }
+    if (setsSupport) {
+      sets.push('is_support = ?');
+      params.push(isSupport ? 1 : 0);
+    }
+    params.push(targetId);
+
+    const [result] = await pool.execute(`UPDATE users SET ${sets.join(', ')} WHERE id = ?`, params);
     if (result.affectedRows === 0) return res.status(404).json({ error: 'User not found' });
+
+    // Told, because it changes what the app looks like the next time they load
+    // it — a Support section appears in their navigation with no explanation
+    // otherwise.
+    if (setsSupport) {
+      try {
+        await notify(targetId, {
+          title: isSupport ? 'You are now on the support team' : 'You have been taken off the support team',
+          body: isSupport
+            ? 'You can read the support queue and answer any ticket assigned to you.'
+            : 'You no longer have access to the support queue.',
+          url: isSupport ? '/admin?tab=support' : '/',
+          kind: 'support',
+        });
+      } catch (err) {
+        console.error('Could not tell them about the support change', err);
+      }
+    }
+
     res.json({ ok: true });
   })
 );
@@ -1222,13 +1262,17 @@ router.delete(
 
 router.get(
   '/support/tickets',
+  requireSupportStaff,
   asyncHandler(async (req, res) => {
     // Anything needing a reply first, oldest first within that — somebody who
     // has been waiting two days should not sit below somebody who wrote in five
     // minutes ago.
     const [rows] = await pool.query(
-      `SELECT t.*, u.name, u.email, u.avatar_path
-         FROM support_tickets t LEFT JOIN users u ON u.id = t.user_id
+      `SELECT t.*, u.name, u.email, u.avatar_path,
+              a.name AS assigned_name
+         FROM support_tickets t
+         LEFT JOIN users u ON u.id = t.user_id
+         LEFT JOIN users a ON a.id = t.assigned_to
         ORDER BY FIELD(t.status, 'awaiting_support', 'awaiting_customer', 'closed'),
                  t.last_message_at ASC
         LIMIT 200`
@@ -1239,6 +1283,7 @@ router.get(
 
 router.get(
   '/support/tickets/:id',
+  requireSupportStaff,
   asyncHandler(async (req, res) => {
     const [rows] = await pool.execute(
       `SELECT t.*, u.name, u.email, u.avatar_path
@@ -1284,6 +1329,7 @@ router.get(
 
 router.post(
   '/support/tickets/:id/reply',
+  requireSupportStaff,
   // Without this, a reply carrying an image arrives as an unparsed multipart
   // body: req.body is empty, the message reads as blank, and the reply is
   // refused with "write a message first" while the message sits on screen.
@@ -1294,6 +1340,19 @@ router.post(
       [req.params.id]
     );
     if (!rows[0]) return res.status(404).json({ error: 'Not found' });
+
+    // Assigned to you, or nobody answers. This holds for administrators too —
+    // it is not a permission check but a coordination one, and an administrator
+    // replying to somebody else's open case causes exactly the confusion the
+    // rule exists to prevent. Taking it first is one press.
+    if (rows[0].assigned_to !== req.user.id) {
+      return res.status(409).json({
+        error: rows[0].assigned_to
+          ? 'Somebody else is dealing with this one.'
+          : 'Take this ticket first, then reply.',
+      });
+    }
+
     return addReply(req, res, rows[0], 'support');
   })
 );
@@ -1302,6 +1361,7 @@ router.post(
 // their own ticket is a different feature, and one nobody has asked for.
 router.post(
   '/support/tickets/:id/status',
+  requireSupportStaff,
   asyncHandler(async (req, res) => {
     const closing = req.body?.status === 'closed';
 
@@ -1369,6 +1429,7 @@ router.post(
 // message only, and never once the ticket is closed.
 router.patch(
   '/support/messages/:id',
+  requireSupportStaff,
   asyncHandler(async (req, res) => {
     const [rows] = await pool.execute(
       `SELECT m.*, t.status, t.id AS ticket_id FROM support_messages m
@@ -1378,6 +1439,98 @@ router.patch(
     const row = rows[0];
     if (!row || row.author_user_id !== req.user.id) return res.status(404).json({ error: 'Not found' });
     return editMessage(req, res, row, { id: row.ticket_id, status: row.status });
+  })
+);
+
+// Everybody who can hold a ticket, so an administrator can choose.
+router.get(
+  '/support/staff',
+  requireSupportStaff,
+  asyncHandler(async (req, res) => {
+    const [rows] = await pool.query(
+      `SELECT id, name, email, avatar_path, is_admin FROM users
+        WHERE is_support = 1 OR is_admin = 1 ORDER BY name`
+    );
+    res.json({
+      staff: rows.map((r) => ({
+        id: r.id,
+        name: r.name,
+        email: r.email,
+        isAdmin: Boolean(r.is_admin),
+        avatarUrl: r.avatar_path ? `/api/auth/avatar/${r.id}` : null,
+      })),
+    });
+  })
+);
+
+// Taking a ticket, or putting it back.
+//
+// Anybody on support may take an unassigned one. Only the person holding it, or
+// an administrator, may hand it back — otherwise two people can pull it off
+// each other while they are both typing.
+router.post(
+  '/support/tickets/:id/assign',
+  requireSupportStaff,
+  asyncHandler(async (req, res) => {
+    const [rows] = await pool.execute('SELECT id, assigned_to FROM support_tickets WHERE id = ?', [req.params.id]);
+    const ticket = rows[0];
+    if (!ticket) return res.status(404).json({ error: 'Not found' });
+
+    const release = req.body?.release === true;
+    if (release) {
+      const mine = ticket.assigned_to === req.user.id;
+      if (!mine && !req.user.isAdmin) {
+        return res.status(403).json({ error: 'Only whoever is dealing with this can hand it back' });
+      }
+      await pool.execute(
+        'UPDATE support_tickets SET assigned_to = NULL, assigned_at = NULL, updated_at = NOW() WHERE id = ?',
+        [ticket.id]
+      );
+      return res.json({ ok: true, assignedTo: null });
+    }
+
+    // Somebody else already has it. Said plainly rather than silently taken —
+    // quietly reassigning work out from under a colleague mid-reply is how two
+    // half-answers reach one customer.
+    if (ticket.assigned_to && ticket.assigned_to !== req.user.id && !req.user.isAdmin) {
+      return res.status(409).json({ error: 'Somebody else is already dealing with this one' });
+    }
+
+    // An administrator may hand it to anyone, including themselves. Anybody
+    // else may only take it.
+    const target = req.body?.userId && req.user.isAdmin ? Number(req.body.userId) : req.user.id;
+
+    if (target !== req.user.id) {
+      const [staff] = await pool.execute(
+        'SELECT id FROM users WHERE id = ? AND (is_support = 1 OR is_admin = 1)',
+        [target]
+      );
+      if (!staff[0]) return res.status(400).json({ error: 'That person is not on the support team' });
+    }
+
+    await pool.execute(
+      'UPDATE support_tickets SET assigned_to = ?, assigned_at = NOW(), updated_at = NOW() WHERE id = ?',
+      [target, ticket.id]
+    );
+
+    // Only the person it went to. Telling the whole team about a ticket none of
+    // them can now answer is noise, and noise is what makes people stop reading
+    // notifications — which costs far more than one missed handover.
+    if (target !== req.user.id) {
+      try {
+        const [about] = await pool.execute('SELECT reference, subject FROM support_tickets WHERE id = ?', [ticket.id]);
+        await notify(target, {
+          title: `${req.user.name || 'An administrator'} passed you a ticket`,
+          body: `${about[0]?.reference} — ${about[0]?.subject}`,
+          url: '/admin?tab=support',
+          kind: 'support',
+        });
+      } catch (err) {
+        console.error('Could not tell them about the handover', err);
+      }
+    }
+
+    res.json({ ok: true, assignedTo: target });
   })
 );
 

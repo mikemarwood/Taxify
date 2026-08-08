@@ -103,6 +103,8 @@ function shapeTicket(row, { includeEmail = false } = {}) {
     who: row.user_id ? row.name : row.guest_name,
     ...(includeEmail ? { email: row.user_id ? row.email : row.guest_email } : {}),
     avatarUrl: row.user_id && row.avatar_path ? `/api/auth/avatar/${row.user_id}` : null,
+    assignedTo: row.assigned_to || null,
+    assignedName: row.assigned_name || null,
   };
 }
 
@@ -188,6 +190,14 @@ async function announce(ticket, { body, fromSupport, isNew = false }) {
           kind: 'support',
         });
       }
+    } else if (ticket.assigned_to) {
+      // Somebody is dealing with this one, so it is their reply to read.
+      await notify(ticket.assigned_to, {
+        title: `Reply on ${ticket.reference}`,
+        body: `${name || 'A customer'}: ${ticket.subject}`,
+        url: '/admin?tab=support',
+        kind: 'support',
+      });
     } else {
       await notifyAdmins({
         title: `Reply on ${ticket.reference}`,
@@ -328,10 +338,13 @@ router.get(
     // for it — a customer has no business knowing how much support is behind.
     let needingReply = 0;
     if (req.user.isAdmin) {
-      const [queue] = await pool.query(
+      const [queue] = await pool.execute(
         `SELECT COUNT(*) AS n FROM support_tickets
           WHERE status = 'awaiting_support'
-            AND (support_read_at IS NULL OR support_read_at < last_message_at)`
+            AND (support_read_at IS NULL OR support_read_at < last_message_at)
+            AND (assigned_to IS NULL OR assigned_to = ?)`
+        ,
+        [req.user.id]
       );
       needingReply = Number(queue[0]?.n) || 0;
     }

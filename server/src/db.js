@@ -29,6 +29,14 @@ export async function ensureSchema() {
   await pool.query(`
     ALTER TABLE users ADD COLUMN IF NOT EXISTS is_admin TINYINT(1) NOT NULL DEFAULT 0
   `);
+  // Support staff. Deliberately separate from is_admin rather than a level of
+  // it: this grants the support queue and nothing else — no users, no billing,
+  // no Stripe keys, no view-as. Somebody answering tickets does not need the
+  // ability to change anybody's plan, and giving it to them anyway is how a
+  // support account becomes the most valuable thing to steal.
+  await pool.query(`
+    ALTER TABLE users ADD COLUMN IF NOT EXISTS is_support TINYINT(1) NOT NULL DEFAULT 0
+  `);
   await pool.query(`
     ALTER TABLE users ADD COLUMN IF NOT EXISTS avatar_path VARCHAR(500) NULL
   `);
@@ -882,6 +890,14 @@ export async function ensureSchema() {
   // is both waiting on you *and* unread — otherwise the number sits there after
   // you have looked, and a number that will not clear is one people stop
   // looking at.
+  // Who is dealing with it. Null means nobody has picked it up yet.
+  //
+  // Reading is open to all support staff — you cannot pick up work you are not
+  // allowed to see, and a queue nobody can read is a queue nobody clears.
+  // Replying is not: two people answering the same person separately is worse
+  // than a slow answer, and the customer sees both.
+  await pool.query(`ALTER TABLE support_tickets ADD COLUMN IF NOT EXISTS assigned_to INT NULL`);
+  await pool.query(`ALTER TABLE support_tickets ADD COLUMN IF NOT EXISTS assigned_at DATETIME NULL`);
   await pool.query(`ALTER TABLE support_tickets ADD COLUMN IF NOT EXISTS customer_read_at DATETIME NULL`);
   await pool.query(`ALTER TABLE support_tickets ADD COLUMN IF NOT EXISTS support_read_at DATETIME NULL`);
   await pool.query(`ALTER TABLE support_messages ADD COLUMN IF NOT EXISTS attachments TEXT NULL`);

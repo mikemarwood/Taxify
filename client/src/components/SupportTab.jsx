@@ -7,6 +7,7 @@ import { useConfirm } from './../lib/ConfirmContext.jsx';
 import SupportThread, { StatusPill } from './SupportThread.jsx';
 import { formatDateTime } from '../lib/dates.js';
 import { playInfo } from '../lib/sounds.js';
+import { useAuth } from '../lib/AuthContext.jsx';
 import PlanRequestPanel from './PlanRequestPanel.jsx';
 
 // How often the queue re-checks. The thread does its own polling while open;
@@ -42,6 +43,7 @@ function Row({ ticket, active, onOpen }) {
         <div style={{ fontSize: 11, color: 'var(--text-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
           {ticket.who || 'Someone'}
           {ticket.isGuest && ' · guest'} · {ticket.categoryLabel}
+          {ticket.assignedName ? ` · ${ticket.assignedName}` : ' · unassigned'}
         </div>
       </div>
     </button>
@@ -51,6 +53,8 @@ function Row({ ticket, active, onOpen }) {
 export default function SupportTab() {
   const toast = useToast();
   const confirm = useConfirm();
+  const { user } = useAuth();
+  const [staff, setStaff] = useState([]);
   const [tickets, setTickets] = useState(null);
   const [openId, setOpenId] = useState(null);
   const [thread, setThread] = useState(null);
@@ -81,6 +85,13 @@ export default function SupportTab() {
       .then((res) => setThread(res.data))
       .catch((err) => toast(err.message, 'error'));
   }
+
+  useEffect(() => {
+    api
+      .get('/admin/support/staff')
+      .then((res) => setStaff(res.data.staff))
+      .catch(() => setStaff([]));
+  }, []);
 
   useEffect(() => {
     loadList();
@@ -118,6 +129,32 @@ export default function SupportTab() {
     }
   }
 
+  async function assign(userId) {
+    setBusy(true);
+    try {
+      await api.post(`/admin/support/tickets/${openId}/assign`, userId ? { userId } : {});
+      loadThread(openId);
+      loadList();
+    } catch (err) {
+      toast(err.message, 'error');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function release() {
+    setBusy(true);
+    try {
+      await api.post(`/admin/support/tickets/${openId}/assign`, { release: true });
+      loadThread(openId);
+      loadList();
+    } catch (err) {
+      toast(err.message, 'error');
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function setStatus(closing) {
     if (closing) {
       const ok = await confirm({
@@ -147,6 +184,7 @@ export default function SupportTab() {
 
   if (!tickets) return <div className="card" style={{ padding: 20, fontSize: 13 }}>Loading…</div>;
 
+  const mine = thread?.ticket?.assignedTo === user?.id;
   const needing = tickets.filter((t) => t.status === 'awaiting_support');
   const others = tickets.filter((t) => t.status !== 'awaiting_support');
 
@@ -211,6 +249,66 @@ export default function SupportTab() {
               <StatusPill status={thread.ticket.status} admin />
             </div>
 
+            {/* Who is dealing with it, and how to change that. Sits above the
+                conversation because it decides whether the reply box below is
+                usable at all. */}
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 10,
+                flexWrap: 'wrap',
+                padding: '10px 12px',
+                borderRadius: 9,
+                border: '1px solid var(--border)',
+                background: mine ? 'var(--accent-soft)' : 'var(--bg-subtle)',
+              }}
+            >
+              <Icon name="user" size={14} style={{ color: mine ? 'var(--accent)' : 'var(--text-muted)' }} />
+              <span style={{ fontSize: 12.5, fontWeight: 600 }}>
+                {thread.ticket.assignedTo
+                  ? mine
+                    ? 'You are dealing with this'
+                    : `${thread.ticket.assignedName} is dealing with this`
+                  : 'Nobody has picked this up'}
+              </span>
+
+              <span style={{ flex: 1 }} />
+
+              {!thread.ticket.assignedTo && (
+                <button className="btn btn-primary" style={{ fontSize: 12 }} disabled={busy} onClick={() => assign(null)}>
+                  Take it
+                </button>
+              )}
+
+              {mine && (
+                <button className="btn btn-ghost" style={{ fontSize: 12 }} disabled={busy} onClick={release}>
+                  Hand it back
+                </button>
+              )}
+
+              {/* Only an administrator can pass a ticket to somebody else —
+                  including to themselves, which is how they take one that a
+                  colleague is already holding. */}
+              {user?.isAdmin && staff.length > 0 && (
+                <select
+                  className="input"
+                  value=""
+                  disabled={busy}
+                  onChange={(e) => e.target.value && assign(Number(e.target.value))}
+                  style={{ fontSize: 12, width: 'auto', padding: '5px 8px' }}
+                >
+                  <option value="">Transfer to…</option>
+                  {staff.map((person) => (
+                    <option key={person.id} value={person.id}>
+                      {person.name}
+                      {person.id === user.id ? ' (you)' : ''}
+                    </option>
+                  ))}
+                </select>
+              )}
+            </div>
+
             <SupportThread
               admin
               ticket={thread.ticket}
@@ -221,6 +319,9 @@ export default function SupportTab() {
                 const res = await api.patch(`/admin/support/messages/${message.id}`, { message: body });
                 setThread((prev) => ({ ...prev, messages: res.data.messages }));
               }}
+              // No reply box unless it is yours to answer. Offering one and
+              // refusing the send would be worse than not offering it.
+              canReply={mine}
               onReply={async (message, files, onProgress) => {
                 let payload = { message };
                 if (files?.length) {

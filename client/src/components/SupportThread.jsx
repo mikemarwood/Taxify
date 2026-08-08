@@ -289,6 +289,10 @@ export default function SupportThread({
   onRefresh,
   busy,
   admin = false,
+  // On the support side, whether this ticket is yours to answer. Undefined
+  // everywhere else, which reads as yes — a customer is always allowed to
+  // reply to their own conversation.
+  canReply: mayReply = true,
   extraActions = null,
 }) {
   const toast = useToast();
@@ -301,6 +305,7 @@ export default function SupportThread({
   const [preview, setPreview] = useState(null);
 
   const closed = ticket?.status === 'closed';
+  const locked = closed || !mayReply;
   const [sending, setSending] = useState(false);
   // What we last saw, so a reply arriving while the page is open can announce
   // itself rather than appearing silently.
@@ -396,7 +401,7 @@ export default function SupportThread({
 
       {extraActions}
 
-      {closed ? (
+      {locked ? (
         <div
           style={{
             border: '1px solid var(--border)',
@@ -411,7 +416,9 @@ export default function SupportThread({
           }}
         >
           <Icon name="lock" size={14} />
-          {admin
+          {!closed && admin
+            ? 'Take this ticket to reply to it.'
+            : admin
             ? 'This request is closed. Reopen it to reply.'
             : 'This request has been closed. If it is not resolved, let us know and we will reopen it.'}
         </div>

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import ConfirmDialog from './ConfirmDialog.jsx';
 import { AnimatePresence, motion } from 'framer-motion';
+import Toggle from './Toggle.jsx';
 import { api } from '../lib/api.js';
 import { useToast } from './Toast.jsx';
 import Icon from './Icon.jsx';
@@ -438,6 +439,32 @@ export default function AdminUserDetail({ userId, me, onClose, onChanged, action
               </Section>
 
               <Section title="Actions" icon="wrench">
+                {/* The support team is a separate thing from administration:
+                    it grants the ticket queue and nothing else. Somebody
+                    answering tickets has no need to change plans or read
+                    anybody's books, and giving them that anyway is how a
+                    support login becomes the most valuable thing to steal. */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12, flexWrap: 'wrap' }}>
+                  <Toggle
+                    checked={Boolean(u.isSupport)}
+                    onChange={async (next) => {
+                      try {
+                        await api.patch(`/admin/users/${u.id}`, { isSupport: next });
+                        toast(next ? `${u.name} can now answer tickets` : `${u.name} removed from support`, 'success');
+                        onChanged?.();
+                      } catch (err) {
+                        toast(err.message, 'error');
+                      }
+                    }}
+                  />
+                  <div>
+                    <div style={{ fontSize: 13, fontWeight: 600 }}>On the support team</div>
+                    <div style={{ fontSize: 11.5, color: 'var(--text-muted)' }}>
+                      Reads the support queue and answers tickets assigned to them. Nothing else.
+                    </div>
+                  </div>
+                </div>
+
                 <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                   {!isSelf && (
                     <>
