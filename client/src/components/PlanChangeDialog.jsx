@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useLockBodyScroll } from '../lib/useLockBodyScroll.js';
 import { AnimatePresence, motion } from 'framer-motion';
 import { api } from '../lib/api.js';
 import { planLabel } from '../lib/plans.js';
@@ -21,6 +22,8 @@ function money(cents, currency) {
 }
 
 export default function PlanChangeDialog({ planType, busy, onConfirm, onCancel }) {
+  // The page behind must not move while this is over it.
+  useLockBodyScroll(open);
   const [preview, setPreview] = useState(undefined); // undefined = still asking
   const label = planLabel(planType);
 

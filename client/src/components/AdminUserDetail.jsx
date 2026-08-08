@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useLockBodyScroll } from '../lib/useLockBodyScroll.js';
 import ConfirmDialog from './ConfirmDialog.jsx';
 import { AnimatePresence, motion } from 'framer-motion';
 import Toggle from './Toggle.jsx';
@@ -106,6 +107,8 @@ function Section({ title, icon, children }) {
 // every fact and every action in a single row, which is why it was unreadable
 // on a phone — the row is now a row, and this is where the detail lives.
 export default function AdminUserDetail({ userId, me, onClose, onChanged, actions }) {
+  // The page behind must not move while this is over it.
+  useLockBodyScroll(true);
   const toast = useToast();
   const confirm = useConfirm();
   const [data, setData] = useState(null);

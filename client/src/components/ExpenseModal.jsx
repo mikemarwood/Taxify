@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useLockBodyScroll } from '../lib/useLockBodyScroll.js';
 import { motion, AnimatePresence } from 'framer-motion';
 import { api } from '../lib/api.js';
 import { useToast } from './Toast.jsx';
@@ -112,8 +113,14 @@ function DetailRow({ label, value }) {
 }
 
 export default function ExpenseModal({ expense, onClose, onSaved, onDeleted }) {
+  // The page behind must not move while this is over it.
+  useLockBodyScroll(open);
   const { user } = useAuth();
-  const readOnly = user?.role === 'accountant';
+  // actingAsClient matters as much as the role. Somebody who came in through
+  // an invitation while already having their own account is role 'owner', so
+  // this showed them edit and delete controls inside a client's books that the
+  // server refuses — a lie about somebody else's records.
+  const readOnly = Boolean(user?.readOnly || user?.actingAsClient || user?.role === 'accountant');
   const toast = useToast();
   const [editing, setEditing] = useState(false);
   const [categories, setCategories] = useState([]);
@@ -296,7 +303,6 @@ export default function ExpenseModal({ expense, onClose, onSaved, onDeleted }) {
               little outside to click. */}
           <button
             type="button"
-            onClick={onClose}
             aria-label="Close"
             title="Close"
             className="btn btn-ghost"

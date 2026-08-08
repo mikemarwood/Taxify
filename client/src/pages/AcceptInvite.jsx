@@ -235,6 +235,13 @@ export default function AcceptInvite() {
         never change anything, and they can end it at any time.
       </div>
 
+      {/* Said here rather than left to be discovered months later. Somebody
+          deciding what this login is for should know it can also be their own. */}
+      <p style={{ fontSize: 12.5, color: 'var(--text-muted)', margin: '-8px 0 18px', lineHeight: 1.6 }}>
+        You can keep your own expenses in Taxify on this same login too — start any time from your account, on the
+        same plans as anyone else. Your clients stay exactly as they are.
+      </p>
+
       <form onSubmit={acceptAsAccountant} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
           <div>

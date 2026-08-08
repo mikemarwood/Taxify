@@ -1,4 +1,5 @@
 import { AnimatePresence, motion } from 'framer-motion';
+import { useLockBodyScroll } from '../lib/useLockBodyScroll.js';
 import { useState } from 'react';
 import OtpBenefits from './OtpBenefits.jsx';
 import Icon from './Icon.jsx';
@@ -6,6 +7,8 @@ import { useAuth } from '../lib/AuthContext.jsx';
 import { useToast } from './Toast.jsx';
 
 export default function OtpOnboardingModal({ onClose }) {
+  // The page behind must not move while this is over it.
+  useLockBodyScroll(true);
   const { setOtpEnabled, dismissMfaPrompt } = useAuth();
   const toast = useToast();
   const [busy, setBusy] = useState(false);

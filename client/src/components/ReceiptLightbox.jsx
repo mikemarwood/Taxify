@@ -1,4 +1,5 @@
 import { useEffect } from 'react';
+import { useLockBodyScroll } from '../lib/useLockBodyScroll.js';
 import { motion, AnimatePresence } from 'framer-motion';
 import ZoomableReceipt from './ZoomableReceipt.jsx';
 import Icon from './Icon.jsx';
@@ -7,6 +8,8 @@ import Icon from './Icon.jsx';
 // ZoomableReceipt, so this is only the frame around it: the backdrop, the
 // close affordance, and the download link.
 export default function ReceiptLightbox({ url, filename, onClose }) {
+  // The page behind must not move while this is over it.
+  useLockBodyScroll(open);
   useEffect(() => {
     function onKeyDown(e) {
       if (e.key === 'Escape') onClose();
@@ -21,7 +24,6 @@ export default function ReceiptLightbox({ url, filename, onClose }) {
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
-        onClick={onClose}
         style={{
           position: 'fixed',
           inset: 0,
@@ -55,7 +57,6 @@ export default function ReceiptLightbox({ url, filename, onClose }) {
             type="button"
             aria-label="Close preview"
             title="Close (Esc)"
-            onClick={onClose}
             style={{
               position: 'absolute',
               top: 10,

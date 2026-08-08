@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { useLockBodyScroll } from '../lib/useLockBodyScroll.js';
 import { motion, AnimatePresence } from 'framer-motion';
 import Icon from './Icon.jsx';
 import ProgressBar from './ProgressBar.jsx';
@@ -9,6 +10,8 @@ const MIN_ZOOM = 1;
 const MAX_ZOOM = 3;
 
 export default function AvatarEditorModal({ imageSrc, busy, progress = 0, onCancel, onSave }) {
+  // The page behind must not move while this is over it.
+  useLockBodyScroll(true);
   const imgRef = useRef(null);
   const dragRef = useRef(null);
   const [ready, setReady] = useState(false);

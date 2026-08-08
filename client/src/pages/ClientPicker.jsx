@@ -187,17 +187,41 @@ export default function ClientPicker() {
               from the first time you open each one.
             </p>
           </div>
-          <button
-            type="button"
-            className="btn btn-ghost"
-            style={{ fontSize: 13 }}
-            onClick={async () => {
-              await logout();
-              navigate('/login');
-            }}
-          >
-            Sign out
-          </button>
+          {/* This page draws its own header — it renders outside Layout, so
+              there is no navigation anywhere on it. These two used to sit only
+              inside the "no clients yet" state below, which meant an accountant
+              who *had* clients saw a logo and Sign out and nothing else: no way
+              to reach their own account, and no sign that having one was even
+              possible. The best-signposted person was the one with nothing to
+              do. */}
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+            {user?.role === 'accountant' && (
+              <button
+                type="button"
+                className="btn btn-primary"
+                style={{ fontSize: 13 }}
+                onClick={startOwnAccount}
+                title="Keep your own expenses in Taxify, on this same login"
+              >
+                {starting && <span className="spinner" />}
+                Start my own account
+              </button>
+            )}
+            <Link to="/account" className="btn btn-ghost" style={{ fontSize: 13, textDecoration: 'none' }}>
+              My details
+            </Link>
+            <button
+              type="button"
+              className="btn btn-ghost"
+              style={{ fontSize: 13 }}
+              onClick={async () => {
+                await logout();
+                navigate('/login');
+              }}
+            >
+              Sign out
+            </button>
+          </div>
         </div>
 
         {blocked && <SetupRequired missing={setup.missing} onDone={refresh} />}

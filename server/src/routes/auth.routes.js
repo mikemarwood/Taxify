@@ -898,7 +898,11 @@ router.post(
 
     // The session is re-signed without a client, so they land in their own
     // account rather than in whoever they were last looking at.
-    res.cookie(COOKIE_NAME, signToken(req.user), cookieOptions(false));
+    // cookieOptions(true), not false. Without maxAge the cookie becomes a
+    // browser-session one, so somebody who ticked 'remember me' is silently
+    // signed out when they close the tab — for having started their own
+    // account, which is the last thing that should cost them anything.
+    res.cookie(COOKIE_NAME, signToken(req.user), cookieOptions(true));
     res.json({ ok: true, trialEndsAt });
   })
 );

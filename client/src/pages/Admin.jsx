@@ -17,6 +17,7 @@ import PromoCodesTab from '../components/PromoCodesTab.jsx';
 import { useConfirm } from '../lib/ConfirmContext.jsx';
 import AdminStatsTab from '../components/AdminStatsTab.jsx';
 import SupportTab from '../components/SupportTab.jsx';
+import LockedPanel from '../components/LockedPanel.jsx';
 import { useSupportCounts } from '../lib/useSupportCounts.js';
 import PushSettingsTab from '../components/PushSettingsTab.jsx';
 import { IconPicker, ColourPicker, CategoryPreview, SWATCHES } from '../components/CategoryPickers.jsx';
@@ -141,12 +142,24 @@ export default function Admin() {
       {tab === 'stats' && <AdminStatsTab />}
       {tab === 'support' && <SupportTab />}
       {tab === 'users' && <UsersTab />}
-      {tab === 'categories' && <DefaultCategoriesTab />}
+      {tab === 'categories' && (
+        <LockedPanel title="Default categories" hint="Every new account is built from this list. Editing it does not touch anybody who has already signed up.">
+          <DefaultCategoriesTab />
+        </LockedPanel>
+      )}
       {tab === 'settings' && <SettingsTab />}
-      {tab === 'email' && <EmailSettingsTab />}
+      {tab === 'email' && (
+        <LockedPanel title="The email server" hint="Every email the site sends goes through these settings. A wrong value here is silent — nothing arrives, and nobody is told.">
+          <EmailSettingsTab />
+        </LockedPanel>
+      )}
       {tab === 'stripe' && <StripeSettingsTab />}
       {tab === 'promos' && <PromoCodesTab />}
-      {tab === 'push' && <PushSettingsTab />}
+      {tab === 'push' && (
+        <LockedPanel title="Firebase" hint="This is what carries notifications to people's phones. Replacing the key is how they stop arriving.">
+          <PushSettingsTab />
+        </LockedPanel>
+      )}
     </div>
   );
 }
