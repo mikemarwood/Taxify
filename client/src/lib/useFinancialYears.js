@@ -9,7 +9,7 @@ import { api } from './api.js';
 // `extra` lets a caller keep a year that must always be offerable even with no
 // expenses in it yet — filing this year's paperwork before this year's first
 // receipt, for instance.
-export function useFinancialYears({ includeCurrent = true, extra = [] } = {}) {
+export function useFinancialYears({ includeCurrent = true, extra = [], entityIds = null } = {}) {
   const [years, setYears] = useState(null);
   // The current year comes from the server, which knows the account's rule.
   // Working it out here meant defaulting to the Australian one, so a US or UK
@@ -19,8 +19,12 @@ export function useFinancialYears({ includeCurrent = true, extra = [] } = {}) {
 
   useEffect(() => {
     let cancelled = false;
+    // Joined here rather than passed as an array, so the dependency below is
+    // a string and does not refetch on every render.
+    const scope = entityIds && entityIds.length > 0 ? entityIds.join(',') : '';
+
     api
-      .get('/expenses/years')
+      .get(`/expenses/years${scope ? `?entityIds=${encodeURIComponent(scope)}` : ''}`)
       .then((res) => {
         if (cancelled) return;
         setYears(res.data.years || []);
@@ -30,7 +34,9 @@ export function useFinancialYears({ includeCurrent = true, extra = [] } = {}) {
     return () => {
       cancelled = true;
     };
-  }, []);
+    // Rerun when the chosen books change — the whole point is that the list
+    // reflects them.
+  }, [entityIds ? entityIds.join(',') : '']);
 
   const merged = Array.from(
     new Set([...(years || []), ...(includeCurrent && current ? [current] : []), ...extra.filter(Boolean)])

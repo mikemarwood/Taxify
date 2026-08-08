@@ -457,6 +457,10 @@ export default function Layout({ children }) {
                 style={{
                   display: 'flex',
                   alignItems: 'center',
+                  // Centred rather than left-aligned: the badge is as wide as
+                  // the card, and a short word like "Active" pinned to the
+                  // left edge of it reads as a stray label rather than a state.
+                  justifyContent: 'center',
                   gap: 7,
                   fontSize: 11.5,
                   fontWeight: 600,

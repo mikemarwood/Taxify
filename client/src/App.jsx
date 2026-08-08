@@ -29,8 +29,17 @@ import Account from './pages/Account.jsx';
 import Support, { SupportTicket, SupportTicketByToken } from './pages/Support.jsx';
 import SubscriptionRequired from './pages/SubscriptionRequired.jsx';
 
+// Nothing, on purpose.
+//
+// index.html paints the boot screen before any JavaScript runs, and it now sits
+// *over* the app rather than inside #root — so it is still there, unbroken,
+// while this returns. Drawing a second copy of the same logo underneath it is
+// what made the app appear to load twice.
+//
+// StartupScreen is still used where a splash is genuinely a new event rather
+// than a continuation of the first paint.
 function Splash() {
-  return <StartupScreen />;
+  return null;
 }
 
 // Support is the one page reachable either way, so it needs both shells.

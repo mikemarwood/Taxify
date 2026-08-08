@@ -562,9 +562,16 @@ function deadlineFromNow(hours) {
 function AccountantSection({ user }) {
   const confirm = useConfirm();
   const toast = useToast();
-  // Only the years this account actually has — offering an accountant a year
-  // with nothing in it is offering them nothing.
-  const { years: grantableYears } = useFinancialYears();
+  // Only the years the *chosen* books actually have.
+  //
+  // Asked in that order for a reason: which years exist depends on which books
+  // are being shared, so choosing years first means choosing from a list that
+  // is about to change. A year with nothing in the shared books is an empty
+  // folder, and offering it makes the choice look meaningful when it grants
+  // nothing.
+  const { years: grantableYears } = useFinancialYears({
+    entityIds: allBooks ? null : pickedBooks,
+  });
 
   const [accountants, setAccountants] = useState(null);
   const [windowHours, setWindowHours] = useState(24);
@@ -899,9 +906,32 @@ function AccountantSection({ user }) {
               gap: 10,
             }}
           >
+            {/* Only appears when there is more than one set of books — with
+                one, "all of them" and "that one" are the same grant. */}
+            <AccountantBooksPicker
+              allBooks={allBooks}
+              setAllBooks={setAllBooks}
+              picked={pickedBooks}
+              setPicked={setPickedBooks}
+              chip={(on) => ({
+                fontSize: 12,
+                padding: '6px 11px',
+                borderRadius: 999,
+                cursor: 'pointer',
+                color: on ? '#fff' : 'var(--text-muted)',
+                background: on ? 'var(--accent)' : 'var(--bg-card)',
+                border: `1px solid ${on ? 'var(--accent)' : 'var(--border)'}`,
+              })}
+            />
+
             <div className="label" style={{ margin: 0 }}>
               How much of your history can they see?
             </div>
+            {!allBooks && pickedBooks.length > 0 && (
+              <div style={{ fontSize: 11.5, color: 'var(--text-muted)', marginTop: -4, lineHeight: 1.5 }}>
+                Only the years the books you chose have anything in.
+              </div>
+            )}
             <label style={{ display: 'flex', alignItems: 'center', gap: 9, fontSize: 13, cursor: 'pointer' }}>
               <input type="radio" checked={allYears} onChange={() => setAllYears(true)} />
               Every financial year
@@ -937,24 +967,6 @@ function AccountantSection({ user }) {
                 })}
               </div>
             )}
-
-            {/* Only appears when there is more than one set of books — with
-                one, "all of them" and "that one" are the same grant. */}
-            <AccountantBooksPicker
-              allBooks={allBooks}
-              setAllBooks={setAllBooks}
-              picked={pickedBooks}
-              setPicked={setPickedBooks}
-              chip={(on) => ({
-                fontSize: 12,
-                padding: '6px 11px',
-                borderRadius: 999,
-                cursor: 'pointer',
-                color: on ? '#fff' : 'var(--text-muted)',
-                background: on ? 'var(--accent)' : 'var(--bg-card)',
-                border: `1px solid ${on ? 'var(--accent)' : 'var(--border)'}`,
-              })}
-            />
 
             <div className="label" style={{ margin: '4px 0 0' }}>
               How long do they get?
@@ -1320,7 +1332,12 @@ export default function Account() {
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
           <div>
             <label className="label">Preferred currency</label>
-            <select className="input" value={currency} onChange={(e) => setCurrency(e.target.value)}>
+            {/* Fixed once the account exists. Every amount already recorded is
+                held in this currency, so changing it would not convert
+                anything — it would relabel years of figures as a different
+                currency and quietly make every total wrong. Shown rather than
+                hidden, because it is a fact worth knowing about the account. */}
+            <select className="input" value={currency} disabled onChange={(e) => setCurrency(e.target.value)}>
               {(options?.currencies || []).map((c) => (
                 <option key={c.code} value={c.code}>
                   {c.code} — {c.name}

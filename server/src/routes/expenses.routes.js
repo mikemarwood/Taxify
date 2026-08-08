@@ -6,7 +6,7 @@ import crypto from 'crypto';
 import { fileURLToPath } from 'url';
 import pool from '../db.js';
 import { requireAuth, requireActiveAccess } from '../auth/middleware.js';
-import { getVisibleUserIds, expenseScope, financialYearRuleFor } from '../auth/access.js';
+import { getVisibleUserIds, expenseScope, financialYearRuleFor, dataOwnerId } from '../auth/access.js';
 import { asyncHandler } from '../lib/asyncHandler.js';
 import { financialYearOf } from '../lib/financialYear.js';
 import { resolveCategoryForYear } from '../lib/categoryYears.js';
@@ -257,9 +257,34 @@ router.get(
   '/years',
   asyncHandler(async (req, res) => {
     const scope = await expenseScope(req.user);
+
+    // ?entityIds=4,9 narrows to particular books. Each id is checked against
+    // this account's own before it goes anywhere near the query — the ids come
+    // from a URL, and the scope clause alone does not constrain which of your
+    // books you asked about.
+    const asked = String(req.query?.entityIds || '')
+      .split(',')
+      .map((id) => Number(id.trim()))
+      .filter((id) => Number.isInteger(id) && id > 0);
+
+    let extraClause = '';
+    const extraParams = [];
+    if (asked.length > 0) {
+      const [owned] = await pool.execute(
+        'SELECT id FROM entities WHERE user_id = ? AND archived_at IS NULL',
+        [dataOwnerId(req.user)]
+      );
+      const mine = asked.filter((id) => owned.some((o) => o.id === id));
+      if (mine.length > 0) {
+        extraClause = ` AND e.entity_id IN (${mine.map(() => '?').join(',')})`;
+        extraParams.push(...mine);
+      }
+    }
+
     const [rows] = await pool.execute(
-      `SELECT DISTINCT purchase_date FROM expenses e WHERE ${scope.clause} AND e.deleted_at IS NULL`,
-      scope.params
+      `SELECT DISTINCT purchase_date FROM expenses e
+        WHERE ${scope.clause} AND e.deleted_at IS NULL${extraClause}`,
+      [...scope.params, ...extraParams]
     );
     const years = Array.from(new Set(rows.map((r) => financialYearOf(r.purchase_date, req.user.financialYearRule)).filter(Boolean)))
       .sort()

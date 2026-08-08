@@ -9,12 +9,21 @@ export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
 
+  // The boot screen waits for this. Who you are decides which page is rendered
+  // first, so there is nothing honest to show until it is known.
+
   useEffect(() => {
     api
       .get('/auth/me')
       .then((res) => setUser(res.data.user))
       .catch(() => setUser(null))
-      .finally(() => setLoading(false));
+      .finally(() => {
+        setLoading(false);
+        // The last thing the boot screen was waiting for: who you are decides
+        // which page renders first, so there was nothing honest to show until
+        // now. The screen fades itself out from here.
+        window.__taxifyBoot?.done();
+      });
   }, []);
 
   // Re-reads the session from the server. Used after something changes the
