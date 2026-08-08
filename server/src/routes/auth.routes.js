@@ -39,6 +39,7 @@ import {
   sendAccountantAccessUpdatedEmail,
   sendAccountantAccessEndedEmail,
 } from '../lib/mailer.js';
+import { notify } from '../lib/notify.js';
 import { ACTIVATION_TOKEN_DAYS, generateActivationToken } from '../auth/activationToken.js';
 import {
   generateInviteToken,
@@ -1249,12 +1250,22 @@ router.delete(
 
     // Told, rather than left to notice. The way in was always announced; the
     // way out was silent, so a client simply vanished from their list.
-    await notify(rows[0].accountant_user_id, {
-      title: `${req.user.name || req.user.email} has removed your access`,
-      body: 'Their books are no longer on your client list. Nothing of yours was affected.',
-      url: '/clients',
-      kind: 'accountant',
-    });
+    //
+    // Guarded, like the email below it. The access is already gone by this
+    // point — failing the request because we could not send a courtesy
+    // notification reports "Something went wrong" for something that worked,
+    // and invites the account holder to press Revoke again on an assignment
+    // that no longer exists.
+    try {
+      await notify(rows[0].accountant_user_id, {
+        title: `${req.user.name || req.user.email} has removed your access`,
+        body: 'Their books are no longer on your client list. Nothing of yours was affected.',
+        url: '/clients',
+        kind: 'accountant',
+      });
+    } catch (err) {
+      console.error('Failed to notify the accountant their access ended', err);
+    }
     try {
       const [who] = await pool.execute('SELECT email, name FROM users WHERE id = ?', [rows[0].accountant_user_id]);
       if (who[0]) {

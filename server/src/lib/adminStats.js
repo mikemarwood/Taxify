@@ -19,14 +19,32 @@ function change(current, previous) {
 // SQL only returns days that have rows, and a chart with the empty days
 // missing draws a straight line through them — which reads as steady use
 // rather than none.
+// Local date, formatted by hand. toISOString() converts to UTC first, so east
+// of Greenwich every key came out a day early: the last bucket was labelled
+// yesterday, and today's row from MariaDB — which groups by the server's own
+// local date — matched no bucket at all and showed as zero. Australia is ten
+// hours out, so this was wrong every single day rather than only near midnight.
+function isoDay(date) {
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${date.getFullYear()}-${month}-${day}`;
+}
+
 function fillDays(rows, days, key = 'day') {
-  const byDay = new Map(rows.map((r) => [String(r[key]).slice(0, 10), Number(r.count) || 0]));
+  const byDay = new Map(
+    rows.map((r) => {
+      // A DATE column arrives as a Date from mysql2, and a string from a plain
+      // query. Both have to reduce to the same key.
+      const value = r[key] instanceof Date ? isoDay(r[key]) : String(r[key]).slice(0, 10);
+      return [value, Number(r.count) || 0];
+    })
+  );
   const out = [];
   const cursor = new Date();
   cursor.setHours(0, 0, 0, 0);
   cursor.setDate(cursor.getDate() - (days - 1));
   for (let i = 0; i < days; i += 1) {
-    const iso = cursor.toISOString().slice(0, 10);
+    const iso = isoDay(cursor);
     out.push({ date: iso, count: byDay.get(iso) || 0 });
     cursor.setDate(cursor.getDate() + 1);
   }

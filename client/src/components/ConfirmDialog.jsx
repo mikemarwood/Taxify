@@ -22,9 +22,12 @@ export default function ConfirmDialog({
   cancelLabel = 'Cancel',
   tone = 'default',
   requireText = null,
-  // A mis-click outside a dialog should not be the same gesture as Cancel when
-  // the dialog is the last thing between somebody and an irreversible action.
-  dismissOnBackdrop = true,
+  // Off by default. A press outside the box is usually a mis-click, and this
+  // dialog is the last thing between somebody and an action they asked to be
+  // sure about — treating that mis-click as Cancel throws away what they were
+  // part-way through. Escape is unaffected: pressing it is a decision, and
+  // there has to be a way out from the keyboard.
+  dismissOnBackdrop = false,
   busy = false,
   onConfirm,
   onCancel,
@@ -37,13 +40,16 @@ export default function ConfirmDialog({
     if (open) setTyped('');
   }, [open]);
 
+  // Escape always cancels, whatever the backdrop does. The two were tied
+  // together, so turning off click-outside also took away the only way to
+  // leave the dialog from a keyboard.
   useEffect(() => {
     function onKey(e) {
-      if (e.key === 'Escape' && !busy && dismissOnBackdrop) onCancel();
+      if (e.key === 'Escape' && !busy) onCancel();
     }
     document.addEventListener('keydown', onKey);
     return () => document.removeEventListener('keydown', onKey);
-  }, [busy, onCancel, dismissOnBackdrop]);
+  }, [busy, onCancel]);
 
   const matched = !requireText || typed.trim().toLowerCase() === String(requireText).trim().toLowerCase();
   const danger = tone === 'danger';

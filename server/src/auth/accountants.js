@@ -1,4 +1,5 @@
 import pool from '../db.js';
+import { notify } from '../lib/notify.js';
 import { financialYearRange, isFinancialYearLabel } from '../lib/financialYear.js';
 
 // An accountant's window opens when they first open that client's books, not

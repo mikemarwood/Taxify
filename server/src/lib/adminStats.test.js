@@ -1,6 +1,12 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { changeBetween, fillDays } from './adminStats.js';
+
+// The same local-date rule fillDays uses. toISOString() is UTC, which is a day
+// out for most of the day in Australia — the bug these tests caught.
+function isoDayLocal(d = new Date()) {
+  return [d.getFullYear(), String(d.getMonth() + 1).padStart(2, '0'), String(d.getDate()).padStart(2, '0')].join('-');
+}
 import { shouldTouch, resetPresenceThrottle, ONLINE_WINDOW_MINUTES } from './presence.js';
 
 test('growth from nothing is reported as new, not as a percentage', () => {
@@ -25,11 +31,11 @@ test('the chart gets a row for every day, including the ones with nothing in the
   assert.equal(filled.length, 30);
   assert.ok(filled.every((d) => d.count === 0));
   // Oldest first, and the last one is today.
-  assert.equal(filled[29].date, new Date().toISOString().slice(0, 10));
+  assert.equal(filled[29].date, isoDayLocal());
 });
 
 test('a day that has rows keeps its count', () => {
-  const today = new Date().toISOString().slice(0, 10);
+  const today = isoDayLocal();
   const filled = fillDays([{ day: today, count: 7 }], 7);
   assert.equal(filled[6].count, 7);
   assert.equal(filled.slice(0, 6).reduce((n, d) => n + d.count, 0), 0);
