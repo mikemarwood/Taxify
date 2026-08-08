@@ -10,10 +10,17 @@ import Icon from '../components/Icon.jsx';
 import { financialYearOf } from '../lib/financialYear.js';
 import { useEntities } from '../lib/EntityContext.jsx';
 import { onDigitKeyDown, playSuccess } from '../lib/sounds.js';
-import { formatMoney } from '../lib/money.js';
+import { formatMoney, amountWhileTyping, amountOnBlur } from '../lib/money.js';
 import { useAuth } from '../lib/AuthContext.jsx';
 
 const CURRENCIES = ['AUD', 'USD', 'NZD', 'GBP', 'EUR'];
+
+// Long enough to say what something was, short enough to stay a line in a
+// list. The amount ceiling is the same one the server enforces.
+const ITEM_MIN = 2;
+const ITEM_MAX = 200;
+const NOTES_MAX = 1000;
+const AMOUNT_MAX = 999999.99;
 
 export default function AddExpense() {
   const { user } = useAuth();
@@ -148,7 +155,16 @@ export default function AddExpense() {
     return () => clearTimeout(id);
   }, [foreignCurrency, amount, currency, purchaseDate, manualRate]);
 
-  const formComplete = itemName.trim().length > 0 && Number(amount) > 0 && !!purchaseDate;
+  // Only complained about once something has been typed, so an untouched form
+  // is not covered in red before anybody has done anything wrong.
+  const itemIssue = itemName.trim() && itemName.trim().length < ITEM_MIN ? `At least ${ITEM_MIN} characters` : '';
+  const amountIssue = Boolean(amount.trim()) && !(Number(amount) > 0 && Number(amount) <= AMOUNT_MAX);
+
+  const formComplete =
+    itemName.trim().length >= ITEM_MIN &&
+    Number(amount) > 0 &&
+    Number(amount) <= AMOUNT_MAX &&
+    !!purchaseDate;
 
   async function onSubmit(e) {
     e.preventDefault();
@@ -249,11 +265,14 @@ export default function AddExpense() {
           <input
             className="input"
             required
-            maxLength={200}
+            maxLength={ITEM_MAX}
             value={itemName}
             onChange={(e) => onItemNameChange(e.target.value)}
             placeholder="e.g. Safety Boots"
+            aria-invalid={itemIssue ? 'true' : undefined}
+            style={itemIssue ? { borderColor: 'var(--red)' } : undefined}
           />
+          <div style={{ fontSize: 11.5, minHeight: 15, marginTop: 4, color: 'var(--red)' }}>{itemIssue}</div>
         </div>
 
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
@@ -263,16 +282,14 @@ export default function AddExpense() {
               <input
                 className="input"
                 required
-                type="number"
-                min="0.01"
-                max="999999.99"
-                step="0.01"
+                inputMode="decimal"
                 maxLength={10}
                 value={amount}
-                onChange={(e) => setAmount(e.target.value)}
-                onKeyDown={onDigitKeyDown}
+                onChange={(e) => setAmount(amountWhileTyping(e.target.value))}
+                onBlur={() => setAmount(amountOnBlur(amount))}
                 placeholder="0.00"
-                style={{ flex: 1, minWidth: 0 }}
+                aria-invalid={amountIssue ? 'true' : undefined}
+                style={{ flex: 1, minWidth: 0, borderColor: amountIssue ? 'var(--red)' : undefined }}
               />
               <select className="input" value={currency} onChange={(e) => setCurrency(e.target.value)} style={{ width: 90 }}>
                 {CURRENCIES.map((c) => (
@@ -453,7 +470,17 @@ export default function AddExpense() {
 
         <div>
           <label className="label">Notes (optional)</label>
-          <textarea className="input" rows={2} maxLength={1000} value={notes} onChange={(e) => setNotes(capitalizeSentences(e.target.value))} placeholder="Any extra detail for your records" />
+          <textarea
+            className="input"
+            rows={2}
+            maxLength={NOTES_MAX}
+            value={notes}
+            onChange={(e) => setNotes(capitalizeSentences(e.target.value))}
+            placeholder="Any extra detail for your records"
+          />
+          <div style={{ fontSize: 11.5, minHeight: 15, marginTop: 4, color: 'var(--text-muted)' }}>
+            {notes.length > NOTES_MAX - 100 ? `${NOTES_MAX - notes.length} characters left` : ''}
+          </div>
         </div>
 
         <div>

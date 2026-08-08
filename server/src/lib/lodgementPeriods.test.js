@@ -7,6 +7,7 @@ import {
   normaliseCadence,
   isPeriod,
   periodsCovering,
+  periodHasEnded,
 } from './lodgementPeriods.js';
 import { financialYearRange } from './financialYear.js';
 
@@ -209,4 +210,28 @@ test('the client mirror agrees with this one exactly', async () => {
       }
     }
   }
+});
+
+test('a period that is still running has not ended', () => {
+  // Finalising says "this cannot change". Closing a period that still has
+  // months to run locks somebody out of their own current year, and they do
+  // not find out until they try to add a receipt in March.
+  const rule = { startMonth: 7, startDay: 1 };
+  const midYear = new Date(2026, 0, 15); // 15 January, inside FY 2025-2026
+  assert.equal(periodHasEnded('2025-2026', rule, 'annual', 'FY', midYear), false);
+});
+
+test('a period is over the day after it ends, not on its last day', () => {
+  const rule = { startMonth: 7, startDay: 1 };
+  // 30 June is still the year; 1 July is not.
+  assert.equal(periodHasEnded('2025-2026', rule, 'annual', 'FY', new Date(2026, 5, 30)), false);
+  assert.equal(periodHasEnded('2025-2026', rule, 'annual', 'FY', new Date(2026, 6, 1)), true);
+});
+
+test('a finished quarter can be closed while the year around it runs on', () => {
+  // The whole point of quarterly lodgement: Q1 is done long before the year is.
+  const rule = { startMonth: 7, startDay: 1 };
+  const inQ3 = new Date(2026, 1, 10); // February
+  assert.equal(periodHasEnded('2025-2026', rule, 'quarterly', 'Q1', inQ3), true);
+  assert.equal(periodHasEnded('2025-2026', rule, 'quarterly', 'Q3', inQ3), false);
 });

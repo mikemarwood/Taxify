@@ -222,7 +222,15 @@ export default function Dashboard() {
             <FinancialYearCountdown financialYear={year} rule={user?.financialYearRule} />
           </motion.div>
 
-          {user?.role === 'owner' && (
+          {/* Only while something is actually running out.
+
+              A card that says "Active" every day forever is a card nobody
+              reads, and once it is ignored it can no longer do the one job it
+              has: telling somebody their trial is about to end. So it appears
+              for a trial, for a payment that failed, and for access that has
+              lapsed — and is simply absent the rest of the time. A subscription
+              renewing quietly needs no daily notice that it renewed quietly. */}
+          {user?.role === 'owner' && ['trial', 'past_due', 'expired'].includes(billing.state) && (
             <motion.div
               className="card"
               style={{ padding: 20, display: 'flex', flexDirection: 'column', gap: 6 }}
@@ -231,7 +239,7 @@ export default function Dashboard() {
               transition={{ delay: 0.25 }}
             >
               <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>
-                {billing.state === 'trial' ? 'Free trial' : billing.state === 'active' ? 'Subscription' : 'Account'}
+                {billing.state === 'trial' ? 'Free trial' : 'Account'}
               </div>
               <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
                 {billing.daysLeft !== null && billing.daysLeft > 0 ? (

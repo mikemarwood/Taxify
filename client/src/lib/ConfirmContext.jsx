@@ -50,7 +50,11 @@ export function ConfirmProvider({ children }) {
         cancelLabel={request?.cancelLabel || 'Cancel'}
         tone={request?.tone}
         requireText={request?.requireText}
-        dismissOnBackdrop={request?.dismissOnBackdrop !== false}
+        // `=== true`, not `!== false`. The latter defaulted every dialog that
+        // did not mention it back to closing on an outside click, quietly
+        // undoing the component's own default — which is why finalise and
+        // reopen still closed when you pressed beside them.
+        dismissOnBackdrop={request?.dismissOnBackdrop === true}
         onConfirm={() => settle(true)}
         onCancel={() => settle(false)}
       />

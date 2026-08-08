@@ -88,3 +88,36 @@ export function unconvertedCount(expenses) {
 export function isForeign(expense) {
   return !!expense?.baseCurrency && !!expense?.currency && expense.currency !== expense.baseCurrency;
 }
+
+// What an amount field accepts while somebody is typing.
+//
+// Digits, one decimal point, and at most two places after it — so 32.239 can
+// never be typed, rather than being accepted and silently rounded to something
+// the person did not write. Kept permissive otherwise: an empty box and a bare
+// "." are both valid mid-typing states and must not be fought.
+export function amountWhileTyping(raw) {
+  let text = String(raw ?? '').replace(/[^\d.]/g, '');
+
+  // Only the first point survives. Typing a second one is a slip, not a request
+  // for a second decimal separator.
+  const first = text.indexOf('.');
+  if (first !== -1) {
+    text = text.slice(0, first + 1) + text.slice(first + 1).replace(/\./g, '');
+  }
+
+  const [whole, decimals] = text.split('.');
+  if (decimals === undefined) return whole;
+  return `${whole}.${decimals.slice(0, 2)}`;
+}
+
+// What it settles to when the field is left. "32.2" becomes "32.20" and "32."
+// becomes "32.00", so what is stored is what is shown. An empty field stays
+// empty — filling it with 0.00 would put a number somebody never entered in
+// front of them.
+export function amountOnBlur(raw) {
+  const text = String(raw ?? '').trim();
+  if (!text) return '';
+  const value = Number(text);
+  if (!Number.isFinite(value)) return '';
+  return value.toFixed(2);
+}

@@ -3,7 +3,7 @@ import pool from '../db.js';
 import { requireAuth } from '../auth/middleware.js';
 import { asyncHandler } from '../lib/asyncHandler.js';
 import { financialYearRange } from '../lib/financialYear.js';
-import { lodgementPeriodsFor, normaliseCadence, isPeriod } from '../lib/lodgementPeriods.js';
+import { lodgementPeriodsFor, normaliseCadence, isPeriod, periodHasEnded, lodgementPeriodRange } from '../lib/lodgementPeriods.js';
 import { listEntities, ensureDefaultEntity, shapeEntity } from '../lib/entities.js';
 
 const router = Router();
@@ -152,6 +152,25 @@ router.get(
 
 // Recording the refund closes the year. The client asks before sending;
 // opting out is possible but is not the default.
+
+// Refuses a period that has not finished yet.
+//
+// Finalising means "this is what was claimed and it cannot change". A period
+// still running has expenses yet to be added to it, so closing one locks
+// somebody out of their own current year — and they do not find out until they
+// try to add a receipt and cannot.
+async function refuseUnfinishedPeriod(req, financialYear, period, entityId) {
+  const [rows] = await pool.execute('SELECT lodgement_cadence FROM entities WHERE id = ?', [entityId]);
+  const cadence = normaliseCadence(rows[0]?.lodgement_cadence);
+
+  if (periodHasEnded(financialYear, req.user.financialYearRule, cadence, period)) return null;
+
+  const range = lodgementPeriodRange(financialYear, req.user.financialYearRule, cadence, period);
+  return range
+    ? `That period is still running — it ends ${range.end}. You can finalise it once it has finished.`
+    : 'That period has not finished yet.';
+}
+
 router.put(
   '/:financialYear/refund',
   asyncHandler(async (req, res) => {
@@ -178,6 +197,11 @@ router.put(
     if (!period) return res.status(400).json({ error: 'Unknown lodgement period' });
     const entityId = await booksFor(req);
     if (!entityId) return res.status(400).json({ error: 'Choose which business this is for' });
+
+    if (finalise) {
+      const unfinished = await refuseUnfinishedPeriod(req, financialYear, period, entityId);
+      if (unfinished) return res.status(400).json({ error: unfinished });
+    }
 
     await ensureRow(ownerId, entityId, financialYear, period);
     await pool.execute(
@@ -221,6 +245,9 @@ router.post(
     if (!period) return res.status(400).json({ error: 'Unknown lodgement period' });
     const entityId = await booksFor(req);
     if (!entityId) return res.status(400).json({ error: 'Choose which business this is for' });
+
+    const unfinished = await refuseUnfinishedPeriod(req, financialYear, period, entityId);
+    if (unfinished) return res.status(400).json({ error: unfinished });
 
     const ownerId = accountOwnerId(req.user);
     await ensureRow(ownerId, entityId, financialYear, period);

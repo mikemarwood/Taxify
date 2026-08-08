@@ -122,3 +122,25 @@ export function periodsCovering(dates, rule, cadence) {
   }
   return [...seen.values()];
 }
+
+// Whether a lodgement period has actually finished.
+//
+// Finalising says "this is what was claimed and it cannot change". A period
+// still running has expenses yet to be added to it, so closing one locks
+// somebody out of their own current year — and the mistake is not obvious
+// until they try to add a receipt in March and cannot.
+//
+// The comparison is on the end date, inclusive: a period ending 30 June is
+// over on 1 July, not on 30 June.
+export function periodHasEnded(financialYear, rule, cadence, period, today = new Date()) {
+  const range = lodgementPeriodRange(financialYear, rule, cadence, period);
+  if (!range) return false;
+
+  // Local date rather than toISOString, which is a day out east of Greenwich —
+  // and this is a comparison somebody makes by looking at a calendar.
+  const now = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(
+    today.getDate()
+  ).padStart(2, '0')}`;
+
+  return now > range.end;
+}

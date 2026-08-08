@@ -17,7 +17,6 @@ import PromoCodesTab from '../components/PromoCodesTab.jsx';
 import { useConfirm } from '../lib/ConfirmContext.jsx';
 import AdminStatsTab from '../components/AdminStatsTab.jsx';
 import SupportTab from '../components/SupportTab.jsx';
-import TaxRatesTab from '../components/TaxRatesTab.jsx';
 import PushSettingsTab from '../components/PushSettingsTab.jsx';
 import { IconPicker, ColourPicker, CategoryPreview, SWATCHES } from '../components/CategoryPickers.jsx';
 import Avatar from '../components/Avatar.jsx';
@@ -46,7 +45,6 @@ const TAB_KEYS = [
   'email',
   'stripe',
   'promos',
-  'rates',
   'push',
 ];
 
@@ -94,9 +92,6 @@ export default function Admin() {
         <button className={tab === 'promos' ? 'btn btn-primary' : 'btn btn-ghost'} onClick={() => setTab('promos')}>
           Promo codes
         </button>
-        <button className={tab === 'rates' ? 'btn btn-primary' : 'btn btn-ghost'} onClick={() => setTab('rates')}>
-          Deduction rates
-        </button>
         <button className={tab === 'push' ? 'btn btn-primary' : 'btn btn-ghost'} onClick={() => setTab('push')}>
           Firebase
         </button>
@@ -110,7 +105,6 @@ export default function Admin() {
       {tab === 'email' && <EmailSettingsTab />}
       {tab === 'stripe' && <StripeSettingsTab />}
       {tab === 'promos' && <PromoCodesTab />}
-      {tab === 'rates' && <TaxRatesTab />}
       {tab === 'push' && <PushSettingsTab />}
     </div>
   );

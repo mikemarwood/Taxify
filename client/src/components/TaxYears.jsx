@@ -4,7 +4,8 @@ import { api } from '../lib/api.js';
 import { useToast } from './Toast.jsx';
 import { useAuth } from '../lib/AuthContext.jsx';
 import Icon from './Icon.jsx';
-import { formatMoney } from '../lib/money.js';
+import { formatMoney, amountWhileTyping, amountOnBlur } from '../lib/money.js';
+import { sentenceCase } from '../lib/textCase.js';
 import { playSuccess, playError } from '../lib/sounds.js';
 import { formatDateShort, formatAppointmentTime } from '../lib/dates.js';
 import { lodgementPeriodsFor } from '../lib/lodgementPeriods.js';
@@ -64,6 +65,10 @@ const EMPTY_APPOINTMENT = { date: '', time: '09:00', company: '', accountant: ''
 // they are one story told in order.
 // expenses are needed to work out what a single quarter claimed — the year
 // totals the page already has cannot be divided into quarters after the fact.
+function todayIso(d = new Date()) {
+  return [d.getFullYear(), String(d.getMonth() + 1).padStart(2, '0'), String(d.getDate()).padStart(2, '0')].join('-');
+}
+
 export default function TaxYears({ years, spendByYear, expenses, onFinalisedChange }) {
   const confirm = useConfirm();
   const toast = useToast();
@@ -411,7 +416,7 @@ export default function TaxYears({ years, spendByYear, expenses, onFinalisedChan
                         with nothing owed either way — and those years could
                         not be closed at all while finalising was something
                         that only happened as a side effect of entering money. */}
-                    {!finalised && canEdit && (
+                    {!finalised && canEdit && row.end && todayIso() > row.end && (
                       <button
                         className="btn btn-ghost"
                         style={{ fontSize: 12, padding: '6px 11px', gap: 6 }}
@@ -421,6 +426,14 @@ export default function TaxYears({ years, spendByYear, expenses, onFinalisedChan
                         <Icon name="lock" size={13} />
                         Finalise
                       </button>
+                    )}
+                    {!finalised && canEdit && row.end && todayIso() <= row.end && (
+                      <span
+                        title={`This period ends ${row.end}`}
+                        style={{ fontSize: 11.5, color: 'var(--text-muted)' }}
+                      >
+                        Still running
+                      </span>
                     )}
                     {finalised && canReopen && (
                       <button
@@ -547,7 +560,8 @@ export default function TaxYears({ years, spendByYear, expenses, onFinalisedChan
                           inputMode="decimal"
                           placeholder="0.00"
                           value={amount}
-                          onChange={(e) => setAmount(e.target.value.replace(/[^0-9.]/g, ''))}
+                          onChange={(e) => setAmount(amountWhileTyping(e.target.value))}
+                          onBlur={() => setAmount(amountOnBlur(amount))}
                         />
                       </div>
                       <div style={{ flex: 1, minWidth: 200 }}>
@@ -558,6 +572,7 @@ export default function TaxYears({ years, spendByYear, expenses, onFinalisedChan
                           placeholder="e.g. Assessed 14 Oct, includes offset"
                           value={notes}
                           onChange={(e) => setNotes(e.target.value)}
+                          onBlur={() => setNotes(sentenceCase(notes))}
                         />
                       </div>
                       <button className="btn btn-primary" style={{ fontSize: 13 }} disabled={busy} onClick={() => saveRefund(year)}>
