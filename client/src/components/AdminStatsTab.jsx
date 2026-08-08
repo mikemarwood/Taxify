@@ -199,7 +199,7 @@ function Panel({ title, icon, children, live }) {
   );
 }
 
-export default function AdminStatsTab() {
+export default function AdminStatsTab({ onHowItWorks }) {
   const [stats, setStats] = useState(null);
   const [error, setError] = useState('');
   const [updatedAt, setUpdatedAt] = useState(null);
@@ -247,13 +247,22 @@ export default function AdminStatsTab() {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap' }}>
-        <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>
+        <div style={{ fontSize: 12, color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
           {error ? (
             <span style={{ color: 'var(--amber)' }}>Showing the last good figures — {error}</span>
           ) : (
             <>Updated {updatedAt ? formatDateTime(updatedAt) : '—'} · refreshes every {REFRESH_MS / 1000}s</>
           )}
         </div>
+
+        {/* The map of how the system works, from the page somebody is most often
+            looking at when they wonder. */}
+        {onHowItWorks && (
+          <button className="btn btn-ghost" style={{ fontSize: 12.5, gap: 6 }} onClick={onHowItWorks}>
+            <Icon name="info" size={14} />
+            How it works
+          </button>
+        )}
       </div>
 
       <div style={{ display: 'grid', gap: 12, gridTemplateColumns: 'repeat(auto-fit, minmax(165px, 1fr))' }}>

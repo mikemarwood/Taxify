@@ -1119,7 +1119,14 @@ function PendingActivation({ email }) {
   // can be pressed straight away invites somebody to press it three times
   // before the first one arrives — which sends three emails and invalidates
   // the link in the first two.
-  const [secondsLeft, setSecondsLeft] = useState(5);
+  // Five minutes, not five seconds.
+  //
+  // The email has only just been sent when this screen appears, so offering to
+  // send another almost immediately invites somebody to press it before the
+  // first one has arrived — and then to trust the second, which invalidates
+  // the link in the first. The server enforces its own wait; this is the same
+  // number so the button does not offer something that will be refused.
+  const [secondsLeft, setSecondsLeft] = useState(300);
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {

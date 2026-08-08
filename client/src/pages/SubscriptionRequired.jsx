@@ -36,6 +36,24 @@ export default function SubscriptionRequired() {
   const isOwner = user?.role === 'owner';
   const billing = describeSubscription(user);
 
+  // Asks us to move them rather than opening Stripe.
+  //
+  // This page is only shown to somebody whose access has lapsed — precisely the
+  // account Stripe's own switch cannot serve, because there is no live
+  // subscription to change. An administrator quotes it and sends an invoice,
+  // and the ticket keeps the whole thing in one conversation.
+  async function requestPlan(plan) {
+    setBusy(true);
+    try {
+      await api.post('/billing/plan-change-request', { planType: plan.planType });
+      toast('Sent — we will email you an invoice', 'success');
+    } catch (err) {
+      toast(err.message, 'error');
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function checkout(planType) {
     setBusy(true);
     try {
@@ -82,7 +100,7 @@ export default function SubscriptionRequired() {
           <>
             <div className="card" style={{ padding: 20, display: 'flex', flexDirection: 'column', gap: 12 }}>
               <div style={{ fontWeight: 700 }}>Choose your plan</div>
-              <PlanComparison user={user} onChoose={(plan) => !busy && checkout(plan.planType)} chooseLabel="Subscribe to" />
+              <PlanComparison user={user} onChoose={(plan) => !busy && requestPlan(plan)} chooseLabel="Ask us about" />
               <div style={{ fontSize: 11.5, color: 'var(--text-muted)' }}>
                 Prices are in AUD and billed yearly. Payment is handled by Stripe — Taxify never sees your card details.
               </div>
@@ -106,11 +124,14 @@ export default function SubscriptionRequired() {
               ))}
             </div>
 
-            <div style={{ textAlign: 'center', fontSize: 12.5, color: 'var(--text-muted)' }}>
+            {user?.stripeCustomerId && (
+            <div style={{ textAlign: 'center', fontSize: 12.5, color: 'var(--text-muted)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, flexWrap: 'wrap' }}>
               Already paid, or need to update your card?{' '}
               <button
                 type="button"
-                className="link-button"
+                className="btn btn-ghost"
+                style={{ fontSize: 12.5 }}
+                disabled={busy}
                 onClick={async () => {
                   setBusy(true);
                   try {
@@ -122,9 +143,11 @@ export default function SubscriptionRequired() {
                   }
                 }}
               >
+                {busy && <span className="spinner" />}
                 Open the billing portal
               </button>
             </div>
+            )}
           </>
         )}
       </motion.div>

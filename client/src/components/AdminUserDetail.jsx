@@ -19,6 +19,16 @@ function formatBytes(bytes) {
   return `${Math.max(1, Math.round(bytes / 1024))} KB`;
 }
 
+// "in 12 days", "today", "9 days ago" — the thing somebody is working out in
+// their head while looking at a date, done for them.
+function daysAway(value) {
+  if (!value) return '';
+  const days = Math.ceil((new Date(value).getTime() - Date.now()) / 86400000);
+  if (Number.isNaN(days)) return '';
+  if (days === 0) return '(today)';
+  return days > 0 ? `(in ${days} day${days === 1 ? '' : 's'})` : `(${-days} day${days === -1 ? '' : 's'} ago)`;
+}
+
 function date(value) {
   if (!value) return '—';
   return formatDateShort(value);
@@ -71,10 +81,20 @@ function Field({ label, children, mono }) {
 // Each category is its own bordered block with a tinted header, rather than a
 // heading and a hairline. Ten sections separated only by a rule read as one
 // long scroll — you cannot see where "Activity" stops and "Billing" starts.
-function Section({ title, icon, children }) {
+function Section({ title, icon, children, sticky = false }) {
   return (
     <section
       style={{
+        ...(sticky
+          ? {
+              // Kept in reach on a long panel. These are the things somebody
+              // opened the account to do, and scrolling past ten sections to
+              // find them is how the panel gets closed and reopened.
+              position: 'sticky',
+              bottom: 0,
+              zIndex: 2,
+            }
+          : null),
         border: '1px solid var(--border)',
         borderRadius: 10,
         overflow: 'hidden',
@@ -292,8 +312,14 @@ export default function AdminUserDetail({ userId, me, onClose, onChanged, action
 
               <Section title="Billing" icon="credit-card">
                 <div className="admin-grid">
-                  <Field label="Trial ends">{date(u.trialEndsAt)}</Field>
-                  <Field label="Renews / ends">{date(u.subscriptionCurrentPeriodEnd)}</Field>
+                  <Field label="Trial ends">
+                    {u.trialEndsAt ? `${date(u.trialEndsAt)} ${daysAway(u.trialEndsAt)}` : '—'}
+                  </Field>
+                  <Field label="Renews / ends">
+                    {u.subscriptionCurrentPeriodEnd
+                      ? `${date(u.subscriptionCurrentPeriodEnd)} ${daysAway(u.subscriptionCurrentPeriodEnd)}`
+                      : '—'}
+                  </Field>
                   <Field label="Granted access until">
                     {u.accessBypass ? (u.accessBypassUntil ? date(u.accessBypassUntil) : 'Open-ended') : '—'}
                   </Field>
@@ -371,6 +397,28 @@ export default function AdminUserDetail({ userId, me, onClose, onChanged, action
                 </Section>
               )}
 
+              {data.planChanges?.length > 0 && (
+                <Section title="Plan changes" icon="credit-card">
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                    {data.planChanges.map((c) => (
+                      <div key={c.id} style={{ fontSize: 12.5, paddingBottom: 8, borderBottom: '1px solid var(--border)' }}>
+                        <div style={{ fontWeight: 600 }}>
+                          {c.fromPlan || '—'} → {c.toPlan}
+                          <span style={{ color: 'var(--text-muted)', fontWeight: 400 }}> · {c.status}</span>
+                        </div>
+                        <div style={{ fontSize: 11.5, color: 'var(--text-muted)', marginTop: 2, lineHeight: 1.6 }}>
+                          Asked {dateTime(c.askedAt)}
+                          {c.invoicedAt && ` · invoiced ${dateTime(c.invoicedAt)}`}
+                          {c.amountCents != null &&
+                            ` · ${formatMoney(c.amountCents / 100, (c.currency || 'AUD').toUpperCase())}`}
+                          {c.paidAt && ` · paid ${dateTime(c.paidAt)}`}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </Section>
+              )}
+
               <Section title="Sign-in history" icon="lock">
                 {data.logins.total === 0 ? (
                   <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>
@@ -443,7 +491,7 @@ export default function AdminUserDetail({ userId, me, onClose, onChanged, action
                 <PlanAndBilling user={u} onSaved={refresh} />
               </Section>
 
-              <Section title="Actions" icon="wrench">
+              <Section title="Actions" icon="wrench" sticky>
                 {/* The support team is a separate thing from administration:
                     it grants the ticket queue and nothing else. Somebody
                     answering tickets has no need to change plans or read

@@ -356,6 +356,11 @@ router.get(
 
     // Recent sign-ins and what they came from. Twenty is enough to see a
     // pattern without turning this into a surveillance log.
+    const [planChanges] = await pool.execute(
+      'SELECT * FROM plan_change_requests WHERE user_id = ? ORDER BY created_at DESC LIMIT 20',
+      [id]
+    );
+
     const [logins] = await pool.execute(
       'SELECT at, device, platform, browser, ip, method FROM login_events WHERE user_id = ? ORDER BY at DESC LIMIT 20',
       [id]
@@ -439,6 +444,22 @@ router.get(
         amount: t.amount === null ? null : Number(t.amount),
         finalisedAt: t.finalised_at,
         appointmentAt: t.appointment_at,
+      })),
+      // Every plan change ever asked for, with what became of it. The panel
+      // already says which plan they are on; what it could not say is how they
+      // got there, which is the question actually asked when somebody disputes
+      // a charge.
+      planChanges: planChanges.map((r) => ({
+        id: r.id,
+        fromPlan: r.from_plan,
+        toPlan: r.to_plan,
+        status: r.status,
+        amountCents: r.invoice_amount_cents,
+        currency: r.invoice_currency,
+        invoiceUrl: r.invoice_url,
+        askedAt: r.created_at,
+        invoicedAt: r.invoiced_at,
+        paidAt: r.paid_at,
       })),
       logins: {
         total: Number(loginSummary?.total) || 0,

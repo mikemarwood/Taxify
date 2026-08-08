@@ -149,7 +149,7 @@ export default function Admin() {
         </button>
       </div>
 
-      {tab === 'stats' && <AdminStatsTab />}
+      {tab === 'stats' && <AdminStatsTab onHowItWorks={() => setTab('how')} />}
       {tab === 'support' && <SupportTab />}
       {tab === 'tools' && <ToolsTab />}
       {tab === 'how' && <HowItWorksTab />}
