@@ -261,16 +261,10 @@ function BillingSection({ user }) {
   const toast = useToast();
   const [busy, setBusy] = useState(false);
 
-  async function goToCheckout() {
-    setBusy(true);
-    try {
-      const res = await api.post('/billing/checkout');
-      window.location.href = res.data.url;
-    } catch (err) {
-      toast(err.message, 'error');
-      setBusy(false);
-    }
-  }
+  // Nothing here goes to Stripe checkout any more — choosing a plan card asks
+  // us to invoice instead, which is the one route that works for an account
+  // without a live subscription. The old goToCheckout is gone rather than left
+  // unused, so nobody wires a button back to it by accident.
 
   async function goToPortal() {
     setBusy(true);
@@ -387,21 +381,22 @@ function BillingSection({ user }) {
           more often than to find a receipt for last year. */}
       <InvoiceList />
 
-      {/* A granted account has no Stripe customer, so there is neither anything
-          to buy nor a portal to open — offering either only leads to an error. */}
-      {status.state !== 'granted' && (
+      {/* Only ever the billing portal, and only for somebody who has one.
+
+          The Subscribe button that used to sit here made this page disagree
+          with the lapsed-access screen: one offered Stripe checkout, the other
+          asked us to invoice. Choosing a plan card now does the same thing on
+          both, so a second button offering a different route was the whole
+          difference between them.
+
+          A granted account has no Stripe customer, so there is no portal to
+          open and offering one leads only to an error. */}
+      {user.stripeCustomerId && (user.subscriptionStatus === 'active' || user.subscriptionStatus === 'past_due') && (
         <div style={{ display: 'flex', gap: 10 }}>
-          {user.subscriptionStatus === 'active' || user.subscriptionStatus === 'past_due' ? (
-            <button className="btn btn-ghost" onClick={goToPortal} disabled={busy} style={{ fontSize: 13 }}>
-              {busy && <span className="spinner" />}
-              Manage billing
-            </button>
-          ) : (
-            <button className="btn btn-primary" onClick={goToCheckout} disabled={busy} style={{ fontSize: 13 }}>
-              {busy && <span className="spinner" />}
-              Subscribe to {planLabel}
-            </button>
-          )}
+          <button className="btn btn-ghost" onClick={goToPortal} disabled={busy} style={{ fontSize: 13 }}>
+            {busy && <span className="spinner" />}
+            Manage billing
+          </button>
         </div>
       )}
     </div>
