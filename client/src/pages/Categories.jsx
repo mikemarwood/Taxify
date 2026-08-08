@@ -281,7 +281,7 @@ export default function Categories() {
                     gap: 12,
                     // A rental card carries a document panel, so it takes the
                     // full row rather than being squeezed into one column.
-                    gridColumn: c.isPropertyRental || editing ? '1 / -1' : 'auto',
+                    gridColumn: editing ? '1 / -1' : 'auto',
                     borderLeft: `4px solid ${c.color}`,
                   }}
                 >
@@ -398,7 +398,7 @@ export default function Categories() {
                       }}
                     >
                       <Icon name="home" size={12} />
-                      Rental
+                      Rental property
                       {c.documentCount > 0 && <span style={{ fontWeight: 600 }}>· {c.documentCount} documents</span>}
                     </span>
                   )}
@@ -447,8 +447,38 @@ export default function Categories() {
                         }}
                       >
                         <input type="checkbox" checked={editRental} onChange={(e) => setEditRental(e.target.checked)} />
-                        This is a property rental
+                        This is a rental property
                       </label>
+
+                      {/* What the checkbox above actually does. It was a bare
+                          label, so the only way to find out was to tick it and
+                          watch what changed — and the difference matters at tax
+                          time, which is months later. */}
+                      <div
+                        style={{
+                          display: 'flex',
+                          gap: 9,
+                          alignItems: 'flex-start',
+                          padding: '10px 12px',
+                          borderRadius: 9,
+                          border: '1px solid var(--border)',
+                          background: 'var(--bg-subtle)',
+                        }}
+                      >
+                        <Icon name="info" size={14} style={{ color: 'var(--accent)', flexShrink: 0, marginTop: 2 }} />
+                        <div style={{ fontSize: 11.5, color: 'var(--text-muted)', lineHeight: 1.6 }}>
+                          <strong style={{ color: 'var(--text)' }}>What changes:</strong> you can file documents
+                          against it for each financial year — a lease, rates notices, an agent's statement — which
+                          ordinary categories cannot hold. Those documents are then included in that year's archive
+                          alongside the receipts, in a folder named after the property, which is what an accountant
+                          asks for when a property is involved.
+                          <br />
+                          <br />
+                          Expenses work exactly as they do anywhere else, and nothing already recorded is moved or
+                          recalculated. Turning it off again only stops new documents being filed; the ones already
+                          there stay.
+                        </div>
+                      </div>
                       <div style={{ display: 'flex', gap: 8 }}>
                         <button
                           className="btn btn-primary"
