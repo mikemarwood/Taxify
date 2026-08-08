@@ -150,9 +150,9 @@ function NewTicket({ user, onRaised }) {
   return (
     <form onSubmit={submit} className="card" style={{ padding: 20, display: 'flex', flexDirection: 'column', gap: 16 }}>
       <div>
-        <div style={{ fontWeight: 700, marginBottom: 3 }}>What is this about?</div>
-        <div style={{ fontSize: 12.5, color: 'var(--text-muted)' }}>
-          Picking the closest one gets it to the right person faster.
+        <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 3 }}>What can we help with?</div>
+        <div style={{ fontSize: 12.5, color: 'var(--text-muted)', lineHeight: 1.55 }}>
+          Choose the closest match. It decides who picks this up, so it is worth a moment.
         </div>
       </div>
 
@@ -161,7 +161,7 @@ function NewTicket({ user, onRaised }) {
       {guest && (
         <div style={{ display: 'grid', gap: 10, gridTemplateColumns: '1fr 1fr' }}>
           <div>
-            <label className="label">Your name</label>
+            <label className="label">Full name</label>
             <input
               className="input"
               required
@@ -172,7 +172,7 @@ function NewTicket({ user, onRaised }) {
             />
           </div>
           <div>
-            <label className="label">Your email</label>
+            <label className="label">Email address</label>
             <input
               className="input"
               required
@@ -180,8 +180,8 @@ function NewTicket({ user, onRaised }) {
               value={email}
               onChange={(e) => setEmail(e.target.value.toLowerCase())}
             />
-            <div style={{ fontSize: 11.5, color: 'var(--text-muted)', marginTop: 4 }}>
-              We send your ticket link here.
+            <div style={{ fontSize: 11.5, color: 'var(--text-muted)', marginTop: 4, lineHeight: 1.5 }}>
+              Your reference and a link to this conversation are sent here.
             </div>
           </div>
         </div>
@@ -193,7 +193,7 @@ function NewTicket({ user, onRaised }) {
           className="input"
           required
           maxLength={SUBJECT_MAX}
-          placeholder="A few words on what is wrong"
+          placeholder="A short summary — for example, receipts will not upload"
           value={subject}
           onChange={(e) => setSubject(sentenceCaseLive(e.target.value))}
           onBlur={() => setSubject(sentenceCase(subject))}
@@ -202,13 +202,13 @@ function NewTicket({ user, onRaised }) {
       </div>
 
       <div>
-        <label className="label">What is happening?</label>
+        <label className="label">Tell us what happened</label>
         <textarea
           className="input"
           required
           rows={7}
           maxLength={MESSAGE_MAX}
-          placeholder="What you were doing, what you expected, and what happened instead."
+          placeholder="What you were doing, what you expected to happen, and what happened instead. Anything you have already tried is useful too."
           value={message}
           onChange={(e) => setMessage(sentenceCaseLive(e.target.value))}
           // No sentenceCase on blur here, unlike the subject. It collapses runs
@@ -224,7 +224,7 @@ function NewTicket({ user, onRaised }) {
 
       {guest && captcha && (
         <div>
-          <label className="label">Just checking you are a person</label>
+          <label className="label">Confirm you are a person</label>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
             <span
               style={{
@@ -254,7 +254,7 @@ function NewTicket({ user, onRaised }) {
 
       <button className="btn btn-primary" type="submit" disabled={!canSubmit} style={{ alignSelf: 'flex-start' }}>
         {busy && <span className="spinner" />}
-        Send it
+        Send request
       </button>
     </form>
   );
@@ -267,16 +267,40 @@ function GuestRaised({ result }) {
     <div className="card" style={{ padding: 24, display: 'flex', flexDirection: 'column', gap: 14 }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
         <Icon name="check-circle" size={22} style={{ color: 'var(--emerald)' }} />
-        <div style={{ fontWeight: 800, fontSize: 17 }}>We have it</div>
+        <div style={{ fontWeight: 800, fontSize: 18 }}>Your request has been received</div>
       </div>
-      <div style={{ fontSize: 13.5, lineHeight: 1.6 }}>
-        Your ticket is{' '}
-        <strong style={{ fontFamily: 'ui-monospace, monospace', fontSize: 14 }}>{result.ticket.reference}</strong>.
+      {/* The reference given its own block. It is the one thing on this screen
+          worth writing down, and a number set in running text is a number
+          somebody scrolls past. */}
+      <div
+        style={{
+          border: '1px solid var(--border)',
+          borderRadius: 10,
+          padding: '14px 16px',
+          background: 'var(--bg-subtle)',
+          textAlign: 'center',
+        }}
+      >
+        <div
+          style={{
+            fontSize: 10.5,
+            fontWeight: 700,
+            letterSpacing: 0.6,
+            textTransform: 'uppercase',
+            color: 'var(--text-muted)',
+            marginBottom: 5,
+          }}
+        >
+          Your reference
+        </div>
+        <div style={{ fontFamily: 'ui-monospace, monospace', fontSize: 21, fontWeight: 800, letterSpacing: 1 }}>
+          {result.ticket.reference}
+        </div>
       </div>
-      <div style={{ fontSize: 13, color: 'var(--text-muted)', lineHeight: 1.6 }}>
-        We have emailed <strong style={{ color: 'var(--text)' }}>a link to this conversation</strong> — keep it, because
-        it is the only way back to this ticket without an account. You will get another email as soon as somebody
-        replies.
+      <div style={{ fontSize: 13, color: 'var(--text-muted)', lineHeight: 1.65 }}>
+        We have emailed you <strong style={{ color: 'var(--text)' }}>a link to this conversation</strong>. Please keep
+        it — without an account it is the only way back to this request. We will email you again as soon as somebody has
+        replied.
       </div>
       {result.accessToken && (
         <Link
@@ -310,10 +334,24 @@ function TicketRow({ ticket, onOpen }) {
       }}
     >
       <div style={{ flex: 1, minWidth: 180 }}>
-        <div style={{ fontSize: 13.5, fontWeight: 700 }}>{ticket.subject}</div>
-        <div style={{ fontSize: 11.5, color: 'var(--text-muted)', marginTop: 2 }}>
-          <span style={{ fontFamily: 'ui-monospace, monospace' }}>{ticket.reference}</span> · {ticket.categoryLabel} ·{' '}
-          {formatDateTime(ticket.lastMessageAt || ticket.createdAt)}
+        {/* The reference sits above the subject, small and set apart. It is
+            what somebody quotes back to us, so it should be findable at a
+            glance rather than buried in a line of dot-separated detail. */}
+        <div
+          style={{
+            fontFamily: 'ui-monospace, monospace',
+            fontSize: 11,
+            fontWeight: 700,
+            letterSpacing: 0.4,
+            color: 'var(--text-muted)',
+            marginBottom: 3,
+          }}
+        >
+          {ticket.reference}
+        </div>
+        <div style={{ fontSize: 14, fontWeight: 700, lineHeight: 1.35 }}>{ticket.subject}</div>
+        <div style={{ fontSize: 11.5, color: 'var(--text-muted)', marginTop: 3 }}>
+          {ticket.categoryLabel} · updated {formatDateTime(ticket.lastMessageAt || ticket.createdAt)}
         </div>
       </div>
       <StatusPill status={ticket.status} />
@@ -356,18 +394,19 @@ export default function Support() {
   return (
     <div style={{ maxWidth: 840, display: 'flex', flexDirection: 'column', gap: 18 }}>
       <div>
-        <h1 style={{ margin: '0 0 4px', fontSize: 26 }}>Support</h1>
-        <p style={{ color: 'var(--text-muted)', margin: 0 }}>
-          Ask us anything about Taxify. Every message gets a ticket number and an answer.
+        <h1 style={{ margin: '0 0 6px', fontSize: 26 }}>Support</h1>
+        <p style={{ color: 'var(--text-muted)', margin: 0, lineHeight: 1.6, maxWidth: 560 }}>
+          Send us a message and we will look into it. Every request gets a reference number, a written reply, and stays
+          on record so you can come back to it.
         </p>
       </div>
 
       {user && tickets && tickets.length > 0 && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
-            <div style={{ fontWeight: 700, fontSize: 14 }}>Your tickets</div>
+            <div style={{ fontWeight: 700, fontSize: 14 }}>Your requests</div>
             <button className="btn btn-ghost" style={{ fontSize: 12.5 }} onClick={() => setWriting((v) => !v)}>
-              {writing ? 'Never mind' : 'New ticket'}
+              {writing ? 'Cancel' : 'New request'}
             </button>
           </div>
           {tickets.map((t) => (
@@ -456,14 +495,41 @@ export function SupportTicketByToken() {
 
 function TicketHeading({ ticket }) {
   return (
-    <div className="card" style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 8 }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-        <span style={{ fontSize: 17, fontWeight: 800, flex: 1, minWidth: 160 }}>{ticket.subject}</span>
+    <div className="card" style={{ padding: 18, display: 'flex', flexDirection: 'column', gap: 10 }}>
+      <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10, flexWrap: 'wrap' }}>
+        <div style={{ flex: 1, minWidth: 180 }}>
+          <div
+            style={{
+              fontFamily: 'ui-monospace, monospace',
+              fontSize: 11.5,
+              fontWeight: 700,
+              letterSpacing: 0.5,
+              color: 'var(--text-muted)',
+              marginBottom: 4,
+            }}
+          >
+            {ticket.reference}
+          </div>
+          <div style={{ fontSize: 18, fontWeight: 800, lineHeight: 1.3 }}>{ticket.subject}</div>
+        </div>
         <StatusPill status={ticket.status} />
       </div>
-      <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>
-        <span style={{ fontFamily: 'ui-monospace, monospace', fontWeight: 700 }}>{ticket.reference}</span> ·{' '}
-        {ticket.categoryLabel} · raised {formatDateTime(ticket.createdAt)}
+
+      {/* The facts as a row of labelled pairs rather than a run-on line, so
+          each can be found without reading the others. */}
+      <div style={{ display: 'flex', gap: 22, flexWrap: 'wrap', paddingTop: 8, borderTop: '1px solid var(--border)' }}>
+        {[
+          ['Category', ticket.categoryLabel],
+          ['Raised', formatDateTime(ticket.createdAt)],
+          ...(ticket.lastMessageAt ? [['Last update', formatDateTime(ticket.lastMessageAt)]] : []),
+        ].map(([label, value]) => (
+          <div key={label}>
+            <div style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: 0.4, textTransform: 'uppercase', color: 'var(--text-muted)' }}>
+              {label}
+            </div>
+            <div style={{ fontSize: 12.5, marginTop: 2 }}>{value}</div>
+          </div>
+        ))}
       </div>
     </div>
   );

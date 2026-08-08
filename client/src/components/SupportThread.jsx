@@ -14,13 +14,13 @@ const POLL_MS = 8000;
 export function StatusPill({ status, admin = false }) {
   const map = admin
     ? {
-        awaiting_support: { label: 'Needs a reply', colour: 'var(--amber)' },
-        awaiting_customer: { label: 'Waiting on customer', colour: 'var(--accent)' },
+        awaiting_support: { label: 'Awaiting reply', colour: 'var(--amber)' },
+        awaiting_customer: { label: 'With customer', colour: 'var(--accent)' },
         closed: { label: 'Closed', colour: 'var(--text-muted)' },
       }
     : {
-        awaiting_support: { label: 'With support', colour: 'var(--accent)' },
-        awaiting_customer: { label: 'Waiting for you', colour: 'var(--amber)' },
+        awaiting_support: { label: 'In progress', colour: 'var(--accent)' },
+        awaiting_customer: { label: 'Awaiting your reply', colour: 'var(--amber)' },
         closed: { label: 'Closed', colour: 'var(--text-muted)' },
       };
   const s = map[status] || map.awaiting_support;
@@ -193,8 +193,8 @@ export default function SupportThread({
         >
           <Icon name="lock" size={14} />
           {admin
-            ? 'This ticket is closed. Open it again to reply.'
-            : 'This ticket is closed. If it was not sorted, ask us to open it again.'}
+            ? 'This request is closed. Reopen it to reply.'
+            : 'This request has been closed. If it is not resolved, let us know and we will reopen it.'}
         </div>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
@@ -202,7 +202,7 @@ export default function SupportThread({
             className="input"
             rows={4}
             maxLength={5000}
-            placeholder={admin ? 'Write your reply…' : 'Add to the conversation…'}
+            placeholder={admin ? 'Write your reply…' : 'Add anything else that might help…'}
             value={draft}
             // Capitals fixed as you type. Safe per keystroke because it only
             // changes the case of characters already there — the length never
@@ -222,7 +222,7 @@ export default function SupportThread({
               Send reply
             </button>
             <span style={{ fontSize: 11.5, color: 'var(--text-muted)' }}>
-              {admin ? 'They will be emailed straight away.' : 'We will email you when there is a reply.'}
+              {admin ? 'They are emailed as soon as you send this.' : 'We will email you as soon as we reply.'}
             </span>
           </div>
         </div>
