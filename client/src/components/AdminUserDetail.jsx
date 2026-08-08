@@ -3,6 +3,7 @@ import ConfirmDialog from './ConfirmDialog.jsx';
 import { AnimatePresence, motion } from 'framer-motion';
 import Toggle from './Toggle.jsx';
 import { api } from '../lib/api.js';
+import { useConfirm } from '../lib/ConfirmContext.jsx';
 import { useToast } from './Toast.jsx';
 import Icon from './Icon.jsx';
 import Avatar from './Avatar.jsx';
@@ -106,6 +107,7 @@ function Section({ title, icon, children }) {
 // on a phone — the row is now a row, and this is where the detail lives.
 export default function AdminUserDetail({ userId, me, onClose, onChanged, actions }) {
   const toast = useToast();
+  const confirm = useConfirm();
   const [data, setData] = useState(null);
   // Which confirmation is showing. One value rather than a boolean each, so
   // two can never be open at once.
@@ -448,8 +450,31 @@ export default function AdminUserDetail({ userId, me, onClose, onChanged, action
                   <Toggle
                     checked={Boolean(u.isSupport)}
                     onChange={async (next) => {
+                      // Asked first. This hands somebody the ability to read
+                      // every customer's support conversation, which is not a
+                      // thing to do by brushing a switch.
+                      const ok = await confirm(
+                        next
+                          ? {
+                              title: `Put ${u.name} on the support team?`,
+                              body: 'They will be able to read every support conversation, including attachments people send in, and answer any ticket assigned to them. They get nothing else — no users, no billing, no Stripe.',
+                              confirmLabel: 'Add to support',
+                            }
+                          : {
+                              title: `Take ${u.name} off the support team?`,
+                              body: 'They lose the support queue immediately. Any tickets assigned to them stay assigned until somebody else takes them.',
+                              confirmLabel: 'Remove',
+                            }
+                      );
+                      if (!ok) return;
+
                       try {
                         await api.patch(`/admin/users/${u.id}`, { isSupport: next });
+                        // This panel holds its own copy of the account, loaded
+                        // once. Without updating it the switch springs back to
+                        // where it was, because onChanged refreshes the list
+                        // behind rather than the panel in front.
+                        setData((prev) => (prev ? { ...prev, user: { ...prev.user, isSupport: next } } : prev));
                         toast(next ? `${u.name} can now answer tickets` : `${u.name} removed from support`, 'success');
                         onChanged?.();
                       } catch (err) {

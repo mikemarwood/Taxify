@@ -49,15 +49,27 @@ const TAB_KEYS = [
   'push',
 ];
 
+// Tabs somebody on the support team may see. Everything else on this page —
+// users, billing, Stripe keys, promo codes, the live stats — is administrators
+// only, and a support account should not even see the tab. A tab that is
+// visible but refuses the press invites the press; one that is absent says
+// nothing about what is behind it.
+const SUPPORT_TABS = ['support'];
+
 export default function Admin() {
   // ?tab= opens a particular one, because the notifications link straight here.
   // "Somebody wants to change plan" is no use if the link lands on Live stats
   // and leaves you to find the right tab yourself.
   // The same count the sidebar badge uses, so the two cannot disagree.
+  const { user } = useAuth();
+  // Support staff see the queue and nothing else on this page.
+  const supportOnly = !user?.isAdmin && Boolean(user?.isSupport);
+  const allowed = supportOnly ? SUPPORT_TABS : TAB_KEYS;
+
   const { queue } = useSupportCounts({ isAdmin: true });
   const [searchParams, setSearchParams] = useSearchParams();
   const requested = searchParams.get('tab');
-  const [tab, setTabState] = useState(TAB_KEYS.includes(requested) ? requested : 'stats');
+  const [tab, setTabState] = useState(allowed.includes(requested) ? requested : allowed[0]);
 
   // Kept in the URL, so the tab survives a refresh and can be linked to.
   function setTab(next) {
@@ -71,7 +83,7 @@ export default function Admin() {
       <p style={{ color: 'var(--text-muted)', margin: '0 0 24px' }}>Manage user accounts and the default category template.</p>
 
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 20 }}>
-        <button className={tab === 'stats' ? 'btn btn-primary' : 'btn btn-ghost'} onClick={() => setTab('stats')}>
+        <button className={tab === 'stats' ? 'btn btn-primary' : 'btn btn-ghost'} onClick={() => setTab('stats')} hidden={supportOnly}>
           Live stats
         </button>
         <button
@@ -103,25 +115,25 @@ export default function Admin() {
             </span>
           )}
         </button>
-        <button className={tab === 'users' ? 'btn btn-primary' : 'btn btn-ghost'} onClick={() => setTab('users')}>
+        <button className={tab === 'users' ? 'btn btn-primary' : 'btn btn-ghost'} onClick={() => setTab('users')} hidden={supportOnly}>
           Users
         </button>
-        <button className={tab === 'categories' ? 'btn btn-primary' : 'btn btn-ghost'} onClick={() => setTab('categories')}>
+        <button className={tab === 'categories' ? 'btn btn-primary' : 'btn btn-ghost'} onClick={() => setTab('categories')} hidden={supportOnly}>
           Default categories
         </button>
-        <button className={tab === 'settings' ? 'btn btn-primary' : 'btn btn-ghost'} onClick={() => setTab('settings')}>
+        <button className={tab === 'settings' ? 'btn btn-primary' : 'btn btn-ghost'} onClick={() => setTab('settings')} hidden={supportOnly}>
           Settings
         </button>
-        <button className={tab === 'email' ? 'btn btn-primary' : 'btn btn-ghost'} onClick={() => setTab('email')}>
+        <button className={tab === 'email' ? 'btn btn-primary' : 'btn btn-ghost'} onClick={() => setTab('email')} hidden={supportOnly}>
           Email server
         </button>
-        <button className={tab === 'stripe' ? 'btn btn-primary' : 'btn btn-ghost'} onClick={() => setTab('stripe')}>
+        <button className={tab === 'stripe' ? 'btn btn-primary' : 'btn btn-ghost'} onClick={() => setTab('stripe')} hidden={supportOnly}>
           Stripe
         </button>
-        <button className={tab === 'promos' ? 'btn btn-primary' : 'btn btn-ghost'} onClick={() => setTab('promos')}>
+        <button className={tab === 'promos' ? 'btn btn-primary' : 'btn btn-ghost'} onClick={() => setTab('promos')} hidden={supportOnly}>
           Promo codes
         </button>
-        <button className={tab === 'push' ? 'btn btn-primary' : 'btn btn-ghost'} onClick={() => setTab('push')}>
+        <button className={tab === 'push' ? 'btn btn-primary' : 'btn btn-ghost'} onClick={() => setTab('push')} hidden={supportOnly}>
           Firebase
         </button>
       </div>

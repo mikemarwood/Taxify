@@ -334,7 +334,7 @@ export default function Layout({ children }) {
 
               const items = [
                 ...withBadges(group.items),
-                ...withBadges(user?.isAdmin ? group.adminItems || [] : []),
+                ...withBadges(user?.isAdmin || user?.isSupport ? group.adminItems || [] : []),
                 ...(user?.isAccountant ? group.accountantItems || [] : []),
               ].filter(
                 // Inside a client, or invited only as an accountant, the pages

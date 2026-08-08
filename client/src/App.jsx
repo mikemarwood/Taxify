@@ -78,7 +78,10 @@ function Protected({ children, adminOnly }) {
   const location = useLocation();
   if (loading) return <Splash />;
   if (!user) return <Navigate to="/login" replace />;
-  if (adminOnly && !user.isAdmin) return <Navigate to="/" replace />;
+  // Support staff reach this page too, and see only the support queue once
+  // they are on it. Refusing them here would make the support flag grant
+  // nothing, since the queue lives inside the admin panel.
+  if (adminOnly && !user.isAdmin && !user.isSupport) return <Navigate to="/" replace />;
 
   // Inside a client's books: held to reading, and to the pages that mean
   // something for someone else's tax.

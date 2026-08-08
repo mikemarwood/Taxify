@@ -10,6 +10,7 @@ import authRoutes from './routes/auth.routes.js';
 import categoriesRoutes from './routes/categories.routes.js';
 import expensesRoutes, { purgeExpiredTrash } from './routes/expenses.routes.js';
 import adminRoutes from './routes/admin.routes.js';
+import adminSupportRoutes from './routes/adminSupport.routes.js';
 import appRoutes from './routes/app.routes.js';
 import billingRoutes from './routes/billing.routes.js';
 import supportRoutes from './routes/support.routes.js';
@@ -114,6 +115,9 @@ app.get('/landing', serveLandingPage);
 app.use('/api/auth', authRoutes);
 app.use('/api/categories', categoriesRoutes);
 app.use('/api/expenses', expensesRoutes);
+// Mounted before the admin router so its own, looser guard is reached first.
+// Both live under /api/admin; the paths do not overlap.
+app.use('/api/admin', adminSupportRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/app', appRoutes);
 app.use('/api/billing', billingRoutes);
