@@ -867,7 +867,10 @@ export async function ensureSchema() {
       UNIQUE KEY uniq_support_reference (reference),
       KEY idx_support_user (user_id, status),
       KEY idx_support_status (status, last_message_at),
-      KEY idx_support_token (access_token_hash),
+      -- Unique, not just indexed. Two tickets sharing a token would mean one
+      -- link opening somebody else's conversation, and a plain index would let
+      -- that be written without complaint.
+      UNIQUE KEY uniq_support_token (access_token_hash),
       FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL,
       FOREIGN KEY (closed_by) REFERENCES users(id) ON DELETE SET NULL
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4

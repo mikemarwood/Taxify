@@ -69,6 +69,25 @@ test('a subject has to say something', () => {
   assert.equal(subjectProblem('Cannot sign in'), '');
 });
 
+test('the guest link is long enough that it cannot be guessed', () => {
+  // This link is the whole authority over a conversation — no account behind
+  // it, no second factor — so its only defence is that the space cannot be
+  // searched.
+  const { token } = generateAccessToken();
+  assert.ok(token.length >= 60, `token was only ${token.length} characters`);
+  // base64url only: safe in a path, and nothing needing escaping that an email
+  // client might mangle.
+  assert.match(token, /^[A-Za-z0-9_-]+$/);
+});
+
+test('two tokens share nothing, and carry no ticket id to work from', () => {
+  const a = generateAccessToken().token;
+  const b = generateAccessToken().token;
+  assert.notEqual(a, b);
+  // Holding one says nothing about where another lives.
+  assert.equal(a.slice(0, 8) === b.slice(0, 8), false);
+});
+
 test('the access token is stored only as a hash', () => {
   // The plain token goes in the email. If the database held it, anybody who
   // could read the table could read every guest conversation.

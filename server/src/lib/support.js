@@ -49,8 +49,17 @@ export function looksLikeReference(value) {
 // The link a guest reads their ticket through. Same shape as every other token
 // here: the plain value goes in the email and only the hash is stored, so the
 // database cannot be used to read somebody's conversation.
+// 48 bytes — 384 bits of randomness, 64 characters of base64url.
+//
+// This link is the entire authority over somebody's conversation: there is no
+// account behind it and no second factor, so it has to be unguessable rather
+// than merely long. At this size the space cannot be searched, and there is
+// nothing inside a token to reason from — no ticket id, no address, no time —
+// so holding one link says nothing whatever about where any other one lives.
+export const ACCESS_TOKEN_BYTES = 48;
+
 export function generateAccessToken() {
-  const token = crypto.randomBytes(32).toString('base64url');
+  const token = crypto.randomBytes(ACCESS_TOKEN_BYTES).toString('base64url');
   return { token, tokenHash: hashAccessToken(token) };
 }
 
