@@ -544,10 +544,15 @@ router.post(
           [requestId]
         );
 
-        // The change they paid for. Only plan_type moves: whatever subscription
-        // they already had keeps its own dates and status, because this invoice
-        // was a one-off and did not renew anything.
-        await pool.execute('UPDATE users SET plan_type = ? WHERE id = ?', [request.to_plan, request.user_id]);
+        // The plan is deliberately NOT moved here.
+        //
+        // A one-off invoice says what was paid; it says nothing about the dates
+        // the new plan should run between, and those are the part somebody has
+        // to decide. Moving plan_type automatically produced an account on the
+        // new plan with the old plan's period still attached — right entitlement,
+        // wrong end date, and no record of who chose it. So the money arriving
+        // is announced on the ticket and in the queue, and an administrator
+        // applies the change with the dates they mean.
 
         // Kept now, while there is a URL that has not expired. The customer's
         // invoice list stores lazily when it is opened, and somebody who never
@@ -563,23 +568,59 @@ router.post(
         const [who] = await pool.execute('SELECT name, email FROM users WHERE id = ?', [request.user_id]);
         const label = planLabel(request.to_plan);
 
+        // Said on the ticket itself, which is where the request was made and
+        // where whoever picks it up is already looking. A notification can be
+        // missed; the thread is the record.
+        try {
+          const [linked] = await pool.execute(
+            'SELECT id, status FROM support_tickets WHERE plan_change_request_id = ? LIMIT 1',
+            [requestId]
+          );
+          if (linked[0]) {
+            const amount = ((invoice.amount_paid ?? 0) / 100).toLocaleString(undefined, {
+              minimumFractionDigits: 2,
+              maximumFractionDigits: 2,
+            });
+            await pool.execute(
+              `INSERT INTO support_messages (ticket_id, author_user_id, author_role, author_name, body)
+               VALUES (?, NULL, 'system', 'Taxify', ?)`,
+              [
+                linked[0].id,
+                `Payment received — ${(invoice.currency || 'aud').toUpperCase()} ${amount} for ${label}. ` +
+                  'The invoice is stored against their account. The plan itself still has to be applied by hand, ' +
+                  'with the dates it should run between.',
+              ]
+            );
+            // Back into the queue. Somebody has to act on this, and a ticket
+            // sitting in "awaiting customer" is a ticket nobody is looking at.
+            await pool.execute(
+              `UPDATE support_tickets
+                  SET status = 'awaiting_support', last_message_at = NOW(), support_read_at = NULL
+                WHERE id = ?`,
+              [linked[0].id]
+            );
+          }
+        } catch (err) {
+          console.error('Could not post the payment onto the support ticket', err);
+        }
+
         try {
           await notify(request.user_id, {
-            title: `You are now on ${label}`,
-            body: 'Your payment came through and the plan has been applied. The invoice is on your billing page.',
+            title: `Payment received for ${label}`,
+            body: 'Thank you — your payment came through. We will move you across shortly and the invoice is on your billing page.',
             url: '/account?tab=billing',
             kind: 'billing',
           });
           await notifyAdmins({
             title: `${who[0]?.name || who[0]?.email || 'A customer'} paid for ${label}`,
-            body: 'The plan has been applied automatically and the invoice is stored against their account.',
+            body: 'The money has arrived. Apply the plan on their account with the dates it should run between.',
             url: '/admin?tab=support',
             kind: 'billing',
           });
         } catch (err) {
-          // The plan has already moved and the money has already arrived.
-          // Failing the webhook here would make Stripe retry a payment that was
-          // fully handled.
+          // The money has already arrived and the request is already marked
+          // paid. Failing the webhook here would make Stripe retry a payment
+          // that was fully handled.
           console.error('Could not send plan-change notifications', err);
         }
         break;

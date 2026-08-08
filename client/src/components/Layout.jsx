@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { Fragment, useEffect, useState } from 'react';
 import { Link, NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { useAuth } from '../lib/AuthContext.jsx';
@@ -53,9 +53,9 @@ const navGroups = [
       // above the Categories page's own title until it earned this.
       { to: '/books', label: 'Your books', icon: 'book' },
       { to: '/support', label: 'Support', icon: 'mail' },
-      { to: '/account', label: 'My account', icon: 'settings' },
+      { to: '/account', label: 'My account', icon: 'user', divider: true },
     ],
-    adminItems: [{ to: '/admin', label: 'Administration', icon: 'wrench' }],
+    adminItems: [{ to: '/admin', label: 'Administration', icon: 'wrench', divider: true }],
     // Only for someone who actually acts for clients — a way back to the
     // picker that sits with the rest of the navigation rather than only
     // appearing in the banner once a client is already open.
@@ -367,7 +367,15 @@ export default function Layout({ children }) {
                   </div>
                 )}
                 {group.items.map((item) => (
-                  <NavItem key={item.to} item={item} />
+                  <Fragment key={item.to}>
+                    <NavItem item={item} />
+                    {item.divider && (
+                      <span
+                        aria-hidden
+                        style={{ height: 1, background: 'var(--nav-border)', margin: '6px 12px', opacity: 0.7 }}
+                      />
+                    )}
+                  </Fragment>
                 ))}
               </div>
             ))}

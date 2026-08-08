@@ -155,6 +155,7 @@ function shapeMessage(row, token = null) {
         `/api/support/attachments/${row.ticket_id}/${row.id}/${index}` +
         (token ? `?token=${encodeURIComponent(token)}` : ''),
     })),
+    authorId: row.author_user_id || null,
     avatarUrl: row.author_user_id && row.avatar_path ? `/api/auth/avatar/${row.author_user_id}` : null,
   };
 }
@@ -620,7 +621,7 @@ router.get(
 // while the ticket is open, and never the attachments. A closed ticket is a
 // finished record, and letting somebody rewrite what they said after it was
 // answered would make the whole thread unreliable as evidence of itself.
-async function editMessage(req, res, message, ticket) {
+async function editMessage(req, res, message, ticket, { includeNotes = false } = {}) {
   const problem = messageProblem(req.body?.message);
   if (problem) return res.status(400).json({ error: problem });
 
@@ -629,7 +630,7 @@ async function editMessage(req, res, message, ticket) {
   }
 
   const next = String(req.body.message).trim();
-  if (next === message.body) return res.json({ ok: true, messages: await messagesFor(ticket.id) });
+  if (next === message.body) return res.json({ ok: true, messages: await messagesFor(ticket.id, { includeNotes }) });
 
   // The old text is kept, oldest first. Nothing is ever removed from this —
   // the point of a history is that it cannot be edited either.
@@ -641,7 +642,7 @@ async function editMessage(req, res, message, ticket) {
     [next, JSON.stringify(history.slice(-20)), message.id]
   );
 
-  res.json({ ok: true, messages: await messagesFor(ticket.id) });
+  res.json({ ok: true, messages: await messagesFor(ticket.id, { includeNotes }) });
 }
 
 function parseHistory(value) {

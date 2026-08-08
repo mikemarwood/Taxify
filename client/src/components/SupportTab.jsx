@@ -51,7 +51,7 @@ function Row({ ticket, active, onOpen }) {
         background: active ? 'var(--accent-soft)' : 'var(--bg-card)',
         // Needing a reply is the only state worth flagging in a list — the
         // others are things somebody else is doing.
-        borderLeft: `3px solid ${ticket.status === 'awaiting_support' ? 'var(--amber)' : 'var(--border)'}`,
+        borderLeft: `3px solid ${ticket.status === 'awaiting_support' ? 'var(--accent)' : 'var(--border)'}`,
       }}
     >
       <Avatar name={ticket.who} avatarUrl={ticket.avatarUrl} size={30} />
@@ -275,7 +275,7 @@ export default function SupportTab() {
               padding: '2px 8px',
               borderRadius: 999,
               color: needing.length ? '#fff' : 'var(--text-muted)',
-              background: needing.length ? 'var(--amber)' : 'var(--bg-subtle)',
+              background: needing.length ? 'var(--accent)' : 'var(--bg-subtle)',
               border: '1px solid var(--border)',
             }}
           >
@@ -457,6 +457,22 @@ export default function SupportTab() {
               }}
               // No reply box unless it is yours to answer. Offering one and
               // refusing the send would be worse than not offering it.
+              currentUserId={user?.id ?? null}
+              onDelete={async (message) => {
+                const ok = await confirm({
+                  title: 'Delete this note?',
+                  body: 'It is only visible to the support team, and it will be gone for good.',
+                  confirmLabel: 'Delete it',
+                  danger: true,
+                });
+                if (!ok) return;
+                try {
+                  const res = await api.delete(`/admin/support/messages/${message.id}`);
+                  setThread((prev) => ({ ...prev, messages: res.data.messages }));
+                } catch (err) {
+                  toast(err.message, 'error');
+                }
+              }}
               canReply={mine}
               onReply={async (message, files, onProgress) => {
                 let payload = { message };
@@ -491,22 +507,11 @@ export default function SupportTab() {
                       }}
                     />
                   )}
-                  <div style={{ display: 'flex', gap: 8 }}>
-                  <button
-                    className="btn btn-ghost"
-                    style={{ fontSize: 12.5, gap: 6 }}
-                    disabled={busy}
-                    onClick={() => setStatus(thread.ticket.status !== 'closed')}
-                  >
-                    <Icon name={thread.ticket.status === 'closed' ? 'repeat' : 'lock'} size={13} />
-                    {thread.ticket.status === 'closed' ? 'Open it again' : 'Close ticket'}
-                    </button>
-
                   {/* A note for whoever picks this up next. Never sent, never
                       emailed, and filtered out of everything the customer can
                       read — the server drops notes unless the caller asks for
                       them, so this cannot leak by being forgotten. */}
-                  <div style={{ display: 'flex', gap: 8, alignItems: 'flex-start', width: '100%' }}>
+                  <div style={{ display: 'flex', gap: 8, alignItems: 'flex-start' }}>
                     <textarea
                       className="input"
                       rows={2}
@@ -518,7 +523,7 @@ export default function SupportTab() {
                     />
                     <button
                       className="btn btn-ghost"
-                      style={{ fontSize: 12 }}
+                      style={{ fontSize: 12, whiteSpace: 'nowrap' }}
                       disabled={!note.trim() || busy}
                       onClick={async () => {
                         try {
@@ -534,13 +539,31 @@ export default function SupportTab() {
                     </button>
                   </div>
 
+                  {/* Close and Delete on a row of their own.
+                      They used to sit in the same flex row as the note box, and
+                      a flex row stretches its children to the tallest of them —
+                      so a two-line textarea made both buttons twice the height
+                      of every other button in the app, with their labels
+                      wrapping. alignItems keeps them their own size whatever
+                      ends up beside them. */}
+                  <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                    <button
+                      className="btn btn-ghost"
+                      style={{ fontSize: 12.5, gap: 6, whiteSpace: 'nowrap' }}
+                      disabled={busy}
+                      onClick={() => setStatus(thread.ticket.status !== 'closed')}
+                    >
+                      <Icon name={thread.ticket.status === 'closed' ? 'repeat' : 'lock'} size={13} />
+                      {thread.ticket.status === 'closed' ? 'Open it again' : 'Close ticket'}
+                    </button>
+
                     {/* Deleting removes the conversation and every image in
                         it, for good. Kept beside the close button but styled
                         apart, and asks for the reference to be typed — closing
                         is the ordinary action and this one is not. */}
                     <button
                       className="btn btn-ghost"
-                      style={{ fontSize: 12.5, gap: 6, color: 'var(--red)', marginLeft: 'auto' }}
+                      style={{ fontSize: 12.5, gap: 6, color: 'var(--red)', marginLeft: 'auto', whiteSpace: 'nowrap' }}
                       disabled={busy}
                       onClick={remove}
                     >

@@ -47,11 +47,12 @@ const FLOWS = [
     steps: [
       { label: 'They ask', detail: 'From their billing page', file: 'PlanChangeRequest.jsx' },
       { label: 'A ticket is raised', detail: 'So it sits in the same queue as everything else', file: 'billing.routes.js' },
-      { label: 'You quote and invoice', detail: 'Typed amount — Stripe emails it', file: 'PlanRequestPanel.jsx' },
+      { label: 'You invoice', detail: 'At the plan’s own price — Stripe emails it', file: 'PlanRequestPanel.jsx' },
       { label: 'They pay', detail: 'Stripe confirms it, nobody else', file: 'Stripe' },
-      { label: 'Plan moves', detail: 'And the invoice is stored against them', file: 'billing.routes.js' },
+      { label: 'The ticket says so', detail: 'Posted on the thread, and back into the queue', file: 'billing.routes.js' },
+      { label: 'You apply the plan', detail: 'By hand, with the dates it should run between', file: 'AdminUserDetail.jsx' },
     ],
-    rule: 'Only the invoice.paid webhook moves a plan. Marking it paid by hand would be a guess, and the customer’s own word more so.',
+    rule: 'The amount is never typed — it is read from Stripe, so an invoice and the plan cards cannot disagree. Nothing marks a request paid except Stripe; the customer’s own word is not evidence. The plan itself is applied by hand, because an invoice says what was paid and nothing about the dates the new plan should run between.',
   },
   {
     title: 'Somebody asks for help',

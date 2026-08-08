@@ -404,11 +404,11 @@ export default function Landing() {
             {[
               ['shot-capture', 'You do this', 'Photograph it and move on', 'One tap at the counter. Taxify reads the date and the total, and files it under the right category and year.'],
               ['shot-expenses', 'Taxify does this', 'Everything in one place', 'Sorted, searchable, with the receipt attached to the expense — so a question in two years takes a moment, not an afternoon.'],
-              ['shot-reports', 'Come tax time', 'The numbers, already added up', 'Every category, every year side by side. Hand it to your accountant, or copy it straight into your return.'],
+              ['shot-reports.png', 'Come tax time', 'The numbers, already added up', 'Every category, every year side by side. Hand it to your accountant, or copy it straight into your return.'],
             ].map(([file, step, title, text]) => (
               <div key={file} style={{ minWidth: 0 }}>
                 <img
-                  src={`/media/${file}.svg`}
+                  src={`/media/${file.includes('.') ? file : `${file}.svg`}`}
                   alt={title}
                   width="480"
                   height="360"

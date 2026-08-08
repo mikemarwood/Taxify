@@ -94,7 +94,15 @@ function Protected({ children, adminOnly }) {
     if (location.pathname !== '/account') return <Navigate to="/clients" replace />;
   }
 
-  if (!adminOnly && user.accessLocked && location.pathname !== '/account') {
+  // Support stays open to somebody whose access has lapsed.
+  //
+  // They were bounced to /account like every other page, so an expired account
+  // could raise a ticket and then not open it — and the people most likely to
+  // be writing in are exactly the ones who cannot get in. Reading and replying
+  // to your own conversation is not a paid feature.
+  const alwaysOpen = location.pathname === '/account' || location.pathname.startsWith('/support');
+
+  if (!adminOnly && user.accessLocked && !alwaysOpen) {
     return (
       <ErrorBoundary key={`shell|${location.pathname}`}>
         <Layout>

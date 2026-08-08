@@ -6,6 +6,7 @@ import { publicOrigin } from '../lib/publicOrigin.js';
 import { notify } from '../lib/notify.js';
 import { categoryLabel, isPriority, PRIORITIES } from '../lib/support.js';
 import { sendSupportClosedEmail } from '../lib/mailer.js';
+import { getSignupPlans } from '../lib/stripe.js';
 import { shapeTicket, messagesFor, addReply, ticketUrl, upload, editMessage } from './support.routes.js';
 import { removeTicketFiles, MAX_ATTACHMENTS_PER_MESSAGE } from '../lib/supportAttachments.js';
 import path from 'path';
@@ -130,8 +131,22 @@ router.get(
         rows[0].plan_change_request_id,
       ]);
       if (pr[0]) {
+        // Never fail the whole thread because Stripe is unreachable. The panel
+        // copes with a missing price by saying so; a 500 here would take the
+        // conversation down with it.
+        let price = null;
+        try {
+          const plans = await getSignupPlans();
+          const target = plans.find((p) => p.planType === pr[0].to_plan);
+          if (target?.amountPerYear) price = { cents: target.amountPerYear, currency: target.currency || 'AUD' };
+        } catch (err) {
+          console.error('Could not read the plan price for the support thread', err.message);
+        }
+
         planRequest = {
           id: pr[0].id,
+          priceCents: price?.cents ?? null,
+          priceCurrency: price?.currency ?? null,
           toPlan: pr[0].to_plan,
           fromPlan: pr[0].from_plan,
           status: pr[0].status,
@@ -245,7 +260,7 @@ router.post(
       }
     }
 
-    res.json({ ok: true, messages: await messagesFor(ticket.id) });
+    res.json({ ok: true, messages: await messagesFor(ticket.id, { includeNotes: true }) });
   })
 );
 
@@ -262,7 +277,32 @@ router.patch(
     );
     const row = rows[0];
     if (!row || row.author_user_id !== req.user.id) return res.status(404).json({ error: 'Not found' });
-    return editMessage(req, res, row, { id: row.ticket_id, status: row.status });
+    return editMessage(req, res, row, { id: row.ticket_id, status: row.status }, { includeNotes: true });
+  })
+);
+
+// Taking a note back.
+//
+// Only notes, and only your own. A reply is something the customer has already
+// read and been emailed, so removing it from the thread would leave the two
+// sides of the same conversation disagreeing about what was said. A note has
+// been read by nobody outside the team, so the person who wrote it is free to
+// think better of it.
+router.delete(
+  '/support/messages/:id',
+  requireSupportStaff,
+  asyncHandler(async (req, res) => {
+    const [rows] = await pool.execute(
+      `SELECT m.id, m.author_user_id, m.author_role, m.ticket_id FROM support_messages m WHERE m.id = ?`,
+      [req.params.id]
+    );
+    const row = rows[0];
+    if (!row || row.author_role !== 'note' || row.author_user_id !== req.user.id) {
+      return res.status(404).json({ error: 'Not found' });
+    }
+
+    await pool.execute('DELETE FROM support_messages WHERE id = ?', [row.id]);
+    res.json({ ok: true, messages: await messagesFor(row.ticket_id, { includeNotes: true }) });
   })
 );
 

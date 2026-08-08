@@ -15,7 +15,7 @@ import { computeAccessLocked } from '../auth/access.js';
 import { collectStats } from '../lib/adminStats.js';
 import { accountSummary, targetProblem, cloneAccount } from '../lib/cloneAccount.js';
 import { assignAccountNumber } from '../lib/accountNumber.js';
-import { getStripe } from '../lib/stripe.js';
+import { getSignupPlans, getStripe } from '../lib/stripe.js';
 import { amountProblem, canTransition } from '../lib/planRequests.js';
 import { shapeTicket, messagesFor, addReply, ticketUrl, upload, editMessage } from './support.routes.js';
 import { categoryLabel, isPriority, PRIORITIES } from '../lib/support.js';
@@ -71,6 +71,15 @@ function directorySize(dir) {
 }
 
 const router = Router();
+
+// A capital at the start of every sentence, so a line typed in a hurry does not
+// arrive on somebody's invoice in lower case. Only the first letter after a
+// full stop, question mark or exclamation is touched — the rest is left exactly
+// as it was typed, because "GST" and "ATO" are not spelling mistakes.
+function sentenceCase(text) {
+  return String(text || '').replace(/(^\s*|[.!?]\s+)([a-z])/g, (_, lead, letter) => lead + letter.toUpperCase());
+}
+
 router.use(requireAuth, requireAdmin);
 
 const PALETTE = ['#8b5cf6', '#06b6d4', '#f59e0b', '#ec4899', '#10b981', '#3b82f6', '#a1a1aa', '#ef4444', '#eab308', '#14b8a6'];
@@ -1171,12 +1180,12 @@ router.get(
 router.post(
   '/plan-requests/:id/invoice',
   asyncHandler(async (req, res) => {
-    const amount = Number(req.body?.amount);
-    const badAmount = amountProblem(req.body?.amount);
-    if (badAmount) return res.status(400).json({ error: badAmount });
-
-    const description = String(req.body?.description || '').trim().slice(0, 300);
-    const daysUntilDue = Math.min(90, Math.max(1, Number(req.body?.daysUntilDue) || 14));
+    const description = sentenceCase(String(req.body?.description || '').trim().slice(0, 300));
+    // Zero is a real answer here — Stripe reads days_until_due: 0 as due on
+    // receipt, which is what somebody moving plan today needs. Math.max(1, …)
+    // would have quietly turned "now" into "next week".
+    const requested = Number(req.body?.daysUntilDue);
+    const daysUntilDue = Number.isFinite(requested) ? Math.min(90, Math.max(0, Math.round(requested))) : 14;
 
     const [rows] = await pool.execute(
       `SELECT r.*, u.email, u.name, u.stripe_customer_id
@@ -1191,6 +1200,18 @@ router.post(
     if (!canTransition(request.status, 'invoiced')) {
       return res.status(409).json({ error: `That request is already ${request.status}` });
     }
+
+    // What the plan they asked for actually costs. Read from Stripe rather
+    // than typed, so the invoice and the plan cards can never disagree — and so
+    // nobody is billed a figure that came from a slipped keystroke.
+    const plans = await getSignupPlans();
+    const target = plans.find((p) => p.planType === request.to_plan);
+    if (!target?.amountPerYear) {
+      return res.status(409).json({
+        error: 'Stripe has no price for that plan yet, so there is nothing to invoice. Set it on the Stripe tab first.',
+      });
+    }
+    const amount = target.amountPerYear / 100;
 
     const stripe = await getStripe();
 
@@ -1208,7 +1229,7 @@ router.post(
       await pool.execute('UPDATE users SET stripe_customer_id = ? WHERE id = ?', [customerId, request.user_id]);
     }
 
-    const currency = (req.body?.currency || 'aud').toLowerCase();
+    const currency = (target.currency || 'aud').toLowerCase();
     const line = description || `Taxify — change to the ${request.to_plan === 'business' ? 'Small Business' : 'Individual'} plan`;
 
     // The invoice is created empty, then the item is attached to it by id.

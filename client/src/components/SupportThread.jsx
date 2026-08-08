@@ -27,13 +27,13 @@ const POLL_MS = 8000;
 export function StatusPill({ status, admin = false }) {
   const map = admin
     ? {
-        awaiting_support: { label: 'Awaiting reply', colour: 'var(--amber)' },
+        awaiting_support: { label: 'Awaiting reply', colour: 'var(--accent)' },
         awaiting_customer: { label: 'With customer', colour: 'var(--accent)' },
         closed: { label: 'Closed', colour: 'var(--text-muted)' },
       }
     : {
         awaiting_support: { label: 'In progress', colour: 'var(--accent)' },
-        awaiting_customer: { label: 'Awaiting your reply', colour: 'var(--amber)' },
+        awaiting_customer: { label: 'Awaiting your reply', colour: 'var(--accent)' },
         closed: { label: 'Closed', colour: 'var(--text-muted)' },
       };
   const s = map[status] || map.awaiting_support;
@@ -73,9 +73,9 @@ function RoleBadge({ role }) {
         textTransform: 'uppercase',
         padding: '2px 7px',
         borderRadius: 999,
-        color: note ? '#7a4b00' : support ? '#fff' : 'var(--text-muted)',
-        background: note ? 'rgba(245, 158, 11, .18)' : support ? 'var(--accent)' : 'var(--bg-subtle)',
-        border: `1px solid ${note ? 'var(--amber)' : support ? 'var(--accent)' : 'var(--border)'}`,
+        color: note ? 'var(--note-ink)' : support ? '#fff' : 'var(--text-muted)',
+        background: note ? 'var(--note-soft)' : support ? 'var(--accent)' : 'var(--bg-subtle)',
+        border: `1px solid ${note ? 'var(--note)' : support ? 'var(--accent)' : 'var(--border)'}`,
       }}
     >
       {note ? 'Internal note' : support ? 'Support' : 'Customer'}
@@ -83,7 +83,7 @@ function RoleBadge({ role }) {
   );
 }
 
-function Message({ message, canEdit, onEdit, onPreview }) {
+function Message({ message, canEdit, canDelete, onDelete, onEdit, onPreview }) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(message.body);
   const [showHistory, setShowHistory] = useState(false);
@@ -143,8 +143,8 @@ function Message({ message, canEdit, onEdit, onPreview }) {
             padding: '11px 13px',
             borderRadius: 10,
             border: '1px solid var(--border)',
-            background: note ? 'rgba(245, 158, 11, .09)' : support ? 'var(--accent-soft)' : 'var(--bg-card)',
-            borderLeft: `3px solid ${note ? 'var(--amber)' : support ? 'var(--accent)' : 'var(--border)'}`,
+            background: note ? 'var(--note-soft)' : support ? 'var(--accent-soft)' : 'var(--bg-card)',
+            borderLeft: `3px solid ${note ? 'var(--note)' : support ? 'var(--accent)' : 'var(--border)'}`,
           }}
         >
           {message.body}
@@ -170,6 +170,29 @@ function Message({ message, canEdit, onEdit, onPreview }) {
                 }}
               >
                 Edit
+              </button>
+            )}
+
+            {/* Only ever a note, and only your own. A reply has been emailed to
+                the customer and read by them, so removing it from the thread
+                would leave the two sides of the same conversation disagreeing
+                about what was said. A note has been read by nobody outside the
+                team, so whoever wrote it may think better of it. */}
+            {canDelete && (
+              <button
+                type="button"
+                onClick={() => onDelete(message)}
+                style={{
+                  border: 0,
+                  background: 'transparent',
+                  padding: 0,
+                  cursor: 'pointer',
+                  fontSize: 11.5,
+                  fontWeight: 600,
+                  color: 'var(--red)',
+                }}
+              >
+                Delete note
               </button>
             )}
 
@@ -291,6 +314,10 @@ export default function SupportThread({
   messages,
   onReply,
   onEdit,
+  // Removing an internal note. Support side only; undefined everywhere else,
+  // which reads as "not offered".
+  onDelete,
+  currentUserId = null,
   onRefresh,
   busy,
   admin = false,
@@ -367,7 +394,16 @@ export default function SupportThread({
               onPreview={setPreview}
               // Your own words, and only while the conversation is open. A
               // closed ticket is a finished record.
-              canEdit={Boolean(onEdit) && !closed && m.role === (admin ? 'support' : 'customer') && m.role !== 'system'}
+              // Your own words, and — for a note — your own note. A note was
+              // excluded by this test, so whoever wrote one could not correct
+              // a typo in it.
+              canEdit={
+                Boolean(onEdit) &&
+                !closed &&
+                (m.role === (admin ? 'support' : 'customer') || (m.role === 'note' && m.authorId === currentUserId))
+              }
+              canDelete={Boolean(onDelete) && !closed && m.role === 'note' && m.authorId === currentUserId}
+              onDelete={onDelete}
               onEdit={onEdit}
             />
           ))}

@@ -1,10 +1,10 @@
 import { useState } from 'react';
 import { api } from '../lib/api.js';
 import Icon from './Icon.jsx';
-import { parseAmount, amountWhileTyping, amountOnBlur } from '../lib/money.js';
 import { useToast } from './Toast.jsx';
 import { planLabel } from '../lib/plans.js';
 import { formatDateLong } from '../lib/dates.js';
+import { sentenceCase } from '../lib/text.js';
 
 // The plan change a ticket is about, handled inside the conversation.
 //
@@ -17,26 +17,38 @@ function money(cents, currency) {
   return new Intl.NumberFormat(undefined, {
     style: 'currency',
     currency: (currency || 'AUD').toUpperCase(),
-    minimumFractionDigits: cents % 100 === 0 ? 0 : 2,
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
   }).format(cents / 100);
 }
 
+// Due on receipt, or a week, or a fortnight, or a month. Zero is a real answer
+// and Stripe treats it as due immediately — it is the one most often wanted,
+// so it leads.
+const DUE_OPTIONS = [
+  { days: 0, label: 'Immediately' },
+  { days: 7, label: '7 days' },
+  { days: 14, label: '14 days' },
+  { days: 30, label: '30 days' },
+];
+
 export default function PlanRequestPanel({ request, onChanged }) {
   const toast = useToast();
-  const [amount, setAmount] = useState('');
   const [description, setDescription] = useState(`Taxify — change to the ${planLabel(request.toPlan)} plan`);
-  const [days, setDays] = useState(14);
+  const [days, setDays] = useState(0);
   const [busy, setBusy] = useState(false);
   const [open, setOpen] = useState(false);
 
-  const value = parseAmount(amount) ?? NaN;
-  const valid = Number.isFinite(value) && value > 0 && value <= 100000;
+  // The amount is the plan's own price, read from Stripe by the server. It was
+  // a text box, which meant the figure on the invoice and the figure on the
+  // plan cards could differ by a keystroke. Nothing about a plan change is
+  // negotiable: it costs what the plan costs.
+  const priced = Number.isFinite(request.priceCents) && request.priceCents > 0;
 
   async function send() {
     setBusy(true);
     try {
       await api.post(`/admin/plan-requests/${request.id}/invoice`, {
-        amount: value,
         description: description.trim(),
         daysUntilDue: days,
       });
@@ -57,7 +69,7 @@ export default function PlanRequestPanel({ request, onChanged }) {
     <div
       style={{
         border: '1px solid var(--border)',
-        borderLeft: `3px solid ${done ? 'var(--emerald)' : sent ? 'var(--accent)' : 'var(--amber)'}`,
+        borderLeft: `3px solid ${done ? 'var(--emerald)' : sent ? 'var(--text-muted)' : 'var(--accent)'}`,
         borderRadius: 10,
         padding: 14,
         background: 'var(--bg-subtle)',
@@ -82,8 +94,9 @@ export default function PlanRequestPanel({ request, onChanged }) {
       </div>
 
       {done && (
-        <div style={{ fontSize: 12.5, color: 'var(--text-muted)' }}>
-          The plan moved across automatically when Stripe confirmed the payment.
+        <div style={{ fontSize: 12.5, color: 'var(--text-muted)', lineHeight: 1.5 }}>
+          They have paid. Apply the plan on their account with the dates it should run between — this panel does not
+          move it for you.
         </div>
       )}
 
@@ -102,19 +115,17 @@ export default function PlanRequestPanel({ request, onChanged }) {
       {request.status === 'pending' &&
         (open ? (
           <div style={{ display: 'grid', gap: 10 }}>
-            <div style={{ display: 'grid', gridTemplateColumns: '140px 1fr', gap: 10 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '150px 1fr', gap: 10 }}>
               <div>
                 <label className="label" style={{ fontSize: 11.5 }}>
-                  Amount (AUD)
+                  Amount{request.priceCurrency ? ` (${request.priceCurrency})` : ''}
                 </label>
                 <input
                   className="input"
-                  inputMode="decimal"
-                  placeholder="149.00"
-                  value={amount}
-                  onChange={(e) => setAmount(amountWhileTyping(e.target.value))}
-                  onBlur={() => setAmount(amountOnBlur(amount))}
-                  style={{ fontSize: 13 }}
+                  readOnly
+                  disabled
+                  value={priced ? money(request.priceCents, request.priceCurrency) : 'No price set'}
+                  style={{ fontSize: 13, fontWeight: 600 }}
                 />
               </div>
               <div>
@@ -126,33 +137,38 @@ export default function PlanRequestPanel({ request, onChanged }) {
                   maxLength={300}
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
+                  // Capitalised as they leave the field rather than as they
+                  // type: fixing the letter under a moving cursor moves the
+                  // cursor, and the field fights whoever is using it.
+                  onBlur={() => setDescription(sentenceCase(description))}
                   style={{ fontSize: 13 }}
                 />
               </div>
             </div>
 
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-              <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>Due in</span>
-              {[7, 14, 30].map((d) => (
+              <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>Due</span>
+              {DUE_OPTIONS.map((option) => (
                 <button
-                  key={d}
+                  key={option.days}
                   type="button"
-                  className={days === d ? 'btn btn-primary' : 'btn btn-ghost'}
+                  className={days === option.days ? 'btn btn-primary' : 'btn btn-ghost'}
                   style={{ fontSize: 12, padding: '5px 10px' }}
-                  onClick={() => setDays(d)}
+                  onClick={() => setDays(option.days)}
                 >
-                  {d} days
+                  {option.label}
                 </button>
               ))}
             </div>
 
             <div style={{ fontSize: 11.5, color: 'var(--text-muted)', lineHeight: 1.5 }}>
-              Stripe emails the invoice. Their plan moves when Stripe confirms it is paid — not before, and nothing here
-              charges a card.
+              {priced
+                ? 'Stripe emails the invoice. When it is paid the payment is posted back onto this ticket — the plan itself is applied by hand, with the dates you choose.'
+                : 'Stripe has no price for this plan yet, so there is nothing to invoice. Set it on the Stripe tab first.'}
             </div>
 
             <div style={{ display: 'flex', gap: 8 }}>
-              <button className="btn btn-primary" style={{ fontSize: 12.5 }} disabled={!valid || busy} onClick={send}>
+              <button className="btn btn-primary" style={{ fontSize: 12.5 }} disabled={!priced || busy} onClick={send}>
                 {busy && <span className="spinner" />}
                 Send invoice
               </button>

@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useConfirm } from '../lib/ConfirmContext.jsx';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { useAuth } from '../lib/AuthContext.jsx';
@@ -31,6 +32,7 @@ const REASSURANCES = [
 
 export default function SubscriptionRequired() {
   const { user } = useAuth();
+  const confirm = useConfirm();
   const toast = useToast();
   const [busy, setBusy] = useState(false);
   const isOwner = user?.role === 'owner';
@@ -43,6 +45,25 @@ export default function SubscriptionRequired() {
   // subscription to change. An administrator quotes it and sends an invoice,
   // and the ticket keeps the whole thing in one conversation.
   async function requestPlan(plan) {
+    // Asked before anything is lodged. Pressing a plan card and silently
+    // raising a ticket is a decision made on somebody's behalf — and this page
+    // is reached by people who are already frustrated, so it should be obvious
+    // what a press does.
+    const ok = await confirm({
+      title: `Move to ${plan.name}?`,
+      body: (
+        <>
+          <div style={{ marginBottom: 8 }}>
+            We will work out what you owe and email you an invoice. Nothing is charged until you pay it.
+          </div>
+          <div>Pressing yes lodges a support ticket, so you can follow it and reply to us in one place.</div>
+        </>
+      ),
+      confirmLabel: 'Yes, ask us to move me',
+      cancelLabel: 'Not now',
+    });
+    if (!ok) return;
+
     setBusy(true);
     try {
       await api.post('/billing/plan-change-request', { planType: plan.planType });

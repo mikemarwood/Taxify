@@ -47,6 +47,15 @@
   --red: #c02a1d;
   --green: #0c7343;
 
+  /* Internal notes. Set apart from the conversation without looking like a
+     warning — the amber this used to borrow had to be dark enough to read on
+     white, which made it brown, and brown on a blue-grey ground reads as mud.
+     Violet is the one hue nothing else in the palette claims, so a note cannot
+     be mistaken for a state something else is in. */
+  --note: #6d3fc4;
+  --note-soft: rgba(109, 63, 196, 0.09);
+  --note-ink: #522f96;
+
   --accent: #1559b8;
   --accent-hover: #114ca0;
   --accent-pressed: #0e4189;
