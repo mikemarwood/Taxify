@@ -17,6 +17,7 @@ import { getStripe } from '../lib/stripe.js';
 import { amountProblem, canTransition } from '../lib/planRequests.js';
 import { shapeTicket, messagesFor, addReply, ticketUrl } from './support.routes.js';
 import { categoryLabel } from '../lib/support.js';
+import { removeTicketFiles } from '../lib/supportAttachments.js';
 import { publicOrigin } from '../lib/publicOrigin.js';
 import { sendSupportClosedEmail } from '../lib/mailer.js';
 import { asyncHandler } from '../lib/asyncHandler.js';
@@ -1245,6 +1246,12 @@ router.get(
       [req.params.id]
     );
     if (!rows[0]) return res.status(404).json({ error: 'Not found' });
+
+    // Opening it counts as reading it, which is what takes it off the badge.
+    // The status is untouched: it still needs a reply, and only replying
+    // changes that.
+    await pool.execute('UPDATE support_tickets SET support_read_at = NOW() WHERE id = ?', [rows[0].id]);
+
     // The plan change this ticket is about, if it is about one. Sent with the
     // thread so the invoice can be raised from inside the conversation rather
     // than from a second screen that has to be kept in step with it.
@@ -1351,6 +1358,31 @@ router.post(
     }
 
     res.json({ ok: true, messages: await messagesFor(ticket.id) });
+  })
+);
+
+// Deleting a conversation, and everything it holds.
+//
+// The rows go by cascade; the files do not, so they are removed here. Order
+// matters: files first, then the row. A row deleted before its files leaves
+// nothing pointing at them, and they sit on disk forever with no way left to
+// know which ticket they belonged to.
+router.delete(
+  '/support/tickets/:id',
+  asyncHandler(async (req, res) => {
+    const [rows] = await pool.execute('SELECT id FROM support_tickets WHERE id = ?', [req.params.id]);
+    if (!rows[0]) return res.status(404).json({ error: 'Not found' });
+
+    try {
+      removeTicketFiles(uploadsDir, rows[0].id);
+    } catch (err) {
+      // Said out loud rather than swallowed: the row is about to go, so this is
+      // the last moment anybody could connect these files to anything.
+      console.error(`Could not remove attachments for ticket ${rows[0].id}`, err);
+    }
+
+    await pool.execute('DELETE FROM support_tickets WHERE id = ?', [rows[0].id]);
+    res.json({ ok: true });
   })
 );
 

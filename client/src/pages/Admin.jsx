@@ -17,6 +17,7 @@ import PromoCodesTab from '../components/PromoCodesTab.jsx';
 import { useConfirm } from '../lib/ConfirmContext.jsx';
 import AdminStatsTab from '../components/AdminStatsTab.jsx';
 import SupportTab from '../components/SupportTab.jsx';
+import { useSupportCounts } from '../lib/useSupportCounts.js';
 import PushSettingsTab from '../components/PushSettingsTab.jsx';
 import { IconPicker, ColourPicker, CategoryPreview, SWATCHES } from '../components/CategoryPickers.jsx';
 import Avatar from '../components/Avatar.jsx';
@@ -52,6 +53,8 @@ export default function Admin() {
   // ?tab= opens a particular one, because the notifications link straight here.
   // "Somebody wants to change plan" is no use if the link lands on Live stats
   // and leaves you to find the right tab yourself.
+  // The same count the sidebar badge uses, so the two cannot disagree.
+  const { queue } = useSupportCounts({ isAdmin: true });
   const [searchParams, setSearchParams] = useSearchParams();
   const requested = searchParams.get('tab');
   const [tab, setTabState] = useState(TAB_KEYS.includes(requested) ? requested : 'stats');
@@ -71,8 +74,34 @@ export default function Admin() {
         <button className={tab === 'stats' ? 'btn btn-primary' : 'btn btn-ghost'} onClick={() => setTab('stats')}>
           Live stats
         </button>
-        <button className={tab === 'support' ? 'btn btn-primary' : 'btn btn-ghost'} onClick={() => setTab('support')}>
+        <button
+          className={tab === 'support' ? 'btn btn-primary' : 'btn btn-ghost'}
+          onClick={() => setTab('support')}
+          style={{ gap: 8 }}
+        >
           Support
+          {/* Only when something is waiting. A zero here would be a badge
+              announcing that there is nothing to announce. */}
+          {queue > 0 && (
+            <span
+              style={{
+                minWidth: 19,
+                height: 19,
+                padding: '0 6px',
+                borderRadius: 999,
+                background: 'var(--amber)',
+                color: '#1a1200',
+                fontSize: 11,
+                fontWeight: 800,
+                display: 'inline-flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontVariantNumeric: 'tabular-nums',
+              }}
+            >
+              {queue > 99 ? '99+' : queue}
+            </span>
+          )}
         </button>
         <button className={tab === 'users' ? 'btn btn-primary' : 'btn btn-ghost'} onClick={() => setTab('users')}>
           Users

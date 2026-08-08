@@ -93,6 +93,31 @@ export default function SupportTab() {
     else setThread(null);
   }, [openId]);
 
+  async function remove() {
+    const ok = await confirm({
+      tone: 'danger',
+      title: 'Delete this conversation?',
+      body: 'The whole thread and every image attached to it are removed for good. This cannot be undone.',
+      // "delete", not the reference — typing a code you can see is copying;
+      // typing the word is a decision.
+      requireText: 'delete',
+      confirmLabel: 'Delete',
+    });
+    if (!ok) return;
+
+    setBusy(true);
+    try {
+      await api.delete(`/admin/support/tickets/${openId}`);
+      setOpenId(null);
+      loadList();
+      toast('Deleted', 'success');
+    } catch (err) {
+      toast(err.message, 'error');
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function setStatus(closing) {
     if (closing) {
       const ok = await confirm({
@@ -192,8 +217,14 @@ export default function SupportTab() {
               messages={thread.messages}
               busy={busy}
               onRefresh={() => loadThread(openId)}
-              onReply={async (message) => {
-                const res = await api.post(`/admin/support/tickets/${openId}/reply`, { message });
+              onReply={async (message, files) => {
+                let payload = { message };
+                if (files?.length) {
+                  payload = new FormData();
+                  payload.append('message', message);
+                  for (const file of files) payload.append('attachments', file);
+                }
+                const res = await api.post(`/admin/support/tickets/${openId}/reply`, payload);
                 setThread((prev) => ({ ...prev, ticket: { ...prev.ticket, status: res.data.status }, messages: res.data.messages }));
                 loadList();
               }}
@@ -217,6 +248,20 @@ export default function SupportTab() {
                   >
                     <Icon name={thread.ticket.status === 'closed' ? 'repeat' : 'lock'} size={13} />
                     {thread.ticket.status === 'closed' ? 'Open it again' : 'Close ticket'}
+                    </button>
+
+                    {/* Deleting removes the conversation and every image in
+                        it, for good. Kept beside the close button but styled
+                        apart, and asks for the reference to be typed — closing
+                        is the ordinary action and this one is not. */}
+                    <button
+                      className="btn btn-ghost"
+                      style={{ fontSize: 12.5, gap: 6, color: 'var(--red)', marginLeft: 'auto' }}
+                      disabled={busy}
+                      onClick={remove}
+                    >
+                      <Icon name="trash" size={13} />
+                      Delete
                     </button>
                   </div>
                 </div>

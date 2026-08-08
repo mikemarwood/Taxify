@@ -6,6 +6,22 @@ import { publicOrigin } from '../lib/publicOrigin.js';
 import { notify, notifyAdmins } from '../lib/notify.js';
 import { titleCase, lowerEmail } from '../lib/text.js';
 import { createCaptcha, verifyCaptcha } from '../lib/captcha.js';
+import multer from 'multer';
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
+import { serveAttachment } from '../lib/serveAttachment.js';
+import {
+  ensureTicketDir,
+  ticketDir,
+  storedFilename,
+  isAllowedAttachment,
+  isInsideTicket,
+  removeTicketFiles,
+  MAX_ATTACHMENT_BYTES,
+  MAX_ATTACHMENTS_PER_MESSAGE,
+  ATTACHMENT_REJECTED_MESSAGE,
+} from '../lib/supportAttachments.js';
 import {
   SUPPORT_CATEGORIES,
   isCategory,
@@ -23,6 +39,50 @@ import {
   sendSupportReplyEmail,
   sendSupportClosedEmail,
 } from '../lib/mailer.js';
+
+const uploadsDir = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', '..', 'uploads');
+
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: MAX_ATTACHMENT_BYTES, files: MAX_ATTACHMENTS_PER_MESSAGE },
+  fileFilter: (req, file, cb) => {
+    if (!isAllowedAttachment(file)) {
+      return cb(Object.assign(new Error(ATTACHMENT_REJECTED_MESSAGE), { status: 400 }));
+    }
+    cb(null, true);
+  },
+});
+
+// Writes what was uploaded and returns what to store on the message. The
+// original filename is kept for display only — never for the path, because it
+// is attacker-controlled text and only has to contain a slash once.
+function saveAttachments(ticketId, messageId, files) {
+  if (!files || files.length === 0) return null;
+  const dir = ensureTicketDir(uploadsDir, ticketId);
+  const saved = [];
+
+  files.forEach((file, index) => {
+    const name = storedFilename(messageId, index, file);
+    fs.writeFileSync(path.join(dir, name), file.buffer);
+    saved.push({
+      file: name,
+      name: String(file.originalname || 'image').slice(0, 160),
+      bytes: file.size,
+    });
+  });
+
+  return JSON.stringify(saved);
+}
+
+function parseAttachments(value) {
+  if (!value) return [];
+  try {
+    const list = JSON.parse(value);
+    return Array.isArray(list) ? list : [];
+  } catch {
+    return [];
+  }
+}
 
 const router = Router();
 
@@ -53,6 +113,13 @@ function shapeMessage(row) {
     name: row.author_name,
     body: row.body,
     createdAt: row.created_at,
+    attachments: parseAttachments(row.attachments).map((a, index) => ({
+      name: a.name,
+      bytes: a.bytes,
+      // Served through a route that checks who is asking, never as a static
+      // path — these are somebody's screenshots, often of their own tax records.
+      url: `/api/support/attachments/${row.ticket_id}/${row.id}/${index}`,
+    })),
     avatarUrl: row.author_user_id && row.avatar_path ? `/api/auth/avatar/${row.author_user_id}` : null,
   };
 }
@@ -145,6 +212,47 @@ router.get(
   })
 );
 
+
+// An attachment, served only to somebody who can already read the thread it
+// belongs to. Never a static path: these are people's screenshots, often of
+// their own tax records, and a guessable URL under /uploads would be readable
+// by anyone who guessed it.
+router.get(
+  '/attachments/:ticketId/:messageId/:index',
+  optionalAuth,
+  asyncHandler(async (req, res) => {
+    const [rows] = await pool.execute(
+      `SELECT m.attachments, t.id AS ticket_id, t.user_id, t.access_token_hash
+         FROM support_messages m JOIN support_tickets t ON t.id = m.ticket_id
+        WHERE m.id = ? AND m.ticket_id = ?`,
+      [req.params.messageId, req.params.ticketId]
+    );
+    const row = rows[0];
+    if (!row) return res.status(404).json({ error: 'Not found' });
+
+    // Three ways to be allowed, and no fourth: an administrator, the account
+    // the ticket belongs to, or somebody holding the guest link for it.
+    const isAdmin = Boolean(req.user?.isAdmin);
+    const isOwner = row.user_id && req.user?.id === row.user_id;
+    const token = req.query?.token ? hashAccessToken(req.query.token) : null;
+    const hasLink = row.access_token_hash && token && row.access_token_hash === token;
+    if (!isAdmin && !isOwner && !hasLink) return res.status(404).json({ error: 'Not found' });
+
+    const list = parseAttachments(row.attachments);
+    const item = list[Number(req.params.index)];
+    if (!item) return res.status(404).json({ error: 'Not found' });
+
+    const filePath = path.join(ticketDir(uploadsDir, row.ticket_id), item.file);
+    // The stored path is only as trustworthy as whatever wrote it, so where it
+    // actually points is checked rather than assumed.
+    if (!isInsideTicket(uploadsDir, row.ticket_id, filePath) || !fs.existsSync(filePath)) {
+      return res.status(404).json({ error: 'Not found' });
+    }
+
+    return serveAttachment(res, filePath, { originalName: item.name });
+  })
+);
+
 // The numbers behind the badges in the navigation. One call, because the
 // sidebar asks for both and three separate polls would be three times the work
 // for the same answer.
@@ -163,7 +271,9 @@ router.get(
   requireAuth,
   asyncHandler(async (req, res) => {
     const [mine] = await pool.execute(
-      "SELECT COUNT(*) AS n FROM support_tickets WHERE user_id = ? AND status = 'awaiting_customer'",
+      `SELECT COUNT(*) AS n FROM support_tickets
+        WHERE user_id = ? AND status = 'awaiting_customer'
+          AND (customer_read_at IS NULL OR customer_read_at < last_message_at)`,
       [req.user.id]
     );
 
@@ -172,7 +282,9 @@ router.get(
     let needingReply = 0;
     if (req.user.isAdmin) {
       const [queue] = await pool.query(
-        "SELECT COUNT(*) AS n FROM support_tickets WHERE status = 'awaiting_support'"
+        `SELECT COUNT(*) AS n FROM support_tickets
+          WHERE status = 'awaiting_support'
+            AND (support_read_at IS NULL OR support_read_at < last_message_at)`
       );
       needingReply = Number(queue[0]?.n) || 0;
     }
@@ -190,6 +302,7 @@ router.post(
   // Signed in or not — both are allowed, and which one decides whether the
   // name and address are taken from the account or asked for.
   optionalAuth,
+  upload.array('attachments', MAX_ATTACHMENTS_PER_MESSAGE),
   asyncHandler(async (req, res) => {
     const { subject, category, message } = req.body || {};
 
@@ -242,11 +355,21 @@ router.post(
     }
     if (!ticketId) return res.status(500).json({ error: 'Could not raise the ticket — please try again' });
 
-    await pool.execute(
+    const [firstMessage] = await pool.execute(
       `INSERT INTO support_messages (ticket_id, author_user_id, author_role, author_name, body)
        VALUES (?, ?, 'customer', ?, ?)`,
       [ticketId, user?.id || null, user?.name || guestName, String(message).trim()]
     );
+
+    // Written after the insert, because the folder is named after the ticket
+    // and the file after the message — neither id exists before this point.
+    const attached = saveAttachments(ticketId, firstMessage.insertId, req.files);
+    if (attached) {
+      await pool.execute('UPDATE support_messages SET attachments = ? WHERE id = ?', [
+        attached,
+        firstMessage.insertId,
+      ]);
+    }
 
     const [rows] = await pool.execute(
       `SELECT t.*, u.name, u.email FROM support_tickets t LEFT JOIN users u ON u.id = t.user_id WHERE t.id = ?`,
@@ -291,6 +414,12 @@ router.get(
       [req.params.id, req.user.id]
     );
     if (!rows[0]) return res.status(404).json({ error: 'Not found' });
+
+    // Opening it is reading it. Without this the badge keeps counting a ticket
+    // somebody has already looked at, and a number that will not clear is one
+    // people stop believing.
+    await pool.execute('UPDATE support_tickets SET customer_read_at = NOW() WHERE id = ?', [rows[0].id]);
+
     res.json({ ticket: shapeTicket(rows[0]), messages: await messagesFor(rows[0].id) });
   })
 );
@@ -307,6 +436,7 @@ router.get(
       [hashAccessToken(req.query?.token || '')]
     );
     if (!rows[0]) return res.status(404).json({ error: 'invalid' });
+    await pool.execute('UPDATE support_tickets SET customer_read_at = NOW() WHERE id = ?', [rows[0].id]);
     res.json({ ticket: shapeTicket(rows[0]), messages: await messagesFor(rows[0].id) });
   })
 );
@@ -323,17 +453,24 @@ async function addReply(req, res, ticket, role) {
 
   const name = role === 'support' ? req.user?.name || 'Support' : ticket.user_id ? ticket.name : ticket.guest_name;
 
-  await pool.execute(
+  const [inserted] = await pool.execute(
     `INSERT INTO support_messages (ticket_id, author_user_id, author_role, author_name, body)
      VALUES (?, ?, ?, ?, ?)`,
     [ticket.id, req.user?.id || null, role, name, String(req.body.message).trim()]
   );
 
+  const attached = saveAttachments(ticket.id, inserted.insertId, req.files);
+  if (attached) {
+    await pool.execute('UPDATE support_messages SET attachments = ? WHERE id = ?', [attached, inserted.insertId]);
+  }
+
   const next = statusAfterReply(ticket.status, role);
-  await pool.execute('UPDATE support_tickets SET status = ?, last_message_at = NOW(), updated_at = NOW() WHERE id = ?', [
-    next,
-    ticket.id,
-  ]);
+  const readColumn = role === 'support' ? 'support_read_at' : 'customer_read_at';
+  await pool.execute(
+    `UPDATE support_tickets SET status = ?, last_message_at = NOW(), updated_at = NOW(),
+       ${readColumn} = NOW() WHERE id = ?`,
+    [next, ticket.id]
+  );
 
   await announce(ticket, { body: String(req.body.message).trim(), fromSupport: role === 'support' });
 
@@ -343,6 +480,7 @@ async function addReply(req, res, ticket, role) {
 router.post(
   '/tickets/:id/reply',
   requireAuth,
+  upload.array('attachments', MAX_ATTACHMENTS_PER_MESSAGE),
   asyncHandler(async (req, res) => {
     const [rows] = await pool.execute(
       `SELECT t.*, u.name, u.email FROM support_tickets t LEFT JOIN users u ON u.id = t.user_id
@@ -356,6 +494,7 @@ router.post(
 
 router.post(
   '/reply-by-token',
+  upload.array('attachments', MAX_ATTACHMENTS_PER_MESSAGE),
   asyncHandler(async (req, res) => {
     const [rows] = await pool.execute(
       `SELECT t.*, u.name, u.email FROM support_tickets t LEFT JOIN users u ON u.id = t.user_id

@@ -5,6 +5,17 @@ import Avatar from './Avatar.jsx';
 import { formatDateTime } from '../lib/dates.js';
 import { sentenceCaseLive } from '../lib/textCase.js';
 import { useToast } from './Toast.jsx';
+
+// Matched to the server. Stated here as well so somebody is told before a
+// 8 MB upload crawls up a phone connection only to be refused at the far end.
+export const MAX_ATTACHMENT_BYTES = 8 * 1024 * 1024;
+export const MAX_ATTACHMENTS = 4;
+const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/heif', 'image/gif'];
+
+function readableSize(bytes) {
+  if (bytes >= 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  return `${Math.max(1, Math.round(bytes / 1024))} KB`;
+}
 import { playInfo } from '../lib/sounds.js';
 
 // How often an open conversation checks for a reply. Slow enough to be no load
@@ -115,6 +126,39 @@ function Message({ message }) {
         >
           {message.body}
         </div>
+
+        {message.attachments?.length > 0 && (
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 8 }}>
+            {message.attachments.map((a) => (
+              <a
+                key={a.url}
+                href={a.url}
+                target="_blank"
+                rel="noreferrer"
+                title={`${a.name} · ${readableSize(a.bytes)}`}
+                style={{
+                  display: 'block',
+                  width: 108,
+                  height: 108,
+                  borderRadius: 8,
+                  overflow: 'hidden',
+                  border: '1px solid var(--border)',
+                  background: 'var(--bg-subtle)',
+                }}
+              >
+                {/* The thumbnail is the file itself rather than a generated
+                    one — these are screenshots, a handful per ticket at most,
+                    and a resizing pipeline for that is machinery nobody needs. */}
+                <img
+                  src={a.url}
+                  alt={a.name}
+                  loading="lazy"
+                  style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+                />
+              </a>
+            ))}
+          </div>
+        )}
       </div>
     </motion.div>
   );
@@ -134,6 +178,7 @@ export default function SupportThread({
 }) {
   const toast = useToast();
   const [draft, setDraft] = useState('');
+  const [files, setFiles] = useState([]);
   const [sending, setSending] = useState(false);
   // What we last saw, so a reply arriving while the page is open can announce
   // itself rather than appearing silently.
@@ -155,13 +200,39 @@ export default function SupportThread({
 
   const closed = ticket?.status === 'closed';
 
+  // Checked here rather than only on the server, so somebody is told before a
+  // large file crawls up a phone connection to be refused at the other end.
+  function addFiles(chosen) {
+    const picked = Array.from(chosen || []);
+    const kept = [];
+
+    for (const file of picked) {
+      if (!ALLOWED_TYPES.includes(file.type)) {
+        toast(`${file.name} is not an image — JPG, PNG, WEBP, HEIC and GIF only`, 'error');
+        continue;
+      }
+      if (file.size > MAX_ATTACHMENT_BYTES) {
+        toast(`${file.name} is ${readableSize(file.size)} — the limit is ${readableSize(MAX_ATTACHMENT_BYTES)}`, 'error');
+        continue;
+      }
+      kept.push(file);
+    }
+
+    setFiles((prev) => {
+      const room = MAX_ATTACHMENTS - prev.length;
+      if (kept.length > room) toast(`You can attach ${MAX_ATTACHMENTS} images at most`, 'error');
+      return [...prev, ...kept.slice(0, Math.max(0, room))];
+    });
+  }
+
   async function send() {
     const text = draft.trim();
     if (!text) return;
     setSending(true);
     try {
-      await onReply(text);
+      await onReply(text, files);
       setDraft('');
+      setFiles([]);
     } catch (err) {
       // Nothing caught this before, so a reply that failed looked exactly like
       // a reply that did nothing: the text stayed in the box, no message
@@ -220,7 +291,45 @@ export default function SupportThread({
             onChange={(e) => setDraft(sentenceCaseLive(e.target.value))}
             style={{ resize: 'vertical', fontSize: 13.5, lineHeight: 1.6 }}
           />
-          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+          {files.length > 0 && (
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+              {files.map((file, index) => (
+                <div
+                  key={`${file.name}-${index}`}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 8,
+                    padding: '5px 8px 5px 5px',
+                    borderRadius: 8,
+                    border: '1px solid var(--border)',
+                    background: 'var(--bg-subtle)',
+                    fontSize: 12,
+                  }}
+                >
+                  <img
+                    src={URL.createObjectURL(file)}
+                    alt=""
+                    style={{ width: 30, height: 30, borderRadius: 5, objectFit: 'cover', display: 'block' }}
+                  />
+                  <span style={{ maxWidth: 150, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {file.name}
+                  </span>
+                  <span style={{ color: 'var(--text-muted)' }}>{readableSize(file.size)}</span>
+                  <button
+                    type="button"
+                    aria-label={`Remove ${file.name}`}
+                    onClick={() => setFiles((prev) => prev.filter((_, i) => i !== index))}
+                    style={{ border: 0, background: 'transparent', cursor: 'pointer', color: 'var(--text-muted)', padding: 2 }}
+                  >
+                    <Icon name="x" size={13} />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
             <button
               className="btn btn-primary"
               style={{ fontSize: 13 }}
@@ -230,6 +339,28 @@ export default function SupportThread({
               {sending && <span className="spinner" />}
               Send reply
             </button>
+            <label
+              className="btn btn-ghost"
+              style={{ fontSize: 12.5, gap: 6, cursor: files.length >= MAX_ATTACHMENTS ? 'not-allowed' : 'pointer' }}
+              title={`Up to ${MAX_ATTACHMENTS} images, ${readableSize(MAX_ATTACHMENT_BYTES)} each`}
+            >
+              <Icon name="image" size={14} />
+              Attach image
+              <input
+                type="file"
+                accept={ALLOWED_TYPES.join(',')}
+                multiple
+                disabled={files.length >= MAX_ATTACHMENTS}
+                onChange={(e) => {
+                  addFiles(e.target.files);
+                  // Cleared so choosing the same file twice in a row still
+                  // fires a change event.
+                  e.target.value = '';
+                }}
+                style={{ display: 'none' }}
+              />
+            </label>
+
             <span style={{ fontSize: 11.5, color: 'var(--text-muted)' }}>
               {admin ? 'They are emailed as soon as you send this.' : 'We will email you as soon as we reply.'}
             </span>

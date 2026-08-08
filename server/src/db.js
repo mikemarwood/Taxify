@@ -875,6 +875,13 @@ export async function ensureSchema() {
 
   // For installs whose support tables were created a release before this.
   await pool.query(`ALTER TABLE support_tickets ADD COLUMN IF NOT EXISTS plan_change_request_id INT NULL`);
+  // When each side last read the thread. A badge counts a ticket only while it
+  // is both waiting on you *and* unread — otherwise the number sits there after
+  // you have looked, and a number that will not clear is one people stop
+  // looking at.
+  await pool.query(`ALTER TABLE support_tickets ADD COLUMN IF NOT EXISTS customer_read_at DATETIME NULL`);
+  await pool.query(`ALTER TABLE support_tickets ADD COLUMN IF NOT EXISTS support_read_at DATETIME NULL`);
+  await pool.query(`ALTER TABLE support_messages ADD COLUMN IF NOT EXISTS attachments TEXT NULL`);
 
   await pool.query(`
     CREATE TABLE IF NOT EXISTS support_messages (
@@ -889,6 +896,9 @@ export async function ensureSchema() {
       author_role VARCHAR(16) NOT NULL,
       author_name VARCHAR(160) NULL,
       body TEXT NOT NULL,
+      -- JSON array of { name, file, bytes }. A message rarely has any, and
+      -- never has many, so a column costs less than a table and a join.
+      attachments TEXT NULL,
       created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
       KEY idx_support_messages_ticket (ticket_id, created_at),
       FOREIGN KEY (ticket_id) REFERENCES support_tickets(id) ON DELETE CASCADE,

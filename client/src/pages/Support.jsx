@@ -118,7 +118,7 @@ function NewTicket({ user, onRaised }) {
     e.preventDefault();
     setBusy(true);
     try {
-      const res = await api.post('/support/tickets', {
+      const fields = {
         category,
         subject: subject.trim(),
         message: message.trim(),
@@ -130,7 +130,16 @@ function NewTicket({ user, onRaised }) {
               captchaAnswer: captchaAnswer.trim(),
             }
           : {}),
-      });
+      };
+
+      let payload = fields;
+      if (files.length > 0) {
+        payload = new FormData();
+        for (const [key, value] of Object.entries(fields)) payload.append(key, value ?? '');
+        for (const file of files) payload.append('attachments', file);
+      }
+
+      const res = await api.post('/support/tickets', payload);
       onRaised(res.data);
     } catch (err) {
       toast(err.message, 'error');
@@ -315,6 +324,18 @@ function GuestRaised({ result }) {
   );
 }
 
+
+// A reply, as form data when there are images and JSON when there are not.
+// Sending multipart unconditionally would work, but it turns every ordinary
+// reply into a file upload for no reason.
+function replyBody(message, files) {
+  if (!files || files.length === 0) return { message };
+  const form = new FormData();
+  form.append('message', message);
+  for (const file of files) form.append('attachments', file);
+  return form;
+}
+
 function TicketRow({ ticket, onOpen }) {
   return (
     <button
@@ -444,8 +465,8 @@ export function SupportTicket() {
         ticket={data.ticket}
         messages={data.messages}
         onRefresh={load}
-        onReply={async (message) => {
-          const res = await api.post(`/support/tickets/${id}/reply`, { message });
+        onReply={async (message, files) => {
+          const res = await api.post(`/support/tickets/${id}/reply`, replyBody(message, files));
           setData((prev) => ({ ...prev, ticket: { ...prev.ticket, status: res.data.status }, messages: res.data.messages }));
         }}
       />
@@ -484,8 +505,11 @@ export function SupportTicketByToken() {
         ticket={data.ticket}
         messages={data.messages}
         onRefresh={load}
-        onReply={async (message) => {
-          const res = await api.post('/support/reply-by-token', { token, message });
+        onReply={async (message, files) => {
+          const body = replyBody(message, files);
+          if (body instanceof FormData) body.append('token', token);
+          else body.token = token;
+          const res = await api.post('/support/reply-by-token', body);
           setData((prev) => ({ ...prev, ticket: { ...prev.ticket, status: res.data.status }, messages: res.data.messages }));
         }}
       />
