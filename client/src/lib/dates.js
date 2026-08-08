@@ -83,3 +83,20 @@ export function formatMonthYear(value, fallback = '—') {
   const d = toDate(value);
   return d ? d.toLocaleDateString(locale, { month: 'long', year: 'numeric' }) : fallback;
 }
+
+// dd/mm/yyyy, hh:mm — for a deadline, where the exact day matters and reading
+// it should not depend on knowing whether "08 Aug" is the eighth of August.
+// Numeric on purpose, and always two digits, so the cut-off cannot be misread.
+export function formatDeadline(value, fallback = '—') {
+  const d = toDate(value);
+  return d
+    ? d.toLocaleString(locale, {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: false,
+      })
+    : fallback;
+}

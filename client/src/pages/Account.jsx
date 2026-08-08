@@ -47,7 +47,7 @@ function joinPhone(dial, number) {
 import ChangeEmailSection from '../components/ChangeEmailSection.jsx';
 import { useFinancialYears } from '../lib/useFinancialYears.js';
 import { financialYearSpan } from '../lib/financialYear.js';
-import { formatDateLong, formatDateTime } from '../lib/dates.js';
+import { formatDateLong, formatDateTime, formatDeadline } from '../lib/dates.js';
 import { describeSubscription, toneColor } from '../lib/subscription.js';
 import { useConfirm } from '../lib/ConfirmContext.jsx';
 
@@ -471,6 +471,28 @@ function ManageAccess({ accountant, years, windowChoices, onDone }) {
             </button>
           ))}
         </div>
+
+        {/* The date the chosen window actually lands on. "48 hours" is a length,
+            not a deadline, and working out which day that is from a number of
+            hours is exactly the sum somebody should not have to do. */}
+        <div style={{ fontSize: 11.5, color: 'var(--text-muted)', marginTop: 7, lineHeight: 1.5 }}>
+          {accountant.expiresAt && hours === (accountant.windowHours || 24) ? (
+            <>
+              Access ends <strong style={{ color: 'var(--text)' }}>{formatDeadline(accountant.expiresAt)}</strong>
+            </>
+          ) : accountant.firstLoginAt ? (
+            <>
+              A fresh window would end{' '}
+              <strong style={{ color: 'var(--text)' }}>{formatDeadline(deadlineFromNow(hours))}</strong>, starting the
+              next time they open your books.
+            </>
+          ) : (
+            <>
+              They have not opened your books yet. Whenever they do, access will run until{' '}
+              <strong style={{ color: 'var(--text)' }}>{describeHours(hours)}</strong> after that moment.
+            </>
+          )}
+        </div>
       </div>
 
       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
@@ -511,6 +533,13 @@ function ManageAccess({ accountant, years, windowChoices, onDone }) {
 // time a message appears or clears while somebody is typing.
 function FieldNote({ problem }) {
   return <div style={{ fontSize: 11.5, minHeight: 15, marginTop: 4, color: 'var(--red)' }}>{problem || ''}</div>;
+}
+
+// Where a window of this many hours would land if it started now. Used only
+// to show the date beside the choice — the server sets the real one when they
+// first open the books.
+function deadlineFromNow(hours) {
+  return new Date(Date.now() + Number(hours || 24) * 60 * 60 * 1000);
 }
 
 function AccountantSection({ user }) {
@@ -728,8 +757,14 @@ function AccountantSection({ user }) {
               <span style={{ fontSize: 11.5, color: 'var(--text-muted)' }}>
                 {a.financialYears ? `FY ${a.financialYears.join(', ')}` : 'All years'}
               </span>
+              {/* expires_at is only set once they first open the books, so an
+                  empty one means "not started", never "expired". Until then
+                  there is no cut-off to show — only how long it will run for
+                  once the clock starts. */}
               <span style={{ fontSize: 11.5, color: a.expiresAt ? 'var(--amber)' : 'var(--text-muted)' }}>
-                {a.expiresAt ? `Ends ${formatWhen(a.expiresAt)}` : 'Not opened yet'}
+                {a.expiresAt
+                  ? `Ends ${formatDeadline(a.expiresAt)}`
+                  : `Not opened yet — ${describeHours(a.windowHours || 24)} once they do`}
               </span>
               <button
                 className="btn btn-ghost"

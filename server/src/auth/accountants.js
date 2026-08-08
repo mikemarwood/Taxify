@@ -9,7 +9,9 @@ import { financialYearRange, isFinancialYearLabel } from '../lib/financialYear.j
 //
 // An allow-list rather than a range: these values reach SQL, they are what the
 // emails promise, and "some number of hours" is not a thing anyone needs.
-export const ACCOUNTANT_WINDOW_CHOICES = [24, 48, 72, 96];
+// 168 is a week — long enough for an accountant to come back to a return
+// across a weekend, which 96 hours does not always cover.
+export const ACCOUNTANT_WINDOW_CHOICES = [24, 48, 72, 96, 168];
 export const ACCOUNTANT_WINDOW_HOURS = 24;
 
 export function normaliseWindowHours(value) {

@@ -128,6 +128,13 @@ export default function EntityManager() {
     try {
       await api.patch(`/entities/${entity.id}`, changes);
       await reload();
+
+      // Making a set of books the default switches to it as well. The default
+      // is remembered per browser, and a browser that already had a selection
+      // kept showing the old one — so pressing "Make default" appeared to do
+      // nothing at all in the sidebar or the expense form.
+      if (changes.isDefault === true) choose(entity.id);
+
       setEditing(null);
       toast('Saved', 'success');
     } catch (err) {
@@ -159,17 +166,11 @@ export default function EntityManager() {
     }
   }
 
-  async function remove(entity) {
-    if (!(await confirm({ tone: 'danger', title: `Delete ${entity.name}?`, body: 'This cannot be undone.', confirmLabel: 'Delete' }))) return;
-    try {
-      await api.delete(`/entities/${entity.id}`);
-      await reload();
-      if (String(selected) === String(entity.id)) choose(null);
-      toast(`${entity.name} deleted`, 'success');
-    } catch (err) {
-      toast(err.message, 'error');
-    }
-  }
+  // Deleting a set of books used to live here. It destroyed every expense,
+  // receipt and lodgement inside them and sat one press from Save with only a
+  // dialog in between. Archiving is what people mean when they say "get rid of
+  // this", and it can be undone. The server route still exists for a genuine
+  // deletion, asked for deliberately.
 
   return (
     <div>
@@ -183,7 +184,10 @@ export default function EntityManager() {
               style={{
                 padding: 12,
                 minWidth: 210,
-                flex: '1 1 210px',
+                // The card being edited takes the whole row. Sharing it means
+                // the name field, both button groups and Save are squeezed into
+                // half the page while the space beside it sits empty.
+                flex: editing === e.id ? '1 1 100%' : '1 1 260px',
                 borderLeft: `4px solid ${active ? 'var(--accent)' : 'var(--border)'}`,
                 background: active ? 'var(--accent-soft)' : undefined,
               }}
@@ -251,7 +255,6 @@ export default function EntityManager() {
                       siblings={allNames}
                       onSave={save}
                       onArchive={archive}
-                      onDelete={remove}
                     />
                   </motion.div>
                 )}
@@ -461,7 +464,7 @@ export default function EntityManager() {
   );
 }
 
-function EditRow({ entity, busy, canBecomeBusiness, siblings = [], onSave, onArchive, onDelete }) {
+function EditRow({ entity, busy, canBecomeBusiness, siblings = [], onSave, onArchive }) {
   const [name, setName] = useState(entity.name);
   // Held here until Save. Pressing "Every quarter" used to change how the
   // books lodge the instant it was pressed, with nothing to confirm and
@@ -561,31 +564,37 @@ function EditRow({ entity, busy, canBecomeBusiness, siblings = [], onSave, onArc
         </button>
 
         {!entity.isDefault && (
-          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
-            <button
-              type="button"
-              className="btn btn-ghost"
-              style={{ fontSize: 12, padding: '6px 11px' }}
-              onClick={() => onSave(entity, { isDefault: true })}
-            >
-              Make default
-            </button>
-            <button
-              type="button"
-              className="btn btn-ghost"
-              style={{ fontSize: 12, padding: '6px 11px' }}
-              onClick={() => onArchive(entity)}
-            >
-              Archive
-            </button>
-            <button
-              type="button"
-              className="btn btn-ghost"
-              style={{ fontSize: 12, padding: '6px 11px', color: 'var(--red)', marginLeft: 'auto' }}
-              onClick={() => onDelete(entity)}
-            >
-              Delete
-            </button>
+          <div style={{ display: 'grid', gap: 8 }}>
+            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
+              <button
+                type="button"
+                className="btn btn-ghost"
+                style={{ fontSize: 12, padding: '6px 11px' }}
+                onClick={() => onSave(entity, { isDefault: true })}
+              >
+                Make default
+              </button>
+              <button
+                type="button"
+                className="btn btn-ghost"
+                style={{ fontSize: 12, padding: '6px 11px' }}
+                onClick={() => onArchive(entity)}
+              >
+                Archive
+              </button>
+            </div>
+
+            {/* Deleting was here and is gone. It destroyed every expense,
+                receipt and lodgement in the books along with them, and it sat
+                one press from Save with nothing but a dialog in between. What
+                somebody actually wants when they say "get rid of this" is
+                archiving, so that is the only thing offered. A genuine
+                deletion is rare enough to be worth asking for. */}
+            <div style={{ fontSize: 11.5, color: 'var(--text-muted)', lineHeight: 1.55 }}>
+              <strong style={{ color: 'var(--text)' }}>Archiving</strong> hides these books from the picker and from
+              your reports. Nothing is deleted — every expense, receipt and lodgement is kept, and you can restore them
+              at any time from below. Archived books still count towards your plan's limit.
+            </div>
           </div>
         )}
       </div>
