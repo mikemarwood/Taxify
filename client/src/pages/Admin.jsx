@@ -16,7 +16,6 @@ import Icon from '../components/Icon.jsx';
 import PromoCodesTab from '../components/PromoCodesTab.jsx';
 import { useConfirm } from '../lib/ConfirmContext.jsx';
 import AdminStatsTab from '../components/AdminStatsTab.jsx';
-import PlanRequestsTab from '../components/PlanRequestsTab.jsx';
 import SupportTab from '../components/SupportTab.jsx';
 import TaxRatesTab from '../components/TaxRatesTab.jsx';
 import PushSettingsTab from '../components/PushSettingsTab.jsx';
@@ -40,7 +39,6 @@ function formatBytes(bytes) {
 // rather than trusting the URL and rendering nothing.
 const TAB_KEYS = [
   'stats',
-  'plan-requests',
   'support',
   'users',
   'categories',
@@ -75,9 +73,6 @@ export default function Admin() {
         <button className={tab === 'stats' ? 'btn btn-primary' : 'btn btn-ghost'} onClick={() => setTab('stats')}>
           Live stats
         </button>
-        <button className={tab === 'plan-requests' ? 'btn btn-primary' : 'btn btn-ghost'} onClick={() => setTab('plan-requests')}>
-          Plan requests
-        </button>
         <button className={tab === 'support' ? 'btn btn-primary' : 'btn btn-ghost'} onClick={() => setTab('support')}>
           Support
         </button>
@@ -108,7 +103,6 @@ export default function Admin() {
       </div>
 
       {tab === 'stats' && <AdminStatsTab />}
-      {tab === 'plan-requests' && <PlanRequestsTab />}
       {tab === 'support' && <SupportTab />}
       {tab === 'users' && <UsersTab />}
       {tab === 'categories' && <DefaultCategoriesTab />}

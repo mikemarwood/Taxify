@@ -18,6 +18,7 @@ import { formatMoney } from '../lib/money.js';
 import { describeSubscription } from '../lib/subscription.js';
 import { currentPlanType, planLabel as labelForPlan } from '../lib/plans.js';
 import SiteFooter from './SiteFooter.jsx';
+import { useSupportCounts } from '../lib/useSupportCounts.js';
 import { useKeyboardOpen } from '../lib/useKeyboardOpen.js';
 
 // Eight equal-weight links in one column give no sense of where anything is.
@@ -128,7 +129,30 @@ function NavItem({ item }) {
             />
           )}
           <Icon name={item.icon} size={item.sub ? 17 : 19} strokeWidth={isActive ? 2 : 1.8} style={{ color: isActive ? "var(--nav-accent)" : "inherit" }} />
-          {item.label}
+          <span style={{ flex: 1, minWidth: 0 }}>{item.label}</span>
+          {/* Only when there is something waiting. A zero in a badge is a badge
+              saying "nothing to see", which is worse than no badge at all. */}
+          {item.badge > 0 && (
+            <span
+              aria-label={`${item.badge} waiting`}
+              style={{
+                minWidth: 19,
+                height: 19,
+                padding: '0 6px',
+                borderRadius: 999,
+                background: 'var(--amber)',
+                color: '#1a1200',
+                fontSize: 11,
+                fontWeight: 800,
+                display: 'inline-flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontVariantNumeric: 'tabular-nums',
+              }}
+            >
+              {item.badge > 99 ? '99+' : item.badge}
+            </span>
+          )}
         </>
       )}
     </NavLink>
@@ -140,6 +164,9 @@ export default function Layout({ children }) {
   const navigate = useNavigate();
   const location = useLocation();
   const toast = useToast();
+  // Live counts for the two badges. One poll for both, shared here rather than
+  // fetched inside each item.
+  const supportCounts = useSupportCounts({ isAdmin: Boolean(user?.isAdmin) });
   const [showMfaPrompt, setShowMfaPrompt] = useState(false);
   // The drawer, on small screens only. Closed on every navigation, or it would
   // stay over the page someone just asked for.
@@ -287,9 +314,21 @@ export default function Layout({ children }) {
         <nav style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
           {navGroups
             .map((group) => {
+              // The counts ride on the items rather than being fetched inside
+              // NavItem, so one place decides which number belongs to which
+              // link.
+              const withBadges = (list) =>
+                list.map((i) =>
+                  i.to === '/support'
+                    ? { ...i, badge: supportCounts.mine }
+                    : i.to === '/admin'
+                    ? { ...i, badge: supportCounts.queue }
+                    : i
+                );
+
               const items = [
-                ...group.items,
-                ...(user?.isAdmin ? group.adminItems || [] : []),
+                ...withBadges(group.items),
+                ...withBadges(user?.isAdmin ? group.adminItems || [] : []),
                 ...(user?.isAccountant ? group.accountantItems || [] : []),
               ].filter(
                 // Inside a client, or invited only as an accountant, the pages

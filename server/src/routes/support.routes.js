@@ -5,6 +5,7 @@ import { asyncHandler } from '../lib/asyncHandler.js';
 import { publicOrigin } from '../lib/publicOrigin.js';
 import { notify, notifyAdmins } from '../lib/notify.js';
 import { titleCase, lowerEmail } from '../lib/text.js';
+import { createCaptcha, verifyCaptcha } from '../lib/captcha.js';
 import {
   SUPPORT_CATEGORIES,
   isCategory,
@@ -135,6 +136,42 @@ router.get(
   })
 );
 
+// The numbers behind the badges in the navigation. One call, because the
+// sidebar asks for both and three separate polls would be three times the work
+// for the same answer.
+// The sum a guest has to answer. Only guests are asked: somebody already
+// signed in has proved they are a person, and asking again is friction for no
+// gain.
+router.get(
+  '/captcha',
+  asyncHandler(async (req, res) => {
+    res.json(createCaptcha());
+  })
+);
+
+router.get(
+  '/counts',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const [mine] = await pool.execute(
+      "SELECT COUNT(*) AS n FROM support_tickets WHERE user_id = ? AND status = 'awaiting_customer'",
+      [req.user.id]
+    );
+
+    // Only an administrator is told about the queue, and only they are asked
+    // for it — a customer has no business knowing how much support is behind.
+    let needingReply = 0;
+    if (req.user.isAdmin) {
+      const [queue] = await pool.query(
+        "SELECT COUNT(*) AS n FROM support_tickets WHERE status = 'awaiting_support'"
+      );
+      needingReply = Number(queue[0]?.n) || 0;
+    }
+
+    res.json({ waitingOnYou: Number(mine[0]?.n) || 0, needingReply });
+  })
+);
+
 // ---------------------------------------------------------------------------
 // Raising a ticket. Open to anybody: somebody who cannot sign in is exactly who
 // most needs to reach support.
@@ -167,6 +204,12 @@ router.post(
       if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(guestEmail)) {
         return res.status(400).json({ error: 'Enter an email address we can reply to' });
       }
+      // Checked before anything is written. An unauthenticated endpoint that
+      // emails somebody on demand is exactly what gets found and abused.
+      if (!verifyCaptcha(req.body?.captchaToken, req.body?.captchaAnswer)) {
+        return res.status(400).json({ error: 'That answer was not right — try the new sum' });
+      }
+
       ({ token, tokenHash } = generateAccessToken());
     }
 

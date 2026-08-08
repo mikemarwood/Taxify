@@ -6,7 +6,7 @@ import { useToast } from '../components/Toast.jsx';
 import Icon from '../components/Icon.jsx';
 import SupportThread, { StatusPill } from '../components/SupportThread.jsx';
 import { formatDateTime } from '../lib/dates.js';
-import { titleCase, titleCaseLive } from '../lib/textCase.js';
+import { titleCase, titleCaseLive, sentenceCase } from '../lib/textCase.js';
 
 // Raising a ticket, listing the ones you have, and reading one. Reachable
 // signed in or not — the whole point is that somebody locked out can still get
@@ -43,6 +43,29 @@ function CategoryCards({ categories, value, onChange }) {
   );
 }
 
+// Long enough to describe a real problem, short enough that the subject stays
+// a subject. The message ceiling matches the server's, so nothing is accepted
+// here and refused there.
+const SUBJECT_MIN = 6;
+const SUBJECT_MAX = 120;
+const MESSAGE_MIN = 20;
+const MESSAGE_MAX = 5000;
+
+// A live count that only speaks up when it matters. A counter ticking from the
+// first keystroke reads as a limit being enforced on somebody rather than a
+// guide.
+function Counter({ value, min, max }) {
+  const length = value.trim().length;
+  const short = length > 0 && length < min;
+  const near = length > max - 100;
+  if (!short && !near) return <div style={{ minHeight: 15, marginTop: 4 }} />;
+  return (
+    <div style={{ fontSize: 11.5, minHeight: 15, marginTop: 4, color: short ? 'var(--red)' : 'var(--text-muted)' }}>
+      {short ? `A little more detail please — at least ${min} characters` : `${max - length} characters left`}
+    </div>
+  );
+}
+
 function NewTicket({ user, onRaised }) {
   const toast = useToast();
   const [categories, setCategories] = useState([]);
@@ -52,6 +75,8 @@ function NewTicket({ user, onRaised }) {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [busy, setBusy] = useState(false);
+  const [captcha, setCaptcha] = useState(null);
+  const [captchaAnswer, setCaptchaAnswer] = useState('');
 
   useEffect(() => {
     api
@@ -61,12 +86,23 @@ function NewTicket({ user, onRaised }) {
   }, []);
 
   const guest = !user;
+
+  useEffect(() => {
+    if (!guest) return;
+    api
+      .get('/support/captcha')
+      .then((res) => setCaptcha(res.data))
+      .catch(() => setCaptcha(null));
+  }, [guest]);
+
   const emailLooksReal = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email.trim());
   const canSubmit =
     category &&
-    subject.trim().length >= 4 &&
-    message.trim().length > 0 &&
-    (!guest || (name.trim().length >= 2 && emailLooksReal)) &&
+    subject.trim().length >= SUBJECT_MIN &&
+    subject.trim().length <= SUBJECT_MAX &&
+    message.trim().length >= MESSAGE_MIN &&
+    message.trim().length <= MESSAGE_MAX &&
+    (!guest || (name.trim().length >= 2 && emailLooksReal && captchaAnswer.trim())) &&
     !busy;
 
   async function submit(e) {
@@ -77,11 +113,27 @@ function NewTicket({ user, onRaised }) {
         category,
         subject: subject.trim(),
         message: message.trim(),
-        ...(guest ? { name: name.trim(), email: email.trim() } : {}),
+        ...(guest
+          ? {
+              name: name.trim(),
+              email: email.trim(),
+              captchaToken: captcha?.token,
+              captchaAnswer: captchaAnswer.trim(),
+            }
+          : {}),
       });
       onRaised(res.data);
     } catch (err) {
       toast(err.message, 'error');
+      if (guest) {
+        api
+          .get('/support/captcha')
+          .then((res) => {
+            setCaptcha(res.data);
+            setCaptchaAnswer('');
+          })
+          .catch(() => {});
+      }
       setBusy(false);
     }
   }
@@ -131,11 +183,13 @@ function NewTicket({ user, onRaised }) {
         <input
           className="input"
           required
-          maxLength={160}
+          maxLength={SUBJECT_MAX}
           placeholder="A few words on what is wrong"
           value={subject}
           onChange={(e) => setSubject(e.target.value)}
+          onBlur={() => setSubject(sentenceCase(subject))}
         />
+        <Counter value={subject} min={SUBJECT_MIN} max={SUBJECT_MAX} />
       </div>
 
       <div>
@@ -144,13 +198,45 @@ function NewTicket({ user, onRaised }) {
           className="input"
           required
           rows={7}
-          maxLength={5000}
+          maxLength={MESSAGE_MAX}
           placeholder="What you were doing, what you expected, and what happened instead."
           value={message}
           onChange={(e) => setMessage(e.target.value)}
+          onBlur={() => setMessage(sentenceCase(message))}
           style={{ resize: 'vertical', fontSize: 13.5, lineHeight: 1.6 }}
         />
+        <Counter value={message} min={MESSAGE_MIN} max={MESSAGE_MAX} />
       </div>
+
+      {guest && captcha && (
+        <div>
+          <label className="label">Just checking you are a person</label>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+            <span
+              style={{
+                fontSize: 16,
+                fontWeight: 700,
+                fontFamily: 'ui-monospace, monospace',
+                padding: '8px 12px',
+                borderRadius: 8,
+                border: '1px solid var(--border)',
+                background: 'var(--bg-subtle)',
+                letterSpacing: 1,
+              }}
+            >
+              {captcha.question} =
+            </span>
+            <input
+              className="input"
+              required
+              inputMode="numeric"
+              value={captchaAnswer}
+              onChange={(e) => setCaptchaAnswer(e.target.value.replace(/[^\d-]/g, ''))}
+              style={{ width: 92, fontSize: 14 }}
+            />
+          </div>
+        </div>
+      )}
 
       <button className="btn btn-primary" type="submit" disabled={!canSubmit} style={{ alignSelf: 'flex-start' }}>
         {busy && <span className="spinner" />}

@@ -5,6 +5,7 @@ import { homePathFor } from './lib/home.js';
 import Layout from './components/Layout.jsx';
 import ErrorBoundary from './components/ErrorBoundary.jsx';
 import StartupScreen from './components/StartupScreen.jsx';
+import PublicShell from './components/PublicShell.jsx';
 import Landing from './pages/Landing.jsx';
 import Login from './pages/Login.jsx';
 import Register from './pages/Register.jsx';
@@ -30,6 +31,33 @@ import SubscriptionRequired from './pages/SubscriptionRequired.jsx';
 
 function Splash() {
   return <StartupScreen />;
+}
+
+// Support is the one page reachable either way, so it needs both shells.
+//
+// Signed in it belongs inside the app, with the navigation and the books
+// picker, because it is a page of the app like any other. Signed out there is
+// no navigation to give it — but it still needs to look like Taxify rather
+// than a bare form floating on a background, which is what it did before.
+function SupportShell({ children }) {
+  const { user, loading } = useAuth();
+  if (loading) return <Splash />;
+
+  if (user) {
+    return (
+      <ErrorBoundary key="shell|support">
+        <Layout>
+          <ErrorBoundary key="page|support">{children}</ErrorBoundary>
+        </Layout>
+      </ErrorBoundary>
+    );
+  }
+
+  return (
+    <ErrorBoundary key="public|support">
+      <PublicShell>{children}</PublicShell>
+    </ErrorBoundary>
+  );
 }
 
 // Inside a client's books an accountant reads, and reads only these.
@@ -128,8 +156,15 @@ export default function App() {
       {/* Support is reachable signed in or not. Somebody who cannot get into
           their account is exactly who most needs it, so it sits outside
           Protected and decides for itself what to show. */}
-      <Route path="/support" element={<Support />} />
-      <Route path="/support/ticket/:token" element={<SupportTicketByToken />} />
+      <Route path="/support" element={<SupportShell><Support /></SupportShell>} />
+      <Route
+        path="/support/ticket/:token"
+        element={
+          <SupportShell>
+            <SupportTicketByToken />
+          </SupportShell>
+        }
+      />
       <Route path="/support/:id" element={<Protected><SupportTicket /></Protected>} />
       <Route path="/admin" element={<Protected adminOnly><Admin /></Protected>} />
       <Route path="*" element={<Navigate to="/" replace />} />

@@ -863,6 +863,7 @@ export async function ensureSchema() {
       closed_by INT NULL,
       created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
       updated_at DATETIME NULL,
+      plan_change_request_id INT NULL,
       UNIQUE KEY uniq_support_reference (reference),
       KEY idx_support_user (user_id, status),
       KEY idx_support_status (status, last_message_at),
@@ -871,6 +872,9 @@ export async function ensureSchema() {
       FOREIGN KEY (closed_by) REFERENCES users(id) ON DELETE SET NULL
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
   `);
+
+  // For installs whose support tables were created a release before this.
+  await pool.query(`ALTER TABLE support_tickets ADD COLUMN IF NOT EXISTS plan_change_request_id INT NULL`);
 
   await pool.query(`
     CREATE TABLE IF NOT EXISTS support_messages (

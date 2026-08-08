@@ -58,7 +58,9 @@ test('only known categories are accepted', () => {
 
 test('an empty message is refused', () => {
   assert.notEqual(messageProblem('   '), '');
-  assert.equal(messageProblem('Hello'), '');
+  // Below the floor now that a message has to say something useful.
+  assert.notEqual(messageProblem('Hello'), '');
+  assert.equal(messageProblem('The app will not let me sign in at all today'), '');
   assert.notEqual(messageProblem('a'.repeat(MAX_BODY + 1)), '');
 });
 

@@ -391,9 +391,9 @@ router.post(
     try {
       const reference = generateReference();
       const [ticket] = await pool.execute(
-        `INSERT INTO support_tickets (reference, user_id, category, subject, status, last_message_at)
-         VALUES (?, ?, 'billing', ?, 'awaiting_support', NOW())`,
-        [reference, req.user.id, `Plan change to ${planLabel(toPlan)}`]
+        `INSERT INTO support_tickets (reference, user_id, category, subject, status, last_message_at, plan_change_request_id)
+         VALUES (?, ?, 'billing', ?, 'awaiting_support', NOW(), ?)`,
+        [reference, req.user.id, `Plan change to ${planLabel(toPlan)}`, result.insertId]
       );
       await pool.execute(
         `INSERT INTO support_messages (ticket_id, author_user_id, author_role, author_name, body)
@@ -415,7 +415,7 @@ router.post(
     await notifyAdmins({
       title: `${req.user.name || req.user.email} wants to move to ${planLabel(toPlan)}`,
       body: note || `Currently on ${planLabel(req.user.planType)}. Send them an invoice to complete it.`,
-      url: '/admin?tab=plan-requests',
+      url: '/admin?tab=support',
       kind: 'billing',
     });
 
@@ -439,7 +439,7 @@ router.delete(
     await notifyAdmins({
       title: `${req.user.name || req.user.email} cancelled their plan change`,
       body: 'Nothing to invoice. Void the invoice in Stripe if one was already sent.',
-      url: '/admin?tab=plan-requests',
+      url: '/admin?tab=support',
       kind: 'billing',
     });
     res.json({ ok: true });
@@ -485,7 +485,7 @@ router.post(
             await notifyAdmins({
               title: 'A cancelled plan change was paid',
               body: 'Stripe took a payment for a request that had been cancelled. Refund it, or reinstate the plan by hand.',
-              url: '/admin?tab=plan-requests',
+              url: '/admin?tab=support',
               kind: 'billing',
             }).catch(() => {});
           }
@@ -526,7 +526,7 @@ router.post(
           await notifyAdmins({
             title: `${who[0]?.name || who[0]?.email || 'A customer'} paid for ${label}`,
             body: 'The plan has been applied automatically and the invoice is stored against their account.',
-            url: '/admin?tab=plan-requests',
+            url: '/admin?tab=support',
             kind: 'billing',
           });
         } catch (err) {

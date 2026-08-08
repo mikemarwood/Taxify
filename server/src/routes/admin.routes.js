@@ -1245,9 +1245,32 @@ router.get(
       [req.params.id]
     );
     if (!rows[0]) return res.status(404).json({ error: 'Not found' });
+    // The plan change this ticket is about, if it is about one. Sent with the
+    // thread so the invoice can be raised from inside the conversation rather
+    // than from a second screen that has to be kept in step with it.
+    let planRequest = null;
+    if (rows[0].plan_change_request_id) {
+      const [pr] = await pool.execute('SELECT * FROM plan_change_requests WHERE id = ?', [
+        rows[0].plan_change_request_id,
+      ]);
+      if (pr[0]) {
+        planRequest = {
+          id: pr[0].id,
+          toPlan: pr[0].to_plan,
+          fromPlan: pr[0].from_plan,
+          status: pr[0].status,
+          invoiceUrl: pr[0].invoice_url,
+          invoiceAmountCents: pr[0].invoice_amount_cents,
+          invoiceCurrency: pr[0].invoice_currency,
+          paidAt: pr[0].paid_at,
+        };
+      }
+    }
+
     res.json({
       ticket: shapeTicket(rows[0], { includeEmail: true }),
       messages: await messagesFor(rows[0].id),
+      planRequest,
     });
   })
 );

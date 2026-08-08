@@ -7,6 +7,7 @@ import { useConfirm } from './../lib/ConfirmContext.jsx';
 import SupportThread, { StatusPill } from './SupportThread.jsx';
 import { formatDateTime } from '../lib/dates.js';
 import { playInfo } from '../lib/sounds.js';
+import PlanRequestPanel from './PlanRequestPanel.jsx';
 
 // How often the queue re-checks. The thread does its own polling while open;
 // this is for the list behind it, so a new ticket appears without a refresh.
@@ -197,7 +198,17 @@ export default function SupportTab() {
                 loadList();
               }}
               extraActions={
-                <div style={{ display: 'flex', gap: 8 }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                  {thread.planRequest && (
+                    <PlanRequestPanel
+                      request={thread.planRequest}
+                      onChanged={() => {
+                        loadThread(openId);
+                        loadList();
+                      }}
+                    />
+                  )}
+                  <div style={{ display: 'flex', gap: 8 }}>
                   <button
                     className="btn btn-ghost"
                     style={{ fontSize: 12.5, gap: 6 }}
@@ -206,7 +217,8 @@ export default function SupportTab() {
                   >
                     <Icon name={thread.ticket.status === 'closed' ? 'repeat' : 'lock'} size={13} />
                     {thread.ticket.status === 'closed' ? 'Open it again' : 'Close ticket'}
-                  </button>
+                    </button>
+                  </div>
                 </div>
               }
             />

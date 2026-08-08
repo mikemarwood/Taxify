@@ -86,21 +86,25 @@ export function adminStatusLabel(status) {
   return 'Needs a reply';
 }
 
+// Matched to the form, so nothing is accepted there and refused here.
 const MAX_BODY = 5000;
-const MAX_SUBJECT = 160;
+const MIN_BODY = 20;
+const MAX_SUBJECT = 120;
+const MIN_SUBJECT = 6;
 
 export function messageProblem(body) {
   const text = String(body ?? '').trim();
   if (!text) return 'Write a message first';
+  if (text.length < MIN_BODY) return `Tell us a little more — at least ${MIN_BODY} characters`;
   if (text.length > MAX_BODY) return `Messages can be at most ${MAX_BODY} characters`;
   return '';
 }
 
 export function subjectProblem(subject) {
   const text = String(subject ?? '').trim().replace(/\s+/g, ' ');
-  if (text.length < 4) return 'Give it a short subject';
+  if (text.length < MIN_SUBJECT) return `The subject needs at least ${MIN_SUBJECT} characters`;
   if (text.length > MAX_SUBJECT) return `The subject can be at most ${MAX_SUBJECT} characters`;
   return '';
 }
 
-export { MAX_BODY, MAX_SUBJECT };
+export { MAX_BODY, MIN_BODY, MAX_SUBJECT, MIN_SUBJECT };
