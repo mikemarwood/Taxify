@@ -534,29 +534,19 @@ function SettingsTab() {
           {registrationEnabled ? 'Open' : 'Closed'}
         </button>
       </div>
-
-      <div className="card" style={{ padding: 20 }}>
-        <div style={{ fontWeight: 700 }}>Multi-Factor Authentication (MFA)</div>
-        <div style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 2, marginBottom: 16 }}>
-          {mfaMode === 'required'
-            ? 'Every account must enter an emailed code at login. Users cannot turn this off.'
-            : 'Off by default — new users start without MFA, but can turn it on any time in Account settings. They’ll occasionally be reminded of the benefits if they haven’t enabled it.'}
-        </div>
-        <div style={{ display: 'flex', gap: 8 }}>
-          <button
-            className={mfaMode === 'optional' ? 'btn btn-primary' : 'btn btn-ghost'}
-            disabled={mfaBusy}
-            onClick={() => setMode('optional')}
-          >
-            Optional
-          </button>
-          <button
-            className={mfaMode === 'required' ? 'btn btn-primary' : 'btn btn-ghost'}
-            disabled={mfaBusy}
-            onClick={() => setMode('required')}
-          >
-            Required
-          </button>
+      {/* Not a setting. Two-factor is required of every account, always.
+          This app holds people's tax records and lets an accountant read
+          them; there is no version of that where a password alone is enough,
+          and a switch that could turn it off is a switch that eventually gets
+          turned off — by somebody in a hurry, for one account, permanently. */}
+      <div className="card" style={{ padding: 20, display: 'flex', alignItems: 'center', gap: 12 }}>
+        <Icon name="lock" size={18} style={{ color: 'var(--emerald)' }} />
+        <div>
+          <div style={{ fontWeight: 700 }}>Two-factor sign-in is always on</div>
+          <div style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 2, lineHeight: 1.55 }}>
+            Every account is asked to set it up, and it cannot be turned off — not for one account and not for all
+            of them. There is nothing to configure here.
+          </div>
         </div>
       </div>
     </div>

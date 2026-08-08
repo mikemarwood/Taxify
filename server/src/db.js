@@ -1037,9 +1037,17 @@ export async function setSetting(key, value) {
   await pool.execute('INSERT INTO settings (`key`, value) VALUES (?, ?) ON DUPLICATE KEY UPDATE value = ?', [key, value, value]);
 }
 
+// Always required, and no longer a setting.
+//
+// This app holds people's tax records and lets an accountant read them. There
+// is no version of that where a password alone is enough, and a switch that
+// could turn it off was a switch that would eventually be turned off — by
+// somebody in a hurry, for one account, permanently.
+//
+// The stored value is ignored rather than deleted, so an install that had it
+// set to optional simply stops honouring it on the next restart.
 export async function getMfaMode() {
-  const mode = await getSetting('mfa_mode');
-  return mode === 'required' ? 'required' : 'optional';
+  return 'required';
 }
 
 export default pool;

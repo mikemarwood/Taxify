@@ -9,7 +9,7 @@ import Toggle from './Toggle.jsx';
 import ReceiptLightbox from './ReceiptLightbox.jsx';
 import ReceiptPreview from './ReceiptPreview.jsx';
 import Icon from './Icon.jsx';
-import { formatAmount, formatMoney, parseAmount, amountWhileTyping, amountOnBlur } from '../lib/money.js';
+import { formatAmount, formatMoney, parseAmount, amountWhileTyping, amountOnBlur, currencySymbol } from '../lib/money.js';
 import { onDigitKeyDown, playOpen, playClose } from '../lib/sounds.js';
 import { useAuth } from '../lib/AuthContext.jsx';
 import { useEntities } from '../lib/EntityContext.jsx';
@@ -336,12 +336,32 @@ export default function ExpenseModal({ expense, onClose, onSaved, onDeleted }) {
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
                 <div>
                   <label className="label">Amount</label>
-                  <div style={{ display: 'flex', gap: 8 }}>
+                  <div style={{ display: 'flex', gap: 8, position: 'relative' }}>
+                    {/* The symbol inside the field, so a grouped number is
+                        unambiguous about what it counts. Positioned rather
+                        than a sibling, so it is never selected or copied
+                        along with the value. */}
+                    <span
+                      aria-hidden="true"
+                      style={{
+                        position: 'absolute',
+                        left: 11,
+                        top: '50%',
+                        transform: 'translateY(-50%)',
+                        fontSize: 13.5,
+                        fontWeight: 600,
+                        color: 'var(--text-muted)',
+                        pointerEvents: 'none',
+                      }}
+                    >
+                      {currencySymbol(currency)}
+                    </span>
                     <input
                       className="input"
                       required
                       inputMode="decimal"
                       maxLength={14}
+                      style={{ paddingLeft: 26 }}
                       value={amount}
                       onChange={(e) => setAmount(amountWhileTyping(e.target.value))}
                       onBlur={() => setAmount(amountOnBlur(amount))}

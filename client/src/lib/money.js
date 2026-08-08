@@ -148,3 +148,19 @@ export function formatAmountInput(value) {
   const [whole, decimals] = number.toFixed(2).split('.');
   return `${whole.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}.${decimals}`;
 }
+
+// The symbol for a currency, on its own — "$", "£", "€".
+//
+// Taken from Intl rather than a table so it is right for every code the account
+// list offers, and so AUD and USD both come out as "$" the way somebody in
+// either country expects to see it. The code sits beside the field for the
+// cases where that matters.
+export function currencySymbol(code) {
+  const currency = String(code || baseCurrency).toUpperCase();
+  try {
+    const parts = new Intl.NumberFormat(undefined, { style: 'currency', currency }).formatToParts(0);
+    return parts.find((p) => p.type === 'currency')?.value || currency;
+  } catch {
+    return currency;
+  }
+}

@@ -10,7 +10,7 @@ import Icon from '../components/Icon.jsx';
 import { financialYearOf } from '../lib/financialYear.js';
 import { useEntities } from '../lib/EntityContext.jsx';
 import { onDigitKeyDown, playSuccess } from '../lib/sounds.js';
-import { formatMoney, amountWhileTyping, amountOnBlur, parseAmount } from '../lib/money.js';
+import { formatMoney, amountWhileTyping, amountOnBlur, parseAmount, currencySymbol } from '../lib/money.js';
 import { useAuth } from '../lib/AuthContext.jsx';
 
 const CURRENCIES = ['AUD', 'USD', 'NZD', 'GBP', 'EUR'];
@@ -283,11 +283,27 @@ export default function AddExpense() {
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
           <div>
             <label className="label">Amount</label>
-            <div style={{ display: 'flex', gap: 8 }}>
+            <div style={{ display: 'flex', gap: 8, position: 'relative' }}>
+              <span
+                aria-hidden="true"
+                style={{
+                  position: 'absolute',
+                  left: 11,
+                  top: '50%',
+                  transform: 'translateY(-50%)',
+                  fontSize: 13.5,
+                  fontWeight: 600,
+                  color: 'var(--text-muted)',
+                  pointerEvents: 'none',
+                }}
+              >
+                {currencySymbol(currency)}
+              </span>
               <input
                 className="input"
                 required
                 inputMode="decimal"
+                style={{ paddingLeft: 26 }}
                 maxLength={10}
                 value={amount}
                 onChange={(e) => setAmount(amountWhileTyping(e.target.value))}

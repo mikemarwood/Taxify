@@ -760,7 +760,10 @@ router.get(
 router.patch(
   '/settings',
   asyncHandler(async (req, res) => {
-    const { registrationEnabled, mfaMode } = req.body || {};
+    // mfaMode is deliberately ignored if sent. Two-factor is required, full
+    // stop, and an endpoint that still accepted the field would be a way to
+    // turn it off that nobody could see in the UI.
+    const { registrationEnabled } = req.body || {};
     if (registrationEnabled !== undefined) {
       if (typeof registrationEnabled !== 'boolean') {
         return res.status(400).json({ error: 'registrationEnabled must be a boolean' });

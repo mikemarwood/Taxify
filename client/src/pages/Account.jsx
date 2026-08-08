@@ -1475,24 +1475,12 @@ export default function Account() {
         </button>
       </form>
 
-      <div className="card" style={{ padding: 20, display: tab === 'security' ? 'block' : 'none' }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, marginBottom: 16 }}>
-          <div>
-            <div style={{ fontWeight: 700 }}>Multi-Factor Authentication (MFA)</div>
-            <div style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 2 }}>
-              {user.mfaMode === 'required'
-                ? 'Required — a code is emailed to you at every login.'
-                : user.otpEnabled
-                ? 'On — a code is emailed to you at every login.'
-                : 'Off — turn it on for an extra layer of protection.'}
-            </div>
-          </div>
-          {user.mfaMode === 'optional' && (
-            <Toggle checked={user.otpEnabled} disabled={mfaBusy} onChange={toggleMfa} />
-          )}
-        </div>
-        <OtpBenefits />
-      </div>
+      {/* Nothing to decide, so nothing is shown.
+
+          Two-factor is required of every account. A panel explaining a setting
+          somebody cannot change is a panel that invites them to look for the
+          switch, find none, and write in about it. The one thing worth saying
+          is said where it matters — at sign-in, when the code arrives. */}
 
         {tab === 'preferences' && (
           <div className="card" style={{ padding: 20 }}>
