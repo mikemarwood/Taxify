@@ -12,6 +12,10 @@ import Icon from './Icon.jsx';
 // Rendered through a portal because the thread sits inside scrolling, bordered
 // panels — anything positioned within them is clipped by the first ancestor
 // with an overflow rule, which on the admin queue is two levels up.
+//
+// A press outside the image does not close it. Panning a photo on a phone means
+// dragging across whatever is around it, and losing the preview mid-drag is not
+// a dismissal anybody asked for. Escape and the Close button are the ways out.
 export default function ImageLightbox({ open, src, name, onClose }) {
   useEffect(() => {
     if (!open) return undefined;
@@ -39,31 +43,44 @@ export default function ImageLightbox({ open, src, name, onClose }) {
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-          onClick={onClose}
           style={{
             position: 'fixed',
-            inset: 0,
+            top: 0,
+            left: 0,
+            right: 0,
+            // Not inset:0 and not 100vh. Both resolve to the *large* viewport
+            // on a phone — the height the page would have with the browser's
+            // own bars hidden — so the overlay came out taller than the screen
+            // and the whole thing scrolled. dvh is what is actually visible.
+            height: '100dvh',
             zIndex: 2000,
-            background: 'rgba(8, 12, 20, 0.86)',
+            background: 'rgba(8, 12, 20, 0.9)',
             display: 'flex',
             flexDirection: 'column',
+            // Stops a drag at the top or bottom edge from handing the scroll
+            // back to the page underneath.
+            overscrollBehavior: 'contain',
+            touchAction: 'none',
           }}
         >
           <div
-            onClick={(e) => e.stopPropagation()}
             style={{
               display: 'flex',
               alignItems: 'center',
               gap: 12,
               padding: '12px 16px',
               color: '#f1f5f9',
-              flexWrap: 'wrap',
+              flexWrap: 'nowrap',
+              flexShrink: 0,
             }}
           >
             <span
               style={{
-                flex: 1,
-                minWidth: 120,
+                // Shrinks rather than pushing the buttons off the row —
+                // the header no longer wraps, so a long filename would
+                // otherwise take Close with it.
+                flex: '1 1 0',
+                minWidth: 0,
                 fontSize: 13.5,
                 fontWeight: 600,
                 overflow: 'hidden',
@@ -80,8 +97,21 @@ export default function ImageLightbox({ open, src, name, onClose }) {
             <a
               href={`${src}${src.includes('?') ? '&' : '?'}download=1`}
               download={name}
-              className="btn btn-ghost"
-              style={{ fontSize: 12.5, gap: 6, textDecoration: 'none', color: '#f1f5f9', borderColor: 'rgba(255,255,255,.25)' }}
+              style={{
+                fontSize: 12.5,
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 6,
+                padding: '7px 13px',
+                borderRadius: 8,
+                cursor: 'pointer',
+                textDecoration: 'none',
+                whiteSpace: 'nowrap',
+                color: '#0f172a',
+                background: '#f1f5f9',
+                border: '1px solid rgba(255,255,255,.35)',
+                fontWeight: 600,
+              }}
             >
               <Icon name="download" size={14} />
               Download
@@ -91,8 +121,21 @@ export default function ImageLightbox({ open, src, name, onClose }) {
               type="button"
               onClick={onClose}
               aria-label="Close preview"
-              className="btn btn-ghost"
-              style={{ fontSize: 12.5, gap: 6, color: '#f1f5f9', borderColor: 'rgba(255,255,255,.25)' }}
+              style={{
+                fontSize: 12.5,
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 6,
+                padding: '7px 13px',
+                borderRadius: 8,
+                cursor: 'pointer',
+                textDecoration: 'none',
+                whiteSpace: 'nowrap',
+                color: '#0f172a',
+                background: '#f1f5f9',
+                border: '1px solid rgba(255,255,255,.35)',
+                fontWeight: 600,
+              }}
             >
               <Icon name="x" size={14} />
               Close
@@ -107,6 +150,9 @@ export default function ImageLightbox({ open, src, name, onClose }) {
               alignItems: 'center',
               justifyContent: 'center',
               padding: '0 16px 20px',
+              // The image is fitted, never overflowing, so there is nothing
+              // here to scroll in the first place.
+              overflow: 'hidden',
             }}
           >
             <motion.img
@@ -116,7 +162,6 @@ export default function ImageLightbox({ open, src, name, onClose }) {
               transition={{ duration: 0.18, ease: [0.16, 1, 0.3, 1] }}
               src={src}
               alt={name}
-              onClick={(e) => e.stopPropagation()}
               style={{
                 maxWidth: '100%',
                 maxHeight: '100%',
