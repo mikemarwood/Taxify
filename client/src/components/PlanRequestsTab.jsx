@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { api } from '../lib/api.js';
 import Icon from './Icon.jsx';
+import { parseAmount, amountWhileTyping, amountOnBlur } from '../lib/money.js';
 import Avatar from './Avatar.jsx';
 import { useToast } from './Toast.jsx';
 import { useConfirm } from '../lib/ConfirmContext.jsx';
@@ -35,7 +36,7 @@ function InvoiceForm({ request, onSent, onCancel }) {
   const [days, setDays] = useState(14);
   const [busy, setBusy] = useState(false);
 
-  const value = Number(amount);
+  const value = parseAmount(amount) ?? NaN;
   const valid = Number.isFinite(value) && value > 0 && value <= 100000;
 
   async function send() {
@@ -66,7 +67,8 @@ function InvoiceForm({ request, onSent, onCancel }) {
             inputMode="decimal"
             placeholder="149.00"
             value={amount}
-            onChange={(e) => setAmount(e.target.value.replace(/[^\d.]/g, ''))}
+            onChange={(e) => setAmount(amountWhileTyping(e.target.value))}
+            onBlur={() => setAmount(amountOnBlur(amount))}
             style={{ fontSize: 13 }}
           />
         </div>

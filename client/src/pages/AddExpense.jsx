@@ -10,7 +10,7 @@ import Icon from '../components/Icon.jsx';
 import { financialYearOf } from '../lib/financialYear.js';
 import { useEntities } from '../lib/EntityContext.jsx';
 import { onDigitKeyDown, playSuccess } from '../lib/sounds.js';
-import { formatMoney, amountWhileTyping, amountOnBlur } from '../lib/money.js';
+import { formatMoney, amountWhileTyping, amountOnBlur, parseAmount } from '../lib/money.js';
 import { useAuth } from '../lib/AuthContext.jsx';
 
 const CURRENCIES = ['AUD', 'USD', 'NZD', 'GBP', 'EUR'];
@@ -132,7 +132,7 @@ export default function AddExpense() {
   // Quoted by the server so the preview and the save can never disagree. Only
   // asked when there is something to convert.
   useEffect(() => {
-    if (!foreignCurrency || !(Number(amount) > 0) || !purchaseDate) {
+    if (!foreignCurrency || !(amountValue > 0) || !purchaseDate) {
       setConversion({ loading: false, error: null, baseAmount: null, rate: null });
       return undefined;
     }
@@ -157,13 +157,17 @@ export default function AddExpense() {
 
   // Only complained about once something has been typed, so an untouched form
   // is not covered in red before anybody has done anything wrong.
+  // The number behind the grouped text in the field. Number('3,350.00') is
+  // NaN, so nothing may read the raw string as a number.
+  const amountValue = parseAmount(amount) ?? 0;
+
   const itemIssue = itemName.trim() && itemName.trim().length < ITEM_MIN ? `At least ${ITEM_MIN} characters` : '';
-  const amountIssue = Boolean(amount.trim()) && !(Number(amount) > 0 && Number(amount) <= AMOUNT_MAX);
+  const amountIssue = Boolean(amount.trim()) && !(amountValue > 0 && amountValue <= AMOUNT_MAX);
 
   const formComplete =
     itemName.trim().length >= ITEM_MIN &&
-    Number(amount) > 0 &&
-    Number(amount) <= AMOUNT_MAX &&
+    amountValue > 0 &&
+    amountValue <= AMOUNT_MAX &&
     !!purchaseDate;
 
   async function onSubmit(e) {
@@ -176,7 +180,8 @@ export default function AddExpense() {
 
     const form = new FormData();
     form.append('itemName', itemName);
-    form.append('amount', amount);
+    // The parsed number, not the grouped text.
+    form.append('amount', String(amountValue));
     form.append('currency', currency);
     if (manualRate) form.append('fxRate', manualRate);
     // Sent explicitly rather than relying on the server reading absent as 100.
@@ -206,7 +211,7 @@ export default function AddExpense() {
       setSaved({
         id: res.data?.id,
         itemName: itemName.trim(),
-        amount: Number(amount),
+        amount: amountValue,
         hadReceipt: !!file,
       });
       setSubmitted(true);
@@ -388,10 +393,10 @@ export default function AddExpense() {
                 style={{ width: 70, padding: '6px 9px', fontSize: 12.5 }}
               />
             </div>
-            {Number(businessUsePct) > 0 && Number(businessUsePct) < 100 && Number(amount) > 0 && (
+            {Number(businessUsePct) > 0 && Number(businessUsePct) < 100 && amountValue > 0 && (
               <div style={{ marginTop: 6, fontSize: 12, color: 'var(--text-muted)' }}>
-                Claiming <strong style={{ color: 'var(--text)' }}>{formatMoney((Number(amount) * Number(businessUsePct)) / 100, currency)}</strong>{' '}
-                of {formatMoney(Number(amount), currency)}
+                Claiming <strong style={{ color: 'var(--text)' }}>{formatMoney((amountValue * Number(businessUsePct)) / 100, currency)}</strong>{' '}
+                of {formatMoney(amountValue, currency)}
               </div>
             )}
           </div>

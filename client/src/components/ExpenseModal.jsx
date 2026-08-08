@@ -8,7 +8,7 @@ import Toggle from './Toggle.jsx';
 import ReceiptLightbox from './ReceiptLightbox.jsx';
 import ReceiptPreview from './ReceiptPreview.jsx';
 import Icon from './Icon.jsx';
-import { formatAmount, formatMoney } from '../lib/money.js';
+import { formatAmount, formatMoney, parseAmount, amountWhileTyping, amountOnBlur } from '../lib/money.js';
 import { onDigitKeyDown, playOpen, playClose } from '../lib/sounds.js';
 import { useAuth } from '../lib/AuthContext.jsx';
 import { useEntities } from '../lib/EntityContext.jsx';
@@ -184,7 +184,9 @@ export default function ExpenseModal({ expense, onClose, onSaved, onDeleted }) {
     setReceiptError('');
   }
 
-  const formComplete = itemName.trim().length > 0 && Number(amount) > 0 && !!purchaseDate;
+  // The number behind the grouped text in the field.
+  const amountValue = parseAmount(amount) ?? 0;
+  const formComplete = itemName.trim().length > 0 && amountValue > 0 && !!purchaseDate;
 
   async function onSave(e) {
     e.preventDefault();
@@ -196,7 +198,9 @@ export default function ExpenseModal({ expense, onClose, onSaved, onDeleted }) {
 
     const form = new FormData();
     form.append('itemName', itemName);
-    form.append('amount', amount);
+    // The parsed number, not the grouped text. '3,350.00' reaches the server
+    // as a string it cannot read as an amount.
+    form.append('amount', String(amountValue));
     form.append('currency', currency);
     form.append('purchaseDate', purchaseDate);
     form.append('categoryId', categoryId);
@@ -330,13 +334,11 @@ export default function ExpenseModal({ expense, onClose, onSaved, onDeleted }) {
                     <input
                       className="input"
                       required
-                      type="number"
-                      min="0.01"
-                      max="999999.99"
-                      step="0.01"
+                      inputMode="decimal"
+                      maxLength={14}
                       value={amount}
-                      onChange={(e) => setAmount(e.target.value)}
-                      onKeyDown={onDigitKeyDown}
+                      onChange={(e) => setAmount(amountWhileTyping(e.target.value))}
+                      onBlur={() => setAmount(amountOnBlur(amount))}
                       style={{ flex: 1, minWidth: 0 }}
                     />
                     <select className="input" value={currency} onChange={(e) => setCurrency(e.target.value)} style={{ width: 90 }}>
@@ -394,11 +396,11 @@ export default function ExpenseModal({ expense, onClose, onSaved, onDeleted }) {
                     style={{ width: 74 }}
                   />
                 </div>
-                {Number(businessUsePct) > 0 && Number(businessUsePct) < 100 && Number(amount) > 0 && (
+                {Number(businessUsePct) > 0 && Number(businessUsePct) < 100 && amountValue > 0 && (
                   <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 6 }}>
                     Claiming{' '}
-                    <strong>{formatMoney((Number(amount) * Number(businessUsePct)) / 100, currency)}</strong> of{' '}
-                    {formatMoney(Number(amount), currency)}
+                    <strong>{formatMoney((amountValue * Number(businessUsePct)) / 100, currency)}</strong> of{' '}
+                    {formatMoney(amountValue, currency)}
                   </div>
                 )}
               </div>

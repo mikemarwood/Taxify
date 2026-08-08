@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { api } from '../lib/api.js';
 import Icon from './Icon.jsx';
+import { parseAmount, amountWhileTyping, amountOnBlur } from '../lib/money.js';
 import { useToast } from './Toast.jsx';
 import { planLabel } from '../lib/plans.js';
 import { formatDateLong } from '../lib/dates.js';
@@ -28,7 +29,7 @@ export default function PlanRequestPanel({ request, onChanged }) {
   const [busy, setBusy] = useState(false);
   const [open, setOpen] = useState(false);
 
-  const value = Number(amount);
+  const value = parseAmount(amount) ?? NaN;
   const valid = Number.isFinite(value) && value > 0 && value <= 100000;
 
   async function send() {
@@ -111,7 +112,8 @@ export default function PlanRequestPanel({ request, onChanged }) {
                   inputMode="decimal"
                   placeholder="149.00"
                   value={amount}
-                  onChange={(e) => setAmount(e.target.value.replace(/[^\d.]/g, ''))}
+                  onChange={(e) => setAmount(amountWhileTyping(e.target.value))}
+                  onBlur={() => setAmount(amountOnBlur(amount))}
                   style={{ fontSize: 13 }}
                 />
               </div>

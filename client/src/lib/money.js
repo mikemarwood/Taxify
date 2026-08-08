@@ -96,6 +96,9 @@ export function isForeign(expense) {
 // the person did not write. Kept permissive otherwise: an empty box and a bare
 // "." are both valid mid-typing states and must not be fought.
 export function amountWhileTyping(raw) {
+  // Commas are stripped rather than refused: the field shows them after a blur,
+  // so anything typed into an already-formatted value has to survive being
+  // edited in place.
   let text = String(raw ?? '').replace(/[^\d.]/g, '');
 
   // Only the first point survives. Typing a second one is a slip, not a request
@@ -115,9 +118,33 @@ export function amountWhileTyping(raw) {
 // empty — filling it with 0.00 would put a number somebody never entered in
 // front of them.
 export function amountOnBlur(raw) {
-  const text = String(raw ?? '').trim();
-  if (!text) return '';
+  const value = parseAmount(raw);
+  if (value === null) return '';
+  return formatAmountInput(value);
+}
+
+// The number behind what is displayed. Every amount field shows a grouped
+// string, so anything sending one to the server has to come back through here
+// first — Number("3,350.00") is NaN, and a form that quietly posts NaN is worse
+// than one that refuses.
+export function parseAmount(raw) {
+  const text = String(raw ?? '').replace(/,/g, '').trim();
+  if (!text) return null;
   const value = Number(text);
-  if (!Number.isFinite(value)) return '';
-  return value.toFixed(2);
+  return Number.isFinite(value) ? value : null;
+}
+
+// 3350 becomes "3,350.00".
+//
+// Grouping is applied when the field is left, never while typing. Adding a
+// separator mid-number changes the length of the text, and a controlled input
+// whose length changes under the cursor sends the caret to the end — so
+// somebody correcting the third digit of a long number would be thrown to the
+// far end of it on every keystroke. Two decimal places always, because a
+// trailing "50" that might be five cents or fifty is not a saving worth making.
+export function formatAmountInput(value) {
+  const number = typeof value === 'number' ? value : parseAmount(value);
+  if (number === null || !Number.isFinite(number)) return '';
+  const [whole, decimals] = number.toFixed(2).split('.');
+  return `${whole.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}.${decimals}`;
 }

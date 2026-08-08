@@ -4,7 +4,7 @@ import { api } from '../lib/api.js';
 import { useToast } from './Toast.jsx';
 import { useAuth } from '../lib/AuthContext.jsx';
 import Icon from './Icon.jsx';
-import { formatMoney, amountWhileTyping, amountOnBlur } from '../lib/money.js';
+import { formatMoney, amountWhileTyping, amountOnBlur, parseAmount } from '../lib/money.js';
 import { sentenceCase } from '../lib/textCase.js';
 import { playSuccess, playError } from '../lib/sounds.js';
 import { formatDateShort, formatAppointmentTime } from '../lib/dates.js';
@@ -174,7 +174,7 @@ export default function TaxYears({ years, spendByYear, expenses, onFinalisedChan
   async function saveRefund(key) {
     const row = byKey.get(key);
     if (!row) return;
-    const value = Number(amount);
+    const value = parseAmount(amount) ?? NaN;
     if (!Number.isFinite(value) || value < 0) {
       toast('Enter the refund as a positive amount', 'error');
       return;
