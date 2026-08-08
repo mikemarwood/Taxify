@@ -404,7 +404,7 @@ export default function Landing() {
             {[
               ['shot-capture', 'You do this', 'Photograph it and move on', 'One tap at the counter. Taxify reads the date and the total, and files it under the right category and year.'],
               ['shot-expenses', 'Taxify does this', 'Everything in one place', 'Sorted, searchable, with the receipt attached to the expense — so a question in two years takes a moment, not an afternoon.'],
-              ['shot-reports', 'Come tax time', 'The numbers, already added up', 'Every category, every year side by side. Hand it to your accountant, or type it straight into myTax.'],
+              ['shot-reports', 'Come tax time', 'The numbers, already added up', 'Every category, every year side by side. Hand it to your accountant, or copy it straight into your return.'],
             ].map(([file, step, title, text]) => (
               <div key={file} style={{ minWidth: 0 }}>
                 <img
@@ -438,20 +438,20 @@ export default function Landing() {
         <section style={{ marginBottom: 'clamp(48px, 8vw, 88px)' }}>
           <div style={{ textAlign: 'center', marginBottom: 36 }}>
             <h2 style={{ fontSize: 'clamp(24px, 4vw, 32px)', margin: '0 0 12px', fontWeight: 800 }}>
-              The ATO app is free. Why pay for this?
+              Your tax office has a free app. Why pay for this?
             </h2>
             <p style={{ color: 'var(--text-muted)', fontSize: 15, maxWidth: 540, margin: '0 auto' }}>
-              A fair question, and myDeductions is a decent tool. Here is the honest difference.
+              A fair question, and most of them are decent. Here is the honest difference.
             </p>
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 16, maxWidth: 820, margin: '0 auto' }}>
             {[
               {
-                head: 'ATO myDeductions',
+                head: 'Your tax office app',
                 sub: 'Free, and fine if this is all you need.',
                 ours: false,
                 items: [
-                  'Holds the current year, then hands it to myTax',
+                  'Built for this year, then hands it to this year’s return',
                   'One set of records — no separate businesses',
                   'Nothing to give an accountant but a file',
                   'No way to compare this year against last',
