@@ -678,6 +678,18 @@
   <script>
     // Absolute when the page is somewhere other than Taxify, relative when it
     // is already there. Everything on the page that navigates goes through it.
+    // Where signing up happens, stated absolutely. The meta tag is the only
+    // thing that knows it; without one we fall back to a relative path, which
+    // is correct when Taxify is serving this page itself.
+    function registerUrl(plan) {
+      var meta = document.querySelector('meta[name="taxify-origin"]');
+      var origin = meta && meta.content ? meta.content.replace(/\/$/, '') : '';
+      var host = window.location.host;
+      var local = /^(localhost|127\.0\.0\.1|\[::1\])(:\d+)?$/.test(host);
+      var path = '/register?plan=' + plan;
+      return origin && !local ? origin + path : path;
+    }
+
     function taxifyUrl(path) {
       var meta = document.querySelector('meta[name="taxify-origin"]');
       var origin = meta && meta.content ? meta.content.replace(/\/$/, '') : '';
@@ -762,7 +774,15 @@
         if (plan) {
           grid.setAttribute('data-chosen', plan);
           cta.textContent = labels[plan];
-          cta.href = taxifyUrl('/register?plan=' + plan);
+          // Always absolute to Taxify, never relative.
+          //
+          // taxifyUrl() returns a bare path whenever it decides the current
+          // host already is Taxify — which is right for ordinary links, and
+          // wrong here. Served inside Mikes App Hub, any path it hands back
+          // resolves against the hub, so choosing a plan sent people to a
+          // registration page on the wrong site. Signing up is the one
+          // destination on this page that has no correct relative form.
+          cta.href = registerUrl(plan);
         } else {
           grid.removeAttribute('data-chosen');
           cta.textContent = 'Start free trial';

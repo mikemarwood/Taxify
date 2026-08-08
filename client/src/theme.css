@@ -677,3 +677,48 @@ input[type="date"].input::-webkit-calendar-picker-indicator:hover { opacity: 1; 
 @media (max-width: 900px) {
   .support-sticky-top { top: 56px; }
 }
+
+/* The drawer, on a short screen.
+   
+   Every rule above this reacts to how *wide* a device is, and none to how tall
+   it is — which is the measurement that actually decides whether the navigation
+   fits. A phone in landscape, a small phone in portrait, and a browser with two
+   toolbars showing all end up scrolling a list of ten links that would fit if it
+   were a little tighter.
+   
+   So the space between items gives way first, then the space inside them, then
+   the group headings — which are decoration, since the gaps between groups say
+   the same thing. The links themselves are never made smaller than a thumb can
+   reliably hit: something you cannot press is worse than something you have to
+   scroll to. */
+@media (max-width: 900px) and (max-height: 780px) {
+  .app-sidebar { padding: 12px 10px !important; gap: 12px !important; }
+  .app-sidebar nav { gap: 12px !important; }
+  .app-sidebar .nav-item { padding-top: 7px !important; padding-bottom: 7px !important; }
+  .app-sidebar .nav-foot-actions > div,
+  .app-sidebar .nav-foot-actions > .nav-btn { height: 38px !important; }
+  .app-sidebar .nav-foot-actions > div > .nav-btn { width: 38px !important; height: 38px !important; }
+}
+
+@media (max-width: 900px) and (max-height: 680px) {
+  .app-sidebar { padding: 8px 10px !important; gap: 8px !important; }
+  .app-sidebar nav { gap: 8px !important; }
+  /* The headings go before the links do. The blank line between groups already
+     carries the grouping. */
+  .app-sidebar .nav-group-title { display: none !important; }
+  .app-sidebar .nav-item {
+    padding-top: 6px !important;
+    padding-bottom: 6px !important;
+    font-size: 13px !important;
+  }
+  /* The account card keeps the name and plan but loses its padding. */
+  .app-sidebar .nav-account { padding: 8px !important; }
+}
+
+/* Below this there is genuinely no arrangement that fits, so the list scrolls —
+   but under its own scrollbar, with the account card and Log out staying put at
+   the foot where they can always be reached. That already works; this only
+   makes sure the scrolling area is the list rather than the whole rail. */
+@media (max-width: 900px) and (max-height: 560px) {
+  .app-sidebar nav { overflow-y: auto; min-height: 0; }
+}

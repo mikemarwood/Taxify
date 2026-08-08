@@ -393,6 +393,7 @@ export default function Layout({ children }) {
               which plan, and how long it lasts read as a single card rather
               than four things stacked at the bottom of the rail. */}
           <div
+            className="nav-account"
             style={{
               border: '1px solid var(--nav-border)',
               borderRadius: 'var(--radius-sm)',
