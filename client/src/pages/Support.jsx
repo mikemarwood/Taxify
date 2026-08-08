@@ -4,7 +4,7 @@ import { api } from '../lib/api.js';
 import { useAuth } from '../lib/AuthContext.jsx';
 import { useToast } from '../components/Toast.jsx';
 import Icon from '../components/Icon.jsx';
-import SupportThread, { StatusPill } from '../components/SupportThread.jsx';
+import SupportThread, { StatusPill, AttachmentPicker } from '../components/SupportThread.jsx';
 import { formatDateTime } from '../lib/dates.js';
 import { titleCase, titleCaseLive, sentenceCase, sentenceCaseLive } from '../lib/textCase.js';
 
@@ -87,6 +87,7 @@ function NewTicket({ user, onRaised }) {
   const [captcha, setCaptcha] = useState(null);
   const [captchaAnswer, setCaptchaAnswer] = useState('');
   const [progress, setProgress] = useState(null);
+  const [files, setFiles] = useState([]);
 
   useEffect(() => {
     api
@@ -147,6 +148,7 @@ function NewTicket({ user, onRaised }) {
       );
       onRaised(res.data);
       setProgress(null);
+      setFiles([]);
     } catch (err) {
       setProgress(null);
       toast(err.message, 'error');
@@ -236,6 +238,7 @@ function NewTicket({ user, onRaised }) {
           style={{ resize: 'vertical', fontSize: 13.5, lineHeight: 1.6 }}
         />
         <Counter value={message} min={MESSAGE_MIN} max={MESSAGE_MAX} />
+        <AttachmentPicker files={files} setFiles={setFiles} disabled={busy} />
       </div>
 
       {guest && captcha && (

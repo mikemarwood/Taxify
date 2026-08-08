@@ -331,30 +331,6 @@ export default function SupportThread({
     seen.current = count;
   }, [messages]);
 
-  // Checked here rather than only on the server, so somebody is told before a
-  // large file crawls up a phone connection to be refused at the other end.
-  function addFiles(chosen) {
-    const picked = Array.from(chosen || []);
-    const kept = [];
-
-    for (const file of picked) {
-      if (!ALLOWED_TYPES.includes(file.type)) {
-        toast(`${file.name} is not an image — JPG, PNG, WEBP, HEIC and GIF only`, 'error');
-        continue;
-      }
-      if (file.size > MAX_ATTACHMENT_BYTES) {
-        toast(`${file.name} is ${readableSize(file.size)} — the limit is ${readableSize(MAX_ATTACHMENT_BYTES)}`, 'error');
-        continue;
-      }
-      kept.push(file);
-    }
-
-    setFiles((prev) => {
-      const room = MAX_ATTACHMENTS - prev.length;
-      if (kept.length > room) toast(`You can attach ${MAX_ATTACHMENTS} images at most`, 'error');
-      return [...prev, ...kept.slice(0, Math.max(0, room))];
-    });
-  }
 
   async function send() {
     const text = draft.trim();
@@ -483,43 +459,7 @@ export default function SupportThread({
             onChange={(e) => setDraft(sentenceCaseLive(e.target.value))}
             style={{ resize: 'vertical', fontSize: 13.5, lineHeight: 1.6 }}
           />
-          {files.length > 0 && (
-            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-              {files.map((file, index) => (
-                <div
-                  key={`${file.name}-${index}`}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 8,
-                    padding: '5px 8px 5px 5px',
-                    borderRadius: 8,
-                    border: '1px solid var(--border)',
-                    background: 'var(--bg-subtle)',
-                    fontSize: 12,
-                  }}
-                >
-                  <img
-                    src={URL.createObjectURL(file)}
-                    alt=""
-                    style={{ width: 30, height: 30, borderRadius: 5, objectFit: 'cover', display: 'block' }}
-                  />
-                  <span style={{ maxWidth: 150, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                    {file.name}
-                  </span>
-                  <span style={{ color: 'var(--text-muted)' }}>{readableSize(file.size)}</span>
-                  <button
-                    type="button"
-                    aria-label={`Remove ${file.name}`}
-                    onClick={() => setFiles((prev) => prev.filter((_, i) => i !== index))}
-                    style={{ border: 0, background: 'transparent', cursor: 'pointer', color: 'var(--text-muted)', padding: 2 }}
-                  >
-                    <Icon name="x" size={13} />
-                  </button>
-                </div>
-              ))}
-            </div>
-          )}
+          <AttachmentPicker files={files} setFiles={setFiles} disabled={sending || busy} />
 
           {/* Shown only while bytes are actually moving. A bar for a text-only
               reply would be measuring nothing, and one left sitting at 100%
@@ -568,27 +508,6 @@ export default function SupportThread({
               {sending && <span className="spinner" />}
               Send reply
             </button>
-            <label
-              className="btn btn-ghost"
-              style={{ fontSize: 12.5, gap: 6, cursor: files.length >= MAX_ATTACHMENTS ? 'not-allowed' : 'pointer' }}
-              title={`Up to ${MAX_ATTACHMENTS} images, ${readableSize(MAX_ATTACHMENT_BYTES)} each`}
-            >
-              <Icon name="image" size={14} />
-              Attach image
-              <input
-                type="file"
-                accept={ALLOWED_TYPES.join(',')}
-                multiple
-                disabled={files.length >= MAX_ATTACHMENTS}
-                onChange={(e) => {
-                  addFiles(e.target.files);
-                  // Cleared so choosing the same file twice in a row still
-                  // fires a change event.
-                  e.target.value = '';
-                }}
-                style={{ display: 'none' }}
-              />
-            </label>
 
             <span style={{ fontSize: 11.5, color: 'var(--text-muted)' }}>
               {admin ? 'They are emailed as soon as you send this.' : 'We will email you as soon as we reply.'}
@@ -596,6 +515,108 @@ export default function SupportThread({
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+// The attachment picker, shared.
+//
+// The reply box grew one first, and the form that raises a ticket was left
+// without — so somebody could attach a screenshot to a follow-up but not to the
+// message where they were describing the problem, which is the one that needs
+// it. Exported rather than copied, so the limits, the wording and the checks
+// cannot drift into two versions of themselves.
+export function AttachmentPicker({ files, setFiles, disabled = false }) {
+  const toast = useToast();
+
+  function addFiles(chosen) {
+    const picked = Array.from(chosen || []);
+    const kept = [];
+
+    for (const file of picked) {
+      if (!ALLOWED_TYPES.includes(file.type)) {
+        toast(`${file.name} is not an image — JPG, PNG, WEBP, HEIC and GIF only`, 'error');
+        continue;
+      }
+      if (file.size > MAX_ATTACHMENT_BYTES) {
+        toast(`${file.name} is ${readableSize(file.size)} — the limit is ${readableSize(MAX_ATTACHMENT_BYTES)}`, 'error');
+        continue;
+      }
+      kept.push(file);
+    }
+
+    setFiles((prev) => {
+      const room = MAX_ATTACHMENTS - prev.length;
+      if (kept.length > room) toast(`You can attach ${MAX_ATTACHMENTS} images at most`, 'error');
+      return [...prev, ...kept.slice(0, Math.max(0, room))];
+    });
+  }
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+      {files.length > 0 && (
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          {files.map((file, index) => (
+            <div
+              key={`${file.name}-${index}`}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 8,
+                padding: '5px 8px 5px 5px',
+                borderRadius: 8,
+                border: '1px solid var(--border)',
+                background: 'var(--bg-subtle)',
+                fontSize: 12,
+              }}
+            >
+              <img
+                src={URL.createObjectURL(file)}
+                alt=""
+                style={{ width: 30, height: 30, borderRadius: 5, objectFit: 'cover', display: 'block' }}
+              />
+              <span style={{ maxWidth: 150, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                {file.name}
+              </span>
+              <span style={{ color: 'var(--text-muted)' }}>{readableSize(file.size)}</span>
+              <button
+                type="button"
+                aria-label={`Remove ${file.name}`}
+                onClick={() => setFiles((prev) => prev.filter((_, i) => i !== index))}
+                style={{ border: 0, background: 'transparent', cursor: 'pointer', color: 'var(--text-muted)', padding: 2 }}
+              >
+                <Icon name="x" size={13} />
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+
+      <label
+        className="btn btn-ghost"
+        style={{
+          fontSize: 12.5,
+          gap: 6,
+          alignSelf: 'flex-start',
+          cursor: disabled || files.length >= MAX_ATTACHMENTS ? 'not-allowed' : 'pointer',
+        }}
+        title={`Up to ${MAX_ATTACHMENTS} images, ${readableSize(MAX_ATTACHMENT_BYTES)} each`}
+      >
+        <Icon name="image" size={14} />
+        Attach image
+        <input
+          type="file"
+          accept={ALLOWED_TYPES.join(',')}
+          multiple
+          disabled={disabled || files.length >= MAX_ATTACHMENTS}
+          onChange={(e) => {
+            addFiles(e.target.files);
+            // Cleared so choosing the same file twice in a row still fires.
+            e.target.value = '';
+          }}
+          style={{ display: 'none' }}
+        />
+      </label>
     </div>
   );
 }

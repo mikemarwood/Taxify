@@ -29,6 +29,29 @@ function daysAway(value) {
   return days > 0 ? `(in ${days} day${days === 1 ? '' : 's'})` : `(${-days} day${days === -1 ? '' : 's'} ago)`;
 }
 
+// What a subscription status is called when somebody reads it. The column
+// holds 'expired', 'past_due', 'none' — fine as data, wrong on a screen. An
+// account that never activated is neither expired nor lapsed; it simply has not
+// started, and saying so is the difference between chasing a payment and
+// chasing an activation email.
+function statusWord(status, activatedAt) {
+  if (!activatedAt) return 'Pending activation';
+  switch (status) {
+    case 'active':
+      return 'Active';
+    case 'trialing':
+      return 'On trial';
+    case 'past_due':
+      return 'Payment failed';
+    case 'canceled':
+      return 'Cancelled';
+    case 'expired':
+      return 'Expired';
+    default:
+      return 'No subscription';
+  }
+}
+
 function date(value) {
   if (!value) return '—';
   return formatDateShort(value);
@@ -260,7 +283,10 @@ export default function AdminUserDetail({ userId, me, onClose, onChanged, action
                           : 'var(--red)',
                       }}
                     >
-                      {u.accessBypass ? 'Access granted' : u.subscriptionStatus || 'none'}
+                      {/* The raw column was printed straight through, so this
+                          read "expired", "past_due", "none" — database words
+                          put in front of a person. */}
+                      {u.accessBypass ? 'Access granted' : statusWord(u.subscriptionStatus, u.activatedAt)}
                     </span>
                   </Field>
                   <Field label="Joined">{date(u.createdAt)}</Field>

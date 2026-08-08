@@ -420,8 +420,26 @@ function UsersTab() {
                         ? 'Small Business'
                         : 'Individual'}
                     </Badge>
-                    {!u.active && <Badge tone="amber">Invite pending</Badge>}
-                    {u.accessBypass && <Badge tone="emerald">Access granted</Badge>}
+                    {/* What state the account is actually in, in words.
+                        "Invite pending" appeared only for unactivated accounts
+                        and nothing at all for the rest, so a row gave no way to
+                        tell somebody paying from somebody lapsed without
+                        opening them. */}
+                    {!u.active ? (
+                      <Badge tone="amber">Pending activation</Badge>
+                    ) : u.accessBypass ? (
+                      <Badge tone="emerald">Access granted</Badge>
+                    ) : u.subscriptionStatus === 'active' ? (
+                      <Badge tone="emerald">Active</Badge>
+                    ) : u.subscriptionStatus === 'trialing' ? (
+                      <Badge tone="accent">On trial</Badge>
+                    ) : u.subscriptionStatus === 'past_due' ? (
+                      <Badge tone="red">Payment failed</Badge>
+                    ) : u.subscriptionStatus === 'canceled' ? (
+                      <Badge tone="red">Cancelled</Badge>
+                    ) : (
+                      <Badge tone="red">Expired</Badge>
+                    )}
                     <Badge tone="muted">
                       {u.expenseCount} expense{u.expenseCount === 1 ? '' : 's'}
                     </Badge>
