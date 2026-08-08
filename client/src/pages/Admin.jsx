@@ -18,6 +18,7 @@ import { useConfirm } from '../lib/ConfirmContext.jsx';
 import AdminStatsTab from '../components/AdminStatsTab.jsx';
 import SupportTab from '../components/SupportTab.jsx';
 import LockedPanel from '../components/LockedPanel.jsx';
+import HowItWorksTab from '../components/HowItWorksTab.jsx';
 import { useSupportCounts } from '../lib/useSupportCounts.js';
 import PushSettingsTab from '../components/PushSettingsTab.jsx';
 import { IconPicker, ColourPicker, CategoryPreview, SWATCHES } from '../components/CategoryPickers.jsx';
@@ -41,6 +42,7 @@ function formatBytes(bytes) {
 const TAB_KEYS = [
   'stats',
   'support',
+  'how',
   'users',
   'categories',
   'settings',
@@ -79,7 +81,7 @@ export default function Admin() {
   }
 
   return (
-    <div style={{ maxWidth: tab === 'stats' || tab === 'support' ? 1100 : 760 }}>
+    <div style={{ maxWidth: tab === 'stats' || tab === 'support' || tab === 'how' ? 1100 : 760 }}>
       <h1 style={{ margin: '0 0 4px', fontSize: 26 }}>Administration</h1>
       <p style={{ color: 'var(--text-muted)', margin: '0 0 24px' }}>Manage user accounts and the default category template.</p>
 
@@ -116,6 +118,9 @@ export default function Admin() {
             </span>
           )}
         </button>
+        <button className={tab === 'how' ? 'btn btn-primary' : 'btn btn-ghost'} onClick={() => setTab('how')} hidden={supportOnly}>
+          How it works
+        </button>
         <button className={tab === 'users' ? 'btn btn-primary' : 'btn btn-ghost'} onClick={() => setTab('users')} hidden={supportOnly}>
           Users
         </button>
@@ -141,6 +146,7 @@ export default function Admin() {
 
       {tab === 'stats' && <AdminStatsTab />}
       {tab === 'support' && <SupportTab />}
+      {tab === 'how' && <HowItWorksTab />}
       {tab === 'users' && <UsersTab />}
       {tab === 'categories' && (
         <LockedPanel title="Default categories" hint="Every new account is built from this list. Editing it does not touch anybody who has already signed up.">
