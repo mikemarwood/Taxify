@@ -2,7 +2,6 @@ import { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { api } from '../lib/api.js';
 import { useToast } from '../components/Toast.jsx';
-import { useConfirm } from '../lib/ConfirmContext.jsx';
 import { SkeletonList } from '../components/Skeletons.jsx';
 import Icon from '../components/Icon.jsx';
 import { formatMoney } from '../lib/money.js';
@@ -21,106 +20,6 @@ import {
   tidyCategoryName,
 } from '../lib/categoryName.js';
 
-
-// Moving a category — with its expenses and every receipt attached to them —
-// into a different set of books.
-//
-// Somebody files a category under their individual tax and later decides it
-// belongs to a business. Before this the only way across was retyping every
-// expense and re-uploading every receipt.
-//
-// The count is fetched before anything happens rather than guessed at, because
-// "this will move 47 expenses and 31 receipts" is a different decision from
-// "this will move some things", and the files really do move on disk.
-function MoveCategory({ category, onMoved }) {
-  const { entities, selectedId } = useEntities();
-  const toast = useToast();
-  const confirm = useConfirm();
-  const [target, setTarget] = useState('');
-  const [busy, setBusy] = useState(false);
-
-  // Everywhere except where it already is. The page lists the categories of the
-  // book currently open, so that book is the one to leave out — the row itself
-  // does not carry its entity.
-  const elsewhere = (entities || []).filter((e) => String(e.id) !== String(selectedId));
-  if (elsewhere.length === 0) return null;
-
-  async function move() {
-    const to = elsewhere.find((e) => String(e.id) === String(target));
-    if (!to) return;
-
-    setBusy(true);
-    try {
-      const preview = await api.get(`/categories/${category.id}/move-preview?toEntityId=${to.id}`);
-      const { expenses, receipts } = preview.data.summary;
-
-      const ok = await confirm({
-        title: `Move "${category.name}" to ${to.name}?`,
-        body: (
-          <>
-            <div style={{ marginBottom: 8 }}>
-              {expenses === 0
-                ? 'Nothing has been filed under it yet, so only the category itself moves.'
-                : `${expenses} ${expenses === 1 ? 'expense moves' : 'expenses move'} with it${
-                    receipts > 0 ? `, and ${receipts} receipt${receipts === 1 ? '' : 's'} are moved on disk too` : ''
-                  }.`}
-            </div>
-            <div>
-              They will count towards {to.name} from then on, in its reports and its lodgement. You can move it back
-              the same way.
-            </div>
-          </>
-        ),
-        confirmLabel: 'Move it',
-      });
-      if (!ok) return;
-
-      const res = await api.post(`/categories/${category.id}/move`, { toEntityId: to.id });
-      toast(
-        res.data.moved.expenses > 0
-          ? `Moved to ${to.name} with ${res.data.moved.expenses} expenses`
-          : `Moved to ${to.name}`,
-        'success'
-      );
-      onMoved?.();
-    } catch (err) {
-      toast(err.message, 'error');
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  return (
-    <div style={{ marginTop: 14, paddingTop: 12, borderTop: '1px solid var(--border)' }}>
-      <div style={{ fontSize: 11.5, fontWeight: 700, letterSpacing: 0.3, textTransform: 'uppercase', color: 'var(--text-muted)', marginBottom: 6 }}>
-        Move to another set of books
-      </div>
-      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
-        <select
-          className="input"
-          value={target}
-          disabled={busy}
-          onChange={(e) => setTarget(e.target.value)}
-          style={{ fontSize: 13, width: 'auto', minWidth: 170 }}
-        >
-          <option value="">Choose…</option>
-          {elsewhere.map((e) => (
-            <option key={e.id} value={e.id}>
-              {e.name}
-            </option>
-          ))}
-        </select>
-        <button className="btn btn-ghost" style={{ fontSize: 13 }} disabled={!target || busy} onClick={move}>
-          {busy && <span className="spinner" />}
-          Move
-        </button>
-      </div>
-      <div style={{ fontSize: 11.5, color: 'var(--text-muted)', marginTop: 6, lineHeight: 1.5 }}>
-        Everything filed under it moves too — the expenses and their receipts.
-      </div>
-    </div>
-  );
-}
 
 export default function Categories() {
   const { user } = useAuth();
@@ -454,17 +353,29 @@ export default function Categories() {
                           <Icon name="pencil" size={14} />
                           Edit
                         </button>
-                        <button
-                          className="btn btn-ghost icon-btn"
-                          title={`Delete ${c.name}`}
-                          aria-label={`Delete ${c.name}`}
-                          onClick={() => {
-                            setConfirmingId(c.id);
-                            setConfirmText('');
-                          }}
-                        >
-                          <Icon name="trash" size={16} />
-                        </button>
+                        {/* Only while it is empty.
+
+                            A category with expenses in it cannot be deleted
+                            without deciding what happens to them, and there is
+                            no good answer to that — moving them somewhere
+                            arbitrary is wrong, and deleting them takes
+                            receipts and lodged figures with it. Offering the
+                            button and refusing the press is worse than not
+                            offering it, so it appears once the category is
+                            empty and not before. */}
+                        {c.expenseCount === 0 && (
+                          <button
+                            className="btn btn-ghost icon-btn"
+                            title={`Delete ${c.name}`}
+                            aria-label={`Delete ${c.name}`}
+                            onClick={() => {
+                              setConfirmingId(c.id);
+                              setConfirmText('');
+                            }}
+                          >
+                            <Icon name="trash" size={16} />
+                          </button>
+                        )}
                       </div>
                     )}
                   </div>
@@ -552,8 +463,6 @@ export default function Categories() {
                           Cancel
                         </button>
                       </div>
-
-                      <MoveCategory category={c} onMoved={load} />
                     </>
                   )}
 

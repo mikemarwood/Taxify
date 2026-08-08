@@ -6,7 +6,6 @@ import { fileURLToPath } from 'url';
 import pool from '../db.js';
 import { requireAuth, requireActiveAccess } from '../auth/middleware.js';
 import { asyncHandler } from '../lib/asyncHandler.js';
-import { planCategoryMove, moveCategoryToEntity } from '../lib/moveCategory.js';
 import { dataOwnerId } from '../auth/access.js';
 import { toTitleCase } from '../lib/text.js';
 import {
@@ -597,54 +596,5 @@ router.delete(
   })
 );
 
-
-// ---------------------------------------------------------------------------
-// Moving a category to a different set of books.
-//
-// Somebody files a category under their individual tax and later decides it
-// belongs to a business. There was no way back from that short of retyping
-// every expense and re-uploading every receipt.
-//
-// Two routes on purpose. The first only looks: it says what would move and
-// changes nothing, so the confirmation can state a real number of expenses and
-// receipts rather than a vague warning. The second does it.
-// ---------------------------------------------------------------------------
-
-router.get(
-  '/:id/move-preview',
-  asyncHandler(async (req, res) => {
-    const plan = await planCategoryMove({
-      userId: dataOwnerId(req.user),
-      categoryId: req.params.id,
-      toEntityId: req.query?.toEntityId,
-      rule: req.user.financialYearRule,
-    });
-    if (!plan.ok) return res.status(400).json({ error: plan.error });
-    res.json({ summary: plan.summary });
-  })
-);
-
-router.post(
-  '/:id/move',
-  asyncHandler(async (req, res) => {
-    // Never while acting for somebody else. Reorganising a client's books is
-    // the account holder's decision, not their accountant's, whatever access
-    // they were given.
-    if (req.user.actingAsClient) {
-      return res.status(403).json({ error: 'Only the account holder can move a category between books' });
-    }
-
-    const result = await moveCategoryToEntity({
-      uploadsRoot: uploadsDir,
-      userId: dataOwnerId(req.user),
-      categoryId: req.params.id,
-      toEntityId: req.body?.toEntityId,
-      rule: req.user.financialYearRule,
-    });
-
-    if (!result.ok) return res.status(400).json({ error: result.error });
-    res.json(result);
-  })
-);
 
 export default router;

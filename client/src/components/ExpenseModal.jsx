@@ -29,78 +29,6 @@ function capitalizeSentences(str) {
 // Receipts are filed under <uploads>/<user>/<financial-year>/<category>, so
 // the directory is both a way to find the file outside the app and a check
 // that the expense is categorised the way you meant.
-function ReceiptLocation({ expense }) {
-  const toast = useToast();
-  if (!expense.receiptDir && !expense.receiptFilename) return null;
-
-  async function copy(value, what) {
-    try {
-      await navigator.clipboard.writeText(value);
-      toast(`${what} copied`, 'success');
-    } catch {
-      toast('Could not copy — select the text and copy it manually', 'error');
-    }
-  }
-
-  const boxStyle = {
-    flex: 1,
-    minWidth: 0,
-    fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Consolas, monospace',
-    fontSize: 11.5,
-    lineHeight: 1.5,
-    color: 'var(--text)',
-    background: 'var(--bg-elevated)',
-    border: '1px solid var(--border)',
-    borderRadius: 7,
-    padding: '7px 9px',
-    wordBreak: 'break-all',
-  };
-
-  const copyButtonStyle = {
-    flexShrink: 0,
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    width: 30,
-    height: 30,
-    borderRadius: 7,
-    border: '1px solid var(--border)',
-    background: 'transparent',
-    color: 'var(--text-muted)',
-    cursor: 'pointer',
-  };
-
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-      <div style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: 0.5, textTransform: 'uppercase', color: 'var(--text-muted)' }}>
-        Stored in
-      </div>
-      <div style={{ display: 'flex', alignItems: 'flex-start', gap: 6 }}>
-        <div style={boxStyle}>{expense.receiptDir || 'Restart the server to see the full path'}</div>
-        {expense.receiptDir && (
-          <button type="button" title="Copy folder path" aria-label="Copy folder path" style={copyButtonStyle} onClick={() => copy(expense.receiptDir, 'Folder path')}>
-            <Icon name="copy" size={14} />
-          </button>
-        )}
-      </div>
-      {expense.receiptFilename && (
-        <div style={{ display: 'flex', alignItems: 'flex-start', gap: 6 }}>
-          <div style={boxStyle}>{expense.receiptFilename}</div>
-          <button
-            type="button"
-            title="Copy full file path"
-            aria-label="Copy full file path"
-            style={copyButtonStyle}
-            onClick={() => copy(expense.receiptFullPath || expense.receiptFilename, 'Full path')}
-          >
-            <Icon name="copy" size={14} />
-          </button>
-        </div>
-      )}
-    </div>
-  );
-}
-
 function DetailRow({ label, value }) {
   return (
     <div>
@@ -305,6 +233,7 @@ export default function ExpenseModal({ expense, onClose, onSaved, onDeleted }) {
             type="button"
             aria-label="Close"
             title="Close"
+            onClick={onClose}
             className="btn btn-ghost"
             style={{
               position: 'absolute',
@@ -568,7 +497,6 @@ export default function ExpenseModal({ expense, onClose, onSaved, onDeleted }) {
                       filename={expense.receiptFilename}
                       onOpen={() => setLightboxOpen(true)}
                     />
-                    <ReceiptLocation expense={expense} />
                   </div>
                 ) : (
                   <span style={{ fontSize: 13, color: 'var(--text-muted)' }}>No receipt attached</span>
