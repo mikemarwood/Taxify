@@ -86,6 +86,7 @@ function NewTicket({ user, onRaised }) {
   const [busy, setBusy] = useState(false);
   const [captcha, setCaptcha] = useState(null);
   const [captchaAnswer, setCaptchaAnswer] = useState('');
+  const [progress, setProgress] = useState(null);
 
   useEffect(() => {
     api
@@ -139,9 +140,15 @@ function NewTicket({ user, onRaised }) {
         for (const file of files) payload.append('attachments', file);
       }
 
-      const res = await api.post('/support/tickets', payload);
+      const res = await api.post(
+        '/support/tickets',
+        payload,
+        files.length > 0 ? uploadConfig(setProgress) : undefined
+      );
       onRaised(res.data);
+      setProgress(null);
     } catch (err) {
+      setProgress(null);
       toast(err.message, 'error');
       if (guest) {
         api
@@ -261,6 +268,32 @@ function NewTicket({ user, onRaised }) {
         </div>
       )}
 
+      {progress !== null && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <div
+            role="progressbar"
+            aria-valuenow={progress}
+            aria-valuemin={0}
+            aria-valuemax={100}
+            style={{
+              flex: 1,
+              height: 6,
+              borderRadius: 999,
+              background: 'var(--bg-subtle)',
+              border: '1px solid var(--border)',
+              overflow: 'hidden',
+            }}
+          >
+            <div
+              style={{ width: `${progress}%`, height: '100%', background: 'var(--accent)', transition: 'width 0.2s ease-out' }}
+            />
+          </div>
+          <span style={{ fontSize: 11.5, color: 'var(--text-muted)', fontVariantNumeric: 'tabular-nums', minWidth: 82 }}>
+            {progress < 100 ? `Uploading ${progress}%` : 'Finishing…'}
+          </span>
+        </div>
+      )}
+
       <button className="btn btn-primary" type="submit" disabled={!canSubmit} style={{ alignSelf: 'flex-start' }}>
         {busy && <span className="spinner" />}
         Send request
@@ -328,6 +361,18 @@ function GuestRaised({ result }) {
 // A reply, as form data when there are images and JSON when there are not.
 // Sending multipart unconditionally would work, but it turns every ordinary
 // reply into a file upload for no reason.
+// axios reports bytes; a bar wants a whole percent. total is missing on some
+// browsers for small bodies, in which case there is nothing honest to show.
+function uploadConfig(onProgress) {
+  if (!onProgress) return undefined;
+  return {
+    onUploadProgress: (event) => {
+      if (!event.total) return;
+      onProgress(Math.min(100, Math.round((event.loaded / event.total) * 100)));
+    },
+  };
+}
+
 function replyBody(message, files) {
   if (!files || files.length === 0) return { message };
   const form = new FormData();
@@ -465,8 +510,12 @@ export function SupportTicket() {
         ticket={data.ticket}
         messages={data.messages}
         onRefresh={load}
-        onReply={async (message, files) => {
-          const res = await api.post(`/support/tickets/${id}/reply`, replyBody(message, files));
+        onReply={async (message, files, onProgress) => {
+          const res = await api.post(
+            `/support/tickets/${id}/reply`,
+            replyBody(message, files),
+            uploadConfig(onProgress)
+          );
           setData((prev) => ({ ...prev, ticket: { ...prev.ticket, status: res.data.status }, messages: res.data.messages }));
         }}
       />
@@ -505,11 +554,11 @@ export function SupportTicketByToken() {
         ticket={data.ticket}
         messages={data.messages}
         onRefresh={load}
-        onReply={async (message, files) => {
+        onReply={async (message, files, onProgress) => {
           const body = replyBody(message, files);
           if (body instanceof FormData) body.append('token', token);
           else body.token = token;
-          const res = await api.post('/support/reply-by-token', body);
+          const res = await api.post('/support/reply-by-token', body, uploadConfig(onProgress));
           setData((prev) => ({ ...prev, ticket: { ...prev.ticket, status: res.data.status }, messages: res.data.messages }));
         }}
       />

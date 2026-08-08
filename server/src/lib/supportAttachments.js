@@ -27,7 +27,7 @@ const ALLOWED = new Map([
 // Large enough for a full-resolution phone screenshot, small enough that a
 // mailbox full of them is not a disk problem.
 export const MAX_ATTACHMENT_BYTES = 8 * 1024 * 1024;
-export const MAX_ATTACHMENTS_PER_MESSAGE = 4;
+export const MAX_ATTACHMENTS_PER_MESSAGE = 3;
 
 export const ATTACHMENT_REJECTED_MESSAGE = 'Attachments have to be images — JPG, PNG, WEBP, HEIC or GIF.';
 

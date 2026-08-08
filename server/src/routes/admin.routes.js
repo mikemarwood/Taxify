@@ -15,9 +15,9 @@ import { computeAccessLocked } from '../auth/access.js';
 import { collectStats } from '../lib/adminStats.js';
 import { getStripe } from '../lib/stripe.js';
 import { amountProblem, canTransition } from '../lib/planRequests.js';
-import { shapeTicket, messagesFor, addReply, ticketUrl } from './support.routes.js';
+import { shapeTicket, messagesFor, addReply, ticketUrl, upload } from './support.routes.js';
 import { categoryLabel } from '../lib/support.js';
-import { removeTicketFiles } from '../lib/supportAttachments.js';
+import { removeTicketFiles, MAX_ATTACHMENTS_PER_MESSAGE } from '../lib/supportAttachments.js';
 import { publicOrigin } from '../lib/publicOrigin.js';
 import { sendSupportClosedEmail } from '../lib/mailer.js';
 import { asyncHandler } from '../lib/asyncHandler.js';
@@ -1284,6 +1284,10 @@ router.get(
 
 router.post(
   '/support/tickets/:id/reply',
+  // Without this, a reply carrying an image arrives as an unparsed multipart
+  // body: req.body is empty, the message reads as blank, and the reply is
+  // refused with "write a message first" while the message sits on screen.
+  upload.array('attachments', MAX_ATTACHMENTS_PER_MESSAGE),
   asyncHandler(async (req, res) => {
     const [rows] = await pool.execute(
       `SELECT t.*, u.name, u.email FROM support_tickets t LEFT JOIN users u ON u.id = t.user_id WHERE t.id = ?`,

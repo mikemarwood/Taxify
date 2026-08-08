@@ -217,14 +217,25 @@ export default function SupportTab() {
               messages={thread.messages}
               busy={busy}
               onRefresh={() => loadThread(openId)}
-              onReply={async (message, files) => {
+              onReply={async (message, files, onProgress) => {
                 let payload = { message };
                 if (files?.length) {
                   payload = new FormData();
                   payload.append('message', message);
                   for (const file of files) payload.append('attachments', file);
                 }
-                const res = await api.post(`/admin/support/tickets/${openId}/reply`, payload);
+                const res = await api.post(
+                  `/admin/support/tickets/${openId}/reply`,
+                  payload,
+                  onProgress
+                    ? {
+                        onUploadProgress: (event) => {
+                          if (!event.total) return;
+                          onProgress(Math.min(100, Math.round((event.loaded / event.total) * 100)));
+                        },
+                      }
+                    : undefined
+                );
                 setThread((prev) => ({ ...prev, ticket: { ...prev.ticket, status: res.data.status }, messages: res.data.messages }));
                 loadList();
               }}

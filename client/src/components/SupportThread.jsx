@@ -9,7 +9,7 @@ import { useToast } from './Toast.jsx';
 // Matched to the server. Stated here as well so somebody is told before a
 // 8 MB upload crawls up a phone connection only to be refused at the far end.
 export const MAX_ATTACHMENT_BYTES = 8 * 1024 * 1024;
-export const MAX_ATTACHMENTS = 4;
+export const MAX_ATTACHMENTS = 3;
 const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/heif', 'image/gif'];
 
 function readableSize(bytes) {
@@ -179,6 +179,8 @@ export default function SupportThread({
   const toast = useToast();
   const [draft, setDraft] = useState('');
   const [files, setFiles] = useState([]);
+  // null when nothing is uploading. A number is a percentage.
+  const [progress, setProgress] = useState(null);
   const [sending, setSending] = useState(false);
   // What we last saw, so a reply arriving while the page is open can announce
   // itself rather than appearing silently.
@@ -230,7 +232,10 @@ export default function SupportThread({
     if (!text) return;
     setSending(true);
     try {
-      await onReply(text, files);
+      // The third argument is how far along the upload is. Passed down rather
+      // than measured here, because only the caller knows which request is
+      // actually carrying the bytes.
+      await onReply(text, files, files.length > 0 ? setProgress : null);
       setDraft('');
       setFiles([]);
     } catch (err) {
@@ -242,6 +247,7 @@ export default function SupportThread({
       toast(err?.message || 'That did not send. Please try again.', 'error');
     } finally {
       setSending(false);
+      setProgress(null);
     }
   }
 
@@ -326,6 +332,43 @@ export default function SupportThread({
                   </button>
                 </div>
               ))}
+            </div>
+          )}
+
+          {/* Shown only while bytes are actually moving. A bar for a text-only
+              reply would be measuring nothing, and one left sitting at 100%
+              afterwards is worse than none — so it goes the moment the request
+              finishes, whether it worked or not. */}
+          {progress !== null && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <div
+                role="progressbar"
+                aria-valuenow={progress}
+                aria-valuemin={0}
+                aria-valuemax={100}
+                style={{
+                  flex: 1,
+                  height: 6,
+                  borderRadius: 999,
+                  background: 'var(--bg-subtle)',
+                  border: '1px solid var(--border)',
+                  overflow: 'hidden',
+                }}
+              >
+                <div
+                  style={{
+                    width: `${progress}%`,
+                    height: '100%',
+                    background: 'var(--accent)',
+                    transition: 'width 0.2s ease-out',
+                  }}
+                />
+              </div>
+              <span
+                style={{ fontSize: 11.5, color: 'var(--text-muted)', fontVariantNumeric: 'tabular-nums', minWidth: 82 }}
+              >
+                {progress < 100 ? `Uploading ${progress}%` : 'Finishing…'}
+              </span>
             </div>
           )}
 

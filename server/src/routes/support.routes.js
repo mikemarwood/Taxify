@@ -509,4 +509,4 @@ router.post(
 );
 
 export default router;
-export { shapeTicket, messagesFor, addReply, announce, ticketUrl };
+export { shapeTicket, messagesFor, addReply, announce, ticketUrl, upload, saveAttachments };
