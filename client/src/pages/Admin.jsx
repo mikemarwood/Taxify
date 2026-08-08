@@ -19,6 +19,7 @@ import AdminStatsTab from '../components/AdminStatsTab.jsx';
 import SupportTab from '../components/SupportTab.jsx';
 import LockedPanel from '../components/LockedPanel.jsx';
 import HowItWorksTab from '../components/HowItWorksTab.jsx';
+import ToolsTab from '../components/ToolsTab.jsx';
 import { useSupportCounts } from '../lib/useSupportCounts.js';
 import PushSettingsTab from '../components/PushSettingsTab.jsx';
 import { IconPicker, ColourPicker, CategoryPreview, SWATCHES } from '../components/CategoryPickers.jsx';
@@ -43,6 +44,7 @@ const TAB_KEYS = [
   'stats',
   'support',
   'how',
+  'tools',
   'users',
   'categories',
   'settings',
@@ -118,6 +120,9 @@ export default function Admin() {
             </span>
           )}
         </button>
+        <button className={tab === 'tools' ? 'btn btn-primary' : 'btn btn-ghost'} onClick={() => setTab('tools')} hidden={supportOnly}>
+          Tools
+        </button>
         <button className={tab === 'how' ? 'btn btn-primary' : 'btn btn-ghost'} onClick={() => setTab('how')} hidden={supportOnly}>
           How it works
         </button>
@@ -146,6 +151,7 @@ export default function Admin() {
 
       {tab === 'stats' && <AdminStatsTab />}
       {tab === 'support' && <SupportTab />}
+      {tab === 'tools' && <ToolsTab />}
       {tab === 'how' && <HowItWorksTab />}
       {tab === 'users' && <UsersTab />}
       {tab === 'categories' && (
