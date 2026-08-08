@@ -492,11 +492,31 @@ router.post(
       // This is the only thing that moves a plan on this path. Stripe saying
       // the money arrived is the authority — an administrator marking it paid
       // by hand would be a guess, and the customer's own word even more so.
-      case 'invoice.paid': {
+      case 'invoice.paid':
+      case 'invoice.payment_succeeded': {
         const invoice = event.data.object;
+
+        // Every paid invoice is kept, whatever it was for — a renewal, a first
+        // subscription, or a plan change. Done first and unconditionally,
+        // because it applies to all of them and because the copy on the account
+        // page should not wait for somebody to open the billing tab.
+        const customerId = typeof invoice.customer === 'string' ? invoice.customer : invoice.customer?.id;
+        if (customerId) {
+          const [owner] = await pool.execute('SELECT id FROM users WHERE stripe_customer_id = ?', [customerId]);
+          if (owner[0]?.id) {
+            try {
+              await storeInvoicePdf(uploadsDir, owner[0].id, invoice);
+            } catch (err) {
+              // Never fail the webhook over a file. Stripe retries a failure,
+              // and the list route stores it on the next visit anyway.
+              console.error(`Could not store invoice ${invoice.id} from webhook`, err.message);
+            }
+          }
+        }
+
+        // The rest applies only to an invoice an administrator raised for a
+        // plan change. A renewal carries no request id and is finished here.
         const requestId = Number(invoice.metadata?.planChangeRequestId);
-        // Subscription renewals are invoices too. Without this, every renewal
-        // would fall through the lookup below.
         if (!requestId) break;
 
         const [rows] = await pool.execute('SELECT * FROM plan_change_requests WHERE id = ?', [requestId]);
@@ -619,26 +639,6 @@ router.post(
             ? [status, subscription.current_period_end, planFromPrice, subscription.customer]
             : [status, subscription.current_period_end, subscription.customer]
         );
-        break;
-      }
-      // Kept the moment it is paid, so the copy on the account page is not
-      // waiting for somebody to open the billing tab.
-      case 'invoice.paid':
-      case 'invoice.payment_succeeded': {
-        const invoice = event.data.object;
-        const customerId = typeof invoice.customer === 'string' ? invoice.customer : invoice.customer?.id;
-        if (customerId) {
-          const [owner] = await pool.execute('SELECT id FROM users WHERE stripe_customer_id = ?', [customerId]);
-          if (owner[0]?.id) {
-            try {
-              await storeInvoicePdf(uploadsDir, owner[0].id, invoice);
-            } catch (err) {
-              // Never fail the webhook over a file. Stripe retries a failure,
-              // and the list route stores it on the next visit anyway.
-              console.error(`Could not store invoice ${invoice.id} from webhook`, err.message);
-            }
-          }
-        }
         break;
       }
       case 'customer.subscription.deleted': {
