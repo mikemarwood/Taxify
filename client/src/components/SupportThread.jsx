@@ -5,6 +5,7 @@ import Avatar from './Avatar.jsx';
 import { formatDateTime } from '../lib/dates.js';
 import { sentenceCaseLive } from '../lib/textCase.js';
 import { useToast } from './Toast.jsx';
+import ImageLightbox from './ImageLightbox.jsx';
 
 // Matched to the server. Stated here as well so somebody is told before a
 // 8 MB upload crawls up a phone connection only to be refused at the far end.
@@ -81,7 +82,24 @@ function RoleBadge({ role }) {
   );
 }
 
-function Message({ message }) {
+function Message({ message, canEdit, onEdit, onPreview }) {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(message.body);
+  const [showHistory, setShowHistory] = useState(false);
+  const [saving, setSaving] = useState(false);
+
+  async function save() {
+    const next = draft.trim();
+    if (!next || next === message.body) return setEditing(false);
+    setSaving(true);
+    try {
+      await onEdit(message, next);
+      setEditing(false);
+    } finally {
+      setSaving(false);
+    }
+  }
+
   if (message.role === 'system') {
     return (
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '4px 0' }}>
@@ -127,17 +145,113 @@ function Message({ message }) {
           {message.body}
         </div>
 
+        {(canEdit || message.editedAt) && !editing && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 6, flexWrap: 'wrap' }}>
+            {canEdit && (
+              <button
+                type="button"
+                onClick={() => {
+                  setDraft(message.body);
+                  setEditing(true);
+                }}
+                style={{
+                  border: 0,
+                  background: 'transparent',
+                  padding: 0,
+                  cursor: 'pointer',
+                  fontSize: 11.5,
+                  fontWeight: 600,
+                  color: 'var(--accent)',
+                }}
+              >
+                Edit
+              </button>
+            )}
+
+            {/* Said plainly, and openable. "Edited" on its own asks the reader
+                to take on trust that nothing important changed — in a record of
+                what was agreed, that is exactly the wrong thing to ask. */}
+            {message.editedAt && (
+              <button
+                type="button"
+                onClick={() => setShowHistory((v) => !v)}
+                style={{
+                  border: 0,
+                  background: 'transparent',
+                  padding: 0,
+                  cursor: 'pointer',
+                  fontSize: 11.5,
+                  color: 'var(--text-muted)',
+                  textDecoration: 'underline',
+                }}
+              >
+                Edited {formatDateTime(message.editedAt)} · {showHistory ? 'hide' : 'see'} what changed
+              </button>
+            )}
+          </div>
+        )}
+
+        {showHistory && message.history?.length > 0 && (
+          <div style={{ marginTop: 8, display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {message.history.map((old, index) => (
+              <div
+                key={`${old.at}-${index}`}
+                style={{
+                  border: '1px solid var(--border)',
+                  borderLeft: '3px solid var(--text-muted)',
+                  borderRadius: 8,
+                  padding: '9px 11px',
+                  background: 'var(--bg-subtle)',
+                }}
+              >
+                <div style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: 0.4, textTransform: 'uppercase', color: 'var(--text-muted)', marginBottom: 4 }}>
+                  Before {formatDateTime(old.at)}
+                </div>
+                <div style={{ fontSize: 12.5, lineHeight: 1.55, whiteSpace: 'pre-wrap', color: 'var(--text-muted)' }}>
+                  {old.body}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {editing && (
+          <div style={{ marginTop: 8, display: 'flex', flexDirection: 'column', gap: 8 }}>
+            <textarea
+              className="input"
+              rows={4}
+              maxLength={5000}
+              value={draft}
+              onChange={(e) => setDraft(sentenceCaseLive(e.target.value))}
+              style={{ resize: 'vertical', fontSize: 13.5, lineHeight: 1.6 }}
+            />
+            <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+              <button className="btn btn-primary" style={{ fontSize: 12.5 }} disabled={saving || !draft.trim()} onClick={save}>
+                {saving && <span className="spinner" />}
+                Save
+              </button>
+              <button className="btn btn-ghost" style={{ fontSize: 12.5 }} disabled={saving} onClick={() => setEditing(false)}>
+                Cancel
+              </button>
+              <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>
+                The original is kept and shown alongside.
+              </span>
+            </div>
+          </div>
+        )}
+
         {message.attachments?.length > 0 && (
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 8 }}>
             {message.attachments.map((a) => (
-              <a
+              <button
                 key={a.url}
-                href={a.url}
-                target="_blank"
-                rel="noreferrer"
+                type="button"
+                onClick={() => onPreview?.(a)}
                 title={`${a.name} · ${readableSize(a.bytes)}`}
                 style={{
                   display: 'block',
+                  padding: 0,
+                  cursor: 'zoom-in',
                   width: 108,
                   height: 108,
                   borderRadius: 8,
@@ -155,7 +269,7 @@ function Message({ message }) {
                   loading="lazy"
                   style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
                 />
-              </a>
+              </button>
             ))}
           </div>
         )}
@@ -171,6 +285,7 @@ export default function SupportThread({
   ticket,
   messages,
   onReply,
+  onEdit,
   onRefresh,
   busy,
   admin = false,
@@ -181,6 +296,11 @@ export default function SupportThread({
   const [files, setFiles] = useState([]);
   // null when nothing is uploading. A number is a percentage.
   const [progress, setProgress] = useState(null);
+  // Which attachment is being looked at, or null. Held here rather than in the
+  // message so opening one closes any other.
+  const [preview, setPreview] = useState(null);
+
+  const closed = ticket?.status === 'closed';
   const [sending, setSending] = useState(false);
   // What we last saw, so a reply arriving while the page is open can announce
   // itself rather than appearing silently.
@@ -199,8 +319,6 @@ export default function SupportThread({
     if (count > seen.current && seen.current > 0) playInfo();
     seen.current = count;
   }, [messages]);
-
-  const closed = ticket?.status === 'closed';
 
   // Checked here rather than only on the server, so somebody is told before a
   // large file crawls up a phone connection to be refused at the other end.
@@ -256,9 +374,24 @@ export default function SupportThread({
       <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
         <AnimatePresence initial={false}>
           {(messages || []).map((m) => (
-            <Message key={m.id} message={m} />
+            <Message
+              key={m.id}
+              message={m}
+              onPreview={setPreview}
+              // Your own words, and only while the conversation is open. A
+              // closed ticket is a finished record.
+              canEdit={Boolean(onEdit) && !closed && m.role === (admin ? 'support' : 'customer') && m.role !== 'system'}
+              onEdit={onEdit}
+            />
           ))}
         </AnimatePresence>
+
+        <ImageLightbox
+          open={Boolean(preview)}
+          src={preview?.url || ''}
+          name={preview?.name || ''}
+          onClose={() => setPreview(null)}
+        />
       </div>
 
       {extraActions}

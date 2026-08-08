@@ -885,6 +885,18 @@ export async function ensureSchema() {
   await pool.query(`ALTER TABLE support_tickets ADD COLUMN IF NOT EXISTS customer_read_at DATETIME NULL`);
   await pool.query(`ALTER TABLE support_tickets ADD COLUMN IF NOT EXISTS support_read_at DATETIME NULL`);
   await pool.query(`ALTER TABLE support_messages ADD COLUMN IF NOT EXISTS attachments TEXT NULL`);
+  // What a message used to say.
+  //
+  // Kept rather than overwritten because a support thread is a record of what
+  // was agreed. Silently rewriting a line of it would make the conversation
+  // unreliable evidence of itself — somebody could ask for one thing, be
+  // answered, and then edit the asking.
+  //
+  // A JSON array of { body, at }, oldest first. On the message rather than in a
+  // table of its own: edits are rare, few, and only ever read alongside the
+  // message they belong to.
+  await pool.query(`ALTER TABLE support_messages ADD COLUMN IF NOT EXISTS previous_bodies TEXT NULL`);
+  await pool.query(`ALTER TABLE support_messages ADD COLUMN IF NOT EXISTS edited_at DATETIME NULL`);
 
   await pool.query(`
     CREATE TABLE IF NOT EXISTS support_messages (

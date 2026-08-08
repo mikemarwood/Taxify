@@ -381,6 +381,28 @@ input[type="date"].input::-webkit-calendar-picker-indicator:hover { opacity: 1; 
   .app-sidebar { height: 100dvh; }
 }
 
+/* Fixed, not sticky.
+   
+   position: sticky only works while every ancestor allows it: any one of them
+   with an overflow rule turns the rail back into an ordinary column that
+   scrolls away with the page, and it fails silently — nothing in the CSS says
+   it stopped working. This layout has overflow rules on html and body at narrow
+   widths, and page-level animation wrappers around the content, so whether the
+   rail stayed put came down to which page you were on and how tall it was.
+   
+   Fixed depends on nothing above it. The content is moved over by the width of
+   the rail instead, which is the same arrangement the drawer already uses on a
+   phone — one behaviour rather than two that disagree. */
+@media (min-width: 901px) {
+  .app-sidebar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    z-index: 100;
+  }
+  .app-shell-main { margin-left: 232px; }
+}
+
 /* The bell is a fixed square, Log out takes what's left. Two equal halves put
    two labels in a rail narrower than either wanted, and the bell's own label
    overflowed its box. */

@@ -217,6 +217,10 @@ export default function SupportTab() {
               messages={thread.messages}
               busy={busy}
               onRefresh={() => loadThread(openId)}
+              onEdit={async (message, body) => {
+                const res = await api.patch(`/admin/support/messages/${message.id}`, { message: body });
+                setThread((prev) => ({ ...prev, messages: res.data.messages }));
+              }}
               onReply={async (message, files, onProgress) => {
                 let payload = { message };
                 if (files?.length) {

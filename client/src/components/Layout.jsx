@@ -140,8 +140,8 @@ function NavItem({ item }) {
                 height: 19,
                 padding: '0 6px',
                 borderRadius: 999,
-                background: 'var(--amber)',
-                color: '#1a1200',
+                background: 'var(--red)',
+                color: '#fff',
                 fontSize: 11,
                 fontWeight: 800,
                 display: 'inline-flex',
@@ -288,9 +288,7 @@ export default function Layout({ children }) {
           display: 'flex',
           flexDirection: 'column',
           gap: 22,
-          position: 'sticky',
-          top: 0,
-          // The height itself is in theme.css, not here.
+          // Position and height both live in theme.css, not here.
           //
           // It has to be 100dvh where that is supported, and an inline style
           // cannot carry a fallback — one object, one `height`. On an iPad,

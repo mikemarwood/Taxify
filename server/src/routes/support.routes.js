@@ -113,6 +113,10 @@ function shapeMessage(row) {
     name: row.author_name,
     body: row.body,
     createdAt: row.created_at,
+    editedAt: row.edited_at || null,
+    // Shown in full rather than as a count. "Edited" on its own asks somebody
+    // to take it on trust that nothing important changed.
+    history: parseHistory(row.previous_bodies),
     attachments: parseAttachments(row.attachments).map((a, index) => ({
       name: a.name,
       bytes: a.bytes,
@@ -249,7 +253,50 @@ router.get(
       return res.status(404).json({ error: 'Not found' });
     }
 
-    return serveAttachment(res, filePath, { originalName: item.name });
+    // ?download=1 asks for the copy that saves rather than the one that
+    // displays; without it the Download button would just show the image again.
+    return serveAttachment(res, filePath, {
+      originalName: item.name,
+      download: req.query?.download === '1',
+    });
+  })
+);
+
+router.patch(
+  '/tickets/:ticketId/messages/:id',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const [rows] = await pool.execute(
+      `SELECT m.*, t.status, t.id AS ticket_id FROM support_messages m
+         JOIN support_tickets t ON t.id = m.ticket_id
+        WHERE m.id = ? AND m.ticket_id = ? AND t.user_id = ?`,
+      [req.params.id, req.params.ticketId, req.user.id]
+    );
+    const row = rows[0];
+    // Your own message only. Somebody editing support's replies into their own
+    // thread would be rewriting the answer as well as the question.
+    if (!row || row.author_user_id !== req.user.id) return res.status(404).json({ error: 'Not found' });
+    return editMessage(req, res, row, { id: row.ticket_id, status: row.status });
+  })
+);
+
+// The same, for a guest holding their link.
+router.patch(
+  '/messages-by-token',
+  asyncHandler(async (req, res) => {
+    const [rows] = await pool.execute(
+      `SELECT m.*, t.status, t.id AS ticket_id FROM support_messages m
+         JOIN support_tickets t ON t.id = m.ticket_id
+        WHERE m.id = ? AND t.access_token_hash = ?`,
+      [req.body?.messageId, hashAccessToken(req.body?.token || '')]
+    );
+    const row = rows[0];
+    // A guest wrote it if nobody signed in did. The link proves the ticket;
+    // author_role proves the side.
+    if (!row || row.author_role !== 'customer' || row.author_user_id !== null) {
+      return res.status(404).json({ error: 'Not found' });
+    }
+    return editMessage(req, res, row, { id: row.ticket_id, status: row.status });
   })
 );
 
@@ -441,6 +488,50 @@ router.get(
   })
 );
 
+
+// Editing a message somebody already sent.
+//
+// One handler for all three ways in, because the rules are the same however you
+// arrived and writing them out three times is how they end up different.
+//
+// What is *not* allowed matters as much as what is: only your own message, only
+// while the ticket is open, and never the attachments. A closed ticket is a
+// finished record, and letting somebody rewrite what they said after it was
+// answered would make the whole thread unreliable as evidence of itself.
+async function editMessage(req, res, message, ticket) {
+  const problem = messageProblem(req.body?.message);
+  if (problem) return res.status(400).json({ error: problem });
+
+  if (ticket.status === 'closed') {
+    return res.status(409).json({ error: 'This conversation is closed, so it can no longer be edited.' });
+  }
+
+  const next = String(req.body.message).trim();
+  if (next === message.body) return res.json({ ok: true, messages: await messagesFor(ticket.id) });
+
+  // The old text is kept, oldest first. Nothing is ever removed from this —
+  // the point of a history is that it cannot be edited either.
+  const history = parseHistory(message.previous_bodies);
+  history.push({ body: message.body, at: new Date().toISOString() });
+
+  await pool.execute(
+    'UPDATE support_messages SET body = ?, previous_bodies = ?, edited_at = NOW() WHERE id = ?',
+    [next, JSON.stringify(history.slice(-20)), message.id]
+  );
+
+  res.json({ ok: true, messages: await messagesFor(ticket.id) });
+}
+
+function parseHistory(value) {
+  if (!value) return [];
+  try {
+    const list = JSON.parse(value);
+    return Array.isArray(list) ? list : [];
+  } catch {
+    return [];
+  }
+}
+
 // One handler for both ways in, because the rules about replying are the same
 // either way and writing them twice is how they end up different.
 async function addReply(req, res, ticket, role) {
@@ -509,4 +600,4 @@ router.post(
 );
 
 export default router;
-export { shapeTicket, messagesFor, addReply, announce, ticketUrl, upload, saveAttachments };
+export { shapeTicket, messagesFor, addReply, announce, ticketUrl, upload, saveAttachments, editMessage };

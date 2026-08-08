@@ -15,7 +15,7 @@ import { computeAccessLocked } from '../auth/access.js';
 import { collectStats } from '../lib/adminStats.js';
 import { getStripe } from '../lib/stripe.js';
 import { amountProblem, canTransition } from '../lib/planRequests.js';
-import { shapeTicket, messagesFor, addReply, ticketUrl, upload } from './support.routes.js';
+import { shapeTicket, messagesFor, addReply, ticketUrl, upload, editMessage } from './support.routes.js';
 import { categoryLabel } from '../lib/support.js';
 import { removeTicketFiles, MAX_ATTACHMENTS_PER_MESSAGE } from '../lib/supportAttachments.js';
 import { publicOrigin } from '../lib/publicOrigin.js';
@@ -1362,6 +1362,22 @@ router.post(
     }
 
     res.json({ ok: true, messages: await messagesFor(ticket.id) });
+  })
+);
+
+// Support editing its own reply. Same rule as the customer's side: your own
+// message only, and never once the ticket is closed.
+router.patch(
+  '/support/messages/:id',
+  asyncHandler(async (req, res) => {
+    const [rows] = await pool.execute(
+      `SELECT m.*, t.status, t.id AS ticket_id FROM support_messages m
+         JOIN support_tickets t ON t.id = m.ticket_id WHERE m.id = ?`,
+      [req.params.id]
+    );
+    const row = rows[0];
+    if (!row || row.author_user_id !== req.user.id) return res.status(404).json({ error: 'Not found' });
+    return editMessage(req, res, row, { id: row.ticket_id, status: row.status });
   })
 );
 

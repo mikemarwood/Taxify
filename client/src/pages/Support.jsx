@@ -510,6 +510,10 @@ export function SupportTicket() {
         ticket={data.ticket}
         messages={data.messages}
         onRefresh={load}
+        onEdit={async (message, body) => {
+          const res = await api.patch(`/support/tickets/${id}/messages/${message.id}`, { message: body });
+          setData((prev) => ({ ...prev, messages: res.data.messages }));
+        }}
         onReply={async (message, files, onProgress) => {
           const res = await api.post(
             `/support/tickets/${id}/reply`,
@@ -554,6 +558,10 @@ export function SupportTicketByToken() {
         ticket={data.ticket}
         messages={data.messages}
         onRefresh={load}
+        onEdit={async (message, body) => {
+          const res = await api.patch('/support/messages-by-token', { token, messageId: message.id, message: body });
+          setData((prev) => ({ ...prev, messages: res.data.messages }));
+        }}
         onReply={async (message, files, onProgress) => {
           const body = replyBody(message, files);
           if (body instanceof FormData) body.append('token', token);
