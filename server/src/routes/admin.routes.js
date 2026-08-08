@@ -16,7 +16,7 @@ import { collectStats } from '../lib/adminStats.js';
 import { getStripe } from '../lib/stripe.js';
 import { amountProblem, canTransition } from '../lib/planRequests.js';
 import { shapeTicket, messagesFor, addReply, ticketUrl, upload, editMessage } from './support.routes.js';
-import { categoryLabel } from '../lib/support.js';
+import { categoryLabel, isPriority, PRIORITIES } from '../lib/support.js';
 import { removeTicketFiles, MAX_ATTACHMENTS_PER_MESSAGE } from '../lib/supportAttachments.js';
 import { publicOrigin } from '../lib/publicOrigin.js';
 import { sendSupportClosedEmail } from '../lib/mailer.js';
@@ -1267,17 +1267,68 @@ router.get(
     // Anything needing a reply first, oldest first within that — somebody who
     // has been waiting two days should not sit below somebody who wrote in five
     // minutes ago.
-    const [rows] = await pool.query(
+    // Built as fragments with their own parameters. Interpolating any of this
+    // into the SQL would be the one place in the file where somebody's typing
+    // reaches the query.
+    const where = [];
+    const params = [];
+
+    const search = String(req.query?.q || '').trim().slice(0, 80);
+    if (search) {
+      where.push('(t.reference LIKE ? OR t.subject LIKE ? OR u.name LIKE ? OR u.email LIKE ? OR t.guest_name LIKE ? OR t.guest_email LIKE ?)');
+      const like = `%${search}%`;
+      params.push(like, like, like, like, like, like);
+    }
+
+    const status = String(req.query?.status || '').trim();
+    if (['awaiting_support', 'awaiting_customer', 'closed'].includes(status)) {
+      where.push('t.status = ?');
+      params.push(status);
+    }
+
+    if (String(req.query?.mine || '') === '1') {
+      where.push('t.assigned_to = ?');
+      params.push(req.user.id);
+    }
+    if (String(req.query?.unassigned || '') === '1') where.push('t.assigned_to IS NULL');
+
+    const category = String(req.query?.category || '').trim();
+    if (category) {
+      where.push('t.category = ?');
+      params.push(category);
+    }
+
+    // A page rather than a limit. The old 200 was a silent truncation: no way
+    // to reach 201, and nothing on screen saying it had stopped.
+    const perPage = 40;
+    const page = Math.max(1, Math.min(999, Number(req.query?.page) || 1));
+
+    const clause = where.length ? `WHERE ${where.join(' AND ')}` : '';
+
+    const [[counted]] = await pool.execute(
+      `SELECT COUNT(*) AS n FROM support_tickets t LEFT JOIN users u ON u.id = t.user_id ${clause}`,
+      params
+    );
+
+    const [rows] = await pool.execute(
       `SELECT t.*, u.name, u.email, u.avatar_path,
               a.name AS assigned_name
          FROM support_tickets t
          LEFT JOIN users u ON u.id = t.user_id
          LEFT JOIN users a ON a.id = t.assigned_to
+        ${clause}
         ORDER BY FIELD(t.status, 'awaiting_support', 'awaiting_customer', 'closed'),
+                 FIELD(t.priority, 'urgent', 'high', 'normal', 'low'),
                  t.last_message_at ASC
-        LIMIT 200`
+        LIMIT ${perPage} OFFSET ${(page - 1) * perPage}`,
+      params
     );
-    res.json({ tickets: rows.map((r) => shapeTicket(r, { includeEmail: true })) });
+    res.json({
+      tickets: rows.map((r) => shapeTicket(r, { includeEmail: true })),
+      total: Number(counted.n) || 0,
+      page,
+      perPage,
+    });
   })
 );
 
@@ -1321,7 +1372,7 @@ router.get(
 
     res.json({
       ticket: shapeTicket(rows[0], { includeEmail: true }),
-      messages: await messagesFor(rows[0].id),
+      messages: await messagesFor(rows[0].id, { includeNotes: true }),
       planRequest,
     });
   })
@@ -1531,6 +1582,52 @@ router.post(
     }
 
     res.json({ ok: true, assignedTo: target });
+  })
+);
+
+// A note for whoever picks this up next. Never sent, never emailed, and
+// filtered out of everything the customer can read — messagesFor drops it
+// unless the caller asks for notes, so a route written later cannot leak one by
+// forgetting.
+router.post(
+  '/support/tickets/:id/note',
+  requireSupportStaff,
+  asyncHandler(async (req, res) => {
+    const body = String(req.body?.message || '').trim();
+    if (!body) return res.status(400).json({ error: 'Write the note first' });
+
+    const [rows] = await pool.execute('SELECT id FROM support_tickets WHERE id = ?', [req.params.id]);
+    if (!rows[0]) return res.status(404).json({ error: 'Not found' });
+
+    await pool.execute(
+      `INSERT INTO support_messages (ticket_id, author_user_id, author_role, author_name, body)
+       VALUES (?, ?, 'note', ?, ?)`,
+      [rows[0].id, req.user.id, req.user.name || 'Support', body.slice(0, 5000)]
+    );
+
+    // Deliberately does not touch status or last_message_at. A note is not an
+    // answer, and marking the ticket as replied to because somebody wrote
+    // themselves a reminder would hide it from the queue.
+    res.json({ ok: true, messages: await messagesFor(rows[0].id, { includeNotes: true }) });
+  })
+);
+
+// How urgent it is. Set here rather than asked of the customer: everybody
+// believes their own problem is urgent, so a field where they say so sorts
+// nothing.
+router.post(
+  '/support/tickets/:id/priority',
+  requireSupportStaff,
+  asyncHandler(async (req, res) => {
+    if (!isPriority(req.body?.priority)) {
+      return res.status(400).json({ error: `Priority has to be one of: ${PRIORITIES.join(', ')}` });
+    }
+    const [result] = await pool.execute('UPDATE support_tickets SET priority = ?, updated_at = NOW() WHERE id = ?', [
+      req.body.priority,
+      req.params.id,
+    ]);
+    if (result.affectedRows === 0) return res.status(404).json({ error: 'Not found' });
+    res.json({ ok: true, priority: req.body.priority });
   })
 );
 

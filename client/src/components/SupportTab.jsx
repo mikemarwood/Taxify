@@ -8,6 +8,25 @@ import SupportThread, { StatusPill } from './SupportThread.jsx';
 import { formatDateTime } from '../lib/dates.js';
 import { playInfo } from '../lib/sounds.js';
 import { useAuth } from '../lib/AuthContext.jsx';
+
+const PRIORITIES = [
+  { value: 'urgent', label: 'Urgent', colour: 'var(--red)' },
+  { value: 'high', label: 'High', colour: 'var(--amber)' },
+  { value: 'normal', label: 'Normal', colour: 'var(--text-muted)' },
+  { value: 'low', label: 'Low', colour: 'var(--text-muted)' },
+];
+
+// Hours a ticket may sit with us before it is worth flagging. Mirrors the
+// server's table — not a promise to anybody, just a way for a ticket assigned
+// to somebody on holiday to look neglected instead of merely waiting.
+const STALE_HOURS = { urgent: 4, high: 12, normal: 48, low: 120 };
+
+function isStale(ticket) {
+  if (ticket.status !== 'awaiting_support') return false;
+  const since = new Date(ticket.lastMessageAt || ticket.createdAt || 0).getTime();
+  if (!since) return false;
+  return Date.now() - since > (STALE_HOURS[ticket.priority] ?? STALE_HOURS.normal) * 3600 * 1000;
+}
 import PlanRequestPanel from './PlanRequestPanel.jsx';
 
 // How often the queue re-checks. The thread does its own polling while open;
@@ -44,6 +63,13 @@ function Row({ ticket, active, onOpen }) {
           {ticket.who || 'Someone'}
           {ticket.isGuest && ' · guest'} · {ticket.categoryLabel}
           {ticket.assignedName ? ` · ${ticket.assignedName}` : ' · unassigned'}
+          {ticket.priority && ticket.priority !== 'normal' && (
+            <span style={{ color: PRIORITIES.find((x) => x.value === ticket.priority)?.colour, fontWeight: 700 }}>
+              {' · '}
+              {ticket.priority}
+            </span>
+          )}
+          {isStale(ticket) && <span style={{ color: 'var(--red)', fontWeight: 700 }}> · overdue</span>}
         </div>
       </div>
     </button>
@@ -55,6 +81,11 @@ export default function SupportTab() {
   const confirm = useConfirm();
   const { user } = useAuth();
   const [staff, setStaff] = useState([]);
+  const [query, setQuery] = useState('');
+  const [filter, setFilter] = useState('open');
+  const [page, setPage] = useState(1);
+  const [total, setTotal] = useState(0);
+  const [note, setNote] = useState('');
   const [tickets, setTickets] = useState(null);
   const [openId, setOpenId] = useState(null);
   const [thread, setThread] = useState(null);
@@ -64,14 +95,22 @@ export default function SupportTab() {
   const waiting = useRef(null);
 
   function loadList() {
+    const params = new URLSearchParams();
+    if (query.trim()) params.set('q', query.trim());
+    if (filter === 'mine') params.set('mine', '1');
+    if (filter === 'unassigned') params.set('unassigned', '1');
+    if (filter === 'closed') params.set('status', 'closed');
+    if (page > 1) params.set('page', String(page));
+
     api
-      .get('/admin/support/tickets')
+      .get(`/admin/support/tickets?${params.toString()}`)
       .then((res) => {
         const list = res.data.tickets;
         const needing = list.filter((t) => t.status === 'awaiting_support').length;
         if (waiting.current !== null && needing > waiting.current) playInfo();
         waiting.current = needing;
         setTickets(list);
+        setTotal(res.data.total || list.length);
       })
       .catch((err) => {
         toast(err.message, 'error');
@@ -94,10 +133,13 @@ export default function SupportTab() {
   }, []);
 
   useEffect(() => {
-    loadList();
+    const debounce = setTimeout(loadList, query ? 300 : 0);
     const timer = setInterval(loadList, POLL_MS);
-    return () => clearInterval(timer);
-  }, []);
+    return () => {
+      clearTimeout(debounce);
+      clearInterval(timer);
+    };
+  }, [query, filter, page]);
 
   useEffect(() => {
     if (openId) loadThread(openId);
@@ -191,6 +233,39 @@ export default function SupportTab() {
   return (
     <div style={{ display: 'grid', gap: 14, gridTemplateColumns: 'minmax(230px, 300px) 1fr', alignItems: 'start' }}>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+        <input
+          className="input"
+          placeholder="Search reference, subject or person…"
+          value={query}
+          onChange={(e) => {
+            setPage(1);
+            setQuery(e.target.value);
+          }}
+          style={{ fontSize: 12.5 }}
+        />
+
+        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+          {[
+            ['open', 'All open'],
+            ['mine', 'Mine'],
+            ['unassigned', 'Unassigned'],
+            ['closed', 'Closed'],
+          ].map(([value, label]) => (
+            <button
+              key={value}
+              type="button"
+              className={filter === value ? 'btn btn-primary' : 'btn btn-ghost'}
+              style={{ fontSize: 11.5, padding: '4px 9px' }}
+              onClick={() => {
+                setPage(1);
+                setFilter(value);
+              }}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <span style={{ fontWeight: 700, fontSize: 13 }}>Needs a reply</span>
           <span
@@ -214,6 +289,30 @@ export default function SupportTab() {
         {needing.map((t) => (
           <Row key={t.id} ticket={t} active={openId === t.id} onOpen={() => setOpenId(t.id)} />
         ))}
+
+        {total > tickets.length && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 11.5, color: 'var(--text-muted)' }}>
+            <button
+              className="btn btn-ghost"
+              style={{ fontSize: 11.5, padding: '4px 9px' }}
+              disabled={page <= 1}
+              onClick={() => setPage((v) => Math.max(1, v - 1))}
+            >
+              Back
+            </button>
+            <span>
+              {tickets.length} of {total}
+            </span>
+            <button
+              className="btn btn-ghost"
+              style={{ fontSize: 11.5, padding: '4px 9px' }}
+              disabled={page * 40 >= total}
+              onClick={() => setPage((v) => v + 1)}
+            >
+              More
+            </button>
+          </div>
+        )}
 
         {others.length > 0 && (
           <>
@@ -302,6 +401,31 @@ export default function SupportTab() {
               {/* Only an administrator can pass a ticket to somebody else —
                   including to themselves, which is how they take one that a
                   colleague is already holding. */}
+              {/* How urgent, set by us rather than asked of the customer:
+                  everybody believes their own problem is urgent, so a field
+                  where they say so sorts nothing. */}
+              <select
+                className="input"
+                value={thread.ticket.priority || 'normal'}
+                disabled={busy}
+                onChange={async (e) => {
+                  try {
+                    await api.post(`/admin/support/tickets/${openId}/priority`, { priority: e.target.value });
+                    loadThread(openId);
+                    loadList();
+                  } catch (err) {
+                    toast(err.message, 'error');
+                  }
+                }}
+                style={{ fontSize: 12, width: 'auto', padding: '5px 8px' }}
+              >
+                {PRIORITIES.map((x) => (
+                  <option key={x.value} value={x.value}>
+                    {x.label}
+                  </option>
+                ))}
+              </select>
+
               {user?.isAdmin && staff.length > 0 && (
                 <select
                   className="input"
@@ -377,6 +501,38 @@ export default function SupportTab() {
                     <Icon name={thread.ticket.status === 'closed' ? 'repeat' : 'lock'} size={13} />
                     {thread.ticket.status === 'closed' ? 'Open it again' : 'Close ticket'}
                     </button>
+
+                  {/* A note for whoever picks this up next. Never sent, never
+                      emailed, and filtered out of everything the customer can
+                      read — the server drops notes unless the caller asks for
+                      them, so this cannot leak by being forgotten. */}
+                  <div style={{ display: 'flex', gap: 8, alignItems: 'flex-start', width: '100%' }}>
+                    <textarea
+                      className="input"
+                      rows={2}
+                      maxLength={5000}
+                      placeholder="Internal note — only the support team sees this"
+                      value={note}
+                      onChange={(e) => setNote(e.target.value)}
+                      style={{ resize: 'vertical', fontSize: 12.5, flex: 1 }}
+                    />
+                    <button
+                      className="btn btn-ghost"
+                      style={{ fontSize: 12 }}
+                      disabled={!note.trim() || busy}
+                      onClick={async () => {
+                        try {
+                          const res = await api.post(`/admin/support/tickets/${openId}/note`, { message: note.trim() });
+                          setThread((prev) => ({ ...prev, messages: res.data.messages }));
+                          setNote('');
+                        } catch (err) {
+                          toast(err.message, 'error');
+                        }
+                      }}
+                    >
+                      Add note
+                    </button>
+                  </div>
 
                     {/* Deleting removes the conversation and every image in
                         it, for good. Kept beside the close button but styled

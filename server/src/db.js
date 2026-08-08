@@ -896,6 +896,10 @@ export async function ensureSchema() {
   // allowed to see, and a queue nobody can read is a queue nobody clears.
   // Replying is not: two people answering the same person separately is worse
   // than a slow answer, and the customer sees both.
+  // How urgent, set by support rather than asked of the customer — everybody
+  // believes their own problem is urgent, and a field where they say so tells
+  // you nothing you did not already know.
+  await pool.query(`ALTER TABLE support_tickets ADD COLUMN IF NOT EXISTS priority VARCHAR(12) NOT NULL DEFAULT 'normal'`);
   await pool.query(`ALTER TABLE support_tickets ADD COLUMN IF NOT EXISTS assigned_to INT NULL`);
   await pool.query(`ALTER TABLE support_tickets ADD COLUMN IF NOT EXISTS assigned_at DATETIME NULL`);
   await pool.query(`ALTER TABLE support_tickets ADD COLUMN IF NOT EXISTS customer_read_at DATETIME NULL`);

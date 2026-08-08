@@ -510,6 +510,14 @@ export function SupportTicket() {
         ticket={data.ticket}
         messages={data.messages}
         onRefresh={load}
+        onReopen={async () => {
+          const res = await api.post(`/support/tickets/${id}/reopen`, {});
+          setData((prev) => ({
+            ...prev,
+            ticket: { ...prev.ticket, status: res.data.status },
+            messages: res.data.messages,
+          }));
+        }}
         onEdit={async (message, body) => {
           const res = await api.patch(`/support/tickets/${id}/messages/${message.id}`, { message: body });
           setData((prev) => ({ ...prev, messages: res.data.messages }));
@@ -558,6 +566,14 @@ export function SupportTicketByToken() {
         ticket={data.ticket}
         messages={data.messages}
         onRefresh={load}
+        onReopen={async () => {
+          const res = await api.post('/support/reopen-by-token', { token });
+          setData((prev) => ({
+            ...prev,
+            ticket: { ...prev.ticket, status: res.data.status },
+            messages: res.data.messages,
+          }));
+        }}
         onEdit={async (message, body) => {
           const res = await api.patch('/support/messages-by-token', { token, messageId: message.id, message: body });
           setData((prev) => ({ ...prev, messages: res.data.messages }));

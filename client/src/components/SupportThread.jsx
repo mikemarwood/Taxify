@@ -62,6 +62,7 @@ export function StatusPill({ status, admin = false }) {
 // otherwise run together.
 function RoleBadge({ role }) {
   if (role === 'system') return null;
+  const note = role === 'note';
   const support = role === 'support';
   return (
     <span
@@ -72,12 +73,12 @@ function RoleBadge({ role }) {
         textTransform: 'uppercase',
         padding: '2px 7px',
         borderRadius: 999,
-        color: support ? '#fff' : 'var(--text-muted)',
-        background: support ? 'var(--accent)' : 'var(--bg-subtle)',
-        border: `1px solid ${support ? 'var(--accent)' : 'var(--border)'}`,
+        color: note ? '#7a4b00' : support ? '#fff' : 'var(--text-muted)',
+        background: note ? 'rgba(245, 158, 11, .18)' : support ? 'var(--accent)' : 'var(--bg-subtle)',
+        border: `1px solid ${note ? 'var(--amber)' : support ? 'var(--accent)' : 'var(--border)'}`,
       }}
     >
-      {support ? 'Support' : 'Customer'}
+      {note ? 'Internal note' : support ? 'Support' : 'Customer'}
     </span>
   );
 }
@@ -113,6 +114,10 @@ function Message({ message, canEdit, onEdit, onPreview }) {
   }
 
   const support = message.role === 'support';
+  // An internal note has to be unmistakable. Somebody skim-reading a thread and
+  // taking a note for something the customer was told is the failure this
+  // guards against, so it gets its own colour, its own badge and its own words.
+  const note = message.role === 'note';
   return (
     <motion.div
       initial={{ opacity: 0, y: 8 }}
@@ -138,8 +143,8 @@ function Message({ message, canEdit, onEdit, onPreview }) {
             padding: '11px 13px',
             borderRadius: 10,
             border: '1px solid var(--border)',
-            background: support ? 'var(--accent-soft)' : 'var(--bg-card)',
-            borderLeft: `3px solid ${support ? 'var(--accent)' : 'var(--border)'}`,
+            background: note ? 'rgba(245, 158, 11, .09)' : support ? 'var(--accent-soft)' : 'var(--bg-card)',
+            borderLeft: `3px solid ${note ? 'var(--amber)' : support ? 'var(--accent)' : 'var(--border)'}`,
           }}
         >
           {message.body}
@@ -289,6 +294,7 @@ export default function SupportThread({
   onRefresh,
   busy,
   admin = false,
+  onReopen,
   // On the support side, whether this ticket is yours to answer. Undefined
   // everywhere else, which reads as yes — a customer is always allowed to
   // reply to their own conversation.
@@ -420,7 +426,27 @@ export default function SupportThread({
             ? 'Take this ticket to reply to it.'
             : admin
             ? 'This request is closed. Reopen it to reply.'
-            : 'This request has been closed. If it is not resolved, let us know and we will reopen it.'}
+            : 'This request has been closed.'}
+
+          {/* The notice used to say "let us know and we will reopen it" with no
+              way to do either. Saying that and offering nothing is worse than
+              saying nothing. */}
+          {!admin && closed && onReopen && (
+            <button
+              className="btn btn-primary"
+              style={{ fontSize: 12.5, marginLeft: 'auto' }}
+              disabled={busy}
+              onClick={async () => {
+                try {
+                  await onReopen();
+                } catch (err) {
+                  toast(err?.message || 'That did not work — please try again', 'error');
+                }
+              }}
+            >
+              Ask us to look again
+            </button>
+          )}
         </div>
       ) : (
         <div

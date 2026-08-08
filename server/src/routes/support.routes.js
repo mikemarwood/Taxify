@@ -84,6 +84,30 @@ function parseAttachments(value) {
   }
 }
 
+// How many tickets one address may raise from one place before we stop
+// listening. The captcha stops casual scripting; this stops one determined
+// person sending a hundred emails through us, which is the part that costs
+// somebody else their deliverability rather than just our time.
+const GUEST_LIMIT = 5;
+const GUEST_WINDOW_MS = 60 * 60 * 1000;
+const guestAttempts = new Map();
+
+function guestRateLimited(key, now = Date.now()) {
+  const recent = (guestAttempts.get(key) || []).filter((at) => now - at < GUEST_WINDOW_MS);
+  if (recent.length >= GUEST_LIMIT) {
+    guestAttempts.set(key, recent);
+    return true;
+  }
+  recent.push(now);
+  guestAttempts.set(key, recent);
+
+  // Bounded, so a long-running process cannot accumulate a key per address that
+  // ever wrote in. Cleared wholesale rather than pruned: the window is an hour,
+  // and losing it costs one person a few extra attempts.
+  if (guestAttempts.size > 5000) guestAttempts.clear();
+  return false;
+}
+
 const router = Router();
 
 // One shape, so the customer's page, the guest's page and the admin list cannot
@@ -103,12 +127,13 @@ function shapeTicket(row, { includeEmail = false } = {}) {
     who: row.user_id ? row.name : row.guest_name,
     ...(includeEmail ? { email: row.user_id ? row.email : row.guest_email } : {}),
     avatarUrl: row.user_id && row.avatar_path ? `/api/auth/avatar/${row.user_id}` : null,
+    priority: row.priority || 'normal',
     assignedTo: row.assigned_to || null,
     assignedName: row.assigned_name || null,
   };
 }
 
-function shapeMessage(row) {
+function shapeMessage(row, token = null) {
   return {
     id: row.id,
     role: row.author_role,
@@ -124,20 +149,29 @@ function shapeMessage(row) {
       bytes: a.bytes,
       // Served through a route that checks who is asking, never as a static
       // path — these are somebody's screenshots, often of their own tax records.
-      url: `/api/support/attachments/${row.ticket_id}/${row.id}/${index}`,
+      // The token travels with the link for a guest: it is the only thing
+      // proving they may see this, and without it their own images 404.
+      url:
+        `/api/support/attachments/${row.ticket_id}/${row.id}/${index}` +
+        (token ? `?token=${encodeURIComponent(token)}` : ''),
     })),
     avatarUrl: row.author_user_id && row.avatar_path ? `/api/auth/avatar/${row.author_user_id}` : null,
   };
 }
 
-async function messagesFor(ticketId) {
+async function messagesFor(ticketId, { token = null, includeNotes = false } = {}) {
   const [rows] = await pool.execute(
     `SELECT m.*, u.avatar_path FROM support_messages m
        LEFT JOIN users u ON u.id = m.author_user_id
       WHERE m.ticket_id = ? ORDER BY m.created_at ASC, m.id ASC`,
     [ticketId]
   );
-  return rows.map(shapeMessage);
+  return rows
+    // Internal notes are support talking to support. They are never sent to
+    // the customer's side — filtered here rather than in each route, because a
+    // route written later would not know to.
+    .filter((row) => includeNotes || row.author_role !== 'note')
+    .map((row) => shapeMessage(row, token));
 }
 
 // Where a given ticket is read. A guest has no account to sign in to, so their
@@ -310,6 +344,75 @@ router.patch(
   })
 );
 
+// Asking for a closed one to be opened again.
+//
+// The closed notice tells somebody to say if it is not resolved, and until now
+// there was no way for them to — replying is blocked, so their only route back
+// was raising a second ticket about the first, which is exactly what that
+// wording exists to prevent.
+async function reopenTicket(req, res, ticket, token = null) {
+  if (ticket.status !== 'closed') return res.status(409).json({ error: 'That one is already open' });
+
+  await pool.execute(
+    `UPDATE support_tickets SET status = 'awaiting_support', closed_at = NULL, closed_by = NULL,
+       last_message_at = NOW(), updated_at = NOW(), support_read_at = NULL WHERE id = ?`,
+    [ticket.id]
+  );
+
+  const note = String(req.body?.message || '').trim().slice(0, 5000);
+  await pool.execute(
+    `INSERT INTO support_messages (ticket_id, author_user_id, author_role, author_name, body)
+     VALUES (?, ?, 'customer', ?, ?)`,
+    [
+      ticket.id,
+      req.user?.id || null,
+      ticket.user_id ? ticket.name : ticket.guest_name,
+      note || 'Asked for this to be looked at again.',
+    ]
+  );
+
+  // Back to whoever was dealing with it, or the whole team if nobody was.
+  try {
+    const body = `${ticket.reference} — ${ticket.subject}`;
+    if (ticket.assigned_to) {
+      await notify(ticket.assigned_to, { title: 'A closed ticket was reopened', body, url: '/admin?tab=support', kind: 'support' });
+    } else {
+      await notifyAdmins({ title: 'A closed ticket was reopened', body, url: '/admin?tab=support', kind: 'support' });
+    }
+  } catch (err) {
+    console.error('Could not announce the reopen', err);
+  }
+
+  res.json({ ok: true, status: 'awaiting_support', messages: await messagesFor(ticket.id, { token }) });
+}
+
+router.post(
+  '/tickets/:id/reopen',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const [rows] = await pool.execute(
+      `SELECT t.*, u.name FROM support_tickets t LEFT JOIN users u ON u.id = t.user_id
+        WHERE t.id = ? AND t.user_id = ?`,
+      [req.params.id, req.user.id]
+    );
+    if (!rows[0]) return res.status(404).json({ error: 'Not found' });
+    return reopenTicket(req, res, rows[0]);
+  })
+);
+
+router.post(
+  '/reopen-by-token',
+  asyncHandler(async (req, res) => {
+    const [rows] = await pool.execute(
+      `SELECT t.*, u.name FROM support_tickets t LEFT JOIN users u ON u.id = t.user_id
+        WHERE t.access_token_hash = ?`,
+      [hashAccessToken(req.body?.token || '')]
+    );
+    if (!rows[0]) return res.status(404).json({ error: 'invalid' });
+    return reopenTicket(req, res, rows[0], req.body.token);
+  })
+);
+
 // The numbers behind the badges in the navigation. One call, because the
 // sidebar asks for both and three separate polls would be three times the work
 // for the same answer.
@@ -390,6 +493,12 @@ router.post(
       // emails somebody on demand is exactly what gets found and abused.
       if (!verifyCaptcha(req.body?.captchaToken, req.body?.captchaAnswer)) {
         return res.status(400).json({ error: 'That answer was not right — try the new sum' });
+      }
+
+      if (guestRateLimited(`${req.ip}|${guestEmail}`)) {
+        return res.status(429).json({
+          error: 'That is a lot of requests in a short time. Please wait a while, or reply to one you already sent.',
+        });
       }
 
       ({ token, tokenHash } = generateAccessToken());
@@ -497,7 +606,7 @@ router.get(
     );
     if (!rows[0]) return res.status(404).json({ error: 'invalid' });
     await pool.execute('UPDATE support_tickets SET customer_read_at = NOW() WHERE id = ?', [rows[0].id]);
-    res.json({ ticket: shapeTicket(rows[0]), messages: await messagesFor(rows[0].id) });
+    res.json({ ticket: shapeTicket(rows[0]), messages: await messagesFor(rows[0].id, { token: req.query.token }) });
   })
 );
 
@@ -547,7 +656,7 @@ function parseHistory(value) {
 
 // One handler for both ways in, because the rules about replying are the same
 // either way and writing them twice is how they end up different.
-async function addReply(req, res, ticket, role) {
+async function addReply(req, res, ticket, role, token = null) {
   const bodyIssue = messageProblem(req.body?.message);
   if (bodyIssue) return res.status(400).json({ error: bodyIssue });
 
@@ -578,7 +687,11 @@ async function addReply(req, res, ticket, role) {
 
   await announce(ticket, { body: String(req.body.message).trim(), fromSupport: role === 'support' });
 
-  res.json({ ok: true, status: next, messages: await messagesFor(ticket.id) });
+  res.json({
+    ok: true,
+    status: next,
+    messages: await messagesFor(ticket.id, { token, includeNotes: role === 'support' }),
+  });
 }
 
 router.post(
@@ -608,7 +721,7 @@ router.post(
     if (!rows[0]) return res.status(404).json({ error: 'invalid' });
     // The token is the whole authority here, so it is carried back into the
     // notification rather than looked up again.
-    return addReply(req, res, { ...rows[0], guest_token: req.body.token }, 'customer');
+    return addReply(req, res, { ...rows[0], guest_token: req.body.token }, 'customer', req.body.token);
   })
 );
 

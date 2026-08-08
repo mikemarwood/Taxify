@@ -11,6 +11,8 @@ import {
   hashAccessToken,
   generateAccessToken,
   MAX_BODY,
+  isStale,
+  isPriority,
 } from './support.js';
 
 test('a reference is not the row id', () => {
@@ -95,4 +97,30 @@ test('the access token is stored only as a hash', () => {
   assert.notEqual(token, tokenHash);
   assert.equal(hashAccessToken(token), tokenHash);
   assert.equal(tokenHash.length, 64);
+});
+
+test('a ticket with us longer than its priority allows is overdue', () => {
+  // Not a promise to anybody. It exists so a ticket assigned to somebody on
+  // holiday looks neglected instead of merely waiting.
+  const threeHoursAgo = new Date(Date.now() - 3 * 3600 * 1000).toISOString();
+  assert.equal(isStale({ status: 'awaiting_support', priority: 'urgent', lastMessageAt: threeHoursAgo }), false);
+
+  const sixHoursAgo = new Date(Date.now() - 6 * 3600 * 1000).toISOString();
+  assert.equal(isStale({ status: 'awaiting_support', priority: 'urgent', lastMessageAt: sixHoursAgo }), true);
+  // The same age is unremarkable for a normal one.
+  assert.equal(isStale({ status: 'awaiting_support', priority: 'normal', lastMessageAt: sixHoursAgo }), false);
+});
+
+test('a ticket waiting on the customer is never overdue on us', () => {
+  // We are not late for an answer nobody has given us yet.
+  const old = new Date(Date.now() - 300 * 3600 * 1000).toISOString();
+  assert.equal(isStale({ status: 'awaiting_customer', priority: 'urgent', lastMessageAt: old }), false);
+  assert.equal(isStale({ status: 'closed', priority: 'urgent', lastMessageAt: old }), false);
+});
+
+test('only known priorities are accepted', () => {
+  assert.equal(isPriority('urgent'), true);
+  assert.equal(isPriority('normal'), true);
+  assert.equal(isPriority('whenever'), false);
+  assert.equal(isPriority(''), false);
 });

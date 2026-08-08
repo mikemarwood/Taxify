@@ -69,6 +69,26 @@ export function hashAccessToken(token) {
 
 export const STATUSES = ['awaiting_support', 'awaiting_customer', 'closed'];
 
+// Ordered worst first, which is the order the queue is sorted in.
+export const PRIORITIES = ['urgent', 'high', 'normal', 'low'];
+
+export function isPriority(value) {
+  return PRIORITIES.includes(String(value || ''));
+}
+
+// How long a ticket may sit with us before it is worth flagging. Not a promise
+// to anybody — it is there so a ticket assigned to somebody on holiday shows up
+// as neglected instead of sitting at "awaiting reply" indefinitely.
+export const STALE_AFTER_HOURS = { urgent: 4, high: 12, normal: 48, low: 120 };
+
+export function isStale(ticket, now = Date.now()) {
+  if (!ticket || ticket.status !== 'awaiting_support') return false;
+  const since = new Date(ticket.lastMessageAt || ticket.createdAt || 0).getTime();
+  if (!since) return false;
+  const limit = (STALE_AFTER_HOURS[ticket.priority] ?? STALE_AFTER_HOURS.normal) * 60 * 60 * 1000;
+  return now - since > limit;
+}
+
 // Whose turn it becomes after somebody writes. Support replying puts it back to
 // the customer; the customer replying puts it back to support. A closed ticket
 // stays closed — reopening is a decision, not a side effect of typing.
