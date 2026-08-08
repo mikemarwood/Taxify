@@ -13,6 +13,7 @@ import { isSoundEnabled, setSoundEnabled } from '../lib/sounds.js';
 import PlanComparison from '../components/PlanComparison.jsx';
 import InvoiceList from '../components/InvoiceList.jsx';
 import PlanChangeRequest from '../components/PlanChangeRequest.jsx';
+import AccountantBooksPicker from '../components/AccountantBooksPicker.jsx';
 // Names and addresses are shown tidied rather than stored tidied — an
 // accountant's own name is theirs to spell, and rewriting the row would make
 // this page the thing that changed it.
@@ -384,6 +385,8 @@ function describeHours(hours) {
 function ManageAccess({ accountant, years, windowChoices, onDone }) {
   const toast = useToast();
   const [allYears, setAllYears] = useState(!accountant.financialYears);
+  const [allBooks, setAllBooks] = useState(!accountant.entityIds);
+  const [pickedBooks, setPickedBooks] = useState(accountant.entityIds || []);
   const [picked, setPicked] = useState(accountant.financialYears || []);
   const [hours, setHours] = useState(accountant.windowHours || 24);
   const [busy, setBusy] = useState(false);
@@ -404,7 +407,9 @@ function ManageAccess({ accountant, years, windowChoices, onDone }) {
   const changed =
     allYears !== !accountant.financialYears ||
     hours !== (accountant.windowHours || 24) ||
-    (!allYears && picked.join(',') !== (accountant.financialYears || []).join(','));
+    (!allYears && picked.join(',') !== (accountant.financialYears || []).join(',')) ||
+    allBooks !== !accountant.entityIds ||
+    (!allBooks && pickedBooks.join(',') !== (accountant.entityIds || []).join(','));
 
   const chip = (on) => ({
     fontSize: 12,
@@ -460,6 +465,14 @@ function ManageAccess({ accountant, years, windowChoices, onDone }) {
         )}
       </div>
 
+      <AccountantBooksPicker
+        allBooks={allBooks}
+        setAllBooks={setAllBooks}
+        picked={pickedBooks}
+        setPicked={setPickedBooks}
+        chip={chip}
+      />
+
       <div>
         <div className="label" style={{ margin: '0 0 6px' }}>
           How long they get
@@ -499,10 +512,14 @@ function ManageAccess({ accountant, years, windowChoices, onDone }) {
         <button
           className="btn btn-primary"
           style={{ fontSize: 12.5, padding: '6px 12px' }}
-          disabled={busy || !changed || (!allYears && picked.length === 0)}
+          disabled={busy || !changed || (!allYears && picked.length === 0) || (!allBooks && pickedBooks.length === 0)}
           onClick={() =>
             send(
-              { windowHours: hours, ...(allYears ? { allYears: true } : { financialYears: picked }) },
+              {
+                windowHours: hours,
+                ...(allYears ? { allYears: true } : { financialYears: picked }),
+                ...(allBooks ? { allBooks: true } : { entityIds: pickedBooks }),
+              },
               'Access updated'
             )
           }
@@ -565,6 +582,8 @@ function AccountantSection({ user }) {
   const [inviteEmail, setInviteEmail] = useState('');
 
   const [allYears, setAllYears] = useState(true);
+  const [allBooks, setAllBooks] = useState(true);
+  const [pickedBooks, setPickedBooks] = useState([]);
   const [pickedYears, setPickedYears] = useState([]);
   const [busy, setBusy] = useState(false);
 
@@ -600,7 +619,11 @@ function AccountantSection({ user }) {
         // real year instead of reading it as "everything", which is what an
         // omitted field used to mean.
         ...(true
-          ? { windowHours: inviteWindow, ...(allYears ? { allYears: true } : { financialYears: pickedYears }) }
+          ? {
+              windowHours: inviteWindow,
+              ...(allYears ? { allYears: true } : { financialYears: pickedYears }),
+              ...(allBooks ? { allBooks: true } : { entityIds: pickedBooks }),
+            }
           : {}),
       });
       toast('Invitation sent', 'success');
@@ -669,7 +692,8 @@ function AccountantSection({ user }) {
     !nameProblem(inviteLast, 'Last name') &&
     !companyIssue &&
     emailLooksReal &&
-    (allYears || pickedYears.length > 0);
+    (allYears || pickedYears.length > 0) &&
+    (allBooks || pickedBooks.length > 0);
 
   return (
     <div className="card" style={{ padding: 20, display: 'flex', flexDirection: 'column', gap: 18 }}>
@@ -913,6 +937,24 @@ function AccountantSection({ user }) {
                 })}
               </div>
             )}
+
+            {/* Only appears when there is more than one set of books — with
+                one, "all of them" and "that one" are the same grant. */}
+            <AccountantBooksPicker
+              allBooks={allBooks}
+              setAllBooks={setAllBooks}
+              picked={pickedBooks}
+              setPicked={setPickedBooks}
+              chip={(on) => ({
+                fontSize: 12,
+                padding: '6px 11px',
+                borderRadius: 999,
+                cursor: 'pointer',
+                color: on ? '#fff' : 'var(--text-muted)',
+                background: on ? 'var(--accent)' : 'var(--bg-card)',
+                border: `1px solid ${on ? 'var(--accent)' : 'var(--border)'}`,
+              })}
+            />
 
             <div className="label" style={{ margin: '4px 0 0' }}>
               How long do they get?

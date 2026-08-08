@@ -171,6 +171,11 @@ export async function ensureSchema() {
   // NULL financial_years means the whole history — the column only exists to
   // narrow it.
   await pool.query(`ALTER TABLE accountant_assignments ADD COLUMN IF NOT EXISTS financial_years VARCHAR(255) NULL`);
+  // Which sets of books, by id, comma separated. NULL means all of them —
+  // the same convention financial_years uses, and the same reason: an
+  // assignment made before this existed granted everything, and must keep
+  // granting everything rather than silently narrowing to nothing.
+  await pool.query(`ALTER TABLE accountant_assignments ADD COLUMN IF NOT EXISTS entity_ids VARCHAR(255) NULL`);
 
   // How long the window lasts once opened, chosen by the client when they grant
   // access: 24, 48, 72 or 96 hours. A default rather than a constant now — an
@@ -218,6 +223,7 @@ export async function ensureSchema() {
   for (const column of [
     `name VARCHAR(255) NULL`,
     `financial_years VARCHAR(255) NULL`,
+    `entity_ids VARCHAR(255) NULL`,
     `window_hours SMALLINT NOT NULL DEFAULT 24`,
     `token_hash VARCHAR(64) NULL`,
     `last_sent_at DATETIME NULL`,

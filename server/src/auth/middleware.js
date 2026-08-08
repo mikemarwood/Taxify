@@ -42,6 +42,9 @@ export const requireAuth = asyncHandler(async (req, res, next) => {
   req.user.isAccountant = await hasAssignments(req.user.id);
   req.user.actingAsClient = null;
   req.user.allowedFinancialYears = null;
+  // null means every set of books. Only ever narrowed for a session that is
+  // inside a client, the same as the years above.
+  req.user.allowedEntityIds = null;
 
   // What they still have to do before they may act for anybody. Published on
   // req.user so /auth/me carries it to the client without a route of its own.
@@ -71,6 +74,7 @@ export const requireAuth = asyncHandler(async (req, res, next) => {
       ]);
       if (ownerRows[0]) {
         req.user.allowedFinancialYears = assignment.financialYears;
+      req.user.allowedEntityIds = assignment.entityIds;
         req.user.actingAsClient = {
           id: ownerRows[0].id,
           name: ownerRows[0].name,

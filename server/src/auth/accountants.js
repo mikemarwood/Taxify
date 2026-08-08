@@ -1,6 +1,7 @@
 import pool from '../db.js';
 import { notify } from '../lib/notify.js';
 import { financialYearRange, isFinancialYearLabel } from '../lib/financialYear.js';
+import { parseBooks } from './accountantBooks.js';
 
 // An accountant's window opens when they first open that client's books, not
 // when the client granted access — someone invited on a Friday shouldn't find
@@ -109,7 +110,7 @@ export async function purgeExpiredAssignments() {
 
 export async function listAssignments(accountantUserId) {
   const [rows] = await pool.execute(
-    `SELECT a.id, a.owner_user_id, a.financial_years, a.window_hours, a.first_login_at, a.expires_at, a.created_at,
+    `SELECT a.id, a.owner_user_id, a.financial_years, a.entity_ids, a.window_hours, a.first_login_at, a.expires_at, a.created_at,
             o.name, o.email, o.business_name, o.currency
      FROM accountant_assignments a
      JOIN users o ON o.id = a.owner_user_id
@@ -125,6 +126,7 @@ export async function listAssignments(accountantUserId) {
     businessName: r.business_name || null,
     currency: r.currency || 'AUD',
     financialYears: parseYears(r.financial_years),
+    entityIds: parseBooks(r.entity_ids),
     windowHours: normaliseWindowHours(r.window_hours) ?? ACCOUNTANT_WINDOW_HOURS,
     firstLoginAt: r.first_login_at,
     expiresAt: r.expires_at,
@@ -181,7 +183,7 @@ export async function hasAssignments(userId) {
 
 export async function findAssignment(accountantUserId, ownerUserId) {
   const [rows] = await pool.execute(
-    `SELECT a.id, a.financial_years, a.window_hours, a.first_login_at, a.expires_at
+    `SELECT a.id, a.financial_years, a.entity_ids, a.window_hours, a.first_login_at, a.expires_at
      FROM accountant_assignments a
      WHERE a.accountant_user_id = ? AND a.owner_user_id = ? AND ${LIVE_ASSIGNMENT}`,
     [accountantUserId, ownerUserId]
@@ -191,6 +193,9 @@ export async function findAssignment(accountantUserId, ownerUserId) {
   return {
     id: row.id,
     financialYears: parseYears(row.financial_years),
+    // null means every set of books. Read here so the middleware has it on
+    // every request, the same as the years.
+    entityIds: parseBooks(row.entity_ids),
     windowHours: normaliseWindowHours(row.window_hours) ?? ACCOUNTANT_WINDOW_HOURS,
     firstLoginAt: row.first_login_at,
     expiresAt: row.expires_at,

@@ -40,6 +40,7 @@ import {
   sendAccountantAccessEndedEmail,
 } from '../lib/mailer.js';
 import { notify } from '../lib/notify.js';
+import { parseBookGrant } from '../auth/accountantBooks.js';
 import { ACTIVATION_TOKEN_DAYS, generateActivationToken } from '../auth/activationToken.js';
 import {
   generateInviteToken,
@@ -622,6 +623,20 @@ router.post(
       rejectedYears = grant.rejected;
     }
 
+    // Which sets of books, checked against the ones this account actually has.
+    // Same rule as the years: an unreadable choice is refused rather than
+    // quietly widened to all of them.
+    let bookScope = null;
+    if (role === 'accountant') {
+      const [ownBooks] = await pool.execute(
+        'SELECT id FROM entities WHERE user_id = ? AND archived_at IS NULL',
+        [req.user.id]
+      );
+      const books = parseBookGrant(req.body, { availableIds: ownBooks.map((b) => b.id) });
+      if (!books.ok) return res.status(400).json({ error: books.error });
+      bookScope = books.value;
+    }
+
     // How long their window lasts once opened. The client's choice, defaulting
     // to a day when they express no view.
     const windowHours =
@@ -660,8 +675,8 @@ router.post(
           return res.status(400).json({ error: 'That accountant already has access to your account' });
         }
         await pool.execute(
-          'INSERT INTO accountant_assignments (accountant_user_id, owner_user_id, financial_years, window_hours) VALUES (?, ?, ?, ?)',
-          [found.id, req.user.id, yearScope, windowHours]
+          'INSERT INTO accountant_assignments (accountant_user_id, owner_user_id, financial_years, entity_ids, window_hours) VALUES (?, ?, ?, ?, ?)',
+          [found.id, req.user.id, yearScope, bookScope, windowHours]
         );
 
         const loginUrl = `${publicOrigin()}/login`;
@@ -695,15 +710,16 @@ router.post(
       // in db.js for the three things that went wrong when one was.
       const { token, tokenHash, expiresAt } = generateInviteToken();
       await pool.execute(
-        `INSERT INTO accountant_invites (owner_user_id, email, name, first_name, last_name, company_name, financial_years, window_hours, token_hash, expires_at, last_sent_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
+        `INSERT INTO accountant_invites (owner_user_id, email, name, first_name, last_name, company_name, financial_years, entity_ids, window_hours, token_hash, expires_at, last_sent_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
          ON DUPLICATE KEY UPDATE
            name = VALUES(name), first_name = VALUES(first_name), last_name = VALUES(last_name),
            company_name = VALUES(company_name),
-           financial_years = VALUES(financial_years), window_hours = VALUES(window_hours),
+           financial_years = VALUES(financial_years), entity_ids = VALUES(entity_ids),
+           window_hours = VALUES(window_hours),
            token_hash = VALUES(token_hash), expires_at = VALUES(expires_at), last_sent_at = NOW(),
            accepted_at = NULL, accepted_user_id = NULL`,
-        [req.user.id, normalizedEmail, displayName, firstName, lastName, companyName, yearScope, windowHours, tokenHash, expiresAt]
+        [req.user.id, normalizedEmail, displayName, firstName, lastName, companyName, yearScope, bookScope, windowHours, tokenHash, expiresAt]
       );
 
       const acceptUrl = `${publicOrigin()}/accept-invite?token=${token}`;
@@ -942,10 +958,14 @@ router.post(
 
     async function grantAccess(accountantUserId) {
       await pool.execute(
-        `INSERT INTO accountant_assignments (accountant_user_id, owner_user_id, financial_years, window_hours)
-         VALUES (?, ?, ?, ?)
-         ON DUPLICATE KEY UPDATE financial_years = VALUES(financial_years), window_hours = VALUES(window_hours)`,
-        [accountantUserId, invite.owner_user_id, invite.financial_years, invite.window_hours]
+        // entity_ids carried across from the invitation. Without it, a client
+        // who invited somebody to one set of books would find on acceptance
+        // that they had handed over all of them.
+        `INSERT INTO accountant_assignments (accountant_user_id, owner_user_id, financial_years, entity_ids, window_hours)
+         VALUES (?, ?, ?, ?, ?)
+         ON DUPLICATE KEY UPDATE financial_years = VALUES(financial_years),
+           entity_ids = VALUES(entity_ids), window_hours = VALUES(window_hours)`,
+        [accountantUserId, invite.owner_user_id, invite.financial_years, invite.entity_ids, invite.window_hours]
       );
       await pool.execute(
         'UPDATE accountant_invites SET accepted_at = NOW(), accepted_user_id = ?, token_hash = NULL WHERE id = ?',
@@ -1124,9 +1144,29 @@ router.patch(
       );
     }
 
+    const saysAllBooks = req.body?.allBooks === true;
+    const saysBooks = Object.prototype.hasOwnProperty.call(req.body || {}, 'entityIds');
+
+    if (saysAllBooks || saysBooks) {
+      const [ownBooks] = await pool.execute(
+        'SELECT id, name FROM entities WHERE user_id = ? AND archived_at IS NULL',
+        [req.user.id]
+      );
+      const books = parseBookGrant(req.body, { availableIds: ownBooks.map((b) => b.id) });
+      if (!books.ok) return res.status(400).json({ error: books.error });
+
+      updates.push('entity_ids = ?');
+      params.push(books.value);
+
+      const chosen = books.value
+        ? ownBooks.filter((b) => books.value.split(',').includes(String(b.id))).map((b) => b.name)
+        : null;
+      changes.push(chosen ? `the books ${chosen.join(', ')}` : 'all your books');
+    }
+
     if (req.body?.windowHours !== undefined) {
       const hours = normaliseWindowHours(req.body.windowHours);
-      if (!hours) return res.status(400).json({ error: 'Choose 24, 48, 72 or 96 hours' });
+      if (!hours) return res.status(400).json({ error: 'Choose one of the offered windows' });
       updates.push('window_hours = ?');
       params.push(hours);
       changes.push(`a ${describeWindow(hours)} window`);
@@ -1286,7 +1326,7 @@ router.get(
   requireAccountOwner,
   asyncHandler(async (req, res) => {
     const [rows] = await pool.execute(
-      `SELECT a.id, a.financial_years, a.window_hours, a.first_login_at, a.expires_at, a.created_at,
+      `SELECT a.id, a.financial_years, a.entity_ids, a.window_hours, a.first_login_at, a.expires_at, a.created_at,
               u.name, u.email, u.activated_at, u.practice_name, u.phone
        FROM accountant_assignments a
        JOIN users u ON u.id = a.accountant_user_id
@@ -1303,6 +1343,7 @@ router.get(
         phone: r.phone || null,
         active: !!r.activated_at,
         financialYears: r.financial_years ? r.financial_years.split(',') : null,
+        entityIds: r.entity_ids ? r.entity_ids.split(',').map(Number) : null,
         windowHours: normaliseWindowHours(r.window_hours) ?? ACCOUNTANT_WINDOW_HOURS,
         firstLoginAt: r.first_login_at,
         expiresAt: r.expires_at,
