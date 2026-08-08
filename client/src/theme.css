@@ -365,6 +365,22 @@ input[type="date"].input::-webkit-calendar-picker-indicator:hover { opacity: 1; 
 
 .scroll-hint { display: none; }
 
+/* How tall the navigation rail is.
+   
+   100vh is the *large* viewport height — what the page would measure if the
+   browser's own bars were hidden. On an iPad or a phone those bars are usually
+   showing, so a 100vh rail is taller than the screen: its footer sits below the
+   fold, and scrolling far enough to reach it takes the logo off the top. Both
+   ends cut off at once, which is exactly what it looked like.
+   
+   100dvh is the height actually available right now. Declared second and behind
+   @supports so a browser without it keeps the 100vh rule rather than no rule at
+   all — a rail with no height collapses to nothing. */
+.app-sidebar { height: 100vh; }
+@supports (height: 100dvh) {
+  .app-sidebar { height: 100dvh; }
+}
+
 /* The bell is a fixed square, Log out takes what's left. Two equal halves put
    two labels in a rail narrower than either wanted, and the bell's own label
    overflowed its box. */

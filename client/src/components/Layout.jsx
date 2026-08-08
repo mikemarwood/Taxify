@@ -290,11 +290,19 @@ export default function Layout({ children }) {
           gap: 22,
           position: 'sticky',
           top: 0,
-          height: '100vh',
+          // The height itself is in theme.css, not here.
+          //
+          // It has to be 100dvh where that is supported, and an inline style
+          // cannot carry a fallback — one object, one `height`. On an iPad,
+          // 100vh is the *large* viewport: the height the page would have if
+          // the browser's own bars were hidden. So the rail was taller than
+          // the screen, its footer sat below the fold, and scrolling to reach
+          // it took the logo off the top. Both ends cut off at once.
+          //
           // The rail is a fixed-height column, so anything taller than the
-          // screen was simply clipped — and on a phone that was the account
-          // card at the bottom, which is where Log out lives. `scrollbar-slim`
-          // only styles a scrollbar; it never made one appear.
+          // screen is clipped rather than reachable — on a phone that was the
+          // account card, which is where Log out lives. `scrollbar-slim` only
+          // styles a scrollbar; it never made one appear.
           overflowY: 'auto',
         }}
       >

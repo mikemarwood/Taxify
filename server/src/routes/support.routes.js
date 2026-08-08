@@ -86,7 +86,16 @@ async function announce(ticket, { body, fromSupport, isNew = false }) {
     subject: ticket.subject,
     category: categoryLabel(ticket.category),
     body,
-    url: ticketUrl(ticket, ticket.guest_token || null),
+    // A guest can only be sent to their own token link, and only the hash of
+    // that token is stored — so when support replies there is no way to rebuild
+    // one. Sending them /support/<id> would land them on a page that needs an
+    // account they do not have. The support page is the honest destination: it
+    // asks them to use the link from their first email, which still works.
+    url: ticket.user_id
+      ? ticketUrl(ticket)
+      : ticket.guest_token
+      ? ticketUrl(ticket, ticket.guest_token)
+      : `${publicOrigin()}/support`,
   };
 
   try {

@@ -4,6 +4,7 @@ import Icon from './Icon.jsx';
 import Avatar from './Avatar.jsx';
 import { formatDateTime } from '../lib/dates.js';
 import { sentenceCaseLive } from '../lib/textCase.js';
+import { useToast } from './Toast.jsx';
 import { playInfo } from '../lib/sounds.js';
 
 // How often an open conversation checks for a reply. Slow enough to be no load
@@ -131,6 +132,7 @@ export default function SupportThread({
   admin = false,
   extraActions = null,
 }) {
+  const toast = useToast();
   const [draft, setDraft] = useState('');
   const [sending, setSending] = useState(false);
   // What we last saw, so a reply arriving while the page is open can announce
@@ -160,6 +162,13 @@ export default function SupportThread({
     try {
       await onReply(text);
       setDraft('');
+    } catch (err) {
+      // Nothing caught this before, so a reply that failed looked exactly like
+      // a reply that did nothing: the text stayed in the box, no message
+      // appeared, and there was no way to tell which had happened. The draft is
+      // kept on purpose — losing what somebody just wrote is worse than the
+      // failure that lost it.
+      toast(err?.message || 'That did not send. Please try again.', 'error');
     } finally {
       setSending(false);
     }

@@ -101,10 +101,13 @@ export default function NotificationBell({ compact = false }) {
           width: '100%',
           justifyContent: 'center',
           gap: compact ? 0 : 8,
-          // Without this the label can grow wider than the button and, because
-          // the content is centred, spill out of *both* edges — which is how a
-          // bell ended up floating outside its own box in the sidebar.
-          overflow: 'hidden',
+          // Clipped only when there is a label to clip. That label can grow
+          // wider than the button and, being centred, spill out of both edges —
+          // which is how a bell ended up floating outside its own box.
+          //
+          // Compact has no label and does have a count pinned to its corner, so
+          // hiding the overflow there cuts the corner off the badge instead.
+          overflow: compact ? 'visible' : 'hidden',
           padding: compact ? 0 : undefined,
         }}
       >
