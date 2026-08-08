@@ -319,6 +319,16 @@ export default function Login() {
         No account yet? <Link to="/register" style={{ color: 'var(--blue)', fontWeight: 600 }}>Create one</Link>
       </p>
 
+      {/* Reachable without signing in, deliberately: somebody stuck on this
+          page is the person most likely to need support and the least able to
+          reach it from inside the app. */}
+      <p style={{ fontSize: 12.5, color: 'var(--text-muted)', marginTop: 6, textAlign: 'center' }}>
+        Locked out, or something wrong?{' '}
+        <Link to="/support" style={{ color: 'var(--blue)', fontWeight: 600 }}>
+          Contact support
+        </Link>
+      </p>
+
       {/* Also here, not only on the brand rail — the rail is hidden on a phone,
           which is the one device the app actually installs on. */}
       <div

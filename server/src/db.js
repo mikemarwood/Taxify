@@ -836,6 +836,62 @@ export async function ensureSchema() {
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
   `);
 
+  // Support conversations.
+  //
+  // A ticket can belong to an account or to nobody — somebody who cannot sign
+  // in is exactly who most needs to reach support — so user_id is nullable and
+  // a guest carries their own name and address instead. A guest reads the
+  // thread through a link they are emailed, which is what access_token_hash is
+  // for: the token itself is never stored, the same as every other token here.
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS support_tickets (
+      id INT PRIMARY KEY AUTO_INCREMENT,
+      -- The number people quote. Never the row id.
+      reference VARCHAR(24) NOT NULL,
+      user_id INT NULL,
+      guest_name VARCHAR(120) NULL,
+      guest_email VARCHAR(255) NULL,
+      category VARCHAR(40) NOT NULL,
+      subject VARCHAR(160) NOT NULL,
+      -- awaiting_support | awaiting_customer | closed. Whose turn it is, rather
+      -- than a vaguer open/closed: "who is this waiting on" is the only thing
+      -- either side actually wants to know.
+      status VARCHAR(24) NOT NULL DEFAULT 'awaiting_support',
+      access_token_hash VARCHAR(64) NULL,
+      last_message_at DATETIME NULL,
+      closed_at DATETIME NULL,
+      closed_by INT NULL,
+      created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      updated_at DATETIME NULL,
+      UNIQUE KEY uniq_support_reference (reference),
+      KEY idx_support_user (user_id, status),
+      KEY idx_support_status (status, last_message_at),
+      KEY idx_support_token (access_token_hash),
+      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL,
+      FOREIGN KEY (closed_by) REFERENCES users(id) ON DELETE SET NULL
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+  `);
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS support_messages (
+      id INT PRIMARY KEY AUTO_INCREMENT,
+      ticket_id INT NOT NULL,
+      -- Null for a guest, and for anything the system wrote.
+      author_user_id INT NULL,
+      -- customer | support | system. Held on the message rather than derived
+      -- from the author, because an administrator is also somebody's customer,
+      -- and which of the two they were *in this conversation* is what the badge
+      -- has to show.
+      author_role VARCHAR(16) NOT NULL,
+      author_name VARCHAR(160) NULL,
+      body TEXT NOT NULL,
+      created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      KEY idx_support_messages_ticket (ticket_id, created_at),
+      FOREIGN KEY (ticket_id) REFERENCES support_tickets(id) ON DELETE CASCADE,
+      FOREIGN KEY (author_user_id) REFERENCES users(id) ON DELETE SET NULL
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+  `);
+
   await pool.query(`
     CREATE TABLE IF NOT EXISTS settings (
       \`key\` VARCHAR(64) PRIMARY KEY,

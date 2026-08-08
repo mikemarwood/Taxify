@@ -25,6 +25,7 @@ import Reports from './pages/Reports.jsx';
 import Deductions from './pages/Deductions.jsx';
 import Admin from './pages/Admin.jsx';
 import Account from './pages/Account.jsx';
+import Support, { SupportTicket, SupportTicketByToken } from './pages/Support.jsx';
 import SubscriptionRequired from './pages/SubscriptionRequired.jsx';
 
 function Splash() {
@@ -123,6 +124,13 @@ export default function App() {
       <Route path="/reports" element={<Protected><Reports /></Protected>} />
       <Route path="/deductions" element={<Protected><Deductions /></Protected>} />
       <Route path="/account" element={<Protected><Account /></Protected>} />
+
+      {/* Support is reachable signed in or not. Somebody who cannot get into
+          their account is exactly who most needs it, so it sits outside
+          Protected and decides for itself what to show. */}
+      <Route path="/support" element={<Support />} />
+      <Route path="/support/ticket/:token" element={<SupportTicketByToken />} />
+      <Route path="/support/:id" element={<Protected><SupportTicket /></Protected>} />
       <Route path="/admin" element={<Protected adminOnly><Admin /></Protected>} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>

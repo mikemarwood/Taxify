@@ -12,6 +12,7 @@ import expensesRoutes, { purgeExpiredTrash } from './routes/expenses.routes.js';
 import adminRoutes from './routes/admin.routes.js';
 import appRoutes from './routes/app.routes.js';
 import billingRoutes from './routes/billing.routes.js';
+import supportRoutes from './routes/support.routes.js';
 import exportRoutes from './routes/export.routes.js';
 import taxYearRoutes from './routes/taxYears.routes.js';
 import deductionRoutes from './routes/deductions.routes.js';
@@ -116,6 +117,10 @@ app.use('/api/expenses', expensesRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/app', appRoutes);
 app.use('/api/billing', billingRoutes);
+// Deliberately not behind requireAuth: somebody who cannot sign in is exactly
+// who most needs to reach support. The routes that need an account ask for one
+// themselves.
+app.use('/api/support', supportRoutes);
 app.use('/api/export', exportRoutes);
 app.use('/api/tax-years', taxYearRoutes);
 app.use('/api/deductions', deductionRoutes);

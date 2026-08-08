@@ -178,3 +178,34 @@ export function requireAccountOwner(req, res, next) {
   }
   next();
 }
+
+// Attaches req.user when there is a valid session, and does nothing when there
+// is not. For routes that serve both — raising a support ticket is the case it
+// was written for, where somebody who cannot sign in is exactly who most needs
+// to reach us, but a signed-in customer should not have to retype their name
+// and address.
+//
+// Deliberately thin: it does not resolve books, years or accessLocked, because
+// a route open to the public has no business acting on any of them. Anything
+// needing those asks for requireAuth instead.
+export const optionalAuth = asyncHandler(async (req, res, next) => {
+  const token = req.cookies?.[COOKIE_NAME];
+  const payload = token && verifyToken(token);
+  if (!payload) return next();
+
+  const [rows] = await pool.execute(
+    'SELECT id, email, name, first_name, last_name, is_admin, avatar_path, role FROM users WHERE id = ?',
+    [payload.sub]
+  );
+  if (rows[0]) {
+    req.user = {
+      id: rows[0].id,
+      email: rows[0].email,
+      name: rows[0].name,
+      isAdmin: Boolean(rows[0].is_admin),
+      role: rows[0].role,
+    };
+    touchLastSeen(rows[0].id);
+  }
+  next();
+});

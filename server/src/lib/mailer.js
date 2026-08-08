@@ -942,3 +942,89 @@ export async function sendPlanChangedEmail(to, name, { fromLabel, toLabel, compl
     `,
   });
 }
+
+// ---------------------------------------------------------------------------
+// Support
+// ---------------------------------------------------------------------------
+
+// The message itself, quoted rather than paraphrased. Whitespace is preserved
+// because people write in paragraphs and a wall of run-together text reads as
+// carelessness on our part.
+function quotedMessage(body) {
+  return `
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="border:1px solid #e6ecf5;border-left:3px solid #94a3b8;border-radius:8px;background:#f8fafd;margin:0 0 18px;">
+      <tr><td style="padding:14px 16px;font-size:14px;line-height:1.6;color:#1f2937;white-space:pre-wrap;">${escapeHtml(body)}</td></tr>
+    </table>`;
+}
+
+function ticketHeader(reference, subject, category) {
+  return termsPanel([
+    termRow('Ticket', `<strong>${escapeHtml(reference)}</strong>`),
+    termRow('Subject', escapeHtml(subject)),
+    termRow('Category', escapeHtml(category), true),
+  ]);
+}
+
+// Sent when a ticket is raised, so there is a record of the number even if
+// nobody replies for a day.
+export async function sendSupportTicketRaisedEmail(to, name, { reference, subject, category, body, url }) {
+  await sendMail({
+    to,
+    subject: `[${reference}] ${subject}`,
+    title: 'We have your message',
+    heading: `Hi${name ? ` ${escapeHtml(name)}` : ''}, thanks for writing in — this is your ticket number.`,
+    bodyHtml: `
+      ${ticketHeader(reference, subject, category)}
+      <p style="font-size:14px;color:#1f2937;margin:0 0 16px;line-height:1.55;">
+        Somebody will read this and reply. You will get an email the moment they do, and you can follow the whole
+        conversation here:
+      </p>
+      ${button(url, 'View my ticket')}
+      ${linkFallback(url)}
+      <p style="font-size:13px;color:#4b5563;margin:0;line-height:1.55;">This is what you sent:</p>
+      ${quotedMessage(body)}
+    `,
+  });
+}
+
+// Somebody has replied and it is now the other person's turn. One email covers
+// both directions — what changes is who receives it and what the link opens.
+export async function sendSupportReplyEmail(to, name, { reference, subject, category, body, url, fromSupport }) {
+  await sendMail({
+    to,
+    subject: `[${reference}] ${subject}`,
+    title: fromSupport ? 'Support has replied' : 'A customer has replied',
+    heading: fromSupport
+      ? `Hi${name ? ` ${escapeHtml(name)}` : ''}, there is a reply waiting on your ticket.`
+      : `${escapeHtml(name || 'A customer')} has replied and is waiting on you.`,
+    bodyHtml: `
+      ${ticketHeader(reference, subject, category)}
+      ${quotedMessage(body)}
+      ${button(url, fromSupport ? 'Read and reply' : 'Open the ticket')}
+      ${linkFallback(url)}
+      <p style="font-size:13px;color:#4b5563;margin:0;line-height:1.55;">
+        Replying on that page keeps everything in one thread.
+      </p>
+    `,
+  });
+}
+
+// Closed. Said plainly, including how to get it reopened, because "closed" with
+// no way back is how somebody ends up raising a second ticket about the first.
+export async function sendSupportClosedEmail(to, name, { reference, subject, category, url }) {
+  await sendMail({
+    to,
+    subject: `[${reference}] ${subject} — closed`,
+    title: 'Your ticket has been closed',
+    heading: `Hi${name ? ` ${escapeHtml(name)}` : ''}, this one is marked as done.`,
+    bodyHtml: `
+      ${ticketHeader(reference, subject, category)}
+      <p style="font-size:14px;color:#1f2937;margin:0 0 16px;line-height:1.55;">
+        The conversation stays on your account and you can still read it. If it was not sorted, open it again from that
+        page and tell us — no need to start a new one.
+      </p>
+      ${button(url, 'View the conversation')}
+      ${linkFallback(url)}
+    `,
+  });
+}

@@ -15,6 +15,10 @@ import { computeAccessLocked } from '../auth/access.js';
 import { collectStats } from '../lib/adminStats.js';
 import { getStripe } from '../lib/stripe.js';
 import { amountProblem, canTransition } from '../lib/planRequests.js';
+import { shapeTicket, messagesFor, addReply, ticketUrl } from './support.routes.js';
+import { categoryLabel } from '../lib/support.js';
+import { publicOrigin } from '../lib/publicOrigin.js';
+import { sendSupportClosedEmail } from '../lib/mailer.js';
 import { asyncHandler } from '../lib/asyncHandler.js';
 import { toTitleCase } from '../lib/text.js';
 import {
@@ -1207,6 +1211,123 @@ router.delete(
     );
     if (result.affectedRows === 0) return res.status(404).json({ error: 'Not found' });
     res.json({ ok: true });
+  })
+);
+
+
+// ---------------------------------------------------------------------------
+// Support tickets, from the other side of the conversation.
+// ---------------------------------------------------------------------------
+
+router.get(
+  '/support/tickets',
+  asyncHandler(async (req, res) => {
+    // Anything needing a reply first, oldest first within that — somebody who
+    // has been waiting two days should not sit below somebody who wrote in five
+    // minutes ago.
+    const [rows] = await pool.query(
+      `SELECT t.*, u.name, u.email, u.avatar_path
+         FROM support_tickets t LEFT JOIN users u ON u.id = t.user_id
+        ORDER BY FIELD(t.status, 'awaiting_support', 'awaiting_customer', 'closed'),
+                 t.last_message_at ASC
+        LIMIT 200`
+    );
+    res.json({ tickets: rows.map((r) => shapeTicket(r, { includeEmail: true })) });
+  })
+);
+
+router.get(
+  '/support/tickets/:id',
+  asyncHandler(async (req, res) => {
+    const [rows] = await pool.execute(
+      `SELECT t.*, u.name, u.email, u.avatar_path
+         FROM support_tickets t LEFT JOIN users u ON u.id = t.user_id WHERE t.id = ?`,
+      [req.params.id]
+    );
+    if (!rows[0]) return res.status(404).json({ error: 'Not found' });
+    res.json({
+      ticket: shapeTicket(rows[0], { includeEmail: true }),
+      messages: await messagesFor(rows[0].id),
+    });
+  })
+);
+
+router.post(
+  '/support/tickets/:id/reply',
+  asyncHandler(async (req, res) => {
+    const [rows] = await pool.execute(
+      `SELECT t.*, u.name, u.email FROM support_tickets t LEFT JOIN users u ON u.id = t.user_id WHERE t.id = ?`,
+      [req.params.id]
+    );
+    if (!rows[0]) return res.status(404).json({ error: 'Not found' });
+    return addReply(req, res, rows[0], 'support');
+  })
+);
+
+// Closing, and opening again. Only support can do either: a customer closing
+// their own ticket is a different feature, and one nobody has asked for.
+router.post(
+  '/support/tickets/:id/status',
+  asyncHandler(async (req, res) => {
+    const closing = req.body?.status === 'closed';
+
+    const [rows] = await pool.execute(
+      `SELECT t.*, u.name, u.email FROM support_tickets t LEFT JOIN users u ON u.id = t.user_id WHERE t.id = ?`,
+      [req.params.id]
+    );
+    const ticket = rows[0];
+    if (!ticket) return res.status(404).json({ error: 'Not found' });
+
+    if (closing) {
+      await pool.execute(
+        `UPDATE support_tickets SET status = 'closed', closed_at = NOW(), closed_by = ?, updated_at = NOW()
+          WHERE id = ?`,
+        [req.user.id, ticket.id]
+      );
+    } else {
+      // Back to needing a reply from us, not from them: whoever reopened it did
+      // so because something was left undone at our end.
+      await pool.execute(
+        `UPDATE support_tickets SET status = 'awaiting_support', closed_at = NULL, closed_by = NULL,
+           updated_at = NOW() WHERE id = ?`,
+        [ticket.id]
+      );
+    }
+
+    // Written into the thread so the conversation explains itself later, rather
+    // than a reply appearing after a gap with nothing saying why.
+    await pool.execute(
+      `INSERT INTO support_messages (ticket_id, author_user_id, author_role, author_name, body)
+       VALUES (?, ?, 'system', ?, ?)`,
+      [
+        ticket.id,
+        req.user.id,
+        req.user.name || 'Support',
+        closing ? 'Ticket closed.' : 'Ticket opened again.',
+      ]
+    );
+
+    if (closing) {
+      try {
+        const to = ticket.user_id ? ticket.email : ticket.guest_email;
+        const name = ticket.user_id ? ticket.name : ticket.guest_name;
+        // A guest reads through their emailed link, which is the only address
+        // they have — and the token is hashed here, so the email points at the
+        // ticket page and asks them to use the link they already have.
+        if (to) {
+          await sendSupportClosedEmail(to, name, {
+            reference: ticket.reference,
+            subject: ticket.subject,
+            category: categoryLabel(ticket.category),
+            url: ticket.user_id ? ticketUrl(ticket) : `${publicOrigin()}/support`,
+          });
+        }
+      } catch (err) {
+        console.error('Could not send the ticket-closed email', err);
+      }
+    }
+
+    res.json({ ok: true, messages: await messagesFor(ticket.id) });
   })
 );
 

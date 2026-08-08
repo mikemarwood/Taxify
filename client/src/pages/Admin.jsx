@@ -17,6 +17,7 @@ import PromoCodesTab from '../components/PromoCodesTab.jsx';
 import { useConfirm } from '../lib/ConfirmContext.jsx';
 import AdminStatsTab from '../components/AdminStatsTab.jsx';
 import PlanRequestsTab from '../components/PlanRequestsTab.jsx';
+import SupportTab from '../components/SupportTab.jsx';
 import TaxRatesTab from '../components/TaxRatesTab.jsx';
 import PushSettingsTab from '../components/PushSettingsTab.jsx';
 import { IconPicker, ColourPicker, CategoryPreview, SWATCHES } from '../components/CategoryPickers.jsx';
@@ -40,6 +41,7 @@ function formatBytes(bytes) {
 const TAB_KEYS = [
   'stats',
   'plan-requests',
+  'support',
   'users',
   'categories',
   'settings',
@@ -65,7 +67,7 @@ export default function Admin() {
   }
 
   return (
-    <div style={{ maxWidth: tab === 'stats' ? 1100 : 760 }}>
+    <div style={{ maxWidth: tab === 'stats' || tab === 'support' ? 1100 : 760 }}>
       <h1 style={{ margin: '0 0 4px', fontSize: 26 }}>Administration</h1>
       <p style={{ color: 'var(--text-muted)', margin: '0 0 24px' }}>Manage user accounts and the default category template.</p>
 
@@ -75,6 +77,9 @@ export default function Admin() {
         </button>
         <button className={tab === 'plan-requests' ? 'btn btn-primary' : 'btn btn-ghost'} onClick={() => setTab('plan-requests')}>
           Plan requests
+        </button>
+        <button className={tab === 'support' ? 'btn btn-primary' : 'btn btn-ghost'} onClick={() => setTab('support')}>
+          Support
         </button>
         <button className={tab === 'users' ? 'btn btn-primary' : 'btn btn-ghost'} onClick={() => setTab('users')}>
           Users
@@ -104,6 +109,7 @@ export default function Admin() {
 
       {tab === 'stats' && <AdminStatsTab />}
       {tab === 'plan-requests' && <PlanRequestsTab />}
+      {tab === 'support' && <SupportTab />}
       {tab === 'users' && <UsersTab />}
       {tab === 'categories' && <DefaultCategoriesTab />}
       {tab === 'settings' && <SettingsTab />}

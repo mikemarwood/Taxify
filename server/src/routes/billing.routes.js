@@ -12,6 +12,7 @@ import { publicOrigin } from '../lib/publicOrigin.js';
 import { notify, notifyAdmins } from '../lib/notify.js';
 import { planLabel } from '../lib/planLimits.js';
 import { shouldApplyPayment } from '../lib/planRequests.js';
+import { generateReference } from '../lib/support.js';
 
 const uploadsDir = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', '..', 'uploads');
 
@@ -382,6 +383,34 @@ router.post(
       `INSERT INTO plan_change_requests (user_id, from_plan, to_plan, note) VALUES (?, ?, ?, ?)`,
       [req.user.id, req.user.planType || null, toPlan, note]
     );
+
+    // Raised as a support ticket too, so it lands in the same queue as
+    // everything else somebody writes in about and can be replied to like any
+    // other question. Failure here must not lose the request itself, which is
+    // already saved.
+    try {
+      const reference = generateReference();
+      const [ticket] = await pool.execute(
+        `INSERT INTO support_tickets (reference, user_id, category, subject, status, last_message_at)
+         VALUES (?, ?, 'billing', ?, 'awaiting_support', NOW())`,
+        [reference, req.user.id, `Plan change to ${planLabel(toPlan)}`]
+      );
+      await pool.execute(
+        `INSERT INTO support_messages (ticket_id, author_user_id, author_role, author_name, body)
+         VALUES (?, ?, 'customer', ?, ?)`,
+        [
+          ticket.insertId,
+          req.user.id,
+          req.user.name || req.user.email,
+          [
+            `I would like to move from ${planLabel(req.user.planType)} to ${planLabel(toPlan)}.`,
+            note ? `\n\n${note}` : '',
+          ].join(''),
+        ]
+      );
+    } catch (err) {
+      console.error('Could not raise a ticket for the plan change', err);
+    }
 
     await notifyAdmins({
       title: `${req.user.name || req.user.email} wants to move to ${planLabel(toPlan)}`,
