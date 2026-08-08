@@ -6,7 +6,7 @@ import { useToast } from '../components/Toast.jsx';
 import Icon from '../components/Icon.jsx';
 import SupportThread, { StatusPill } from '../components/SupportThread.jsx';
 import { formatDateTime } from '../lib/dates.js';
-import { titleCase, titleCaseLive, sentenceCase } from '../lib/textCase.js';
+import { titleCase, titleCaseLive, sentenceCase, sentenceCaseLive } from '../lib/textCase.js';
 
 // Raising a ticket, listing the ones you have, and reading one. Reachable
 // signed in or not — the whole point is that somebody locked out can still get
@@ -41,6 +41,15 @@ function CategoryCards({ categories, value, onChange }) {
       })}
     </div>
   );
+}
+
+// Trailing blank space only: spaces at the end of any line, and empty lines at
+// the end of the message. Everything inside it is left alone, because the blank
+// line between two paragraphs is something somebody typed on purpose.
+function trimTrailing(text) {
+  return String(text ?? '')
+    .replace(/[ \t]+$/gm, '')
+    .replace(/\n+$/, '');
 }
 
 // Long enough to describe a real problem, short enough that the subject stays
@@ -186,7 +195,7 @@ function NewTicket({ user, onRaised }) {
           maxLength={SUBJECT_MAX}
           placeholder="A few words on what is wrong"
           value={subject}
-          onChange={(e) => setSubject(e.target.value)}
+          onChange={(e) => setSubject(sentenceCaseLive(e.target.value))}
           onBlur={() => setSubject(sentenceCase(subject))}
         />
         <Counter value={subject} min={SUBJECT_MIN} max={SUBJECT_MAX} />
@@ -201,8 +210,13 @@ function NewTicket({ user, onRaised }) {
           maxLength={MESSAGE_MAX}
           placeholder="What you were doing, what you expected, and what happened instead."
           value={message}
-          onChange={(e) => setMessage(e.target.value)}
-          onBlur={() => setMessage(sentenceCase(message))}
+          onChange={(e) => setMessage(sentenceCaseLive(e.target.value))}
+          // No sentenceCase on blur here, unlike the subject. It collapses runs
+          // of whitespace, and in a message box that means the blank line
+          // between two paragraphs is destroyed the moment somebody clicks
+          // away. The live pass has already fixed the capitals; the only thing
+          // left worth doing is dropping trailing blank space.
+          onBlur={() => setMessage(trimTrailing(message))}
           style={{ resize: 'vertical', fontSize: 13.5, lineHeight: 1.6 }}
         />
         <Counter value={message} min={MESSAGE_MIN} max={MESSAGE_MAX} />

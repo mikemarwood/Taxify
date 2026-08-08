@@ -60,3 +60,28 @@ export function sentenceCase(value) {
 export function lowerEmail(value) {
   return String(value ?? '').trim().toLowerCase();
 }
+
+// Sentence capitals applied while somebody is still typing.
+//
+// Two rules make this safe to run on every keystroke, and both matter:
+//
+//   Whitespace is left exactly as it is. sentenceCase() trims and collapses
+//   runs of it, which is right on submit and ruinous per keystroke — the space
+//   before a second word is deleted as it is typed, and in a textarea the blank
+//   line between two paragraphs can never be made.
+//
+//   The length never changes. Only the case of existing characters is touched,
+//   so the caret stays where the typist left it. Anything that inserted or
+//   removed a character here would send the cursor to the end of the box
+//   mid-sentence.
+//
+// A new line starts a sentence as well as a full stop does, because that is how
+// people write paragraphs.
+export function sentenceCaseLive(value) {
+  const text = String(value ?? '');
+  if (!text) return '';
+  return text.replace(
+    /(^|[.!?]["')\]]?[ \t]+|\n[ \t]*)([a-z])/g,
+    (_, lead, ch) => lead + ch.toUpperCase()
+  );
+}

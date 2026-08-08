@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import Icon from './Icon.jsx';
 import Avatar from './Avatar.jsx';
 import { formatDateTime } from '../lib/dates.js';
+import { sentenceCaseLive } from '../lib/textCase.js';
 import { playInfo } from '../lib/sounds.js';
 
 // How often an open conversation checks for a reply. Slow enough to be no load
@@ -203,7 +204,11 @@ export default function SupportThread({
             maxLength={5000}
             placeholder={admin ? 'Write your reply…' : 'Add to the conversation…'}
             value={draft}
-            onChange={(e) => setDraft(e.target.value)}
+            // Capitals fixed as you type. Safe per keystroke because it only
+            // changes the case of characters already there — the length never
+            // moves, so neither does the caret, and whitespace is untouched so
+            // paragraphs can still be written.
+            onChange={(e) => setDraft(sentenceCaseLive(e.target.value))}
             style={{ resize: 'vertical', fontSize: 13.5, lineHeight: 1.6 }}
           />
           <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
