@@ -637,6 +637,13 @@ router.post(
       bookScope = books.value;
     }
 
+    // Read unless the client deliberately says otherwise. Anything that is not
+    // exactly 'write' is read — a typo must not hand somebody edit rights.
+    let accessLevel = 'read';
+    if (role === 'accountant') {
+      accessLevel = req.body?.accessLevel === 'write' ? 'write' : 'read';
+    }
+
     // How long their window lasts once opened. The client's choice, defaulting
     // to a day when they express no view.
     const windowHours =
@@ -675,8 +682,8 @@ router.post(
           return res.status(400).json({ error: 'That accountant already has access to your account' });
         }
         await pool.execute(
-          'INSERT INTO accountant_assignments (accountant_user_id, owner_user_id, financial_years, entity_ids, window_hours) VALUES (?, ?, ?, ?, ?)',
-          [found.id, req.user.id, yearScope, bookScope, windowHours]
+          'INSERT INTO accountant_assignments (accountant_user_id, owner_user_id, financial_years, entity_ids, access_level, window_hours) VALUES (?, ?, ?, ?, ?, ?)',
+          [found.id, req.user.id, yearScope, bookScope, accessLevel, windowHours]
         );
 
         const loginUrl = `${publicOrigin()}/login`;
@@ -1164,6 +1171,13 @@ router.patch(
       changes.push(chosen ? `the books ${chosen.join(', ')}` : 'all your books');
     }
 
+    if (req.body?.accessLevel !== undefined) {
+      const level = req.body.accessLevel === 'write' ? 'write' : 'read';
+      updates.push('access_level = ?');
+      params.push(level);
+      changes.push(level === 'write' ? 'permission to make changes' : 'read-only access');
+    }
+
     if (req.body?.windowHours !== undefined) {
       const hours = normaliseWindowHours(req.body.windowHours);
       if (!hours) return res.status(400).json({ error: 'Choose one of the offered windows' });
@@ -1326,7 +1340,7 @@ router.get(
   requireAccountOwner,
   asyncHandler(async (req, res) => {
     const [rows] = await pool.execute(
-      `SELECT a.id, a.financial_years, a.entity_ids, a.window_hours, a.first_login_at, a.expires_at, a.created_at,
+      `SELECT a.id, a.financial_years, a.entity_ids, a.access_level, a.window_hours, a.first_login_at, a.expires_at, a.created_at,
               u.name, u.email, u.activated_at, u.practice_name, u.phone
        FROM accountant_assignments a
        JOIN users u ON u.id = a.accountant_user_id
@@ -1344,6 +1358,7 @@ router.get(
         active: !!r.activated_at,
         financialYears: r.financial_years ? r.financial_years.split(',') : null,
         entityIds: r.entity_ids ? r.entity_ids.split(',').map(Number) : null,
+        canWrite: r.access_level === 'write',
         windowHours: normaliseWindowHours(r.window_hours) ?? ACCOUNTANT_WINDOW_HOURS,
         firstLoginAt: r.first_login_at,
         expiresAt: r.expires_at,

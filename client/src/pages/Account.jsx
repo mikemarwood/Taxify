@@ -386,6 +386,7 @@ function ManageAccess({ accountant, years, windowChoices, onDone }) {
   const toast = useToast();
   const [allYears, setAllYears] = useState(!accountant.financialYears);
   const [allBooks, setAllBooks] = useState(!accountant.entityIds);
+  const [canWrite, setCanWrite] = useState(Boolean(accountant.canWrite));
   const [pickedBooks, setPickedBooks] = useState(accountant.entityIds || []);
   const [picked, setPicked] = useState(accountant.financialYears || []);
   const [hours, setHours] = useState(accountant.windowHours || 24);
@@ -408,6 +409,7 @@ function ManageAccess({ accountant, years, windowChoices, onDone }) {
     allYears !== !accountant.financialYears ||
     hours !== (accountant.windowHours || 24) ||
     (!allYears && picked.join(',') !== (accountant.financialYears || []).join(',')) ||
+    canWrite !== Boolean(accountant.canWrite) ||
     allBooks !== !accountant.entityIds ||
     (!allBooks && pickedBooks.join(',') !== (accountant.entityIds || []).join(','));
 
@@ -475,6 +477,31 @@ function ManageAccess({ accountant, years, windowChoices, onDone }) {
 
       <div>
         <div className="label" style={{ margin: '0 0 6px' }}>
+          What can they do?
+        </div>
+        <label style={{ display: 'flex', alignItems: 'flex-start', gap: 9, fontSize: 13, cursor: 'pointer' }}>
+          <input type="radio" checked={!canWrite} onChange={() => setCanWrite(false)} style={{ marginTop: 3 }} />
+          <span>
+            <strong>Read only</strong>
+            <span style={{ display: 'block', fontSize: 11.5, color: 'var(--text-muted)' }}>
+              They can read and export. Nothing they do can change your records.
+            </span>
+          </span>
+        </label>
+        <label style={{ display: 'flex', alignItems: 'flex-start', gap: 9, fontSize: 13, cursor: 'pointer', marginTop: 6 }}>
+          <input type="radio" checked={canWrite} onChange={() => setCanWrite(true)} style={{ marginTop: 3 }} />
+          <span>
+            <strong>Can make changes</strong>
+            <span style={{ display: 'block', fontSize: 11.5, color: 'var(--text-muted)' }}>
+              They can add, edit, move and delete expenses and receipts in the books you shared. They can never
+              delete a set of books, change your plan, or touch your account.
+            </span>
+          </span>
+        </label>
+      </div>
+
+      <div>
+        <div className="label" style={{ margin: '0 0 6px' }}>
           How long they get
         </div>
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
@@ -519,6 +546,7 @@ function ManageAccess({ accountant, years, windowChoices, onDone }) {
                 windowHours: hours,
                 ...(allYears ? { allYears: true } : { financialYears: picked }),
                 ...(allBooks ? { allBooks: true } : { entityIds: pickedBooks }),
+                accessLevel: canWrite ? 'write' : 'read',
               },
               'Access updated'
             )
@@ -590,6 +618,7 @@ function AccountantSection({ user }) {
 
   const [allYears, setAllYears] = useState(true);
   const [allBooks, setAllBooks] = useState(true);
+  const [inviteCanWrite, setInviteCanWrite] = useState(false);
   const [pickedBooks, setPickedBooks] = useState([]);
   const [pickedYears, setPickedYears] = useState([]);
   const [busy, setBusy] = useState(false);
@@ -630,6 +659,7 @@ function AccountantSection({ user }) {
               windowHours: inviteWindow,
               ...(allYears ? { allYears: true } : { financialYears: pickedYears }),
               ...(allBooks ? { allBooks: true } : { entityIds: pickedBooks }),
+              accessLevel: inviteCanWrite ? 'write' : 'read',
             }
           : {}),
       });
@@ -967,6 +997,31 @@ function AccountantSection({ user }) {
                 })}
               </div>
             )}
+
+            <div>
+              <div className="label" style={{ margin: '0 0 6px' }}>
+                What can they do?
+              </div>
+              <label style={{ display: 'flex', alignItems: 'flex-start', gap: 9, fontSize: 13, cursor: 'pointer' }}>
+                <input type="radio" checked={!inviteCanWrite} onChange={() => setInviteCanWrite(false)} style={{ marginTop: 3 }} />
+                <span>
+                  <strong>Read only</strong>
+                  <span style={{ display: 'block', fontSize: 11.5, color: 'var(--text-muted)' }}>
+                    They can read and export. Nothing they do can change your records.
+                  </span>
+                </span>
+              </label>
+              <label style={{ display: 'flex', alignItems: 'flex-start', gap: 9, fontSize: 13, cursor: 'pointer', marginTop: 6 }}>
+                <input type="radio" checked={inviteCanWrite} onChange={() => setInviteCanWrite(true)} style={{ marginTop: 3 }} />
+                <span>
+                  <strong>Can make changes</strong>
+                  <span style={{ display: 'block', fontSize: 11.5, color: 'var(--text-muted)' }}>
+                    They can add, edit, move and delete expenses and receipts in the books you shared. They can never
+                    delete a set of books, change your plan, or touch your account.
+                  </span>
+                </span>
+              </label>
+            </div>
 
             <div className="label" style={{ margin: '4px 0 0' }}>
               How long do they get?

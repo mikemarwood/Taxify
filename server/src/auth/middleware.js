@@ -81,6 +81,7 @@ export const requireAuth = asyncHandler(async (req, res, next) => {
           email: ownerRows[0].email,
           businessName: ownerRows[0].business_name || null,
           financialYears: assignment.financialYears,
+          canWrite: assignment.canWrite,
           expiresAt: assignment.expiresAt,
         };
       }
@@ -161,7 +162,25 @@ export function requireActiveAccess(req, res, next) {
   // subscription rather than the accountant's own.
   if (req.user?.actingAsClient) {
     if (req.user.accessLocked) return res.status(403).json({ error: 'subscription_required' });
-    if (req.method !== 'GET') return res.status(403).json({ error: 'Accountant access is read-only' });
+    // An assignment may be granted write access to the books it covers. Where
+    // it has not been, this stays exactly as strict as it always was.
+    //
+    // What write never includes, whatever the client chose:
+    //
+    //   Deleting a set of books. That destroys every expense, receipt and
+    //   lodgement inside it, and it is not the kind of thing somebody hands to
+    //   a contractor along with permission to fix a receipt.
+    //
+    //   Anything about the account itself — billing, plan, accountant access,
+    //   the client's own login. Those are guarded separately by
+    //   requireAccountOwner, which refuses anybody with a client open
+    //   regardless of this flag.
+    if (!req.user.actingAsClient.canWrite && req.method !== 'GET') {
+      return res.status(403).json({ error: 'Accountant access is read-only' });
+    }
+    if (req.method === 'DELETE' && /^\/api\/entities\//.test(req.originalUrl)) {
+      return res.status(403).json({ error: 'An accountant cannot delete a set of books' });
+    }
     return next();
   }
 

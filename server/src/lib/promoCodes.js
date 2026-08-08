@@ -57,6 +57,61 @@ export function applyDiscount(promo, amountPerYear) {
   return Math.max(0, Math.round(total));
 }
 
+// The Stripe coupon for a promo code, made once and reused.
+//
+// duration: 'once' is the whole point. A Stripe coupon defaults to 'forever',
+// which would take the discount off every renewal for as long as somebody stays
+// subscribed — a code meant to bring one customer in would quietly cost the
+// difference every year after. 'once' applies it to the first invoice and no
+// other.
+export async function stripeCouponFor(stripe, promo) {
+  if (promo.stripe_coupon_id) {
+    try {
+      const existing = await stripe.coupons.retrieve(promo.stripe_coupon_id);
+      // A coupon deleted in the dashboard comes back marked, and reusing it
+      // fails the checkout rather than merely not discounting.
+      if (existing && !existing.deleted) return existing.id;
+    } catch {
+      // Gone from Stripe entirely. Fall through and make another.
+    }
+  }
+
+  const coupon = await stripe.coupons.create({
+    name: `Taxify ${promo.code}`,
+    duration: 'once',
+    ...(promo.percent_off
+      ? { percent_off: Number(promo.percent_off) }
+      : { amount_off: Math.round(Number(promo.amount_off) * 100), currency: 'aud' }),
+    metadata: { promoCode: promo.code },
+  });
+
+  await pool.execute('UPDATE promo_codes SET stripe_coupon_id = ? WHERE id = ?', [coupon.id, promo.id]);
+  return coupon.id;
+}
+
+// The code somebody registered with, if it is still worth honouring. Read at
+// checkout rather than at registration, because that is the moment money
+// changes hands and a code can lapse in between.
+export async function pendingPromoFor(userId, planType) {
+  const [rows] = await pool.execute(
+    'SELECT promo_code, promo_redeemed_at FROM users WHERE id = ?',
+    [userId]
+  );
+  const user = rows[0];
+  // Once only, per account. Without this the same code would discount a second
+  // subscription after somebody cancelled and came back.
+  if (!user?.promo_code || user.promo_redeemed_at) return null;
+
+  const [promos] = await pool.execute('SELECT * FROM promo_codes WHERE code = ?', [user.promo_code]);
+  const promo = promos[0];
+  if (!promo || !promo.active) return null;
+  if (promo.expires_at && new Date(promo.expires_at) < new Date()) return null;
+  if (promo.max_uses !== null && promo.used_count >= promo.max_uses) return null;
+  if (promo.plan_type && promo.plan_type !== planType) return null;
+
+  return promo;
+}
+
 export function toPublicPromo(promo) {
   return {
     code: promo.code,

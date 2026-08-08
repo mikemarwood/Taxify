@@ -110,7 +110,7 @@ export async function purgeExpiredAssignments() {
 
 export async function listAssignments(accountantUserId) {
   const [rows] = await pool.execute(
-    `SELECT a.id, a.owner_user_id, a.financial_years, a.entity_ids, a.window_hours, a.first_login_at, a.expires_at, a.created_at,
+    `SELECT a.id, a.owner_user_id, a.financial_years, a.entity_ids, a.access_level, a.window_hours, a.first_login_at, a.expires_at, a.created_at,
             o.name, o.email, o.business_name, o.currency
      FROM accountant_assignments a
      JOIN users o ON o.id = a.owner_user_id
@@ -127,6 +127,7 @@ export async function listAssignments(accountantUserId) {
     currency: r.currency || 'AUD',
     financialYears: parseYears(r.financial_years),
     entityIds: parseBooks(r.entity_ids),
+    canWrite: r.access_level === 'write',
     windowHours: normaliseWindowHours(r.window_hours) ?? ACCOUNTANT_WINDOW_HOURS,
     firstLoginAt: r.first_login_at,
     expiresAt: r.expires_at,
@@ -183,7 +184,7 @@ export async function hasAssignments(userId) {
 
 export async function findAssignment(accountantUserId, ownerUserId) {
   const [rows] = await pool.execute(
-    `SELECT a.id, a.financial_years, a.entity_ids, a.window_hours, a.first_login_at, a.expires_at
+    `SELECT a.id, a.financial_years, a.entity_ids, a.access_level, a.window_hours, a.first_login_at, a.expires_at
      FROM accountant_assignments a
      WHERE a.accountant_user_id = ? AND a.owner_user_id = ? AND ${LIVE_ASSIGNMENT}`,
     [accountantUserId, ownerUserId]
@@ -196,6 +197,9 @@ export async function findAssignment(accountantUserId, ownerUserId) {
     // null means every set of books. Read here so the middleware has it on
     // every request, the same as the years.
     entityIds: parseBooks(row.entity_ids),
+    // 'write' only when it says so. Anything else, including a value somebody
+    // put there by hand, reads as 'read'.
+    canWrite: row.access_level === 'write',
     windowHours: normaliseWindowHours(row.window_hours) ?? ACCOUNTANT_WINDOW_HOURS,
     firstLoginAt: row.first_login_at,
     expiresAt: row.expires_at,

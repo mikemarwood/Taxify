@@ -184,6 +184,10 @@ export async function ensureSchema() {
   // assignment made before this existed granted everything, and must keep
   // granting everything rather than silently narrowing to nothing.
   await pool.query(`ALTER TABLE accountant_assignments ADD COLUMN IF NOT EXISTS entity_ids VARCHAR(255) NULL`);
+  // 'read' or 'write'. Defaults to 'read', which is what every assignment made
+  // before this column existed granted — and what anybody who does not think
+  // about it should keep getting.
+  await pool.query(`ALTER TABLE accountant_assignments ADD COLUMN IF NOT EXISTS access_level VARCHAR(10) NOT NULL DEFAULT 'read'`);
 
   // How long the window lasts once opened, chosen by the client when they grant
   // access: 24, 48, 72 or 96 hours. A default rather than a constant now — an
@@ -885,6 +889,15 @@ export async function ensureSchema() {
   `);
 
   // For installs whose support tables were created a release before this.
+  // The Stripe coupon standing for this promo code, created the first time
+  // somebody redeems it and reused after that. Stored so a code does not
+  // accumulate a coupon per customer in the Stripe dashboard.
+  await pool.query(`ALTER TABLE promo_codes ADD COLUMN IF NOT EXISTS stripe_coupon_id VARCHAR(255) NULL`);
+  // When this account actually spent its promo code. The code is recorded at
+  // registration; the discount is not applied until they pay, and only once —
+  // without this a code would discount a second subscription after somebody
+  // cancelled and came back.
+  await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS promo_redeemed_at DATETIME NULL`);
   await pool.query(`ALTER TABLE support_tickets ADD COLUMN IF NOT EXISTS plan_change_request_id INT NULL`);
   // When each side last read the thread. A badge counts a ticket only while it
   // is both waiting on you *and* unread — otherwise the number sits there after

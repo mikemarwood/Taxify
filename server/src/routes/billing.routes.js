@@ -13,6 +13,7 @@ import { notify, notifyAdmins } from '../lib/notify.js';
 import { planLabel } from '../lib/planLimits.js';
 import { shouldApplyPayment } from '../lib/planRequests.js';
 import { generateReference } from '../lib/support.js';
+import { pendingPromoFor, stripeCouponFor } from '../lib/promoCodes.js';
 
 const uploadsDir = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', '..', 'uploads');
 
@@ -68,13 +69,39 @@ router.post(
 
     const priceId = await priceIdForPlan(planType);
 
+    // The promo code they registered with, applied to the first payment only.
+    //
+    // Until now a code was checked at registration, written on the account, and
+    // then had no effect whatever — checkout charged the full price. It is read
+    // here rather than there because this is the moment money changes hands, and
+    // a code can lapse or be exhausted in between.
+    //
+    // The coupon is created with duration 'once'. Stripe's default is 'forever',
+    // which would take the discount off every renewal for as long as somebody
+    // stayed subscribed — a code meant to win one customer would quietly cost
+    // the difference every year after.
+    let discounts;
+    let promoUsed = null;
+    try {
+      const promo = await pendingPromoFor(req.user.id, planType);
+      if (promo) {
+        discounts = [{ coupon: await stripeCouponFor(stripe, promo) }];
+        promoUsed = promo.code;
+      }
+    } catch (err) {
+      // A promo that cannot be turned into a coupon must not stop somebody
+      // paying. They are charged full price and we find out from the log.
+      console.error('Could not apply promo code at checkout', err);
+    }
+
     const session = await stripe.checkout.sessions.create({
       mode: 'subscription',
       customer: req.user.stripeCustomerId || undefined,
       customer_email: req.user.stripeCustomerId ? undefined : req.user.email,
       line_items: [{ price: priceId, quantity: 1 }],
+      ...(discounts ? { discounts } : {}),
       client_reference_id: String(req.user.id),
-      metadata: { userId: String(req.user.id), planType },
+      metadata: { userId: String(req.user.id), planType, ...(promoUsed ? { promoCode: promoUsed } : {}) },
       success_url: `${CLIENT_ORIGIN}/account?checkout=success`,
       cancel_url: `${CLIENT_ORIGIN}/account?checkout=cancelled`,
     });
@@ -545,6 +572,14 @@ router.post(
           // They may have switched plan at checkout, so the plan recorded here
           // is the one that was actually paid for.
           const planType = session.metadata?.planType === 'business' ? 'business' : 'individual';
+
+          // The promo is spent now, not when checkout opened. An abandoned
+          // session must not burn somebody's discount.
+          if (session.metadata?.promoCode) {
+            await pool
+              .execute('UPDATE users SET promo_redeemed_at = NOW() WHERE id = ? AND promo_redeemed_at IS NULL', [userId])
+              .catch((err) => console.error('Could not mark the promo redeemed', err));
+          }
           await pool.execute(
             `UPDATE users SET stripe_customer_id = ?, stripe_subscription_id = ?, subscription_status = 'active',
              plan_type = ?, subscription_current_period_end = FROM_UNIXTIME(?) WHERE id = ?`,
