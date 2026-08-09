@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useConfirm } from '../lib/ConfirmContext.jsx';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
@@ -32,7 +32,7 @@ const REASSURANCES = [
 ];
 
 export default function SubscriptionRequired() {
-  const { user } = useAuth();
+  const { user, refresh } = useAuth();
   const confirm = useConfirm();
   const toast = useToast();
   const [busy, setBusy] = useState(false);
@@ -40,6 +40,37 @@ export default function SubscriptionRequired() {
   // that was pressed says Pending instead of inviting a second ticket.
   const [asked, setAsked] = useState(0);
   const isOwner = user?.role === 'owner';
+
+  // Check with Stripe before telling somebody they have lapsed.
+  //
+  // This page is the one place we say "you have no access", and it was saying
+  // it on our own record alone. If a webhook was missed, or the payment landed
+  // on another device, or they simply closed the tab before being redirected
+  // back, that record is wrong and the person reading it has already paid.
+  //
+  // Asking Stripe here costs one call on the rarest page in the app and closes
+  // the hole for good: anybody who is locked out but has actually paid is let
+  // back in the moment they land on the screen that was about to tell them
+  // otherwise.
+  useEffect(() => {
+    if (!isOwner) return;
+    let alive = true;
+    api
+      .post('/billing/sync')
+      .then((res) => {
+        // Only when something actually moved. A refresh on every visit would
+        // re-render this page for no reason.
+        if (alive && res.data?.changed) refresh();
+      })
+      .catch(() => {
+        // Stripe unreachable, or nothing to sync. The page is already correct
+        // as far as we know, and an error here helps nobody.
+      });
+    return () => {
+      alive = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOwner]);
   const billing = describeSubscription(user);
 
   // Asks us to move them rather than opening Stripe.

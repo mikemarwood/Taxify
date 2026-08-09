@@ -130,6 +130,26 @@ router.post(
   })
 );
 
+// What to write for the end of the paid period.
+//
+// COALESCE(new, old) was the first attempt, to stop a renewal that arrived
+// without a date wiping the one it was extending. It does something worse: it
+// keeps the OLD date, which for a renewal is a date in the past — so the row
+// ends up saying active with an end date that has already gone, and
+// isRowActive reads that as lapsed. Somebody pays, Stripe confirms it, the
+// status flips to active, and they stay locked out.
+//
+// A live subscription with no readable end date is written as NULL instead,
+// which isRowActive treats as "active, no known end". When Stripe says the
+// subscription is live, erring towards access is right; erring towards a
+// lockout is the failure that takes money and gives nothing back. A date is
+// only ever preserved for a subscription that is *not* live, where there is
+// nothing to grant either way.
+function periodEndFor(status, seconds) {
+  if (seconds) return { value: seconds, keepOld: false };
+  return { value: null, keepOld: status !== 'active' };
+}
+
 // Ask Stripe what the truth is, now.
 //
 // Everything about a subscription reached us by webhook, and a webhook is a
@@ -184,13 +204,18 @@ router.post(
     // the account is pinned to rather than writing a null period end.
     const periodEnd = live.current_period_end || live.items?.data?.[0]?.current_period_end || null;
 
+    const ends = periodEndFor(status, periodEnd);
     await pool.execute(
       `UPDATE users
           SET stripe_customer_id = ?, stripe_subscription_id = ?, subscription_status = ?,
               plan_type = COALESCE(?, plan_type),
-              subscription_current_period_end = COALESCE(FROM_UNIXTIME(?), subscription_current_period_end)
+              subscription_current_period_end = ${
+                ends.keepOld ? 'subscription_current_period_end' : 'FROM_UNIXTIME(?)'
+              }
         WHERE id = ?`,
-      [customerId, live.id, status, planFromPrice, periodEnd, req.user.id]
+      ends.keepOld
+        ? [customerId, live.id, status, planFromPrice, req.user.id]
+        : [customerId, live.id, status, planFromPrice, ends.value, req.user.id]
     );
 
     res.json({ ok: true, changed: true, status, periodEnd });
@@ -934,10 +959,12 @@ router.post(
               .execute('UPDATE users SET promo_redeemed_at = NOW() WHERE id = ? AND promo_redeemed_at IS NULL', [userId])
               .catch((err) => console.error('Could not mark the promo redeemed', err));
           }
+          // Always written here, never preserved: this is a checkout that has
+          // just completed, so the subscription is live by definition and an
+          // old end date can only be in the past.
           await pool.execute(
             `UPDATE users SET stripe_customer_id = ?, stripe_subscription_id = ?, subscription_status = 'active',
-             plan_type = ?,
-             subscription_current_period_end = COALESCE(FROM_UNIXTIME(?), subscription_current_period_end)
+             plan_type = ?, subscription_current_period_end = FROM_UNIXTIME(?)
            WHERE id = ?`,
             [
               session.customer,
@@ -982,15 +1009,18 @@ router.post(
         // it was extending.
         const periodEnd = subscription.current_period_end || subscription.items?.data?.[0]?.current_period_end || null;
 
+        const ends = periodEndFor(status, periodEnd);
+        const endsSql = ends.keepOld ? 'subscription_current_period_end' : 'FROM_UNIXTIME(?)';
+        const endsArgs = ends.keepOld ? [] : [ends.value];
+
         await pool.execute(
           `UPDATE users
-              SET subscription_status = ?,
-                  subscription_current_period_end = COALESCE(FROM_UNIXTIME(?), subscription_current_period_end)
+              SET subscription_status = ?, subscription_current_period_end = ${endsSql}
                   ${planFromPrice ? ', plan_type = ?' : ''}
             WHERE stripe_customer_id = ?`,
           planFromPrice
-            ? [status, periodEnd, planFromPrice, subscription.customer]
-            : [status, periodEnd, subscription.customer]
+            ? [status, ...endsArgs, planFromPrice, subscription.customer]
+            : [status, ...endsArgs, subscription.customer]
         );
         break;
       }
