@@ -1050,6 +1050,39 @@ export async function ensureSchema() {
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
   `);
 
+  // Money that has actually arrived.
+  //
+  // Stripe knows all of this, but answering "what came in this week" meant
+  // calling Stripe on every page load, paging through invoices and matching
+  // customers back to accounts. Written down as it happens instead, so the
+  // admin panel can read it like any other table — and so a Stripe outage
+  // costs a page nothing.
+  //
+  // stripe_invoice_id is unique because webhooks are delivered more than once.
+  // Without it a retried delivery counts the same payment twice, and a total
+  // that overstates takings is worse than no total.
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS payments (
+      id INT PRIMARY KEY AUTO_INCREMENT,
+      user_id INT NULL,
+      stripe_invoice_id VARCHAR(255) NOT NULL,
+      amount_cents INT NOT NULL,
+      currency VARCHAR(10) NOT NULL,
+      -- subscription | plan_change. What the money was for, so a renewal and
+      -- a one-off can be told apart without reading the description.
+      kind VARCHAR(20) NOT NULL DEFAULT 'subscription',
+      description VARCHAR(300) NULL,
+      invoice_url VARCHAR(500) NULL,
+      paid_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE KEY uniq_payment_invoice (stripe_invoice_id),
+      KEY idx_payments_when (paid_at),
+      -- The payment outlives the account. Somebody deleting their account
+      -- does not unmake the money, and a takings figure that changes when
+      -- somebody leaves is not a takings figure.
+      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+  `);
+
   // One-time backfill: accounts created before the billing system existed are
   // grandfathered onto a fresh trial rather than being treated as unactivated.
   const backfillDone = await getSetting('billing_backfill_done');

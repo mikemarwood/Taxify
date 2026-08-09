@@ -1320,6 +1320,60 @@ router.post(
 //
 // This voids it properly and puts the request back to pending, so a correct
 // invoice can be raised in its place from the same ticket.
+// Money that has arrived, newest first.
+//
+// A page at a time rather than everything: this table only grows, and a
+// panel that fetches every payment ever taken gets slower every week it is
+// used. Twenty is what fits on a screen without scrolling past it.
+router.get(
+  '/payments',
+  asyncHandler(async (req, res) => {
+    const perPage = 20;
+    const page = Math.max(1, Math.min(999, Number(req.query?.page) || 1));
+
+    const [[counted]] = await pool.query('SELECT COUNT(*) AS n FROM payments');
+    const [rows] = await pool.query(
+      `SELECT p.*, u.name, u.email, u.account_number
+         FROM payments p LEFT JOIN users u ON u.id = p.user_id
+        ORDER BY p.paid_at DESC, p.id DESC
+        LIMIT ${perPage} OFFSET ${(page - 1) * perPage}`
+    );
+
+    // What came in recently, for the figure above the list. Worked out in the
+    // database rather than by adding up the page — the page is twenty rows,
+    // and a total of twenty rows is not a total of anything.
+    const [[week]] = await pool.query(
+      `SELECT COALESCE(SUM(amount_cents), 0) AS cents, COUNT(*) AS n FROM payments
+        WHERE paid_at > DATE_SUB(NOW(), INTERVAL 7 DAY)`
+    );
+    const [[month]] = await pool.query(
+      `SELECT COALESCE(SUM(amount_cents), 0) AS cents, COUNT(*) AS n FROM payments
+        WHERE paid_at > DATE_SUB(NOW(), INTERVAL 30 DAY)`
+    );
+
+    res.json({
+      payments: rows.map((r) => ({
+        id: r.id,
+        userId: r.user_id,
+        name: r.name || null,
+        email: r.email || null,
+        accountNumber: r.account_number || null,
+        amountCents: r.amount_cents,
+        currency: r.currency,
+        kind: r.kind,
+        description: r.description,
+        invoiceUrl: r.invoice_url,
+        paidAt: r.paid_at,
+      })),
+      total: Number(counted.n) || 0,
+      page,
+      perPage,
+      week: { cents: Number(week.cents) || 0, count: Number(week.n) || 0 },
+      month: { cents: Number(month.cents) || 0, count: Number(month.n) || 0 },
+    });
+  })
+);
+
 router.post(
   '/plan-requests/:id/void',
   asyncHandler(async (req, res) => {

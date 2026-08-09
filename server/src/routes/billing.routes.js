@@ -568,6 +568,33 @@ router.post(
         const customerId = typeof invoice.customer === 'string' ? invoice.customer : invoice.customer?.id;
         if (customerId) {
           const [owner] = await pool.execute('SELECT id FROM users WHERE stripe_customer_id = ?', [customerId]);
+
+          // Written down as it happens, so the admin panel can answer "what
+          // came in this week" without calling Stripe and paging through
+          // invoices on every load. INSERT IGNORE against a unique invoice id:
+          // webhooks are delivered more than once, and a retried delivery must
+          // not count the same payment twice.
+          try {
+            await pool.execute(
+              `INSERT IGNORE INTO payments
+                 (user_id, stripe_invoice_id, amount_cents, currency, kind, description, invoice_url, paid_at)
+               VALUES (?, ?, ?, ?, ?, ?, ?, NOW())`,
+              [
+                owner[0]?.id ?? null,
+                invoice.id,
+                invoice.amount_paid ?? 0,
+                (invoice.currency || 'aud').toUpperCase(),
+                invoice.metadata?.planChangeRequestId ? 'plan_change' : 'subscription',
+                (invoice.description || invoice.lines?.data?.[0]?.description || null)?.slice(0, 300) ?? null,
+                invoice.hosted_invoice_url || null,
+              ]
+            );
+          } catch (err) {
+            // Never fail the webhook over bookkeeping. Stripe retries a
+            // failure, and a retry would redo the parts that already worked.
+            console.error('Could not record the payment', err.message);
+          }
+
           if (owner[0]?.id) {
             try {
               await storeInvoicePdf(uploadsDir, owner[0].id, invoice);

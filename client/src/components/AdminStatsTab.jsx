@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { motion } from 'framer-motion';
 import { api } from '../lib/api.js';
 import Icon from './Icon.jsx';
+import RecentPayments from './RecentPayments.jsx';
 import Avatar from './Avatar.jsx';
 import { formatDateShort, formatDateTime } from '../lib/dates.js';
 
@@ -302,6 +303,11 @@ export default function AdminStatsTab({ onHowItWorks }) {
         <BarChart data={series.visits} colour="var(--accent)" label={`People using Taxify — last ${series.days} days`} />
         <BarChart data={series.signups} colour="var(--emerald)" label={`New registrations — last ${series.days} days`} />
       </div>
+
+      {/* Above the two who-is-here panels: what came in matters more than who
+          happens to be logged in, and it was the one thing this page could not
+          answer at all. */}
+      <RecentPayments />
 
       <div style={{ display: 'grid', gap: 12, gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))' }}>
         <Panel title="Here right now" icon="users" live>
