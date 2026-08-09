@@ -144,8 +144,18 @@ router.get(
   requireSupportStaff,
   asyncHandler(async (req, res) => {
     const [rows] = await pool.execute(
-      `SELECT t.*, u.name, u.email, u.avatar_path
-         FROM support_tickets t LEFT JOIN users u ON u.id = t.user_id WHERE t.id = ?`,
+      // The assignee joined here as well as in the list above.
+      //
+      // It was not, so assigned_name came back undefined and the panel above
+      // the conversation read "null is dealing with this" the moment a ticket
+      // was handed to somebody. The list beside it showed the right name from
+      // the same column, which is what made it look like the handover had
+      // failed rather than the query.
+      `SELECT t.*, u.name, u.email, u.avatar_path, a.name AS assigned_name
+         FROM support_tickets t
+         LEFT JOIN users u ON u.id = t.user_id
+         LEFT JOIN users a ON a.id = t.assigned_to
+        WHERE t.id = ?`,
       [req.params.id]
     );
     if (!rows[0]) return res.status(404).json({ error: 'Not found' });
@@ -391,6 +401,26 @@ router.get(
 // Anybody on support may take an unassigned one. Only the person holding it, or
 // an administrator, may hand it back — otherwise two people can pull it off
 // each other while they are both typing.
+// A handover, written into the conversation.
+//
+// Deliberately does not touch status or last_message_at. Somebody taking a
+// ticket has not answered it, and marking it as replied to would drop it off
+// the queue that exists to make sure it gets one.
+//
+// Never allowed to fail the handover itself: the assignment has already been
+// made, and throwing here would report a failure for something that worked.
+async function recordHandover(ticketId, body) {
+  try {
+    await pool.execute(
+      `INSERT INTO support_messages (ticket_id, author_user_id, author_role, author_name, body)
+       VALUES (?, NULL, 'system', 'Taxify', ?)`,
+      [ticketId, body]
+    );
+  } catch (err) {
+    console.error('Could not record the handover on the ticket', err);
+  }
+}
+
 router.post(
   '/support/tickets/:id/assign',
   requireSupportStaff,
@@ -409,6 +439,7 @@ router.post(
         'UPDATE support_tickets SET assigned_to = NULL, assigned_at = NULL, updated_at = NOW() WHERE id = ?',
         [ticket.id]
       );
+      await recordHandover(ticket.id, `${req.user.name || 'Support'} put this back in the queue`);
       return res.json({ ok: true, assignedTo: null });
     }
 
@@ -434,6 +465,20 @@ router.post(
     await pool.execute(
       'UPDATE support_tickets SET assigned_to = ?, assigned_at = NOW(), updated_at = NOW() WHERE id = ?',
       [target, ticket.id]
+    );
+
+    // Written into the conversation, so who is dealing with it is part of the
+    // record rather than a field that quietly changed. Both sides read it: a
+    // customer waiting on an answer should be able to see that somebody has
+    // picked it up and who, and the next person on the support side should be
+    // able to see how it got to them.
+    const [named] = await pool.execute('SELECT name FROM users WHERE id = ?', [target]);
+    const who = named[0]?.name || 'a member of the support team';
+    await recordHandover(
+      ticket.id,
+      target === req.user.id
+        ? `${who} picked this up`
+        : `${req.user.name || 'An administrator'} passed this to ${who}`
     );
 
     // Only the person it went to. Telling the whole team about a ticket none of

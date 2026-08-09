@@ -62,7 +62,7 @@ function Row({ ticket, active, onOpen }) {
         <div style={{ fontSize: 11, color: 'var(--text-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
           {ticket.who || 'Someone'}
           {ticket.isGuest && ' · guest'} · {ticket.categoryLabel}
-          {ticket.assignedName ? ` · ${ticket.assignedName}` : ' · unassigned'}
+          {ticket.assignedTo ? ` · ${ticket.assignedName || 'assigned'}` : ' · unassigned'}
           {ticket.priority && ticket.priority !== 'normal' && (
             <span style={{ color: PRIORITIES.find((x) => x.value === ticket.priority)?.colour, fontWeight: 700 }}>
               {' · '}
@@ -312,6 +312,37 @@ export default function SupportTab() {
   }
 
   async function assign(userId) {
+    const to = userId ? staff.find((person) => person.id === userId) : null;
+    const held = thread?.ticket?.assignedTo ? thread.ticket.assignedName : null;
+
+    const ok = await confirm({
+      title: to ? `Pass this to ${to.name}?` : 'Take this ticket?',
+      body: to ? (
+        <>
+          <div style={{ marginBottom: 8 }}>
+            {to.id === user?.id
+              ? 'It becomes yours to answer.'
+              : `${to.name} becomes the only person who can reply to it, and they will be notified.`}
+          </div>
+          <div>
+            {held
+              ? `${held} is dealing with it at the moment and will no longer be able to reply.`
+              : 'Nobody is dealing with it at the moment.'}
+          </div>
+        </>
+      ) : (
+        <>
+          <div style={{ marginBottom: 8 }}>
+            It becomes yours to answer, and nobody else on the team will be able to reply to it.
+          </div>
+          <div>You can hand it back at any time.</div>
+        </>
+      ),
+      confirmLabel: to ? 'Pass it over' : 'Take it',
+      cancelLabel: 'Not now',
+    });
+    if (!ok) return;
+
     setBusy(true);
     try {
       await api.post(`/admin/support/tickets/${openId}/assign`, userId ? { userId } : {});
@@ -633,7 +664,12 @@ export default function SupportTab() {
                 {thread.ticket.assignedTo
                   ? mine
                     ? 'You are dealing with this'
-                    : `${thread.ticket.assignedName} is dealing with this`
+                    : // Falls back to a description rather than printing the
+                      // value. The panel read "null is dealing with this" for
+                      // as long as the query behind it forgot to fetch the
+                      // name, and a screen that prints null is a screen nobody
+                      // trusts afterwards.
+                      `${thread.ticket.assignedName || 'Somebody on the team'} is dealing with this`
                   : 'Nobody has picked this up'}
               </span>
 
