@@ -167,22 +167,24 @@ export async function priceIdForPlan(planType) {
 const PLAN_COPY = {
   individual: {
     name: 'Individual',
-    tagline: 'For one person keeping their own records.',
+    tagline: 'Every deduction you are owed, kept as you go.',
     features: [
-      'Your own individual tax — 1 set of books',
-      'Unlimited expenses and receipts',
-      'Year-over-year reports and exports',
-      'Read-only accountant access',
+      'Photograph a receipt and it files itself',
+      'Unlimited expenses and receipts — nothing is ever archived away',
+      'Every year side by side, exported in one click',
+      'Give your accountant read-only access, and take it back when you like',
+      'Your records stay yours if you ever stop paying',
     ],
   },
   business: {
     name: 'Small Business',
-    tagline: 'One individual tax return, plus up to two small businesses.',
+    tagline: 'Your own return and up to two businesses, never mixed up.',
     features: [
-      'Your own individual tax — 1 set of books',
-      'Up to 2 small businesses, each with its own books',
-      'Separate reports and lodgement for each',
-      'Read-only accountant access',
+      'Everything in Individual, for your personal return',
+      'Up to two businesses, each with books of their own',
+      'Separate totals and reports for each — no untangling at tax time',
+      'Give your accountant read-only access, and take it back when you like',
+      'Your records stay yours if you ever stop paying',
     ],
   },
 };
