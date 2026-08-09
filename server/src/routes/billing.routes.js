@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import pool from '../db.js';
+import pool, { setSetting, getSetting } from '../db.js';
 import { requireAuth, requireAccountOwner } from '../auth/middleware.js';
 import { asyncHandler } from '../lib/asyncHandler.js';
 import fs from 'fs';
@@ -696,6 +696,17 @@ router.post(
       console.error('Stripe webhook signature verification failed', err.message);
       return res.status(400).send(`Webhook Error: ${err.message}`);
     }
+
+    // Recorded before anything is acted on, and never allowed to fail the
+    // webhook. This is how the admin panel can say "the last one arrived four
+    // minutes ago" rather than only "Stripe says it is configured" — a
+    // configured endpoint that is being rejected on a stale signing secret
+    // looks identical from Stripe's side, and that is the failure that cost a
+    // customer their access.
+    //
+    // Only reached after the signature has verified, so it means a genuine
+    // delivery we understood, not merely a request arriving.
+    setSetting('stripe_webhook_last_event', `${event.type}|${new Date().toISOString()}`).catch(() => {});
 
     switch (event.type) {
       // An invoice an administrator raised for a plan change has been paid.

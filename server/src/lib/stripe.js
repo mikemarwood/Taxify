@@ -164,6 +164,22 @@ export async function priceIdForPlan(planType) {
 // account may hold. Everything else — reports, exports, receipts, accountant
 // access — is on both, and listing a shared feature under one plan reads as an
 // upsell that isn't real, which someone finds out only after paying.
+// Every event the webhook acts on.
+//
+// An endpoint missing one of these fails silently: Stripe reports the delivery
+// as successful because it never sent it, and the app simply never learns what
+// happened. checkout.session.completed going missing is what left somebody who
+// had paid to renew locked out of their own account, holding a receipt.
+export const REQUIRED_WEBHOOK_EVENTS = [
+  'checkout.session.completed',
+  'invoice.paid',
+  'invoice.payment_succeeded',
+  'invoice.voided',
+  'invoice.marked_uncollectible',
+  'customer.subscription.updated',
+  'customer.subscription.deleted',
+];
+
 const PLAN_COPY = {
   individual: {
     name: 'Individual',

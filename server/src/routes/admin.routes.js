@@ -15,7 +15,7 @@ import { computeAccessLocked } from '../auth/access.js';
 import { collectStats } from '../lib/adminStats.js';
 import { accountSummary, targetProblem, cloneAccount } from '../lib/cloneAccount.js';
 import { assignAccountNumber } from '../lib/accountNumber.js';
-import { getSignupPlans, getStripe, planTypeForPriceId } from '../lib/stripe.js';
+import { getSignupPlans, getStripe, getStripeConfig, planTypeForPriceId, REQUIRED_WEBHOOK_EVENTS } from '../lib/stripe.js';
 import { canTransition } from '../lib/planRequests.js';
 import { publicOrigin } from '../lib/publicOrigin.js';
 import { asyncHandler } from '../lib/asyncHandler.js';
@@ -1316,6 +1316,72 @@ router.post(
 // A page at a time rather than everything: this table only grows, and a
 // panel that fetches every payment ever taken gets slower every week it is
 // used. Twenty is what fits on a screen without scrolling past it.
+// Is the webhook actually working?
+//
+// Not "is a secret set" — that was true throughout the outage. Three separate
+// things have to hold, and each fails in a way the other two cannot see:
+//
+//   1. Stripe has an endpoint pointed at us.
+//   2. That endpoint is subscribed to every event we act on. A missing one is
+//      silent at both ends: Stripe reports success because it never sent it,
+//      and we never learn what happened.
+//   3. What it sends is being accepted. A rotated signing secret leaves the
+//      endpoint looking perfectly healthy in Stripe while every delivery is
+//      rejected, which is exactly what locked a paying customer out.
+//
+// (3) cannot be read from Stripe, so it is answered from our own side: the
+// webhook records the last event it verified, and this reports how long ago
+// that was.
+router.get(
+  '/stripe/webhook-health',
+  asyncHandler(async (req, res) => {
+    const { webhookSecret } = await getStripeConfig();
+    const origin = publicOrigin();
+
+    const last = await getSetting('stripe_webhook_last_event');
+    const [lastType, lastAt] = String(last || '').split('|');
+
+    let endpoints = [];
+    let problem = null;
+    try {
+      const stripe = await getStripe();
+      const list = await stripe.webhookEndpoints.list({ limit: 20 });
+      endpoints = list.data
+        .filter((e) => e.status !== 'disabled')
+        .map((e) => ({
+          url: e.url,
+          // "*" means every event, which satisfies everything below.
+          events: e.enabled_events || [],
+          // Only endpoints pointing at this install matter. A test-mode or
+          // staging endpoint on the same account is not evidence about us.
+          ours: String(e.url || '').startsWith(origin),
+        }));
+    } catch (err) {
+      problem = err.message;
+    }
+
+    const mine = endpoints.filter((e) => e.ours);
+    const covered = new Set();
+    for (const e of mine) {
+      if (e.events.includes('*')) REQUIRED_WEBHOOK_EVENTS.forEach((x) => covered.add(x));
+      else e.events.forEach((x) => covered.add(x));
+    }
+    const missing = REQUIRED_WEBHOOK_EVENTS.filter((x) => !covered.has(x));
+
+    res.json({
+      origin,
+      secretSet: Boolean(webhookSecret),
+      endpoints,
+      matching: mine.length,
+      required: REQUIRED_WEBHOOK_EVENTS,
+      missing,
+      lastEventType: lastType || null,
+      lastEventAt: lastAt || null,
+      problem,
+    });
+  })
+);
+
 router.get(
   '/payments',
   asyncHandler(async (req, res) => {

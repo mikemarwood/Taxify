@@ -13,6 +13,7 @@ import {
 import { useToast } from '../components/Toast.jsx';
 import { SkeletonList } from '../components/Skeletons.jsx';
 import Icon from '../components/Icon.jsx';
+import WebhookHealth from '../components/WebhookHealth.jsx';
 import PromoCodesTab from '../components/PromoCodesTab.jsx';
 import { useConfirm } from '../lib/ConfirmContext.jsx';
 import AdminStatsTab from '../components/AdminStatsTab.jsx';
@@ -1074,6 +1075,11 @@ function StripeSettingsTab() {
         live and test credentials here, then flip the active mode to try out plans with Stripe's test cards without
         touching real payments.
       </p>
+
+      {/* First, because it is the thing most likely to be wrong and the
+          hardest to notice. Everything below is a key you either pasted or
+          did not. */}
+      <WebhookHealth />
 
       <div className="card" style={{ padding: 20, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <div>
