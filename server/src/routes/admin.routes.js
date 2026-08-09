@@ -8,7 +8,7 @@ import { normalisePromoCode, isValidPromoCodeFormat } from '../lib/promoCodes.js
 import pool, { getSetting, setSetting, getMfaMode } from '../db.js';
 import { sendPlanChangedEmail } from '../lib/mailer.js';
 import { planLabel as planLabelFor } from '../lib/planLimits.js';
-import { requireAuth, requireAdmin, requireSupportStaff } from '../auth/middleware.js';
+import { requireAuth, requireAdmin } from '../auth/middleware.js';
 import { signViewAsToken, cookieOptions, COOKIE_NAME } from '../auth/jwt.js';
 import { toPublicUser } from '../auth/publicUser.js';
 import { computeAccessLocked } from '../auth/access.js';
@@ -16,12 +16,8 @@ import { collectStats } from '../lib/adminStats.js';
 import { accountSummary, targetProblem, cloneAccount } from '../lib/cloneAccount.js';
 import { assignAccountNumber } from '../lib/accountNumber.js';
 import { getSignupPlans, getStripe, planTypeForPriceId } from '../lib/stripe.js';
-import { amountProblem, canTransition } from '../lib/planRequests.js';
-import { shapeTicket, messagesFor, addReply, ticketUrl, upload, editMessage } from './support.routes.js';
-import { categoryLabel, isPriority, PRIORITIES } from '../lib/support.js';
-import { removeTicketFiles, MAX_ATTACHMENTS_PER_MESSAGE } from '../lib/supportAttachments.js';
+import { canTransition } from '../lib/planRequests.js';
 import { publicOrigin } from '../lib/publicOrigin.js';
-import { sendSupportClosedEmail } from '../lib/mailer.js';
 import { asyncHandler } from '../lib/asyncHandler.js';
 import { toTitleCase } from '../lib/text.js';
 import {
@@ -29,14 +25,9 @@ import {
   saveSmtpConfig,
   sendTestEmail,
   diagnoseSmtp,
-  sendAdminCreatedAccountEmail,
   sendAccountantAccessEndedEmail,
 } from '../lib/mailer.js';
 import { getStripeAdminSettings, saveStripeAdminSettings, getStripeSecretKeyForMode } from '../lib/stripe.js';
-import { hashPassword } from '../auth/password.js';
-import { generateActivationToken } from '../auth/activationToken.js';
-import { seedDefaultCategories } from '../seed/defaultCategories.js';
-import { ensureDefaultEntity } from '../lib/entities.js';
 import { isFinancialYearLabel } from '../lib/financialYear.js';
 import { notify, verifyFcm } from '../lib/notify.js';
 import Stripe from 'stripe';

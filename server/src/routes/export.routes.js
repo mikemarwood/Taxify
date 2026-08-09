@@ -3,7 +3,7 @@ import ExcelJS from 'exceljs';
 import PDFDocument from 'pdfkit';
 import pool from '../db.js';
 import { requireAuth, requireActiveAccess } from '../auth/middleware.js';
-import { getVisibleUserIds, expenseScope, dataOwnerId } from '../auth/access.js';
+import { expenseScope, dataOwnerId } from '../auth/access.js';
 import { asyncHandler } from '../lib/asyncHandler.js';
 import path from 'path';
 import { fileURLToPath } from 'url';

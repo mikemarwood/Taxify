@@ -6,10 +6,8 @@ import { fileURLToPath } from 'url';
 import pool from '../db.js';
 import { requireAuth, requireActiveAccess } from '../auth/middleware.js';
 import { asyncHandler } from '../lib/asyncHandler.js';
-import { dataOwnerId } from '../auth/access.js';
 import { toTitleCase } from '../lib/text.js';
 import {
-  receiptsRootDir,
   entityReceiptsRootDir,
   categoryToFolderSegment,
   categoryDocumentDir,

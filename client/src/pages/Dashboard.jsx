@@ -10,7 +10,7 @@ import ReceiptLightbox from '../components/ReceiptLightbox.jsx';
 import ExportMenu from '../components/ExportMenu.jsx';
 import { defaultFinancialYear, financialYearSpan } from '../lib/financialYear.js';
 import Icon from '../components/Icon.jsx';
-import { formatMoney, claimable } from '../lib/money.js';
+import { claimable } from '../lib/money.js';
 import { FinancialYearCountdown, MonthlySpendChart, CategorySpendChart } from '../components/SpendCharts.jsx';
 import { useAuth } from '../lib/AuthContext.jsx';
 import { describeSubscription, toneColor } from '../lib/subscription.js';

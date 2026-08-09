@@ -17,7 +17,6 @@ import {
   storedFilename,
   isAllowedAttachment,
   isInsideTicket,
-  removeTicketFiles,
   MAX_ATTACHMENT_BYTES,
   MAX_ATTACHMENTS_PER_MESSAGE,
   ATTACHMENT_REJECTED_MESSAGE,
@@ -37,7 +36,6 @@ import {
 import {
   sendSupportTicketRaisedEmail,
   sendSupportReplyEmail,
-  sendSupportClosedEmail,
 } from '../lib/mailer.js';
 
 const uploadsDir = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', '..', 'uploads');

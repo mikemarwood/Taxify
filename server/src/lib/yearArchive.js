@@ -3,7 +3,7 @@ import path from 'path';
 import ExcelJS from 'exceljs';
 import PDFDocument from 'pdfkit';
 import { ZipArchive } from 'archiver';
-import { receiptDirFor, categoryToFolderSegment, categoryDocumentDir } from './receiptStorage.js';
+import { receiptDirFor, categoryDocumentDir } from './receiptStorage.js';
 import { addBrandHeader, addFooter } from './pdfBranding.js';
 import { financialYearRange } from './financialYear.js';
 

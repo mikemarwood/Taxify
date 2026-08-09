@@ -28,17 +28,14 @@ import {
 import {
   sendOtpEmail,
   sendActivationEmail,
-  sendInviteEmail,
   sendAccountActivatedEmail,
   sendPasswordResetEmail,
   sendPasswordChangedEmail,
   sendEmailChangeEmail,
   sendEmailChangedNoticeEmail,
-  sendAccountantAccessGrantedEmail,
   sendAccountantInviteEmail,
   sendAccountantSignUpNeededEmail,
   sendAccountantInviteAcceptedEmail,
-  sendAccountantAccessUpdatedEmail,
   sendAccountantAccessEndedEmail,
 } from '../lib/mailer.js';
 import { notify } from '../lib/notify.js';
@@ -58,8 +55,6 @@ import { assignAccountNumber } from '../lib/accountNumber.js';
 import { getSignupPlans } from '../lib/stripe.js';
 import { evaluatePromoCode, recordPromoRedemption } from '../lib/promoCodes.js';
 import { publicOrigin } from '../lib/publicOrigin.js';
-import { titleCase } from '../lib/text.js';
-import { inviteFieldsProblem, tidy } from '../lib/inviteFields.js';
 
 const TRIAL_DAYS = 14;
 
@@ -582,21 +577,6 @@ router.post(
 
     const normalizedEmail = String(email).trim().toLowerCase();
 
-    // A family member is a second person on this account, so there is only ever
-    // room for one and only on the plan that includes them.
-    if (role === 'sub_user') {
-      if (req.user.planType !== 'family') {
-        return res.status(400).json({ error: 'Only an accountant can be invited' });
-      }
-      const [existingRows] = await pool.execute(
-        "SELECT id FROM users WHERE account_holder_id = ? AND role = 'sub_user'",
-        [req.user.id]
-      );
-      if (existingRows.length > 0) {
-        return res.status(400).json({ error: 'Only an accountant can be invited' });
-      }
-    }
-
     // Only accountants can be scoped to particular years. A family member is a
     // co-owner of the same books, not a visitor with a reading window.
     //
@@ -606,7 +586,7 @@ router.post(
     // history, so a client who mistyped their years handed over everything.
     let yearScope = null;
     let rejectedYears = [];
-    if (role === 'accountant' && req.body?.allYears !== true) {
+    if (req.body?.allYears !== true) {
       const grant = parseYearGrant(financialYears);
       if (!grant.ok) {
         return res.status(400).json({

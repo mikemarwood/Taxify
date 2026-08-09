@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useState } from 'react';
 import { motion } from 'framer-motion';
 import { api } from '../lib/api.js';
-import { SkeletonList, SkeletonStat } from '../components/Skeletons.jsx';
+import { SkeletonStat } from '../components/Skeletons.jsx';
 import Icon from '../components/Icon.jsx';
-import { formatMoney, claimable } from '../lib/money.js';
+import { claimable } from '../lib/money.js';
 import CategoryBadge from '../components/CategoryBadge.jsx';
 import ExpenseModal from '../components/ExpenseModal.jsx';
 import ExportMenu from '../components/ExportMenu.jsx';

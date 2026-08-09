@@ -54,7 +54,7 @@ const FLOWS = [
     title: 'Somebody changes plan',
     icon: 'credit-card',
     steps: [
-      { label: 'They ask', detail: 'From their billing page', file: 'PlanChangeRequest.jsx' },
+      { label: 'They ask', detail: 'From their billing page', file: 'Account.jsx' },
       { label: 'A ticket is raised', detail: 'So it sits in the same queue as everything else', file: 'billing.routes.js' },
       { label: 'You invoice', detail: 'At the plan’s own price — Stripe emails it', file: 'PlanRequestPanel.jsx' },
       { label: 'Wrong one? Withdraw it', detail: 'Voided in Stripe, request back to pending, re-invoice', file: 'admin.routes.js' },
@@ -73,7 +73,7 @@ const FLOWS = [
       { label: 'The period extends itself', detail: 'The subscription webhook writes the new end date', file: 'billing.routes.js' },
       { label: 'Or it lapses', detail: 'Access locks. Their records are untouched and still theirs', file: 'access.js' },
       { label: 'They renew', detail: 'Same plan is an ordinary checkout — no ticket, no waiting', file: 'SubscriptionRequired.jsx' },
-      { label: 'Or they move', detail: 'A different plan raises a request, and that needs a person', file: 'PlanChangeRequest.jsx' },
+      { label: 'Or they move', detail: 'A different plan raises a request, and that needs a person', file: 'Account.jsx' },
     ],
     rule: 'Renewing and changing are not the same job. Renewing needs nobody: same plan, published price, a card Stripe already holds. Changing needs somebody, because the price and the dates have to be decided. Sending both down the same road is what left a lapsed customer waiting on a human to take money Stripe could have taken unattended.',
   },
