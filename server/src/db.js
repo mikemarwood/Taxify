@@ -124,7 +124,13 @@ export async function ensureSchema() {
   await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS promo_code VARCHAR(40) NULL`);
   // Reminders are sent on a schedule before an unactivated account is purged,
   // so the job needs to know which ones have already gone out.
-  await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS activation_reminded_at DATETIME NULL`);
+  //
+  // That is what sent_reminders does, keyed by user and reminder — this column
+  // was the first attempt at the same thing and could only remember one
+  // reminder per account. Nothing has read or written it since. Dropped rather
+  // than left, because a column nobody writes is one somebody eventually
+  // trusts.
+  await pool.query(`ALTER TABLE users DROP COLUMN IF EXISTS activation_reminded_at`);
 
   // Password resets. Only the hash is stored, same as activation tokens — a
   // stolen database backup then can't be used to reset anybody's password.

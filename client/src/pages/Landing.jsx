@@ -407,14 +407,17 @@ export default function Landing() {
             {[
               ['shot-capture', 'You do this', 'Photograph it and move on', 'One tap at the counter. Taxify reads the date and the total, and files it under the right category and year.'],
               ['shot-expenses', 'Taxify does this', 'Everything in one place', 'Sorted, searchable, with the receipt attached to the expense — so a question in two years takes a moment, not an afternoon.'],
-              ['shot-reports.png', 'Come tax time', 'The numbers, already added up', 'Every category, every year side by side. Hand it to your accountant, or copy it straight into your return.'],
-            ].map(([file, step, title, text]) => (
+              ['shot-reports.png', 'Come tax time', 'The numbers, already added up', 'Every category, every year side by side. Hand it to your accountant, or copy it straight into your return.', [966, 896]],
+            ].map(([file, step, title, text, size = [480, 360]]) => (
+              // Its own shape, so the browser reserves the right box and the
+              // section does not jump as each one loads. They were all declared
+              // 4:3, which the real screenshot is not.
               <div key={file} style={{ minWidth: 0 }}>
                 <img
                   src={`/media/${file.includes('.') ? file : `${file}.svg`}`}
                   alt={title}
-                  width="480"
-                  height="360"
+                  width={size[0]}
+                  height={size[1]}
                   loading="lazy"
                   role="button"
                   tabIndex={0}
