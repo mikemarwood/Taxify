@@ -7,11 +7,18 @@
 
 export const STATUSES = ['pending', 'invoiced', 'paid', 'cancelled'];
 
-// Which moves are legal. Anything not listed is refused — including every
-// backwards move, because paid and cancelled are both final.
+// Which moves are legal. Anything not listed is refused — paid and cancelled
+// are both final, and nothing climbs back out of either.
+//
+// invoiced -> pending is the one backwards move there is, and it exists
+// because a wrong invoice had no way out. An invoice for the wrong plan or
+// the wrong amount could only be cancelled, which killed the request and left
+// the customer to ask again from the start — and left the invoice itself live
+// and payable in Stripe. The move is only legal alongside voiding that
+// invoice; see /plan-requests/:id/void, which is the only caller.
 const ALLOWED = {
   pending: ['invoiced', 'cancelled'],
-  invoiced: ['paid', 'cancelled'],
+  invoiced: ['paid', 'cancelled', 'pending'],
   paid: [],
   cancelled: [],
 };

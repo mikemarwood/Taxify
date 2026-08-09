@@ -1308,18 +1308,136 @@ router.post(
   })
 );
 
+// Take an invoice back and start again.
+//
+// A wrong invoice had no way out. The amount is read from the plan, so the
+// usual reason is the wrong plan — somebody asked to move down, was invoiced
+// for the move up, and the only thing available was cancelling the request
+// altogether. That killed the request, made the customer ask again from the
+// start, and left the invoice itself live and payable in Stripe. If they then
+// paid it, the webhook took the money against a cancelled request and shouted
+// about it, which is a real payment for something nobody is going to grant.
+//
+// This voids it properly and puts the request back to pending, so a correct
+// invoice can be raised in its place from the same ticket.
+router.post(
+  '/plan-requests/:id/void',
+  asyncHandler(async (req, res) => {
+    const [rows] = await pool.execute('SELECT * FROM plan_change_requests WHERE id = ?', [req.params.id]);
+    const request = rows[0];
+    if (!request) return res.status(404).json({ error: 'Not found' });
+    if (request.status !== 'invoiced') {
+      return res.status(409).json({ error: `That request is ${request.status}, so there is no invoice to take back.` });
+    }
+
+    // Stripe first. If it refuses, nothing here changes — an invoice marked
+    // withdrawn in our database while still open in Stripe is the exact state
+    // this route exists to prevent.
+    if (request.stripe_invoice_id) {
+      const stripe = await getStripe();
+      try {
+        await stripe.invoices.voidInvoice(request.stripe_invoice_id);
+      } catch (err) {
+        // Already paid between the page loading and this being pressed. Said
+        // plainly rather than voided-then-refunded behind somebody's back.
+        if (err?.code === 'invoice_not_open' || /paid/i.test(err?.message || '')) {
+          return res.status(409).json({
+            error: 'Stripe says that invoice has already been paid. Refund it there before changing the plan.',
+          });
+        }
+        return res.status(502).json({ error: `Stripe would not void it: ${err.message}` });
+      }
+    }
+
+    await pool.execute(
+      `UPDATE plan_change_requests
+          SET status = 'pending', stripe_invoice_id = NULL, invoice_url = NULL,
+              invoice_amount_cents = NULL, invoice_currency = NULL, invoiced_at = NULL,
+              invoiced_by = NULL, invoice_due_at = NULL, updated_at = NOW()
+        WHERE id = ?`,
+      [request.id]
+    );
+
+    // On the ticket, for both sides. The customer had an invoice and a link
+    // that is about to stop working; saying nothing would leave them to
+    // discover that by trying to pay it.
+    try {
+      const [linked] = await pool.execute(
+        'SELECT id FROM support_tickets WHERE plan_change_request_id = ? LIMIT 1',
+        [request.id]
+      );
+      if (linked[0]) {
+        await pool.execute(
+          `INSERT INTO support_messages (ticket_id, author_user_id, author_role, author_name, body)
+           VALUES (?, NULL, 'system', 'Taxify', ?)`,
+          [
+            linked[0].id,
+            'That invoice has been withdrawn and there is nothing to pay on it. A corrected one is on its way — ' +
+              'nothing has been charged and your plan is unchanged.',
+          ]
+        );
+      }
+    } catch (err) {
+      console.error('Could not record the withdrawn invoice on the ticket', err);
+    }
+
+    try {
+      await notify(request.user_id, {
+        title: 'Your invoice has been withdrawn',
+        body: 'Nothing has been charged. We are sending a corrected one.',
+        url: '/account?tab=billing',
+        kind: 'billing',
+      });
+    } catch (err) {
+      console.error('Could not tell them the invoice was withdrawn', err);
+    }
+
+    res.json({ ok: true });
+  })
+);
+
 router.delete(
   '/plan-requests/:id',
   asyncHandler(async (req, res) => {
-    // Deliberately does not void anything in Stripe. An invoice that has been
-    // sent is a document somebody has received, and withdrawing it is a
-    // decision to make in Stripe with the rest of the billing record.
-    const [result] = await pool.execute(
-      `UPDATE plan_change_requests SET status = 'cancelled', cancelled_at = NOW(), updated_at = NOW()
-        WHERE id = ? AND status IN ('pending', 'invoiced')`,
-      [req.params.id]
+    const [rows] = await pool.execute('SELECT * FROM plan_change_requests WHERE id = ?', [req.params.id]);
+    const request = rows[0];
+    if (!request || !['pending', 'invoiced'].includes(request.status)) {
+      return res.status(404).json({ error: 'Not found' });
+    }
+
+    // The invoice is voided with it.
+    //
+    // This used to leave it alone on the grounds that a sent invoice is a
+    // document somebody has received. That was the wrong call: it left a live,
+    // payable invoice against a request nobody was going to honour, and the
+    // webhook has a branch for exactly that mess — money taken for a plan
+    // change that had been called off. Cancelling the request has to mean
+    // cancelling the bill, or it does not mean anything.
+    //
+    // A failure to void is reported rather than swallowed. Marking it
+    // cancelled here while it is still open in Stripe recreates the problem.
+    if (request.stripe_invoice_id) {
+      const stripe = await getStripe();
+      try {
+        await stripe.invoices.voidInvoice(request.stripe_invoice_id);
+      } catch (err) {
+        if (err?.code === 'invoice_not_open' || /paid/i.test(err?.message || '')) {
+          return res.status(409).json({
+            error: 'Stripe says that invoice has already been paid. Refund it there first.',
+          });
+        }
+        return res.status(502).json({ error: `Stripe would not void the invoice: ${err.message}` });
+      }
+    }
+
+    await pool.execute(
+      `UPDATE plan_change_requests
+          SET status = 'cancelled', cancelled_at = NOW(),
+              voided_at = CASE WHEN stripe_invoice_id IS NULL THEN voided_at ELSE NOW() END,
+              updated_at = NOW()
+        WHERE id = ?`,
+      [request.id]
     );
-    if (result.affectedRows === 0) return res.status(404).json({ error: 'Not found' });
     res.json({ ok: true });
   })
 );

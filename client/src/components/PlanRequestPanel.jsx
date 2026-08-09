@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { api } from '../lib/api.js';
 import Icon from './Icon.jsx';
 import { useToast } from './Toast.jsx';
+import { useConfirm } from '../lib/ConfirmContext.jsx';
 import { planLabel } from '../lib/plans.js';
 import { formatDateLong } from '../lib/dates.js';
 import { sentenceCase } from '../lib/text.js';
@@ -34,10 +35,46 @@ const DUE_OPTIONS = [
 
 export default function PlanRequestPanel({ request, onChanged }) {
   const toast = useToast();
+  const confirm = useConfirm();
   const [description, setDescription] = useState(`Taxify — Change plan to ${planLabel(request.toPlan)}`);
   const [days, setDays] = useState(0);
   const [busy, setBusy] = useState(false);
   const [open, setOpen] = useState(false);
+
+  // Take the invoice back and start again.
+  //
+  // The usual reason is the wrong plan — somebody asked to move down and was
+  // invoiced for the move up. Until now the only thing available was
+  // cancelling the request, which killed it, made them ask again from the
+  // start, and left the invoice live and payable in Stripe.
+  async function voidInvoice() {
+    const ok = await confirm({
+      title: 'Withdraw this invoice?',
+      body: (
+        <>
+          <div style={{ marginBottom: 8 }}>
+            It is voided in Stripe, so it can no longer be paid, and the customer is told on this ticket.
+          </div>
+          <div>You can then send a corrected one from here. Nothing has been charged either way.</div>
+        </>
+      ),
+      confirmLabel: 'Withdraw it',
+      cancelLabel: 'Leave it',
+      danger: true,
+    });
+    if (!ok) return;
+
+    setBusy(true);
+    try {
+      await api.post(`/admin/plan-requests/${request.id}/void`);
+      toast('Invoice withdrawn — send a new one when you are ready', 'success');
+      onChanged?.();
+    } catch (err) {
+      toast(err.message, 'error');
+    } finally {
+      setBusy(false);
+    }
+  }
 
   // The amount is the plan's own price, read from Stripe by the server. It was
   // a text box, which meant the figure on the invoice and the figure on the
@@ -121,16 +158,29 @@ export default function PlanRequestPanel({ request, onChanged }) {
         </div>
       )}
 
-      {sent && request.invoiceUrl && (
-        <a
-          className="btn btn-ghost"
-          href={request.invoiceUrl}
-          target="_blank"
-          rel="noreferrer"
-          style={{ fontSize: 12.5, textDecoration: 'none', alignSelf: 'flex-start' }}
-        >
-          View the invoice
-        </a>
+      {sent && (
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+          {request.invoiceUrl && (
+            <a
+              className="btn btn-ghost"
+              href={request.invoiceUrl}
+              target="_blank"
+              rel="noreferrer"
+              style={{ fontSize: 12.5, textDecoration: 'none' }}
+            >
+              View the invoice
+            </a>
+          )}
+          <button
+            className="btn btn-ghost"
+            style={{ fontSize: 12.5, color: 'var(--red)' }}
+            disabled={busy}
+            onClick={voidInvoice}
+          >
+            {busy && <span className="spinner" />}
+            Withdraw and re-invoice
+          </button>
+        </div>
       )}
 
       {request.status === 'pending' &&
