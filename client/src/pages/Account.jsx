@@ -667,6 +667,44 @@ function deadlineFromNow(hours) {
   return new Date(Date.now() + Number(hours || 24) * 60 * 60 * 1000);
 }
 
+// Five minutes, the same figure the server refuses inside.
+const RESEND_COOLDOWN_MS = 5 * 60 * 1000;
+
+// Resend, with the wait shown rather than left to be discovered.
+//
+// It was a plain button that worked once and then returned a red toast for
+// five minutes. The rate limit was never the surprise — not being told about
+// it was.
+function ResendButton({ invite, resentAt, onResend }) {
+  // The later of the two: what this browser knows it just did, and what the
+  // server last recorded. A page reloaded mid-wait has only the second.
+  const sentAt = Math.max(resentAt || 0, invite.lastSentAt ? new Date(invite.lastSentAt).getTime() : 0);
+  const [now, setNow] = useState(Date.now());
+  const left = Math.max(0, sentAt + RESEND_COOLDOWN_MS - now);
+
+  useEffect(() => {
+    if (left <= 0) return undefined;
+    const timer = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(timer);
+  }, [left <= 0]);
+
+  const seconds = Math.ceil(left / 1000);
+  const mm = String(Math.floor(seconds / 60)).padStart(2, '0');
+  const ss = String(seconds % 60).padStart(2, '0');
+
+  return (
+    <button
+      className="btn btn-ghost"
+      style={{ fontSize: 12, padding: '5px 11px', fontVariantNumeric: 'tabular-nums' }}
+      disabled={left > 0}
+      title={left > 0 ? 'Sent a moment ago — one every five minutes' : 'Send the invitation again'}
+      onClick={() => onResend(invite)}
+    >
+      {left > 0 ? `Resend in ${mm}:${ss}` : 'Resend'}
+    </button>
+  );
+}
+
 function AccountantSection({ user }) {
   const confirm = useConfirm();
   const toast = useToast();
@@ -687,6 +725,10 @@ function AccountantSection({ user }) {
   // Invitations nobody has accepted yet. Kept apart from the granted list
   // because they are a different thing: a promise, not access.
   const [invites, setInvites] = useState([]);
+  // When this browser last pressed Resend, per invitation. Held here rather
+  // than read back from the list, so the button locks on the press instead of
+  // waiting for the refetch.
+  const [resentAt, setResentAt] = useState({});
   const [inviteFirst, setInviteFirst] = useState('');
   const [inviteLast, setInviteLast] = useState('');
   const [inviteCompany, setInviteCompany] = useState('');
@@ -770,11 +812,33 @@ function AccountantSection({ user }) {
   }
 
   async function onResendInvite(invite) {
+    // Locked here, before the request goes out. The countdown is worked out
+    // from lastSentAt on the row, and the row is only refetched once load()
+    // comes back — so between the press and the reply the button sat enabled
+    // and could be pressed again, and the second press earned a red toast for
+    // the server's rate limit through no fault of the person pressing it.
+    setResentAt((prev) => ({ ...prev, [invite.id]: Date.now() }));
     try {
       const { data } = await api.post(`/auth/accountant-invites/${invite.id}/resend`);
       toast(data.emailed ? 'Invitation sent again' : 'Saved, but the email would not send', data.emailed ? 'success' : 'error');
       load();
     } catch (err) {
+      // The server says how long is left when it refuses. Trusted over our own
+      // clock, which is the one that was wrong if we got here at all.
+      if (err.retryAfterSeconds) {
+        setResentAt((prev) => ({
+          ...prev,
+          [invite.id]: Date.now() - (RESEND_COOLDOWN_MS - err.retryAfterSeconds * 1000),
+        }));
+      } else {
+        // Nothing to do with the wait — unlock, or they are stuck for five
+        // minutes over an error that would clear on a second press.
+        setResentAt((prev) => {
+          const next = { ...prev };
+          delete next[invite.id];
+          return next;
+        });
+      }
       toast(err.message, 'error');
     }
   }
@@ -866,13 +930,7 @@ function AccountantSection({ user }) {
                 {i.financialYears ? `FY ${i.financialYears.join(', ')}` : 'All years'}
               </span>
               <span style={{ fontSize: 11.5, color: 'var(--amber)' }}>Link expires {formatWhen(i.expiresAt)}</span>
-              <button
-                className="btn btn-ghost"
-                style={{ fontSize: 12, padding: '5px 11px' }}
-                onClick={() => onResendInvite(i)}
-              >
-                Resend
-              </button>
+              <ResendButton invite={i} resentAt={resentAt[i.id]} onResend={onResendInvite} />
               <button
                 className="btn btn-ghost"
                 style={{ fontSize: 12, padding: '5px 11px' }}

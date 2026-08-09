@@ -747,6 +747,39 @@ export async function sendAccountantInviteLapsedEmail(to, ownerName, inviteeEmai
   });
 }
 
+// The client, told their accountant has taken up the invitation.
+//
+// They were told in the app and nowhere else, which assumes somebody who has
+// just handed over sight of their tax records goes back and checks. This is
+// the half of the exchange they actually care about — the accountant gets an
+// email either way.
+export async function sendAccountantInviteAcceptedEmail(to, ownerName, accountantName, accountantEmail, scopeLabel) {
+  const who = accountantName
+    ? `${escapeHtml(accountantName)} (${escapeHtml(accountantEmail)})`
+    : escapeHtml(accountantEmail);
+  const accountUrl = `${publicOrigin()}/account`;
+  await sendMail({
+    to,
+    subject: 'Your accountant now has access',
+    title: 'Invitation accepted',
+    heading: `Hi${ownerName ? ` ${escapeHtml(ownerName)}` : ''}, ${who} has accepted your invitation.`,
+    bodyHtml: `
+      <p style="font-size:14px;color:#1f2937;margin:0 0 16px;line-height:1.55;">
+        They can now open ${escapeHtml(scopeLabel)}. You will be told the first time they actually do, and again if
+        anything about their access changes.
+      </p>
+      <p style="font-size:14px;color:#1f2937;margin:0 0 16px;line-height:1.55;">
+        Their access ends on its own. You can see exactly when, and end it sooner, from your account at any time —
+        you do not need to ask them.
+      </p>
+      ${button(accountUrl, 'See their access')}
+      ${linkFallback(accountUrl)}
+      <p style="font-size:13px;color:#4b5563;margin:0;line-height:1.55;">
+        If this was not you, remove their access from that page straight away.
+      </p>
+    `,
+  });
+}
 export async function sendAdminCreatedAccountEmail(to, name, acceptUrl) {
   await sendMail({
     to,

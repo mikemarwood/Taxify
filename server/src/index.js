@@ -311,9 +311,18 @@ setInterval(closeAccountantAccess, 15 * 60 * 1000);
 // client is told — so they hear it from us rather than by noticing the row has
 // gone, and resending is one click.
 const closeLapsedInvites = () =>
-  closeExpiredInvites((invite) =>
-    sendAccountantInviteLapsedEmail(invite.owner_email, invite.owner_name, invite.email, invite.name)
-  ).catch((err) => console.error('Failed to close lapsed accountant invitations', err));
+  closeExpiredInvites(async (invite) => {
+    await sendAccountantInviteLapsedEmail(invite.owner_email, invite.owner_name, invite.email, invite.name);
+    // In the app as well as in an inbox. The email is the one that gets read
+    // first, but the row has just disappeared from their account page and the
+    // notification is what explains where it went.
+    await notify(invite.owner_user_id, {
+      title: 'Your accountant invitation expired',
+      body: `${invite.name || invite.email} did not accept within 24 hours. Nobody was given access — send it again if you still want to.`,
+      url: '/account',
+      kind: 'accountant',
+    });
+  }).catch((err) => console.error('Failed to close lapsed accountant invitations', err));
 closeLapsedInvites();
 setInterval(closeLapsedInvites, 15 * 60 * 1000);
 

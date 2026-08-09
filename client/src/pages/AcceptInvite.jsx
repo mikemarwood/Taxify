@@ -71,8 +71,8 @@ export default function AcceptInvite() {
       .then((res) => {
         setInvite(res.data);
         // The parts if the client typed them, otherwise split the one name
-        // older invitations carry. Editable either way — whoever invited them
-        // may have spelled it wrong, and it is their own name.
+        // older invitations carry. Fixed either way — see the note on the
+        // fields themselves.
         if (res.data.firstName || res.data.lastName) {
           setFirstName(res.data.firstName || '');
           setLastName(res.data.lastName || '');
@@ -243,54 +243,30 @@ export default function AcceptInvite() {
       </p>
 
       <form onSubmit={acceptAsAccountant} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+        {/* Set by the client who sent the invitation, and not editable here.
+            These three are what they read back on their own account page when
+            deciding whether the person looking at their tax records is the one
+            they meant to invite. If the invitee can change them on the way in,
+            that check is worth nothing — an invitation addressed to one firm
+            could be accepted as another. A misspelling is something to tell the
+            client about, not a field to overwrite. */}
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
           <div>
             <label className="label">First name</label>
-            <input
-              className="input"
-              required
-              maxLength={NAME_MAX}
-              value={firstName}
-              onChange={(e) => setFirstName(titleCaseLive(e.target.value))}
-              onBlur={() => setFirstName(titleCase(firstName))}
-              aria-invalid={firstProblem ? 'true' : undefined}
-              style={firstProblem ? { borderColor: 'var(--red)' } : undefined}
-            />
-            <div style={{ fontSize: 11.5, minHeight: 15, marginTop: 4, color: 'var(--red)' }}>{firstProblem}</div>
+            <input className="input" disabled readOnly value={firstName} maxLength={NAME_MAX} />
           </div>
           <div>
             <label className="label">Last name</label>
-            <input
-              className="input"
-              required
-              maxLength={NAME_MAX}
-              value={lastName}
-              onChange={(e) => setLastName(titleCaseLive(e.target.value))}
-              onBlur={() => setLastName(titleCase(lastName))}
-              aria-invalid={lastProblem ? 'true' : undefined}
-              style={lastProblem ? { borderColor: 'var(--red)' } : undefined}
-            />
-            <div style={{ fontSize: 11.5, minHeight: 15, marginTop: 4, color: 'var(--red)' }}>{lastProblem}</div>
+            <input className="input" disabled readOnly value={lastName} maxLength={NAME_MAX} />
           </div>
         </div>
         <div>
           <label className="label">Practice or firm name</label>
-          <input
-            className="input"
-            required
-            maxLength={COMPANY_MAX}
-            placeholder="e.g. Chen & Co"
-            value={practiceName}
-            onChange={(e) => setPracticeName(titleCaseLive(e.target.value))}
-            onBlur={() => setPracticeName(titleCase(practiceName))}
-            aria-invalid={practiceProblem ? 'true' : undefined}
-            style={practiceProblem ? { borderColor: 'var(--red)' } : undefined}
-          />
-          {practiceProblem && (
-            <div style={{ fontSize: 11.5, marginTop: 4, color: 'var(--red)' }}>{practiceProblem}</div>
-          )}
+          <input className="input" disabled readOnly value={practiceName} maxLength={COMPANY_MAX} />
           <p style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 6 }}>
-            Your clients see this, so they know who they have shared their books with.
+            {invite?.inviterName ? `${invite.inviterName} entered these` : 'Your client entered these'} when they invited
+            you, and their account shows them exactly as they are here. If anything is wrong, ask them to cancel this
+            invitation and send a new one.
           </p>
         </div>
         <div>

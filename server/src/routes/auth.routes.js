@@ -36,6 +36,7 @@ import {
   sendEmailChangedNoticeEmail,
   sendAccountantAccessGrantedEmail,
   sendAccountantInviteEmail,
+  sendAccountantInviteAcceptedEmail,
   sendAccountantAccessUpdatedEmail,
   sendAccountantAccessEndedEmail,
 } from '../lib/mailer.js';
@@ -990,6 +991,32 @@ router.post(
         url: '/account',
         kind: 'accountant',
       });
+
+      // And by email, because the in-app notice assumes somebody who has just
+      // handed over sight of their tax records comes back and checks. Never
+      // allowed to fail the acceptance: the access has already been granted,
+      // and throwing here would leave the accountant staring at an error for
+      // something that worked.
+      try {
+        const [owner] = await pool.execute('SELECT name, email FROM users WHERE id = ?', [
+          invite.owner_user_id,
+        ]);
+        const [who] = await pool.execute('SELECT name, email FROM users WHERE id = ?', [accountantUserId]);
+        if (owner[0]?.email) {
+          const years = invite.financial_years
+            ? `FY ${String(invite.financial_years).split(',').join(', ')}`
+            : 'every year';
+          await sendAccountantInviteAcceptedEmail(
+            owner[0].email,
+            owner[0].name,
+            who[0]?.name || invite.name,
+            who[0]?.email || invite.email,
+            years
+          );
+        }
+      } catch (err) {
+        console.error('Could not tell the client their invitation was accepted', err);
+      }
     }
 
     // An invitation token proves control of a mailbox and nothing more. It may
@@ -1001,13 +1028,32 @@ router.post(
       return res.json({ existingAccount: true });
     }
 
-    const { firstName, lastName, practiceName, phone, password } = req.body || {};
-    const first = toPersonName(firstName);
-    const last = toPersonName(lastName);
-    if (!first || !last) return res.status(400).json({ error: 'Enter your first and last name' });
+    const { phone, password } = req.body || {};
 
-    const firm = String(practiceName || '').trim();
-    if (firm.length < 2) return res.status(400).json({ error: 'Enter your practice or firm name' });
+    // Name and firm come from the invitation, not from the form.
+    //
+    // These are what the client reads back on their own account page when
+    // deciding whether the person holding their tax records is the one they
+    // meant to invite. Taking them from the request body meant an invitation
+    // addressed to one firm could be accepted as another, and the client would
+    // see the name the invitee chose rather than the one they typed. The form
+    // shows them fixed; this is what makes that true rather than decorative.
+    const first = toPersonName(invite.first_name) || toPersonName(String(invite.name || '').split(' ')[0]);
+    const last =
+      toPersonName(invite.last_name) ||
+      toPersonName(String(invite.name || '').split(' ').slice(1).join(' '));
+    if (!first || !last) {
+      return res.status(400).json({
+        error: 'That invitation is missing a name. Ask your client to cancel it and send a new one.',
+      });
+    }
+
+    const firm = String(invite.company_name || '').trim();
+    if (firm.length < 2) {
+      return res.status(400).json({
+        error: 'That invitation is missing a practice name. Ask your client to cancel it and send a new one.',
+      });
+    }
 
     if (!isStrongPassword(password)) {
       return res.status(400).json({

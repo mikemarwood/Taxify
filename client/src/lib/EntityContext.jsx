@@ -40,6 +40,24 @@ export function EntityProvider({ children }) {
       setLoading(false);
       return;
     }
+    // Published *before* the fetch, not after it.
+    //
+    // Opening a client's books as an accountant changes whose account this is,
+    // and the very request that asks for the new list was still carrying the
+    // previous owner's book id in the header. The server checks that id against
+    // the account holder, found a book belonging to somebody else and refused
+    // the whole request with entity_not_yours — so the list never arrived, the
+    // catch below emptied it, and the app sat there saying the books were not
+    // theirs. The one request that had to succeed for it to recover was the one
+    // being refused.
+    //
+    // The stored value is read here under the key for the account now being
+    // looked at, and published straight away. Nothing stored means no header at
+    // all, which the server narrows to the first book they were granted rather
+    // than widening to everything.
+    const remembered = key ? window.localStorage.getItem(key) : null;
+    setEntityId(remembered && remembered !== ALL_ENTITIES ? remembered : null);
+
     try {
       const { data } = await api.get('/entities');
       setEntities(data.entities || []);

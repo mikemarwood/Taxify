@@ -29,13 +29,53 @@ api.interceptors.request.use((config) => {
 
 api.interceptors.response.use(
   (res) => res,
-  (err) => {
+  async (err) => {
     const data = err?.response?.data || {};
-    const message = data.error || 'Something went wrong. Please try again.';
+
+    // A book id that no longer belongs to this account.
+    //
+    // The server refuses these rather than widening them to "everything", which
+    // is right — but the refusal used to reach the page as an error with no way
+    // out. An accountant switching between a client's books and their own could
+    // land on a stale id, and every request including the one that fetches the
+    // correct list was refused with it, so the app could not recover on its
+    // own: it just said the books were not theirs until local storage was
+    // cleared by hand.
+    //
+    // Dropping the header and retrying once fixes it in place. Without a header
+    // the server picks the right books itself — the account's own, or the first
+    // one an accountant was granted — so the retry is the same request asked
+    // properly. Marked so a second failure is reported rather than looped.
+    if (data.error === 'entity_not_yours' && err.config && !err.config.__entityRetried) {
+      entityId = null;
+      // Cleared everywhere, not just for this request: every other call in
+      // flight is carrying the same dead id.
+      try {
+        for (const key of Object.keys(window.localStorage)) {
+          if (key.startsWith('taxify.entity.')) window.localStorage.removeItem(key);
+        }
+      } catch {
+        // Private browsing, or storage disabled. The in-memory clear above is
+        // the part that matters.
+      }
+      const retry = { ...err.config, __entityRetried: true };
+      delete retry.headers['X-Taxify-Entity'];
+      return api.request(retry);
+    }
+
+    // The raw key reached the screen as "entity_not_yours" if the retry above
+    // could not save it. Nobody should be shown a column name.
+    const message =
+      data.error === 'entity_not_yours'
+        ? 'Those books are not on this account. Pick a set of books and try again.'
+        : data.error || 'Something went wrong. Please try again.';
     const wrapped = new Error(message);
     if (data.lockedUntil) wrapped.lockedUntil = data.lockedUntil;
     if (data.lockedForSeconds !== undefined) wrapped.lockedForSeconds = data.lockedForSeconds;
     if (data.attemptsRemaining !== undefined) wrapped.attemptsRemaining = data.attemptsRemaining;
+    // How long a rate-limited action has left, so a countdown can show the
+    // server's answer rather than this browser's guess at it.
+    if (data.retryAfterSeconds !== undefined) wrapped.retryAfterSeconds = data.retryAfterSeconds;
     // Which field a refusal belongs to, so a form can put the message beside
     // the box that caused it instead of in a corner toast.
     if (data.field) wrapped.field = data.field;
