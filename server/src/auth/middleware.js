@@ -134,8 +134,30 @@ export const requireAuth = asyncHandler(async (req, res, next) => {
   }
   req.user.entityId = books.id;
   req.user.entity = books.entity;
+  // Published so the client can say why a page is read-only rather than
+  // letting somebody discover it by pressing Save.
+  req.user.entityLocked = Boolean(books.locked);
 
   req.user.accessLocked = await computeAccessLocked(req.user);
+
+  // A set of books the plan no longer covers is read-only.
+  //
+  // Refused here, beside the administrator's read-only session and for the
+  // same reason: one check covers every write in the app, including the ones
+  // written after somebody stopped thinking about plan limits. A guard per
+  // route only stops the routes that remembered.
+  //
+  // GET is untouched. Somebody who downgrades keeps every figure they ever
+  // entered, and can still export it — they simply cannot add to books they
+  // are no longer paying for.
+  if (req.user.entityLocked && req.method !== 'GET') {
+    return res.status(403).json({
+      error: 'plan_books_locked',
+      message:
+        'Your plan covers fewer sets of books than this account has, so this one is read-only. ' +
+        'Everything in it is safe and still exports — move back to Small Business to add to it again.',
+    });
+  }
 
   // An admin viewing someone else's account. Enforced here rather than in each
   // route because "read-only" has to mean every route, including ones written

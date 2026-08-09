@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { canAddEntity, entityAllowance, planLabel, PLAN_LIMITS } from './planLimits.js';
+import {
+  lockedBusinessIds, canAddEntity, entityAllowance, planLabel, PLAN_LIMITS } from './planLimits.js';
 
 const individual = { kind: 'individual' };
 const business = { kind: 'business' };
@@ -103,4 +104,30 @@ test('converting a set of books counts as creating one', () => {
 
   // Converting the second business on Small Business is fine — one sibling.
   assert.equal(canAddEntity({ planType: 'business', kind: 'business', existing: [individual, business] }).ok, true);
+});
+
+test('a downgrade locks the businesses the new plan no longer covers', () => {
+  const books = [
+    { id: 1, kind: 'individual' },
+    { id: 2, kind: 'business' },
+    { id: 3, kind: 'business' },
+  ];
+
+  // Small Business covers both, so nothing is shut.
+  assert.deepEqual(lockedBusinessIds({ planType: 'business', existing: books }), []);
+
+  // Individual covers none of them. The personal return is never locked —
+  // every plan includes exactly one, which is why it is not in the list.
+  assert.deepEqual(lockedBusinessIds({ planType: 'individual', existing: books }), [2, 3]);
+
+  // Oldest first: the books somebody has kept longest are the ones that keep
+  // working, not the ones that get shut.
+  assert.deepEqual(
+    lockedBusinessIds({ planType: 'business', existing: [...books, { id: 4, kind: 'business' }] }),
+    [4]
+  );
+
+  // An unrecognised plan gets the smallest allowance, the same rule the rest
+  // of this file follows — a typo must not unlock what was not paid for.
+  assert.deepEqual(lockedBusinessIds({ planType: 'nonsense', existing: books }), [2, 3]);
 });

@@ -1,4 +1,6 @@
+import pool from '../db.js';
 import { dataOwnerId } from '../auth/access.js';
+import { entityAllowance } from './planLimits.js';
 import { bookAllowed } from '../auth/accountantBooks.js';
 import { entityFor, ensureDefaultEntity } from './entities.js';
 
@@ -63,7 +65,28 @@ export async function resolveRequestEntity(req) {
     return { id: null, entity: null, invalid: true };
   }
 
-  return { id: entity.id, entity };
+  // Covered by the plan they are on now, not the one they were on when the
+  // books were made. Counted rather than listed: how many businesses were
+  // created before this one decides whether it still falls inside the
+  // allowance, and that is one indexed count instead of loading every entity
+  // on every request.
+  //
+  // Reads are deliberately left alone. These are somebody's financial records
+  // and a downgrade must not put them out of reach — locked means nothing new
+  // can be filed into them, not that they are gone.
+  let locked = false;
+  if (entity.kind === 'business') {
+    const allowed = entityAllowance(req.user?.planType).businesses;
+    const [[older]] = await pool.query(
+      `SELECT COUNT(*) AS n FROM entities
+        WHERE user_id = ? AND kind = 'business'
+          AND (created_at < ? OR (created_at = ? AND id < ?))`,
+      [ownerId, entity.created_at, entity.created_at, entity.id]
+    );
+    locked = (Number(older.n) || 0) >= allowed;
+  }
+
+  return { id: entity.id, entity, locked };
 }
 
 // The books a write lands in when the request did not say. Only ever the

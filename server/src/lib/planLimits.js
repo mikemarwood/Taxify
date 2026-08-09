@@ -27,6 +27,31 @@ export function planLabel(planType) {
   return entityAllowance(planType).label;
 }
 
+// Which businesses a plan no longer covers.
+//
+// canAddEntity stops somebody creating more than they pay for. It says nothing
+// about books that were created legitimately and then stopped being covered —
+// moving from Small Business to Individual takes the allowance from two to
+// zero, and until now both businesses carried on working exactly as before.
+// The plan cap was a rule about the future only.
+//
+// `existing` is every business the account has, oldest first. The ones within
+// the allowance keep working; everything past it is locked. Oldest-first
+// rather than newest, because the books somebody has kept longest are the ones
+// they have the most in, and a downgrade should not turn years of records into
+// the ones that get shut.
+//
+// Locked, never deleted and never hidden. These are somebody's financial
+// records: the account can still read and export them, and paying again brings
+// them straight back. Anything else would make a downgrade a data loss event.
+export function lockedBusinessIds({ planType, existing = [] }) {
+  const allowed = entityAllowance(planType).businesses;
+  return existing
+    .filter((e) => e.kind === 'business')
+    .slice(allowed)
+    .map((e) => e.id);
+}
+
 // Whether another set of books may be created.
 //
 // `existing` is the account's current entities — pass them all, archived
