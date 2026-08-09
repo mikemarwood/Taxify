@@ -1426,8 +1426,8 @@ router.post(
            VALUES (?, NULL, 'system', 'Taxify', ?)`,
           [
             linked[0].id,
-            'That invoice has been withdrawn and there is nothing to pay on it. A corrected one is on its way — ' +
-              'nothing has been charged and your plan is unchanged.',
+            'That invoice has been withdrawn — please ignore it. Nothing has been charged and your plan is ' +
+              'unchanged. A corrected one is on its way.',
           ]
         );
       }

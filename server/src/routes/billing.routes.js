@@ -741,8 +741,8 @@ router.post(
               [
                 linked[0].id,
                 `Payment of ${(invoice.currency || 'aud').toUpperCase()} ${amount} received, with thanks. ` +
-                  `Your receipt is on your billing page. We are moving you to ${label} now and will confirm here ` +
-                  'as soon as it is done.',
+                  `We are moving you to ${label} now and will confirm here as soon as it is done. Your receipt is ` +
+                  'on your billing page.',
               ]
             );
 
@@ -829,8 +829,8 @@ router.post(
                VALUES (?, NULL, 'system', 'Taxify', ?)`,
               [
                 linked[0].id,
-                'This invoice has been withdrawn and there is nothing left to pay. Your plan is unchanged. ' +
-                  'Reply here if you would still like to move, and we will raise a new one.',
+                'This invoice has been withdrawn — please ignore it. Nothing has been charged and your plan is ' +
+                  'unchanged. Reply here if you would still like to move and we will raise a new one.',
               ]
             );
             await pool.execute(

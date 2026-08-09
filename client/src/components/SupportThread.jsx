@@ -118,14 +118,48 @@ function Message({ message, canEdit, canDelete, onDelete, onEdit, onPreview }) {
     }
   }
 
+  // Something that happened, rather than something somebody said.
+  //
+  // This was a hairline rule with the text on it, and nowrap — which is fine
+  // for "ticket closed" and falls apart for anything longer. A withdrawn
+  // invoice or a payment landing has a sentence or two to say, and those
+  // squashed the rules to nothing and ran off the side of the card.
+  //
+  // Short ones keep the rule; longer ones become a centred panel that wraps.
+  // The switch is on length rather than on a flag, because the writer of the
+  // message should not have to know how it will be drawn.
   if (message.role === 'system') {
+    const brief = message.body.length <= 46;
+
+    if (brief) {
+      return (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '4px 0' }}>
+          <span style={{ flex: 1, height: 1, background: 'var(--border)' }} />
+          <span style={{ fontSize: 11.5, color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>
+            {message.body} · {formatDateTime(message.createdAt)}
+          </span>
+          <span style={{ flex: 1, height: 1, background: 'var(--border)' }} />
+        </div>
+      );
+    }
+
     return (
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '4px 0' }}>
-        <span style={{ flex: 1, height: 1, background: 'var(--border)' }} />
-        <span style={{ fontSize: 11.5, color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>
-          {message.body} · {formatDateTime(message.createdAt)}
-        </span>
-        <span style={{ flex: 1, height: 1, background: 'var(--border)' }} />
+      <div style={{ display: 'flex', justifyContent: 'center', padding: '2px 0' }}>
+        <div
+          style={{
+            maxWidth: 460,
+            padding: '10px 14px',
+            borderRadius: 10,
+            border: '1px dashed var(--border)',
+            background: 'var(--bg-subtle)',
+            textAlign: 'center',
+          }}
+        >
+          <div style={{ fontSize: 12.5, color: 'var(--text-muted)', lineHeight: 1.55 }}>{message.body}</div>
+          <div style={{ fontSize: 10.5, color: 'var(--text-subtle)', marginTop: 5 }}>
+            {formatDateTime(message.createdAt)}
+          </div>
+        </div>
       </div>
     );
   }
