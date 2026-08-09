@@ -31,8 +31,17 @@ export default function PlanInvoiceNotice({ request }) {
   const plan = planLabel(request.toPlan);
   const amount = money(request.invoiceAmountCents, request.invoiceCurrency);
 
+  // A withdrawn invoice is not shown to the customer at all.
+  //
+  // The thread already carries a line saying it was taken back and why, which
+  // is the part they need. A panel underneath still headed with an amount and
+  // a plan reads as a bill however it is labelled, and leaving one on screen
+  // for something nobody owes is how a customer ends up asking whether they
+  // still have to pay it. Support keeps its own version — they need the
+  // history; the customer needs the answer.
+  if (request.status === 'cancelled') return null;
+
   const paid = request.status === 'paid';
-  const withdrawn = request.status === 'cancelled';
   const sent = request.status === 'invoiced';
   // Past its due date and still unpaid. Said here rather than left for somebody
   // to work out by opening the invoice and reading a date on it. A request with
@@ -51,17 +60,6 @@ export default function PlanInvoiceNotice({ request }) {
             : `Your payment was received${request.paidAt ? ` on ${formatDateLong(request.paidAt)}` : ''}, with thanks.`,
           `We are moving your account to ${plan} and will confirm here once it is done.`,
           'Your receipt is on your billing page whenever you need it.',
-        ],
-      }
-    : withdrawn
-    ? {
-        tone: 'var(--text-muted)',
-        icon: 'ban',
-        badge: request.voidedAt ? 'Withdrawn' : 'Cancelled',
-        heading: request.voidedAt ? 'This invoice was withdrawn' : 'This request was cancelled',
-        body: [
-          'There is nothing left to pay, and your plan is unchanged.',
-          `Reply here if you would still like to move to ${plan} and we will raise a new invoice.`,
         ],
       }
     : sent

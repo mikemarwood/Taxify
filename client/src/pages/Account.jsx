@@ -18,7 +18,7 @@ import AccountantBooksPicker from '../components/AccountantBooksPicker.jsx';
 // this page the thing that changed it.
 import { titleCase, titleCaseLive, lowerEmail } from '../lib/textCase.js';
 import { nameProblem, companyProblem, NAME_MAX, COMPANY_MAX } from '../lib/inviteFields.js';
-import { currentPlanType, planLabel as labelForPlan } from '../lib/plans.js';
+import { currentPlanType, planLabel as labelForPlan, hasLiveSubscription } from '../lib/plans.js';
 
 // The window a date of birth may fall in — matches the sign-up form, so an
 // account cannot be edited into a state it could never have been created in.
@@ -266,6 +266,20 @@ function BillingSection({ user }) {
   // without a live subscription. The old goToCheckout is gone rather than left
   // unused, so nobody wires a button back to it by accident.
 
+  // Checkout for the plan they already have. Nothing about renewing needs a
+  // person: same plan, published price, and Stripe already knows how to take
+  // the money.
+  async function renew() {
+    setBusy(true);
+    try {
+      const res = await api.post('/billing/checkout', { planType: currentPlanType(user) });
+      window.location.href = res.data.url;
+    } catch (err) {
+      toast(err.message, 'error');
+      setBusy(false);
+    }
+  }
+
   async function goToPortal() {
     setBusy(true);
     try {
@@ -340,9 +354,44 @@ function BillingSection({ user }) {
           works for an account with a live subscription, which excludes anybody
           on a granted plan or a lapsed one — so the card raises a request, an
           administrator quotes it, and the plan moves when the invoice is paid. */}
+      {/* Paying for the plan they are already on.
+          The billing tab could ask us to move them to the other plan and open
+          the Stripe portal, and that was all — so somebody whose plan had
+          lapsed had no way to simply pay for it again from their own account.
+          They had to wait to be redirected to the lapsed-access page to find
+          the one button that would have taken their money. */}
+      {!hasLiveSubscription(user) && (
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 12,
+            flexWrap: 'wrap',
+            padding: '13px 15px',
+            borderRadius: 10,
+            border: '1px solid var(--accent)',
+            background: 'var(--accent-soft)',
+          }}
+        >
+          <Icon name="repeat" size={17} style={{ color: 'var(--accent)' }} />
+          <span style={{ flex: 1, minWidth: 200 }}>
+            <span style={{ fontWeight: 700, fontSize: 13.5, display: 'block' }}>
+              Carry on with {labelForPlan(user?.planType)}
+            </span>
+            <span style={{ fontSize: 12.5, color: 'var(--text-muted)' }}>
+              Your books, receipts and every year you have filed pick up exactly where you left them.
+            </span>
+          </span>
+          <button className="btn btn-primary" style={{ fontSize: 13 }} disabled={busy} onClick={renew}>
+            {busy && <span className="spinner" />}
+            Renew my plan
+          </button>
+        </div>
+      )}
+
       <PlanComparison user={user} onChoose={requestPlan} chooseLabel="Ask to move to" refreshKey={openRequest?.id || 0} />
 
-      {openRequest && (
+      {openRequest && openRequest.status !== 'cancelled' && (
         <div
           style={{
             border: '1px solid var(--border)',

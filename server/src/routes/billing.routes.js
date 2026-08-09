@@ -275,6 +275,14 @@ router.get(
 
     const invoices = [];
     for (const invoice of list.data) {
+      // Voided and draft invoices are left out.
+      //
+      // A voided one was withdrawn — the bill was taken back and there is
+      // nothing to pay — and a draft was never issued at all. Both were
+      // appearing in the customer's own list alongside real ones, so somebody
+      // whose wrong invoice we had corrected could see both, with no way to
+      // tell which of the two they owed.
+      if (invoice.status === 'void' || invoice.status === 'draft') continue;
       // Kept as they are listed rather than by a nightly job: it is the moment
       // we know the invoice exists and have a URL that has not expired.
       if (!isStored(uploadsDir, req.user.id, invoice)) {
@@ -464,12 +472,58 @@ router.post(
     // outcome here, and "I already asked" is the more common complaint than
     // "I could not ask twice".
     const [open] = await pool.execute(
-      `SELECT r.id FROM plan_change_requests r
+      `SELECT r.id, r.to_plan, r.status, r.stripe_invoice_id FROM plan_change_requests r
          LEFT JOIN support_tickets t ON t.plan_change_request_id = r.id
         WHERE r.user_id = ? AND (${OUTSTANDING}) LIMIT 1`,
       [req.user.id]
     );
-    if (open[0]) return res.status(409).json({ error: 'You already have a plan change waiting' });
+
+    // An outstanding request for the *same* plan is the one they already made.
+    // Saying "you already have one waiting" is the right answer there.
+    if (open[0] && open[0].to_plan === toPlan) {
+      return res.status(409).json({ error: 'You already have a request waiting for that plan' });
+    }
+
+    // A request for a different plan supersedes it.
+    //
+    // Refusing outright was the old behaviour, and it left somebody who had
+    // changed their mind stuck behind their own earlier request with nothing
+    // they could do about it — the only way out was to write in and ask.
+    // Withdrawing the first is the honest resolution: two live requests for
+    // two different plans is a state nobody can act on, and the second is the
+    // one they mean.
+    if (open[0]) {
+      if (open[0].stripe_invoice_id) {
+        // The bill goes with it. Leaving it open would let them pay for the
+        // plan they just changed their mind about.
+        try {
+          const stripe = await getStripe();
+          await stripe.invoices.voidInvoice(open[0].stripe_invoice_id);
+        } catch (err) {
+          // Already paid, most likely. Refused rather than superseded — the
+          // money has arrived for a plan they are about to be moved off, and
+          // that is a person's decision, not a webhook's.
+          return res.status(409).json({
+            error:
+              'The invoice for your last request has already been paid, so it cannot be replaced. Reply on your support ticket and we will sort it out.',
+          });
+        }
+      }
+      await pool.execute(
+        `UPDATE plan_change_requests
+            SET status = 'cancelled', cancelled_at = NOW(),
+                voided_at = CASE WHEN stripe_invoice_id IS NULL THEN voided_at ELSE NOW() END,
+                updated_at = NOW()
+          WHERE id = ?`,
+        [open[0].id]
+      );
+      await notifyAdmins({
+        title: `${req.user.name || req.user.email} changed which plan they want`,
+        body: 'Their earlier request has been withdrawn and any invoice on it voided. A new one is in the queue.',
+        url: '/admin?tab=support',
+        kind: 'billing',
+      }).catch(() => {});
+    }
 
     const [result] = await pool.execute(
       `INSERT INTO plan_change_requests (user_id, from_plan, to_plan, note) VALUES (?, ?, ?, ?)`,

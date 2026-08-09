@@ -7,6 +7,7 @@ import { useToast } from '../components/Toast.jsx';
 import { api } from '../lib/api.js';
 import Icon from '../components/Icon.jsx';
 import PlanComparison from '../components/PlanComparison.jsx';
+import { currentPlanType, planLabel } from '../lib/plans.js';
 import { describeSubscription } from '../lib/subscription.js';
 
 // Someone who lands here has lost access to their own records, so the page
@@ -123,10 +124,52 @@ export default function SubscriptionRequired() {
           )}
         </div>
 
+        {/* Carrying on with the plan they already had.
+            //
+            This page only offered "ask us about" on every card, including the
+            plan they were already on — so somebody who simply wanted to keep
+            what they had, and pay for it, had no way to. Their only route back
+            in was to raise a ticket and wait for a person, for a payment
+            Stripe can take unattended.
+
+            Renewing is a plain checkout because nothing about it needs
+            deciding: same plan, published price, card details Stripe already
+            has. Changing plan still goes to a ticket, which is the case that
+            genuinely needs a person. */}
         {isOwner && (
           <>
+            <div
+              className="card"
+              style={{
+                padding: 20,
+                display: 'flex',
+                flexDirection: 'column',
+                gap: 12,
+                border: '1px solid var(--accent)',
+                background: 'var(--accent-soft)',
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: 9, flexWrap: 'wrap' }}>
+                <Icon name="repeat" size={17} style={{ color: 'var(--accent)' }} />
+                <span style={{ fontWeight: 700, fontSize: 15 }}>Carry on with {planLabel(currentPlanType(user))}</span>
+              </div>
+              <div style={{ fontSize: 13, color: 'var(--text-muted)', lineHeight: 1.55 }}>
+                Everything picks up exactly where you left it — your books, your receipts, every year you have filed.
+                Paid through Stripe and active the moment it goes through.
+              </div>
+              <button
+                className="btn btn-primary"
+                style={{ alignSelf: 'flex-start' }}
+                disabled={busy}
+                onClick={() => checkout(currentPlanType(user))}
+              >
+                {busy && <span className="spinner" />}
+                Renew my plan
+              </button>
+            </div>
+
             <div className="card" style={{ padding: 20, display: 'flex', flexDirection: 'column', gap: 12 }}>
-              <div style={{ fontWeight: 700 }}>Choose your plan</div>
+              <div style={{ fontWeight: 700 }}>Or move to a different plan</div>
               <PlanComparison
                 user={user}
                 onChoose={(plan) => !busy && requestPlan(plan)}
