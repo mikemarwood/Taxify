@@ -7,7 +7,8 @@ import { notify } from '../lib/notify.js';
 import { categoryLabel, isPriority, PRIORITIES } from '../lib/support.js';
 import { sendSupportClosedEmail } from '../lib/mailer.js';
 import { getSignupPlans } from '../lib/stripe.js';
-import { shapeTicket, messagesFor, addReply, ticketUrl, upload, editMessage } from './support.routes.js';
+import { shapeTicket, messagesFor, addReply, ticketUrl, upload, editMessage, announce } from './support.routes.js';
+import { generateReference, generateAccessToken, isCategory, isPriority as isPriorityValue } from '../lib/support.js';
 import { removeTicketFiles, MAX_ATTACHMENTS_PER_MESSAGE } from '../lib/supportAttachments.js';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -374,6 +375,123 @@ router.delete(
 
     await pool.execute('DELETE FROM support_messages WHERE id = ?', [row.id]);
     res.json({ ok: true, messages: await messagesFor(row.ticket_id, { includeNotes: true }) });
+  })
+);
+
+// Raising a ticket for somebody else.
+//
+// Every ticket started on the customer's side, which assumes every
+// conversation does. They do not: somebody rings up, or writes to a personal
+// address, or an administrator spots a problem on an account before the person
+// has noticed it. All of that was being handled outside the system and then
+// summarised into it later, if at all — so the record of what was said lived
+// in somebody's memory.
+//
+// The first message is written as support, because that is who wrote it. The
+// ticket is assigned to whoever raised it: they started the conversation, so
+// they own it, and it does not sit in the unassigned queue looking like work
+// nobody has picked up. It opens as awaiting_customer for the same reason —
+// the ball is with them, and a ticket we opened ourselves must not appear in
+// "needs a reply".
+//
+// An address with no account gets the same guest treatment as somebody writing
+// in from the public form: a token, and a link emailed to them. Otherwise
+// there would be no way for the person to answer.
+router.post(
+  '/support/tickets',
+  requireSupportStaff,
+  upload.array('attachments', MAX_ATTACHMENTS_PER_MESSAGE),
+  asyncHandler(async (req, res) => {
+    const email = String(req.body?.email || '').trim().toLowerCase();
+    const subject = String(req.body?.subject || '').trim().slice(0, 200);
+    const message = String(req.body?.message || '').trim();
+    const category = isCategory(req.body?.category) ? req.body.category : 'other';
+    const priority = isPriorityValue(req.body?.priority) ? req.body.priority : 'normal';
+
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email)) {
+      return res.status(400).json({ error: 'Enter the email address this is for' });
+    }
+    if (subject.length < 3) return res.status(400).json({ error: 'Give it a subject' });
+    if (message.length < 3) return res.status(400).json({ error: 'Write the message first' });
+
+    const [found] = await pool.execute('SELECT id, name FROM users WHERE email = ?', [email]);
+    const owner = found[0] || null;
+
+    // A guest needs a way back in, and the only one there is is the link. An
+    // account holder opens it from inside the app, so no token is minted for
+    // them — one fewer credential in existence.
+    let token = null;
+    let tokenHash = null;
+    if (!owner) ({ token, tokenHash } = generateAccessToken());
+
+    let reference = generateReference();
+    let ticketId = null;
+    for (let attempt = 0; attempt < 3 && !ticketId; attempt += 1) {
+      try {
+        const [result] = await pool.execute(
+          `INSERT INTO support_tickets
+             (reference, user_id, guest_name, guest_email, category, subject, status, priority,
+              assigned_to, assigned_at, access_token_hash, last_message_at, support_read_at)
+           VALUES (?, ?, ?, ?, ?, ?, 'awaiting_customer', ?, ?, NOW(), ?, NOW(), NOW())`,
+          [
+            reference,
+            owner?.id || null,
+            owner ? null : email,
+            owner ? null : email,
+            category,
+            subject,
+            priority,
+            req.user.id,
+            tokenHash,
+          ]
+        );
+        ticketId = result.insertId;
+      } catch (err) {
+        if (err.code !== 'ER_DUP_ENTRY') throw err;
+        reference = generateReference();
+      }
+    }
+    if (!ticketId) return res.status(500).json({ error: 'Could not raise the ticket — please try again' });
+
+    await pool.execute(
+      `INSERT INTO support_messages (ticket_id, author_user_id, author_role, author_name, body)
+       VALUES (?, ?, 'support', ?, ?)`,
+      [ticketId, req.user.id, req.user.name || 'Support', message.slice(0, 5000)]
+    );
+
+    // Emailed exactly like a reply, so they get the link and can answer. Never
+    // allowed to fail the ticket: it exists, and losing it because a mail
+    // server was slow would mean typing the whole thing again.
+    try {
+      const [rows] = await pool.execute(
+        `SELECT t.*, u.name, u.email FROM support_tickets t
+           LEFT JOIN users u ON u.id = t.user_id WHERE t.id = ?`,
+        [ticketId]
+      );
+      // fromSupport, not isNew. isNew sends "we have received your ticket" —
+      // wrong for one we raised ourselves — and tells every administrator
+      // about a new ticket one of them just created. This sends the
+      // support-has-written-to-you email, which is what happened.
+      //
+      // guest_token is set on the row rather than passed: announce reads it
+      // from there, and it is the only moment the plain token exists. Without
+      // it a guest is sent to the support page and asked for a link they were
+      // never given.
+      await announce({ ...rows[0], guest_token: token }, { body: message, fromSupport: true });
+    } catch (err) {
+      console.error('Could not email the ticket we raised', err);
+    }
+
+    if (owner) {
+      await notify(owner.id, {
+        title: 'Taxify support has written to you',
+        body: subject,
+        url: `/support/${ticketId}`,
+        kind: 'support',
+      }).catch(() => {});
+    }
+
+    res.status(201).json({ ok: true, id: ticketId, reference, isGuest: !owner });
   })
 );
 

@@ -82,6 +82,7 @@ const FLOWS = [
     icon: 'mail',
     steps: [
       { label: 'Signed in, or not', detail: 'A guest gives a name, an address and a captcha', file: 'Support.jsx' },
+      { label: 'Or we start it', detail: 'Support raises one for them — assigned to whoever wrote it', file: 'adminSupport.routes.js' },
       { label: 'Ticket raised', detail: 'With a reference they can quote', file: 'support.routes.js' },
       { label: 'Somebody takes it', detail: 'Only the holder can reply', file: 'adminSupport.routes.js' },
       { label: 'Replies both ways', detail: 'Emailed, but never quoting what was written', file: 'mailer.js' },

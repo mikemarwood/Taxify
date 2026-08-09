@@ -28,6 +28,7 @@ function isStale(ticket) {
   return Date.now() - since > (STALE_HOURS[ticket.priority] ?? STALE_HOURS.normal) * 3600 * 1000;
 }
 import PlanRequestPanel from './PlanRequestPanel.jsx';
+import NewTicketForSomebody from './NewTicketForSomebody.jsx';
 
 // How often the queue re-checks. The thread does its own polling while open;
 // this is for the list behind it, so a new ticket appears without a refresh.
@@ -213,6 +214,7 @@ export default function SupportTab() {
   // supported and nothing on screen offered.
   const [category, setCategory] = useState('');
   const [summary, setSummary] = useState(null);
+  const [starting, setStarting] = useState(false);
   // The list of categories, from the same route the customer form uses — so
   // a category added later appears on both sides without being typed twice.
   const [categories, setCategories] = useState([]);
@@ -451,6 +453,19 @@ export default function SupportTab() {
             <Tile label="Closed this week" value={summary.closedThisWeek} tone="good" />
           </div>
 
+          {/* Not everything starts on their side. Somebody rings up, or an
+              account has a problem before the person has noticed it. */}
+          {!starting && (
+            <button
+              className="btn btn-primary"
+              style={{ fontSize: 12.5, alignSelf: 'flex-start', gap: 6 }}
+              onClick={() => setStarting(true)}
+            >
+              <Icon name="plus" size={13} />
+              Write to a customer
+            </button>
+          )}
+
           {/* What people are actually writing in about. The server already
               filtered by category and nothing on screen offered it, so the
               answer to "is this a billing week or a receipts week" needed a
@@ -491,6 +506,20 @@ export default function SupportTab() {
             ))}
           </div>
         </div>
+      )}
+
+      {starting && (
+        <NewTicketForSomebody
+          categories={categories}
+          onCancel={() => setStarting(false)}
+          onCreated={(id) => {
+            setStarting(false);
+            setFilter('mine');
+            setPage(1);
+            setOpenId(id);
+            loadList();
+          }}
+        />
       )}
 
     <div style={{ display: 'grid', gap: 14, gridTemplateColumns: 'minmax(230px, 300px) 1fr', alignItems: 'start' }}>
