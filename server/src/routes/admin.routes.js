@@ -1241,6 +1241,16 @@ router.post(
       collection_method: 'send_invoice',
       days_until_due: daysUntilDue,
       description: line,
+      // Says Taxify on the invoice.
+      //
+      // The name, logo and address in the header come from the Stripe account
+      // itself, not from here — one account serves several apps, so that
+      // header reads as the company rather than the product. These two are the
+      // only per-invoice levers, and they at least put the product on the page
+      // somebody is looking at while deciding whether they recognise the
+      // charge.
+      custom_fields: [{ name: 'Product', value: 'Taxify' }],
+      footer: `Taxify · ${publicOrigin()}`,
       // Read back by the webhook. Without it there is no way to tell which
       // request a payment belongs to, and the plan would never move.
       metadata: {
