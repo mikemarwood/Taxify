@@ -1230,7 +1230,7 @@ router.post(
     }
 
     const currency = (target.currency || 'aud').toLowerCase();
-    const line = description || `Taxify — change to the ${request.to_plan === 'business' ? 'Small Business' : 'Individual'} plan`;
+    const line = description || `Taxify — Change plan to ${request.to_plan === 'business' ? 'Small Business' : 'Individual'}`;
 
     // The invoice is created empty, then the item is attached to it by id.
     // Creating the item first and letting it attach itself to "the customer's

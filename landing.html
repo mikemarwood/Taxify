@@ -6,7 +6,14 @@
 <title>Taxify — Track every deduction, cleanly and simply</title>
 <meta name="description" content="Taxify logs your expenses, sorts them into categories, and builds year-over-year reports — so tax time takes minutes, not weekends.">
 <meta name="theme-color" content="#0a0f18">
-<link rel="icon" type="image/svg+xml" href="/logo.svg">
+<!-- Same set as the app. An SVG alone leaves a blank page glyph in the tab on
+     iOS, which ignores SVG icons, and on Android Chrome, which reads the
+     manifest. -->
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png">
+<link rel="icon" type="image/png" sizes="16x16" href="/favicon-16.png">
+<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
+<link rel="manifest" href="/site.webmanifest">
 <!-- This page is served two ways: directly by Taxify, and wrapped inside
      Mike's App Hub, which fetches it and serves it from its own domain. On the
      hub, a link written as "/register" resolves to the hub's own /register,
@@ -230,6 +237,69 @@
     border-radius: 14px;
     border: 1px solid var(--border);
     background: var(--bg-card);
+    cursor: zoom-in;
+    transition: transform .18s ease-out, box-shadow .18s ease-out;
+  }
+  .shot-panel img:hover { transform: translateY(-2px); box-shadow: 0 18px 40px -22px rgba(0,0,0,.55); }
+  .shot-panel img:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+
+  /* Full size, on a ground dark enough that the screenshot is the only thing
+     being looked at. */
+  #shotbox {
+    position: fixed;
+    inset: 0;
+    z-index: 2000;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    background: rgba(6, 10, 18, .88);
+    backdrop-filter: blur(3px);
+  }
+  #shotbox[data-open="true"] { display: flex; }
+  #shotbox img {
+    max-width: min(1200px, 100%);
+    /* Room left for the caption underneath rather than the image filling the
+       screen and pushing it off. */
+    max-height: calc(100dvh - 132px);
+    width: auto;
+    height: auto;
+    border-radius: 12px;
+    border: 1px solid rgba(255,255,255,.14);
+    box-shadow: 0 40px 90px -30px rgba(0,0,0,.8);
+  }
+  #shotbox figure { margin: 0; display: flex; flex-direction: column; gap: 12px; align-items: center; }
+  #shotbox figcaption {
+    font-size: 13px;
+    color: rgba(255,255,255,.72);
+    text-align: center;
+    max-width: 62ch;
+    line-height: 1.5;
+  }
+  #shotbox .shotbox-close {
+    position: absolute;
+    top: 18px;
+    right: 18px;
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    /* Padding on the element rather than a bare glyph: a 12-pixel cross is not
+       a target anybody can hit on a phone. */
+    padding: 9px 15px;
+    border-radius: 999px;
+    border: 1px solid rgba(255,255,255,.22);
+    background: rgba(255,255,255,.1);
+    color: #fff;
+    font: inherit;
+    font-size: 13px;
+    font-weight: 700;
+    cursor: pointer;
+  }
+  #shotbox .shotbox-close:hover { background: rgba(255,255,255,.18); }
+  @media (max-width: 640px) {
+    #shotbox { padding: 14px; }
+    #shotbox img { max-height: calc(100dvh - 150px); }
+    #shotbox .shotbox-close { top: 10px; right: 10px; }
   }
   .shot-step {
     display: inline-block;
@@ -825,6 +895,73 @@
         .catch(function () {
           // Offline, or no file. Either way there is nothing to show.
         });
+    })();
+  </script>
+
+  <div id="shotbox" role="dialog" aria-modal="true" aria-label="Screenshot" data-open="false">
+    <button type="button" class="shotbox-close" aria-label="Close the image">&times; Close</button>
+    <figure>
+      <img alt="">
+      <figcaption></figcaption>
+    </figure>
+  </div>
+
+  <script>
+    // Clicking a screenshot opens it at full size.
+    //
+    // The panels show a screen at a third of its real width, so every figure in
+    // them is unreadable — which makes the section decorative when the point of
+    // it is "this is what you actually get".
+    (function () {
+      var box = document.getElementById('shotbox');
+      if (!box) return;
+      var full = box.querySelector('img');
+      var caption = box.querySelector('figcaption');
+      var closeButton = box.querySelector('.shotbox-close');
+      var lastFocused = null;
+
+      function open(source) {
+        lastFocused = source;
+        full.src = source.currentSrc || source.src;
+        full.alt = source.alt || '';
+        caption.textContent = source.alt || '';
+        box.setAttribute('data-open', 'true');
+        // The page behind must not scroll under the image.
+        document.body.style.overflow = 'hidden';
+        closeButton.focus();
+      }
+
+      function close() {
+        box.setAttribute('data-open', 'false');
+        document.body.style.overflow = '';
+        // Back where they were, so keyboard and screen-reader users are not
+        // dropped at the top of the document.
+        if (lastFocused) lastFocused.focus();
+      }
+
+      Array.prototype.forEach.call(document.querySelectorAll('.shot-panel img'), function (img) {
+        // Reachable by keyboard as well as by pointer — it is a control now,
+        // even though it is still an <img>.
+        img.setAttribute('tabindex', '0');
+        img.setAttribute('role', 'button');
+        img.addEventListener('click', function () { open(img); });
+        img.addEventListener('keydown', function (event) {
+          if (event.key === 'Enter' || event.key === ' ') {
+            event.preventDefault();
+            open(img);
+          }
+        });
+      });
+
+      closeButton.addEventListener('click', close);
+      // Anywhere off the picture also closes it, which is what most people try
+      // first.
+      box.addEventListener('click', function (event) {
+        if (event.target === box) close();
+      });
+      document.addEventListener('keydown', function (event) {
+        if (event.key === 'Escape' && box.getAttribute('data-open') === 'true') close();
+      });
     })();
   </script>
 

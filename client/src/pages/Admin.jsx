@@ -38,21 +38,44 @@ function formatBytes(bytes) {
   return `${(n / (1024 * 1024 * 1024)).toFixed(2)} GB`;
 }
 
+// The tabs, in the two groups they actually fall into: the ones opened most
+// days, and the ones opened when something is being set up or changed.
+//
+// They were eleven identical pills wrapping onto three rows, in no order —
+// Stripe next to Users next to Promo codes — so finding one meant reading all
+// of them. Grouping is the whole fix; the icons are so a tab can be found by
+// shape once its position is known.
+const TAB_GROUPS = [
+  {
+    title: 'Day to day',
+    tabs: [
+      { key: 'stats', label: 'Live stats', icon: 'chart' },
+      { key: 'support', label: 'Support', icon: 'mail' },
+      { key: 'users', label: 'Users', icon: 'users' },
+      { key: 'tools', label: 'Tools', icon: 'wrench' },
+    ],
+  },
+  {
+    title: 'Set up',
+    tabs: [
+      { key: 'categories', label: 'Default categories', icon: 'tag' },
+      { key: 'settings', label: 'Settings', icon: 'settings' },
+      { key: 'email', label: 'Email server', icon: 'mail' },
+      { key: 'stripe', label: 'Stripe', icon: 'cash' },
+      { key: 'promos', label: 'Promo codes', icon: 'gift' },
+      { key: 'push', label: 'Firebase', icon: 'bell' },
+    ],
+  },
+];
+
 // Every tab this page has. Used to decide whether a ?tab= is one we know,
 // rather than trusting the URL and rendering nothing.
-const TAB_KEYS = [
-  'stats',
-  'support',
-  'how',
-  'tools',
-  'users',
-  'categories',
-  'settings',
-  'email',
-  'stripe',
-  'promos',
-  'push',
-];
+//
+// 'how' is in here but not in TAB_GROUPS on purpose. It is a reference page
+// read once, not somewhere to go most days, and it was taking a slot in the
+// strip from tabs that are. It opens from the button on Live stats, and the
+// ?tab=how link still works.
+const TAB_KEYS = ['how', ...TAB_GROUPS.flatMap((group) => group.tabs.map((t) => t.key))];
 
 // Tabs somebody on the support team may see. Everything else on this page —
 // users, billing, Stripe keys, promo codes, the live stats — is administrators
@@ -70,6 +93,11 @@ export default function Admin() {
   // Support staff see the queue and nothing else on this page.
   const supportOnly = !user?.isAdmin && Boolean(user?.isSupport);
   const allowed = supportOnly ? SUPPORT_TABS : TAB_KEYS;
+  // Support staff get the queue and nothing else, so the group headings would
+  // be labelling a single button.
+  const groups = supportOnly
+    ? [{ title: null, tabs: [{ key: 'support', label: 'Support', icon: 'mail' }] }]
+    : TAB_GROUPS;
 
   const { queue } = useSupportCounts({ isAdmin: true });
   const [searchParams, setSearchParams] = useSearchParams();
@@ -87,66 +115,91 @@ export default function Admin() {
       <h1 style={{ margin: '0 0 4px', fontSize: 26 }}>Administration</h1>
       <p style={{ color: 'var(--text-muted)', margin: '0 0 24px' }}>Manage user accounts and the default category template.</p>
 
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 20 }}>
-        <button className={tab === 'stats' ? 'btn btn-primary' : 'btn btn-ghost'} onClick={() => setTab('stats')} hidden={supportOnly}>
-          Live stats
-        </button>
-        <button
-          className={tab === 'support' ? 'btn btn-primary' : 'btn btn-ghost'}
-          onClick={() => setTab('support')}
-          style={{ gap: 8 }}
-        >
-          Support
-          {/* Only when something is waiting. A zero here would be a badge
-              announcing that there is nothing to announce. */}
-          {queue > 0 && (
-            <span
-              style={{
-                minWidth: 19,
-                height: 19,
-                padding: '0 6px',
-                borderRadius: 999,
-                background: 'var(--red)',
-                color: '#fff',
-                fontSize: 11,
-                fontWeight: 800,
-                display: 'inline-flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                fontVariantNumeric: 'tabular-nums',
-              }}
-            >
-              {queue > 99 ? '99+' : queue}
-            </span>
-          )}
-        </button>
-        <button className={tab === 'tools' ? 'btn btn-primary' : 'btn btn-ghost'} onClick={() => setTab('tools')} hidden={supportOnly}>
-          Tools
-        </button>
-        <button className={tab === 'how' ? 'btn btn-primary' : 'btn btn-ghost'} onClick={() => setTab('how')} hidden={supportOnly}>
-          How it works
-        </button>
-        <button className={tab === 'users' ? 'btn btn-primary' : 'btn btn-ghost'} onClick={() => setTab('users')} hidden={supportOnly}>
-          Users
-        </button>
-        <button className={tab === 'categories' ? 'btn btn-primary' : 'btn btn-ghost'} onClick={() => setTab('categories')} hidden={supportOnly}>
-          Default categories
-        </button>
-        <button className={tab === 'settings' ? 'btn btn-primary' : 'btn btn-ghost'} onClick={() => setTab('settings')} hidden={supportOnly}>
-          Settings
-        </button>
-        <button className={tab === 'email' ? 'btn btn-primary' : 'btn btn-ghost'} onClick={() => setTab('email')} hidden={supportOnly}>
-          Email server
-        </button>
-        <button className={tab === 'stripe' ? 'btn btn-primary' : 'btn btn-ghost'} onClick={() => setTab('stripe')} hidden={supportOnly}>
-          Stripe
-        </button>
-        <button className={tab === 'promos' ? 'btn btn-primary' : 'btn btn-ghost'} onClick={() => setTab('promos')} hidden={supportOnly}>
-          Promo codes
-        </button>
-        <button className={tab === 'push' ? 'btn btn-primary' : 'btn btn-ghost'} onClick={() => setTab('push')} hidden={supportOnly}>
-          Firebase
-        </button>
+      {/* One bordered strip rather than eleven loose pills. The groups are
+          separated by a rule, not by a gap somebody has to interpret. */}
+      <div
+        style={{
+          border: '1px solid var(--border)',
+          borderRadius: 'var(--radius)',
+          background: 'var(--bg-card)',
+          padding: 12,
+          marginBottom: 20,
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 10,
+        }}
+      >
+        {groups.map((group, index) => (
+          <div key={group.title || 'only'} style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
+            {index > 0 && <span style={{ height: 1, background: 'var(--border)', margin: '2px 0 5px' }} />}
+            {group.title && (
+              <span
+                style={{
+                  fontSize: 10.5,
+                  fontWeight: 800,
+                  letterSpacing: 0.7,
+                  textTransform: 'uppercase',
+                  color: 'var(--text-subtle)',
+                }}
+              >
+                {group.title}
+              </span>
+            )}
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+              {group.tabs.map((item) => {
+                const active = tab === item.key;
+                return (
+                  <button
+                    key={item.key}
+                    type="button"
+                    aria-current={active ? 'page' : undefined}
+                    onClick={() => setTab(item.key)}
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: 7,
+                      padding: '7px 12px',
+                      borderRadius: 999,
+                      fontSize: 12.5,
+                      fontWeight: 600,
+                      cursor: 'pointer',
+                      font: 'inherit',
+                      fontFamily: 'inherit',
+                      border: `1px solid ${active ? 'var(--accent)' : 'var(--border)'}`,
+                      background: active ? 'var(--accent)' : 'transparent',
+                      color: active ? '#fff' : 'var(--text-muted)',
+                    }}
+                  >
+                    <Icon name={item.icon} size={13} />
+                    {item.label}
+                    {/* Only when something is waiting. A zero here would be a
+                        badge announcing that there is nothing to announce. */}
+                    {item.key === 'support' && queue > 0 && (
+                      <span
+                        style={{
+                          minWidth: 18,
+                          height: 18,
+                          padding: '0 5px',
+                          borderRadius: 999,
+                          background: active ? 'rgba(255,255,255,.24)' : 'var(--red)',
+                          color: '#fff',
+                          fontSize: 10.5,
+                          fontWeight: 800,
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          fontVariantNumeric: 'tabular-nums',
+                        }}
+                      >
+                        {queue > 99 ? '99+' : queue}
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        ))}
       </div>
 
       {tab === 'stats' && <AdminStatsTab onHowItWorks={() => setTab('how')} />}

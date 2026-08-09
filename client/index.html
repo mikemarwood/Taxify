@@ -2,9 +2,24 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <!-- The same mark as logo.svg, redrawn for 16 pixels. See favicon.svg. -->
+    <!--
+      The same mark as logo.svg, redrawn for 16 pixels. See favicon.svg.
+
+      The SVG on its own was not enough on a phone. Safari on iOS ignores SVG
+      icons completely and wants a PNG apple-touch-icon — the /logo.svg here was
+      never going to work — and Android Chrome takes its icon from the web
+      manifest, which did not exist. So the tab showed a blank page glyph on
+      exactly the devices most people open this on.
+
+      The PNGs are rendered from favicon.svg's own geometry, so they cannot
+      drift from it. Desktop browsers still prefer the SVG: it is listed first
+      and stays sharp at any zoom.
+    -->
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    <link rel="apple-touch-icon" href="/logo.svg" />
+    <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png" />
+    <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16.png" />
+    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
+    <link rel="manifest" href="/site.webmanifest" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="theme-color" content="#1559b8" />
     <title>Taxify - Powered by Mikes App Hub</title>

@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import ImageLightbox from '../components/ImageLightbox.jsx';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import AndroidDownloadButton from '../components/AndroidDownloadButton.jsx';
@@ -150,6 +151,8 @@ export default function Landing() {
   // asked for twice. Clicking the chosen one again clears it — a choice you
   // cannot undo is a trap.
   const [chosenPlan, setChosenPlan] = useState(null);
+  // The screenshot being looked at full size, if any.
+  const [shot, setShot] = useState(null);
   const [trialDays, setTrialDays] = useState(14);
 
   useEffect(() => {
@@ -413,6 +416,14 @@ export default function Landing() {
                   width="480"
                   height="360"
                   loading="lazy"
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => setShot({ src: `/media/${file.includes('.') ? file : `${file}.svg`}`, name: title })}
+                  onKeyDown={(e) => {
+                    if (e.key !== 'Enter' && e.key !== ' ') return;
+                    e.preventDefault();
+                    setShot({ src: `/media/${file.includes('.') ? file : `${file}.svg`}`, name: title });
+                  }}
                   style={{
                     display: 'block',
                     width: '100%',
@@ -420,6 +431,7 @@ export default function Landing() {
                     borderRadius: 14,
                     border: '1px solid var(--border)',
                     background: 'var(--bg-card)',
+                    cursor: 'zoom-in',
                   }}
                 />
                 <div style={{ fontSize: 10.5, fontWeight: 800, letterSpacing: 0.8, textTransform: 'uppercase', color: 'var(--text-muted)', margin: '14px 0 5px' }}>
@@ -710,6 +722,11 @@ export default function Landing() {
         </div>
         <SiteFooter />
       </footer>
+
+      {/* The same viewer the app uses for a receipt: Escape, a close
+          button, click anywhere off the picture, and the page behind held
+          still while it is open. */}
+      <ImageLightbox open={Boolean(shot)} src={shot?.src || ''} name={shot?.name || ''} onClose={() => setShot(null)} />
     </div>
   );
 }

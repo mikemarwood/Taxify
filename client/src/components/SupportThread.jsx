@@ -373,6 +373,9 @@ export default function SupportThread({
   // What we last saw, so a reply arriving while the page is open can announce
   // itself rather than appearing silently.
   const seen = useRef(messages?.length || 0);
+  // The foot of the conversation, scrolled to on open and whenever something
+  // new arrives.
+  const foot = useRef(null);
 
   useEffect(() => {
     if (!onRefresh) return undefined;
@@ -387,6 +390,30 @@ export default function SupportThread({
     if (count > seen.current && seen.current > 0) playInfo();
     seen.current = count;
   }, [messages]);
+
+  // Open a ticket and you are looking at the newest message, not the oldest.
+  //
+  // A long conversation opened at the top, so the answer somebody came back
+  // for was several screens down and the reply box further still. Jumped
+  // rather than animated on the first paint — a page that scrolls itself
+  // while being read is worse than one that starts in the wrong place — and
+  // smoothly after that, so a reply arriving mid-read is followed rather than
+  // snatched at.
+  const first = useRef(true);
+  useEffect(() => {
+    if (!foot.current || !messages?.length) return;
+    foot.current.scrollIntoView({ block: 'end', behavior: first.current ? 'auto' : 'smooth' });
+    first.current = false;
+    // Keyed on the last message rather than the array: polling hands back a
+    // new array every few seconds, and scrolling on each one would drag the
+    // page down under somebody reading further up.
+  }, [messages?.length, ticket?.id]);
+
+  // A different ticket is a different conversation, and it opens at its own
+  // newest message with no animation.
+  useEffect(() => {
+    first.current = true;
+  }, [ticket?.id]);
 
 
   async function send() {
@@ -438,6 +465,8 @@ export default function SupportThread({
             />
           ))}
         </AnimatePresence>
+
+        <span ref={foot} aria-hidden style={{ scrollMarginBottom: 120 }} />
 
         <ImageLightbox
           open={Boolean(preview)}

@@ -350,6 +350,15 @@ export default function TaxYears({ years, spendByYear, expenses, onFinalisedChan
           const year = row.key;
           const { entry, spent, finalised, appointment } = row;
           const left = appointment && !finalised ? countdown(appointment.at) : null;
+          // A refund is what comes back after the return has been assessed,
+          // which cannot happen for a period still running. The button is not
+          // offered rather than offered and refused.
+          //
+          // A figure already on the row keeps its Edit button whatever the
+          // dates say: something entered before this rule, or entered by
+          // mistake, has to stay correctable.
+          const running = Boolean(row.end) && todayIso() <= row.end;
+          const canRefund = canEdit && (!running || entry?.amount != null);
 
           return (
             <div
@@ -401,7 +410,7 @@ export default function TaxYears({ years, spendByYear, expenses, onFinalisedChan
                     >
                       {entry?.amount != null ? formatMoney(entry.amount) : '—'}
                     </span>
-                    {canEdit && (
+                    {canRefund && (
                       <button
                         className="btn btn-ghost"
                         style={{ fontSize: 12, padding: '6px 11px', gap: 6 }}
@@ -432,9 +441,11 @@ export default function TaxYears({ years, spendByYear, expenses, onFinalisedChan
                         Finalise
                       </button>
                     )}
-                    {!finalised && canEdit && row.end && todayIso() <= row.end && (
+                    {/* Says why the row is short of the buttons every other
+                        row has. Without the reason it just looks broken. */}
+                    {!finalised && canEdit && running && (
                       <span
-                        title={`This period ends ${row.end}`}
+                        title={`This period ends ${row.end} — a refund can be recorded once it has`}
                         style={{ fontSize: 11.5, color: 'var(--text-muted)' }}
                       >
                         Still running

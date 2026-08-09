@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useState } from 'react';
+import { Fragment, useEffect, useRef, useState } from 'react';
 import { Link, NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { useAuth } from '../lib/AuthContext.jsx';
@@ -19,6 +19,7 @@ import { describeSubscription } from '../lib/subscription.js';
 import { currentPlanType, planLabel as labelForPlan } from '../lib/plans.js';
 import SiteFooter from './SiteFooter.jsx';
 import { useSupportCounts } from '../lib/useSupportCounts.js';
+import RailScrollbar from './RailScrollbar.jsx';
 import { useKeyboardOpen } from '../lib/useKeyboardOpen.js';
 
 // Eight equal-weight links in one column give no sense of where anything is.
@@ -167,6 +168,7 @@ export default function Layout({ children }) {
   // Live counts for the two badges. One poll for both, shared here rather than
   // fetched inside each item.
   const supportCounts = useSupportCounts({ isAdmin: Boolean(user?.isAdmin) });
+  const railRef = useRef(null);
   const [showMfaPrompt, setShowMfaPrompt] = useState(false);
   // The drawer, on small screens only. Closed on every navigation, or it would
   // stay over the page someone just asked for.
@@ -274,6 +276,7 @@ export default function Layout({ children }) {
         />
       )}
       <aside
+        ref={railRef}
         className="scrollbar-slim app-sidebar"
         data-open={navOpen ? 'true' : 'false'}
         style={{
@@ -304,6 +307,8 @@ export default function Layout({ children }) {
           overflowY: 'auto',
         }}
       >
+        <RailScrollbar containerRef={railRef} />
+
         <div className="nav-brand" style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '0 8px' }}>
           <img src="/logo.svg" alt="Taxify" width="34" height="34" />
           <span style={{ fontWeight: 700, fontSize: 19, letterSpacing: -0.4, color: 'var(--nav-text-active)' }}>Taxify</span>

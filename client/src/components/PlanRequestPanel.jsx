@@ -34,7 +34,7 @@ const DUE_OPTIONS = [
 
 export default function PlanRequestPanel({ request, onChanged }) {
   const toast = useToast();
-  const [description, setDescription] = useState(`Taxify — change to the ${planLabel(request.toPlan)} plan`);
+  const [description, setDescription] = useState(`Taxify — Change plan to ${planLabel(request.toPlan)}`);
   const [days, setDays] = useState(0);
   const [busy, setBusy] = useState(false);
   const [open, setOpen] = useState(false);

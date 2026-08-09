@@ -198,9 +198,28 @@ router.put(
     const entityId = await booksFor(req);
     if (!entityId) return res.status(400).json({ error: 'Choose which business this is for' });
 
-    if (finalise) {
+    // A refund is what comes back after the return has been assessed, and a
+    // return cannot be assessed for a period that has not finished. The check
+    // used to run only when the year was being finalised at the same time —
+    // so the record-without-finalising path, added so a year could be closed
+    // without money arriving, let a figure be entered against a year still
+    // months from ending.
+    //
+    // A figure already on the row is left editable whatever the dates say.
+    // Something recorded before this rule existed, or recorded by mistake,
+    // has to stay correctable — refusing the edit would freeze the error in
+    // place.
+    const already = await readYear(ownerId, entityId, financialYear, period);
+    if (already?.amount == null) {
       const unfinished = await refuseUnfinishedPeriod(req, financialYear, period, entityId);
-      if (unfinished) return res.status(400).json({ error: unfinished });
+      if (unfinished) {
+        return res.status(400).json({
+          error: unfinished.replace(
+            'You can finalise it once it has finished.',
+            'You can record a refund once it has finished.'
+          ),
+        });
+      }
     }
 
     await ensureRow(ownerId, entityId, financialYear, period);
