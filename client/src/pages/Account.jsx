@@ -1308,9 +1308,53 @@ function AccountantSection({ user }) {
 }
 
 export default function Account() {
-  const { user, updateProfile, changePassword, setOtpEnabled, setUser } = useAuth();
+  const { user, updateProfile, changePassword, setOtpEnabled, setUser, refresh } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
   const toast = useToast();
+
+  // Back from Stripe, having paid.
+  //
+  // Everything about a subscription used to reach us by webhook, and a webhook
+  // is a promise from another machine. Delayed, mis-configured, or an event
+  // never switched on in the dashboard, and somebody pays to renew, is sent
+  // back here, and finds themselves still locked out holding a receipt. From
+  // their side that is indistinguishable from being robbed, and it is the
+  // worst thing this app can do.
+  //
+  // They are standing right here when they come back, so we ask Stripe rather
+  // than wait to be told. The webhook still runs and still wins ties — this is
+  // a second route to the same truth, not a replacement for it.
+  useEffect(() => {
+    if (searchParams.get('checkout') !== 'success') return;
+
+    let alive = true;
+    (async () => {
+      try {
+        await api.post('/billing/sync');
+        if (!alive) return;
+        await refresh();
+        toast('Thank you — your account is active again', 'success');
+      } catch {
+        // The payment went through either way; the webhook will catch up. Not
+        // worth alarming somebody who has just paid.
+        await refresh().catch(() => {});
+      } finally {
+        if (alive) {
+          // Cleared so a refresh does not run it again, and so the URL stops
+          // saying something that is no longer news.
+          const next = new URLSearchParams(searchParams);
+          next.delete('checkout');
+          setSearchParams(next, { replace: true });
+        }
+      }
+    })();
+
+    return () => {
+      alive = false;
+    };
+    // Once, on arrival.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Everything captured at sign-up is editable here except how they heard
   // about us — that's a one-time answer about a moment that's passed.

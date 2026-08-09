@@ -130,6 +130,73 @@ router.post(
   })
 );
 
+// Ask Stripe what the truth is, now.
+//
+// Everything about a subscription reached us by webhook, and a webhook is a
+// promise from another machine. If it is delayed, mis-configured, or the
+// event was never enabled in the dashboard, somebody pays to renew, is sent
+// back to their account, and finds themselves still locked out — holding a
+// receipt. That is the worst failure this app has, because from their side it
+// is indistinguishable from being robbed.
+//
+// The person is standing right there when they come back from checkout, so
+// this asks Stripe directly rather than waiting to be told. Idempotent, and
+// safe to call at any time: it only ever copies what Stripe says.
+router.post(
+  '/sync',
+  requireAuth,
+  requireAccountOwner,
+  asyncHandler(async (req, res) => {
+    const stripe = await getStripe();
+
+    // The customer id may not be on our row yet — a first checkout creates
+    // the customer at Stripe, and that fact reaches us in the same webhook
+    // that has not arrived. Found by email in that case.
+    let customerId = req.user.stripeCustomerId || null;
+    if (!customerId) {
+      const found = await stripe.customers.list({ email: req.user.email, limit: 1 });
+      customerId = found.data[0]?.id || null;
+    }
+    if (!customerId) return res.json({ ok: true, changed: false });
+
+    const subs = await stripe.subscriptions.list({ customer: customerId, status: 'all', limit: 10 });
+    // The one that is actually giving them access. Several can exist — an old
+    // cancelled one and a new one — and the newest is not always the live one.
+    const live =
+      subs.data.find((sub) => sub.status === 'active' || sub.status === 'trialing') ||
+      subs.data.find((sub) => sub.status === 'past_due') ||
+      null;
+
+    if (!live) {
+      await pool.execute('UPDATE users SET stripe_customer_id = COALESCE(stripe_customer_id, ?) WHERE id = ?', [
+        customerId,
+        req.user.id,
+      ]);
+      return res.json({ ok: true, changed: false });
+    }
+
+    const status = live.status === 'past_due' ? 'past_due' : 'active';
+    const priceId = live.items?.data?.[0]?.price?.id || null;
+    const planFromPrice = await planTypeForPriceId(priceId);
+
+    // current_period_end moved onto the subscription item in Stripe's 2025
+    // API versions. Read from both, so this keeps working whichever version
+    // the account is pinned to rather than writing a null period end.
+    const periodEnd = live.current_period_end || live.items?.data?.[0]?.current_period_end || null;
+
+    await pool.execute(
+      `UPDATE users
+          SET stripe_customer_id = ?, stripe_subscription_id = ?, subscription_status = ?,
+              plan_type = COALESCE(?, plan_type),
+              subscription_current_period_end = COALESCE(FROM_UNIXTIME(?), subscription_current_period_end)
+        WHERE id = ?`,
+      [customerId, live.id, status, planFromPrice, periodEnd, req.user.id]
+    );
+
+    res.json({ ok: true, changed: true, status, periodEnd });
+  })
+);
+
 // Moving between plans on a *live* subscription. Sending an existing
 // subscriber back through checkout would open a second subscription and bill
 // them twice, so the price on the one they have is swapped instead and Stripe
@@ -869,8 +936,19 @@ router.post(
           }
           await pool.execute(
             `UPDATE users SET stripe_customer_id = ?, stripe_subscription_id = ?, subscription_status = 'active',
-             plan_type = ?, subscription_current_period_end = FROM_UNIXTIME(?) WHERE id = ?`,
-            [session.customer, subscription.id, planType, subscription.current_period_end, userId]
+             plan_type = ?,
+             subscription_current_period_end = COALESCE(FROM_UNIXTIME(?), subscription_current_period_end)
+           WHERE id = ?`,
+            [
+              session.customer,
+              subscription.id,
+              planType,
+              // current_period_end moved onto the subscription item in
+              // Stripe's 2025 API versions. Read from both, or a newer
+              // account writes a null period end here.
+              subscription.current_period_end || subscription.items?.data?.[0]?.current_period_end || null,
+              userId,
+            ]
           );
         }
         break;
@@ -898,13 +976,21 @@ router.post(
         const priceId = subscription.items?.data?.[0]?.price?.id || null;
         const planFromPrice = await planTypeForPriceId(priceId);
 
+        // current_period_end moved onto the subscription item in Stripe's 2025
+        // API versions. Read from both, and never overwrite a good date with a
+        // null — a renewal that arrives without one must not wipe the end date
+        // it was extending.
+        const periodEnd = subscription.current_period_end || subscription.items?.data?.[0]?.current_period_end || null;
+
         await pool.execute(
-          `UPDATE users SET subscription_status = ?, subscription_current_period_end = FROM_UNIXTIME(?)
-             ${planFromPrice ? ', plan_type = ?' : ''}
-           WHERE stripe_customer_id = ?`,
+          `UPDATE users
+              SET subscription_status = ?,
+                  subscription_current_period_end = COALESCE(FROM_UNIXTIME(?), subscription_current_period_end)
+                  ${planFromPrice ? ', plan_type = ?' : ''}
+            WHERE stripe_customer_id = ?`,
           planFromPrice
-            ? [status, subscription.current_period_end, planFromPrice, subscription.customer]
-            : [status, subscription.current_period_end, subscription.customer]
+            ? [status, periodEnd, planFromPrice, subscription.customer]
+            : [status, periodEnd, subscription.customer]
         );
         break;
       }

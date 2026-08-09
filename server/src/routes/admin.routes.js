@@ -15,7 +15,7 @@ import { computeAccessLocked } from '../auth/access.js';
 import { collectStats } from '../lib/adminStats.js';
 import { accountSummary, targetProblem, cloneAccount } from '../lib/cloneAccount.js';
 import { assignAccountNumber } from '../lib/accountNumber.js';
-import { getSignupPlans, getStripe } from '../lib/stripe.js';
+import { getSignupPlans, getStripe, planTypeForPriceId } from '../lib/stripe.js';
 import { amountProblem, canTransition } from '../lib/planRequests.js';
 import { shapeTicket, messagesFor, addReply, ticketUrl, upload, editMessage } from './support.routes.js';
 import { categoryLabel, isPriority, PRIORITIES } from '../lib/support.js';
@@ -1508,6 +1508,87 @@ router.delete(
 
 // Give an account the public number it never got. assignAccountNumber only runs
 // at registration, so anybody who signed up before that existed has none.
+// Put right every account whose payment landed but whose access did not.
+//
+// Subscription state reached us only by webhook, and a webhook is a promise
+// from another machine. If one was delayed, rejected on a stale signing
+// secret, or never switched on in the dashboard, somebody paid and stayed
+// locked out — and nothing in the app would ever notice, because the only
+// thing that was going to tell it had already failed to.
+//
+// This asks Stripe about every account we hold a customer for and writes back
+// what it says. Safe to run at any time and safe to run twice: it only ever
+// copies Stripe, and it reports what it changed rather than saying done.
+router.post(
+  '/tools/reconcile-subscriptions',
+  asyncHandler(async (req, res) => {
+    const stripe = await getStripe();
+    const [rows] = await pool.query(
+      `SELECT id, email, name, stripe_customer_id, subscription_status, plan_type,
+              subscription_current_period_end
+         FROM users
+        WHERE stripe_customer_id IS NOT NULL AND role = 'owner'`
+    );
+
+    const fixed = [];
+    const problems = [];
+
+    for (const user of rows) {
+      try {
+        const subs = await stripe.subscriptions.list({
+          customer: user.stripe_customer_id,
+          status: 'all',
+          limit: 10,
+        });
+        const live =
+          subs.data.find((sub) => sub.status === 'active' || sub.status === 'trialing') ||
+          subs.data.find((sub) => sub.status === 'past_due') ||
+          null;
+        if (!live) continue;
+
+        const status = live.status === 'past_due' ? 'past_due' : 'active';
+        const priceId = live.items?.data?.[0]?.price?.id || null;
+        const planFromPrice = await planTypeForPriceId(priceId);
+        const periodEnd = live.current_period_end || live.items?.data?.[0]?.current_period_end || null;
+
+        // Only touched when Stripe disagrees with us, so the report is a list
+        // of things that were actually wrong rather than a list of accounts.
+        const endsAt = periodEnd ? new Date(periodEnd * 1000) : null;
+        const same =
+          user.subscription_status === status &&
+          (!planFromPrice || user.plan_type === planFromPrice) &&
+          (!endsAt ||
+            (user.subscription_current_period_end &&
+              Math.abs(new Date(user.subscription_current_period_end).getTime() - endsAt.getTime()) < 60000));
+        if (same) continue;
+
+        await pool.execute(
+          `UPDATE users
+              SET subscription_status = ?, stripe_subscription_id = ?,
+                  plan_type = COALESCE(?, plan_type),
+                  subscription_current_period_end = COALESCE(FROM_UNIXTIME(?), subscription_current_period_end)
+            WHERE id = ?`,
+          [status, live.id, planFromPrice, periodEnd, user.id]
+        );
+
+        fixed.push({
+          id: user.id,
+          email: user.email,
+          name: user.name,
+          was: user.subscription_status,
+          now: status,
+          endsAt: endsAt ? endsAt.toISOString() : null,
+        });
+      } catch (err) {
+        // One unreachable customer must not stop the rest being put right.
+        problems.push({ email: user.email, error: err.message });
+      }
+    }
+
+    res.json({ checked: rows.length, fixed, problems });
+  })
+);
+
 router.post(
   '/tools/account-number',
   asyncHandler(async (req, res) => {

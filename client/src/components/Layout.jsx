@@ -136,7 +136,14 @@ function NavItem({ item }) {
               saying "nothing to see", which is worse than no badge at all. */}
           {item.badge > 0 && (
             <span
-              aria-label={`${item.badge} waiting`}
+              // What the number is for.
+              //
+              // A red 1 beside My account with nothing to explain it is a
+              // thing to worry about rather than a thing to act on, and
+              // somebody who cannot find out what it means learns to ignore
+              // the next one.
+              title={item.badgeTitle || `${item.badge} waiting`}
+              aria-label={item.badgeTitle || `${item.badge} waiting`}
               style={{
                 minWidth: 19,
                 height: 19,
@@ -161,6 +168,18 @@ function NavItem({ item }) {
   );
 }
 
+// What the red number beside My account is about.
+//
+// A bare 1 says something is wrong and nothing about what, which is how a
+// badge becomes background noise. Hovering says it; the account page itself
+// says it at length.
+function describeOwing(reasons = []) {
+  if (reasons.includes('locked')) return 'Your access has ended — renew to get back in';
+  if (reasons.includes('past_due')) return 'A payment failed — your card needs updating';
+  if (reasons.includes('invoice')) return 'You have an invoice waiting to be paid';
+  return 'Something on your account needs attention';
+}
+
 export default function Layout({ children }) {
   const { user, logout, refresh } = useAuth();
   const navigate = useNavigate();
@@ -170,6 +189,7 @@ export default function Layout({ children }) {
   // fetched inside each item.
   const supportCounts = useSupportCounts({ isAdmin: Boolean(user?.isAdmin) });
   const railRef = useRef(null);
+
   // Money waiting on them — an invoice unpaid, or access already lost. An
   // accountant has no plan of their own to owe anything on.
   const owing = useBillingAttention({ enabled: Boolean(user) && user?.role !== 'accountant' });
@@ -352,7 +372,7 @@ export default function Layout({ children }) {
                     // number as the support badges, because it means the same
                     // thing: this needs you.
                     : i.to === '/account'
-                    ? { ...i, badge: owing.count }
+                    ? { ...i, badge: owing.count, badgeTitle: describeOwing(owing.reasons) }
                     : i
                 );
 
