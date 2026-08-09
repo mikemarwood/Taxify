@@ -97,11 +97,44 @@ router.get(
         LIMIT ${perPage} OFFSET ${(page - 1) * perPage}`,
       params
     );
+    const [states] = await pool.execute(
+      `SELECT status, COUNT(*) AS n FROM support_tickets GROUP BY status`
+    );
+    const [byCategory] = await pool.execute(
+      `SELECT category, COUNT(*) AS n FROM support_tickets
+        WHERE status <> 'closed' GROUP BY category`
+    );
+    const [[mine]] = await pool.execute(
+      `SELECT COUNT(*) AS n FROM support_tickets WHERE assigned_to = ? AND status <> 'closed'`,
+      [req.user.id]
+    );
+    const [[unassigned]] = await pool.execute(
+      `SELECT COUNT(*) AS n FROM support_tickets WHERE assigned_to IS NULL AND status <> 'closed'`
+    );
+    // Closed in the last seven days. A running total of everything ever closed
+    // only goes up and says nothing about how this week is going.
+    const [[closedRecently]] = await pool.execute(
+      `SELECT COUNT(*) AS n FROM support_tickets
+        WHERE status = 'closed' AND closed_at > DATE_SUB(NOW(), INTERVAL 7 DAY)`
+    );
+
+    const state = Object.fromEntries(states.map((row) => [row.status, Number(row.n) || 0]));
+
     res.json({
       tickets: rows.map((r) => shapeTicket(r, { includeEmail: true })),
       total: Number(counted.n) || 0,
       page,
       perPage,
+      summary: {
+        awaitingSupport: state.awaiting_support || 0,
+        awaitingCustomer: state.awaiting_customer || 0,
+        mine: Number(mine.n) || 0,
+        unassigned: Number(unassigned.n) || 0,
+        closedThisWeek: Number(closedRecently.n) || 0,
+        // Open tickets per category, so the chips can carry a number and the
+        // busiest kind of question is visible without opening any of them.
+        categories: Object.fromEntries(byCategory.map((row) => [row.category, Number(row.n) || 0])),
+      },
     });
   })
 );
@@ -121,6 +154,31 @@ router.get(
     // The status is untouched: it still needs a reply, and only replying
     // changes that.
     await pool.execute('UPDATE support_tickets SET support_read_at = NOW() WHERE id = ?', [rows[0].id]);
+
+    // Who is asking. A guest has no account behind them, so this is null and
+    // the panel says so rather than showing a row of dashes.
+    let customer = null;
+    if (rows[0].user_id) {
+      const [who] = await pool.execute(
+        `SELECT u.id, u.plan_type, u.subscription_status, u.trial_ends_at, u.created_at, u.country,
+                u.account_number,
+                (SELECT COUNT(*) FROM support_tickets s WHERE s.user_id = u.id) AS ticket_count
+           FROM users u WHERE u.id = ?`,
+        [rows[0].user_id]
+      );
+      if (who[0]) {
+        customer = {
+          id: who[0].id,
+          accountNumber: who[0].account_number || null,
+          planType: who[0].plan_type || null,
+          subscriptionStatus: who[0].subscription_status || null,
+          trialEndsAt: who[0].trial_ends_at,
+          joinedAt: who[0].created_at,
+          country: who[0].country || null,
+          ticketCount: Number(who[0].ticket_count) || 0,
+        };
+      }
+    }
 
     // The plan change this ticket is about, if it is about one. Sent with the
     // thread so the invoice can be raised from inside the conversation rather
@@ -161,6 +219,7 @@ router.get(
     res.json({
       ticket: shapeTicket(rows[0], { includeEmail: true }),
       messages: await messagesFor(rows[0].id, { includeNotes: true }),
+      customer,
       planRequest,
     });
   })

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useParams, Link } from 'react-router-dom';
 import { api } from '../lib/api.js';
+import PlanInvoiceNotice from '../components/PlanInvoiceNotice.jsx';
 import { useAuth } from '../lib/AuthContext.jsx';
 import { useToast } from '../components/Toast.jsx';
 import Icon from '../components/Icon.jsx';
@@ -509,6 +510,7 @@ export function SupportTicket() {
   return (
     <div style={{ maxWidth: 780, display: 'flex', flexDirection: 'column', gap: 16 }}>
       <TicketHeading ticket={data.ticket} />
+      <PlanInvoiceNotice request={data.planRequest} />
       <SupportThread
         ticket={data.ticket}
         messages={data.messages}
@@ -565,6 +567,7 @@ export function SupportTicketByToken() {
   return (
     <div style={{ maxWidth: 780, margin: '32px auto', padding: '0 16px', display: 'flex', flexDirection: 'column', gap: 16 }}>
       <TicketHeading ticket={data.ticket} />
+      <PlanInvoiceNotice request={data.planRequest} />
       <SupportThread
         ticket={data.ticket}
         messages={data.messages}

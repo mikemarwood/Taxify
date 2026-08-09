@@ -160,6 +160,33 @@ function shapeMessage(row, token = null) {
   };
 }
 
+// The plan change a ticket is about, as the customer sees it.
+//
+// The invoice was raised inside their ticket and then only existed on the
+// support side of it — so the thread said an invoice had been sent and gave
+// them no way to open it, which is the one thing they wanted from the
+// conversation. What they get is what they can act on: the amount, whether it
+// is paid, and a link to pay it. Never who raised it, or what it cost us to
+// decide.
+export async function planRequestFor(ticket) {
+  if (!ticket?.plan_change_request_id) return null;
+  const [rows] = await pool.execute('SELECT * FROM plan_change_requests WHERE id = ?', [
+    ticket.plan_change_request_id,
+  ]);
+  const row = rows[0];
+  if (!row) return null;
+  return {
+    toPlan: row.to_plan,
+    fromPlan: row.from_plan,
+    status: row.status,
+    invoiceUrl: row.invoice_url,
+    invoiceAmountCents: row.invoice_amount_cents,
+    invoiceCurrency: row.invoice_currency,
+    invoicedAt: row.invoiced_at,
+    paidAt: row.paid_at,
+  };
+}
+
 async function messagesFor(ticketId, { token = null, includeNotes = false } = {}) {
   const [rows] = await pool.execute(
     `SELECT m.*, u.avatar_path FROM support_messages m
@@ -590,7 +617,11 @@ router.get(
     // people stop believing.
     await pool.execute('UPDATE support_tickets SET customer_read_at = NOW() WHERE id = ?', [rows[0].id]);
 
-    res.json({ ticket: shapeTicket(rows[0]), messages: await messagesFor(rows[0].id) });
+    res.json({
+      ticket: shapeTicket(rows[0]),
+      messages: await messagesFor(rows[0].id),
+      planRequest: await planRequestFor(rows[0]),
+    });
   })
 );
 
@@ -607,7 +638,11 @@ router.get(
     );
     if (!rows[0]) return res.status(404).json({ error: 'invalid' });
     await pool.execute('UPDATE support_tickets SET customer_read_at = NOW() WHERE id = ?', [rows[0].id]);
-    res.json({ ticket: shapeTicket(rows[0]), messages: await messagesFor(rows[0].id, { token: req.query.token }) });
+    res.json({
+      ticket: shapeTicket(rows[0]),
+      messages: await messagesFor(rows[0].id, { token: req.query.token }),
+      planRequest: await planRequestFor(rows[0]),
+    });
   })
 );
 
