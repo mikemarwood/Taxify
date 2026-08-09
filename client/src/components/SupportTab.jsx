@@ -511,6 +511,9 @@ export default function SupportTab() {
       {starting && (
         <NewTicketForSomebody
           categories={categories}
+          staff={staff}
+          currentUserId={user?.id ?? null}
+          isAdmin={Boolean(user?.isAdmin)}
           onCancel={() => setStarting(false)}
           onCreated={(id) => {
             setStarting(false);

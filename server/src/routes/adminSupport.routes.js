@@ -7,8 +7,24 @@ import { notify } from '../lib/notify.js';
 import { categoryLabel, isPriority, PRIORITIES } from '../lib/support.js';
 import { sendSupportClosedEmail } from '../lib/mailer.js';
 import { getSignupPlans } from '../lib/stripe.js';
-import { shapeTicket, messagesFor, addReply, ticketUrl, upload, editMessage, announce } from './support.routes.js';
-import { generateReference, generateAccessToken, isCategory, isPriority as isPriorityValue } from '../lib/support.js';
+import {
+  shapeTicket,
+  messagesFor,
+  addReply,
+  ticketUrl,
+  upload,
+  editMessage,
+  announce,
+  saveAttachments,
+} from './support.routes.js';
+import {
+  generateReference,
+  generateAccessToken,
+  isCategory,
+  isPriority as isPriorityValue,
+  subjectProblem,
+  messageProblem,
+} from '../lib/support.js';
 import { removeTicketFiles, MAX_ATTACHMENTS_PER_MESSAGE } from '../lib/supportAttachments.js';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -378,6 +394,50 @@ router.delete(
   })
 );
 
+// Who a ticket can be raised for.
+//
+// Typed as an email or a name, because whoever is on the phone will give you
+// one or the other and rarely the one you expected. Activated accounts only:
+// an account that has never confirmed its address cannot read anything sent to
+// it, so offering it would be offering a conversation with nobody.
+//
+// The status comes back with each match. Half of what support needs to know
+// before writing is whether the person is on a trial, paying, or locked out —
+// and picking the right Michael from three is easier with it on screen.
+router.get(
+  '/support/customers',
+  requireSupportStaff,
+  asyncHandler(async (req, res) => {
+    const search = String(req.query?.q || '').trim().slice(0, 80);
+    if (search.length < 2) return res.json({ customers: [] });
+
+    const like = `%${search}%`;
+    const [rows] = await pool.execute(
+      `SELECT id, name, email, plan_type, subscription_status, trial_ends_at, access_bypass, avatar_path
+         FROM users
+        WHERE activated_at IS NOT NULL
+          AND role <> 'accountant'
+          AND (email LIKE ? OR name LIKE ?)
+        ORDER BY name
+        LIMIT 8`,
+      [like, like]
+    );
+
+    res.json({
+      customers: rows.map((r) => ({
+        id: r.id,
+        name: r.name,
+        email: r.email,
+        planType: r.plan_type || null,
+        subscriptionStatus: r.subscription_status || null,
+        trialEndsAt: r.trial_ends_at,
+        accessBypass: Boolean(r.access_bypass),
+        avatarUrl: r.avatar_path ? `/api/auth/avatar/${r.id}` : null,
+      })),
+    });
+  })
+);
+
 // Raising a ticket for somebody else.
 //
 // Every ticket started on the customer's side, which assumes every
@@ -411,11 +471,37 @@ router.post(
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email)) {
       return res.status(400).json({ error: 'Enter the email address this is for' });
     }
-    if (subject.length < 3) return res.status(400).json({ error: 'Give it a subject' });
-    if (message.length < 3) return res.status(400).json({ error: 'Write the message first' });
+    // The same rules a customer's own ticket is held to, from the same
+    // functions. A ticket we raise is not a lesser one, and two sets of length
+    // rules for the same two fields is two things to keep in step.
+    const badSubject = subjectProblem(subject);
+    if (badSubject) return res.status(400).json({ error: badSubject });
+    const badMessage = messageProblem(message);
+    if (badMessage) return res.status(400).json({ error: badMessage });
 
-    const [found] = await pool.execute('SELECT id, name FROM users WHERE email = ?', [email]);
+    // Activated only, matching the search. An unconfirmed address cannot read
+    // what is sent to it, so a ticket against it would be a conversation with
+    // nobody — it is treated as a stranger and emailed a guest link instead,
+    // which at least reaches the mailbox.
+    const [found] = await pool.execute(
+      "SELECT id, name FROM users WHERE email = ? AND activated_at IS NOT NULL AND role <> 'accountant'",
+      [email]
+    );
     const owner = found[0] || null;
+
+    // Who holds it. An administrator can hand it straight to whoever should
+    // answer; anybody else keeps what they wrote. The same rule as transferring
+    // an existing one, so there is no way in through the back door.
+    let holder = req.user.id;
+    if (req.user.isAdmin && req.body?.assignTo) {
+      const target = Number(req.body.assignTo);
+      const [staff] = await pool.execute(
+        'SELECT id FROM users WHERE id = ? AND (is_support = 1 OR is_admin = 1)',
+        [target]
+      );
+      if (!staff[0]) return res.status(400).json({ error: 'That person is not on the support team' });
+      holder = target;
+    }
 
     // A guest needs a way back in, and the only one there is is the link. An
     // account holder opens it from inside the app, so no token is minted for
@@ -441,7 +527,7 @@ router.post(
             category,
             subject,
             priority,
-            req.user.id,
+            holder,
             tokenHash,
           ]
         );
@@ -453,11 +539,29 @@ router.post(
     }
     if (!ticketId) return res.status(500).json({ error: 'Could not raise the ticket — please try again' });
 
-    await pool.execute(
+    const [firstMessage] = await pool.execute(
       `INSERT INTO support_messages (ticket_id, author_user_id, author_role, author_name, body)
        VALUES (?, ?, 'support', ?, ?)`,
       [ticketId, req.user.id, req.user.name || 'Support', message.slice(0, 5000)]
     );
+
+    // After the insert: the folder is named after the ticket and the file after
+    // the message, and neither id exists before this point.
+    const attached = saveAttachments(ticketId, firstMessage.insertId, req.files);
+    if (attached) {
+      await pool.execute('UPDATE support_messages SET attachments = ? WHERE id = ?', [attached, firstMessage.insertId]);
+    }
+
+    // Told, if it went to somebody else. Being handed a conversation you did
+    // not start, silently, is how one sits unanswered.
+    if (holder !== req.user.id) {
+      await notify(holder, {
+        title: `${req.user.name || 'An administrator'} started a ticket for you`,
+        body: `${reference} — ${subject}`,
+        url: '/admin?tab=support',
+        kind: 'support',
+      }).catch(() => {});
+    }
 
     // Emailed exactly like a reply, so they get the link and can answer. Never
     // allowed to fail the ticket: it exists, and losing it because a mail
