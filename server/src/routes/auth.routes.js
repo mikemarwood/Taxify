@@ -1011,7 +1011,14 @@ router.post(
         [accountantUserId, invite.owner_user_id, invite.financial_years, invite.entity_ids, invite.window_hours]
       );
       await pool.execute(
-        'UPDATE accountant_invites SET accepted_at = NOW(), accepted_user_id = ?, token_hash = NULL WHERE id = ?',
+        `UPDATE accountant_invites
+            SET accepted_at = NOW(), accepted_user_id = ?,
+                -- Moved rather than thrown away. It stops being a credential
+                -- either way; keeping it as a lookup key is what lets a second
+                -- click on the same link be recognised and answered properly.
+                spent_token_hash = COALESCE(spent_token_hash, token_hash),
+                token_hash = NULL
+          WHERE id = ?`,
         [accountantUserId, invite.id]
       );
       // The owner asked for this and has heard nothing since. This is the

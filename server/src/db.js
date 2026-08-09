@@ -218,6 +218,9 @@ export async function ensureSchema() {
       financial_years VARCHAR(255) NULL,
       window_hours SMALLINT NOT NULL DEFAULT 24,
       token_hash VARCHAR(64) NULL,
+      -- The hash of a link that has been used. A lookup key, never a
+      -- credential — see the note beside the ALTER further down.
+      spent_token_hash VARCHAR(64) NULL,
       expires_at DATETIME NOT NULL,
       last_sent_at DATETIME NULL,
       accepted_at DATETIME NULL,
@@ -225,6 +228,7 @@ export async function ensureSchema() {
       created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
       UNIQUE KEY uniq_invite_owner_email (owner_user_id, email),
       KEY idx_invite_token (token_hash),
+      KEY idx_invite_spent (spent_token_hash),
       FOREIGN KEY (owner_user_id) REFERENCES users(id) ON DELETE CASCADE,
       FOREIGN KEY (accepted_user_id) REFERENCES users(id) ON DELETE SET NULL
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
@@ -248,9 +252,24 @@ export async function ensureSchema() {
     `first_name VARCHAR(120) NULL`,
     `last_name VARCHAR(120) NULL`,
     `company_name VARCHAR(160) NULL`,
+    // The hash of a link that has been used.
+    //
+    // Accepting sets token_hash to NULL so the link stops being a credential,
+    // which meant the row could no longer be found by the link at all — and
+    // somebody clicking their own invitation a second time got a 404, which
+    // the page reads as "this is a family invitation" and answers with a
+    // password box for an account they already have.
+    //
+    // This is a lookup key and nothing else. Nothing accepts against it: the
+    // row still carries accepted_at, so every path that reads it answers
+    // "already accepted".
+    `spent_token_hash VARCHAR(64) NULL`,
   ]) {
     await pool.query(`ALTER TABLE accountant_invites ADD COLUMN IF NOT EXISTS ${column}`);
   }
+  await pool.query(
+    `ALTER TABLE accountant_invites ADD INDEX IF NOT EXISTS idx_invite_spent (spent_token_hash)`
+  );
 
   // Accountants who predate the table keep the client they already had.
   await pool.query(`

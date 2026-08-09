@@ -63,8 +63,8 @@ export async function findInviteByToken(token) {
     `SELECT i.*, u.name AS owner_name, u.email AS owner_email
      FROM accountant_invites i
      JOIN users u ON u.id = i.owner_user_id
-     WHERE i.token_hash = ?`,
-    [hashInviteToken(token)]
+     WHERE i.token_hash = ? OR i.spent_token_hash = ?`,
+    [hashInviteToken(token), hashInviteToken(token)]
   );
   return rows[0] || null;
 }
