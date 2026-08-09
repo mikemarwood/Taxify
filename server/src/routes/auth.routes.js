@@ -556,6 +556,13 @@ router.post(
   requireAuth,
   requireAccountOwner,
   asyncHandler(async (req, res) => {
+    if (req.user.accessLocked) {
+      return res.status(403).json({
+        error:
+          'Your plan has ended, so there is nothing to share yet. Start a plan and you can invite your accountant straight away.',
+      });
+    }
+
     const { name, firstName: rawFirst, lastName: rawLast, companyName: rawCompany, email, role, financialYears } =
       req.body || {};
 
@@ -785,8 +792,32 @@ router.get(
            WHERE (u.id = ? OR u.account_holder_id = ?) AND u.role <> 'accountant' AND e.deleted_at IS NULL`,
           [c.ownerId, c.ownerId]
         );
+
+        // Whether their subscription is still live. The middleware refuses to
+        // open a client whose plan has lapsed; saying so on the card is what
+        // stops that refusal looking like a fault. It is their client's bill
+        // to settle, not theirs, so the card says who has to act.
+        const [owner] = await pool.execute(
+          `SELECT subscription_status, subscription_current_period_end, trial_ends_at,
+                  access_bypass, access_bypass_until
+             FROM users WHERE id = ?`,
+          [c.ownerId]
+        );
+        const lapsed = owner[0]
+          ? await computeAccessLocked({
+              id: c.ownerId,
+              role: 'owner',
+              subscriptionStatus: owner[0].subscription_status,
+              subscriptionCurrentPeriodEnd: owner[0].subscription_current_period_end,
+              trialEndsAt: owner[0].trial_ends_at,
+              accessBypass: owner[0].access_bypass,
+              accessBypassUntil: owner[0].access_bypass_until,
+            })
+          : true;
+
         return {
           ...c,
+          lapsed,
           expenseCount: Number(rows[0]?.n) || 0,
           totalAmount: Number(rows[0]?.total) || 0,
           latestExpense: rows[0]?.latest || null,

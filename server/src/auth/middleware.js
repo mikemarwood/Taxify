@@ -69,10 +69,37 @@ export const requireAuth = asyncHandler(async (req, res, next) => {
     // A revoked or expired assignment drops the client from the session at
     // once — they land back on the picker rather than on stale books.
     if (assignment) {
-      const [ownerRows] = await pool.execute('SELECT id, name, email, business_name FROM users WHERE id = ?', [
-        payload.clientId,
-      ]);
-      if (ownerRows[0]) {
+      const [ownerRows] = await pool.execute(
+        `SELECT id, name, email, business_name, subscription_status, subscription_current_period_end,
+                trial_ends_at, access_bypass, access_bypass_until
+           FROM users WHERE id = ?`,
+        [payload.clientId]
+      );
+      // And their subscription has to be live.
+      //
+      // computeAccessLocked already says a client whose plan has lapsed is
+      // locked, and inside a client's books it is the client's subscription
+      // that governs — but an accountant is deliberately not redirected by
+      // that flag the way an account holder is, so it stopped nothing. They
+      // could keep reading an expired client's records indefinitely.
+      //
+      // Dropped here rather than refused per route, for the same reason the
+      // two-factor rule above is: every scope function downstream then behaves
+      // as though no client is open, so a route written next year is covered
+      // whether or not its author knew this rule existed.
+      const ownerLocked = ownerRows[0]
+        ? await computeAccessLocked({
+            id: ownerRows[0].id,
+            role: 'owner',
+            subscriptionStatus: ownerRows[0].subscription_status,
+            subscriptionCurrentPeriodEnd: ownerRows[0].subscription_current_period_end,
+            trialEndsAt: ownerRows[0].trial_ends_at,
+            accessBypass: ownerRows[0].access_bypass,
+            accessBypassUntil: ownerRows[0].access_bypass_until,
+          })
+        : true;
+
+      if (ownerRows[0] && !ownerLocked) {
         req.user.allowedFinancialYears = assignment.financialYears;
       req.user.allowedEntityIds = assignment.entityIds;
         req.user.actingAsClient = {

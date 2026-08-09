@@ -1007,7 +1007,28 @@ function AccountantSection({ user }) {
         </div>
       )}
 
-      {alreadyShared ? (
+      {user?.accessLocked ? (
+        <div
+          style={{
+            display: 'flex',
+            gap: 10,
+            alignItems: 'flex-start',
+            padding: '11px 13px',
+            borderRadius: 'var(--radius-sm)',
+            border: '1px solid var(--border)',
+            borderLeft: '3px solid var(--red)',
+            background: 'var(--bg-subtle)',
+          }}
+        >
+          <Icon name="lock" size={15} style={{ color: 'var(--red)', marginTop: 1, flexShrink: 0 }} />
+          <span style={{ fontSize: 12.5, lineHeight: 1.55, color: 'var(--text-muted)' }}>
+            Your plan has ended, so your books are shut to you as well — there is nothing to share yet. Start a plan
+            and you can invite your accountant straight away.
+            {(accountants?.length > 0 || invites.length > 0) &&
+              ' Anyone already on the list cannot open your books while it is ended either.'}
+          </span>
+        </div>
+      ) : alreadyShared ? (
         <p style={{ margin: 0, fontSize: 12.5, color: 'var(--text-muted)', lineHeight: 1.55 }}>
           Access is given to one accountant at a time. Remove the access above to invite somebody else.
         </p>

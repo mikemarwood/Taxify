@@ -407,6 +407,47 @@ router.get(
   })
 );
 
+// Anything about money that is waiting on them.
+//
+// Polled for the badge beside My account, so it has to be cheap and it has to
+// be honest: a red number that turns out to mean nothing trains somebody to
+// ignore the next one. It counts only things they can actually do something
+// about right now — an invoice sitting unpaid, or access already lost.
+//
+// The same answer drives the plan cards, which is why the request itself comes
+// back with it. Two polls asking the same question would be two chances to
+// disagree about the answer.
+router.get(
+  '/attention',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const [rows] = await pool.execute(
+      `SELECT r.*, t.id AS ticket_id, t.reference AS ticket_reference, t.status AS ticket_status
+         FROM plan_change_requests r
+         LEFT JOIN support_tickets t ON t.plan_change_request_id = r.id
+        WHERE r.user_id = ? AND (${OUTSTANDING})
+        ORDER BY r.created_at DESC LIMIT 1`,
+      [req.user.id]
+    );
+    const request = rows[0] ? shapeRequest(rows[0]) : null;
+
+    const reasons = [];
+    if (request?.status === 'invoiced') reasons.push('invoice');
+    // Already shut out. Nothing is more worth a red number than the reason
+    // somebody cannot get into their own records.
+    if (req.user.accessLocked) reasons.push('locked');
+    else if (req.user.subscriptionStatus === 'past_due') reasons.push('past_due');
+
+    res.json({
+      count: reasons.length,
+      reasons,
+      request,
+      planType: req.user.planType || null,
+      subscriptionStatus: req.user.subscriptionStatus || null,
+    });
+  })
+);
+
 router.post(
   '/plan-change-request',
   requireAuth,

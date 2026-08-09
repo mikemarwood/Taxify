@@ -28,7 +28,34 @@
             android:label="@string/title_activity_main"
             android:theme="@style/AppTheme.NoActionBarLaunch"
             android:launchMode="singleTask"
-            android:exported="false">
+            android:exported="true">
+
+            <!--
+              Links in our emails open the app if it is installed.
+
+              Every link Taxify sends — activation, password reset, an
+              accountant invitation, a support ticket — points at
+              taxify.mikesapphub.com, and the app *is* that site loaded in a
+              webview. So a link tapped on a phone with the app installed was
+              still opening a browser, signing in a second time, and leaving
+              the app it was already signed into sitting in the background.
+
+              autoVerify makes Android check /.well-known/assetlinks.json on
+              that host at install time. It only hands us the link if the file
+              lists this package and the certificate this build was signed
+              with — which is why nothing here can hijack somebody else's
+              domain, and why the file has to carry the real fingerprint or
+              verification silently fails and links keep going to the browser.
+
+              No app installed, or verification failed: the browser opens it,
+              exactly as before. There is no case where the link stops working.
+            -->
+            <intent-filter android:autoVerify="true">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="https" android:host="taxify.mikesapphub.com" />
+            </intent-filter>
         </activity>
 
         <!--

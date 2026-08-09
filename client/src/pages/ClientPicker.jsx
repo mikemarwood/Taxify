@@ -261,12 +261,17 @@ export default function ClientPicker() {
             {clients.map((c, i) => {
               const left = remaining(c.expiresAt);
               const busy = opening === c.ownerId;
+              // Their plan has ended, so their books are shut to everybody
+              // including us. The card stays — they should see who is on their
+              // list — but it says why rather than refusing the press in
+              // silence. It is the client's bill, so the card says so.
+              const shut = Boolean(c.lapsed);
               return (
                 <motion.button
                   key={c.ownerId}
                   type="button"
-                  onClick={() => !opening && !blocked && open(c)}
-                  disabled={!!opening || blocked}
+                  onClick={() => !opening && !blocked && !shut && open(c)}
+                  disabled={!!opening || blocked || shut}
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: Math.min(i, 8) * 0.04 }}
@@ -283,9 +288,27 @@ export default function ClientPicker() {
                     flexDirection: 'column',
                     // Still visible while blocked — they should be able to see
                     // who is waiting for them, just not open it yet.
-                    opacity: blocked ? 0.55 : opening && !busy ? 0.5 : 1,
+                    opacity: blocked || shut ? 0.55 : opening && !busy ? 0.5 : 1,
                   }}
                 >
+                  {shut && (
+                    <div
+                      style={{
+                        padding: '7px 14px',
+                        fontSize: 11.5,
+                        fontWeight: 700,
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 7,
+                        color: 'var(--red)',
+                        background: 'var(--bg-inset)',
+                        borderBottom: '1px solid var(--border)',
+                      }}
+                    >
+                      <Icon name="lock" size={12} />
+                      Their plan has ended — ask them to start one before you can open this
+                    </div>
+                  )}
                   <div style={{ padding: 18, display: 'flex', flexDirection: 'column', gap: 12, flex: 1 }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                       <span

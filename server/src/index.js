@@ -34,6 +34,7 @@ import { migrateAccountNumbers } from './migrations/accountNumbers.js';
 import { closeExpiredAssignments } from './auth/accountants.js';
 import { closeExpiredInvites } from './auth/accountantInvites.js';
 import { notify } from './lib/notify.js';
+import assetLinksRoutes from './routes/assetLinks.routes.js';
 import { sendAccountantInviteLapsedEmail } from './lib/mailer.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -111,6 +112,12 @@ async function serveLandingPage(req, res) {
 }
 
 app.get('/landing', serveLandingPage);
+
+// Before everything else that answers a GET. Android fetches this over plain
+// HTTPS with no session, and the catch-all at the bottom would hand it
+// index.html with a 200 — which reads as a malformed asset-links file and
+// silently turns app links back into browser links.
+app.use(assetLinksRoutes);
 
 app.use('/api/auth', authRoutes);
 app.use('/api/categories', categoriesRoutes);

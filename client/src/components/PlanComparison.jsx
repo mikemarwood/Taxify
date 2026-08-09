@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { api } from '../lib/api.js';
 import { usePlanChange } from '../lib/usePlanChange.js';
+import { useBillingAttention } from '../lib/useBillingAttention.js';
 import { currentPlanType } from '../lib/plans.js';
 import PlanChangeDialog from './PlanChangeDialog.jsx';
 import Icon from './Icon.jsx';
@@ -15,7 +16,11 @@ export default function PlanComparison({ user, onChoose, chooseLabel, refreshKey
   // A move already asked for. Offering the same card again produced a second
   // ticket for a question already in the queue, and the person asking had no
   // sign that the first one had landed.
-  const [asked, setAsked] = useState(null);
+  //
+  // Polled rather than fetched once. Paying happens in Stripe — another tab,
+  // or a phone — so the card has to change on its own when the money lands,
+  // not on the next full page load.
+  const { request: asked, refresh: refreshAsked } = useBillingAttention();
 
   useEffect(() => {
     api
@@ -24,14 +29,11 @@ export default function PlanComparison({ user, onChoose, chooseLabel, refreshKey
       .catch(() => setPlans([]));
   }, []);
 
+  // The caller bumps this after lodging one, so the card flips straight away
+  // rather than at the next tick.
   useEffect(() => {
-    api
-      .get('/billing/plan-change-request')
-      .then((res) => setAsked(res.data.request))
-      // An accountant, or anybody the route will not answer for. No request is
-      // the right answer for them, and it is not worth a message.
-      .catch(() => setAsked(null));
-  }, [refreshKey]);
+    if (refreshKey) refreshAsked();
+  }, [refreshKey, refreshAsked]);
 
   if (!plans || plans.length === 0) return null;
 

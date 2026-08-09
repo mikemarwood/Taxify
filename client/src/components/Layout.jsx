@@ -20,6 +20,7 @@ import { currentPlanType, planLabel as labelForPlan } from '../lib/plans.js';
 import SiteFooter from './SiteFooter.jsx';
 import { useSupportCounts } from '../lib/useSupportCounts.js';
 import RailScrollbar from './RailScrollbar.jsx';
+import { useBillingAttention } from '../lib/useBillingAttention.js';
 import { useKeyboardOpen } from '../lib/useKeyboardOpen.js';
 
 // Eight equal-weight links in one column give no sense of where anything is.
@@ -161,7 +162,7 @@ function NavItem({ item }) {
 }
 
 export default function Layout({ children }) {
-  const { user, logout } = useAuth();
+  const { user, logout, refresh } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const toast = useToast();
@@ -169,6 +170,19 @@ export default function Layout({ children }) {
   // fetched inside each item.
   const supportCounts = useSupportCounts({ isAdmin: Boolean(user?.isAdmin) });
   const railRef = useRef(null);
+  // Money waiting on them — an invoice unpaid, or access already lost. An
+  // accountant has no plan of their own to owe anything on.
+  const owing = useBillingAttention({ enabled: Boolean(user) && user?.role !== 'accountant' });
+
+  // The plan changed underneath us — an invoice was paid, or an administrator
+  // moved them. The poll notices before anything else does, and refreshing the
+  // signed-in user is what makes every page agree rather than the app showing
+  // one plan on the sidebar and another on the billing tab until a reload.
+  useEffect(() => {
+    if (!user || !owing.planType) return;
+    if (owing.planType === user.planType && owing.subscriptionStatus === user.subscriptionStatus) return;
+    refresh();
+  }, [owing.planType, owing.subscriptionStatus, user?.planType, user?.subscriptionStatus]);
   const [showMfaPrompt, setShowMfaPrompt] = useState(false);
   // The drawer, on small screens only. Closed on every navigation, or it would
   // stay over the page someone just asked for.
@@ -334,6 +348,11 @@ export default function Layout({ children }) {
                     ? { ...i, badge: supportCounts.mine }
                     : i.to === '/admin'
                     ? { ...i, badge: supportCounts.queue }
+                    // Something to pay, or access already lost. Same red
+                    // number as the support badges, because it means the same
+                    // thing: this needs you.
+                    : i.to === '/account'
+                    ? { ...i, badge: owing.count }
                     : i
                 );
 
