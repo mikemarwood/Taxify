@@ -510,11 +510,11 @@ export function SupportTicket() {
   return (
     <div style={{ maxWidth: 780, display: 'flex', flexDirection: 'column', gap: 16 }}>
       <TicketHeading ticket={data.ticket} />
-      <PlanInvoiceNotice request={data.planRequest} />
       <SupportThread
         ticket={data.ticket}
         messages={data.messages}
         onRefresh={load}
+        extraActions={<PlanInvoiceNotice request={data.planRequest} />}
         onReopen={async () => {
           const res = await api.post(`/support/tickets/${id}/reopen`, {});
           setData((prev) => ({
@@ -567,11 +567,11 @@ export function SupportTicketByToken() {
   return (
     <div style={{ maxWidth: 780, margin: '32px auto', padding: '0 16px', display: 'flex', flexDirection: 'column', gap: 16 }}>
       <TicketHeading ticket={data.ticket} />
-      <PlanInvoiceNotice request={data.planRequest} />
       <SupportThread
         ticket={data.ticket}
         messages={data.messages}
         onRefresh={load}
+        extraActions={<PlanInvoiceNotice request={data.planRequest} />}
         onReopen={async () => {
           const res = await api.post('/support/reopen-by-token', { token });
           setData((prev) => ({

@@ -183,7 +183,9 @@ export async function planRequestFor(ticket) {
     invoiceAmountCents: row.invoice_amount_cents,
     invoiceCurrency: row.invoice_currency,
     invoicedAt: row.invoiced_at,
+    invoiceDueAt: row.invoice_due_at,
     paidAt: row.paid_at,
+    voidedAt: row.voided_at,
   };
 }
 

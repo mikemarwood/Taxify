@@ -75,7 +75,7 @@ const TAB_GROUPS = [
 // read once, not somewhere to go most days, and it was taking a slot in the
 // strip from tabs that are. It opens from the button on Live stats, and the
 // ?tab=how link still works.
-const TAB_KEYS = ['how', ...TAB_GROUPS.flatMap((group) => group.tabs.map((t) => t.key))];
+const TAB_KEYS = [...TAB_GROUPS.flatMap((group) => group.tabs.map((t) => t.key)), 'how'];
 
 // Tabs somebody on the support team may see. Everything else on this page —
 // users, billing, Stripe keys, promo codes, the live stats — is administrators
@@ -102,7 +102,14 @@ export default function Admin() {
   const { queue } = useSupportCounts({ isAdmin: true });
   const [searchParams, setSearchParams] = useSearchParams();
   const requested = searchParams.get('tab');
-  const [tab, setTabState] = useState(allowed.includes(requested) ? requested : allowed[0]);
+  // Named rather than taken as "the first one in the list".
+  //
+  // allowed[0] was how the default was chosen, so moving How it works to the
+  // front of TAB_KEYS to keep ?tab=how working quietly made a reference page
+  // the first thing an administrator saw. A default worth having is a default
+  // worth writing down.
+  const fallback = supportOnly ? 'support' : 'stats';
+  const [tab, setTabState] = useState(allowed.includes(requested) ? requested : fallback);
 
   // Kept in the URL, so the tab survives a refresh and can be linked to.
   function setTab(next) {

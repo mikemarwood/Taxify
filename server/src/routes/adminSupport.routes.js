@@ -221,7 +221,9 @@ router.get(
           invoiceUrl: pr[0].invoice_url,
           invoiceAmountCents: pr[0].invoice_amount_cents,
           invoiceCurrency: pr[0].invoice_currency,
+          invoiceDueAt: pr[0].invoice_due_at,
           paidAt: pr[0].paid_at,
+          voidedAt: pr[0].voided_at,
         };
       }
     }

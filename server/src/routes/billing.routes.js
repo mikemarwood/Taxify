@@ -646,14 +646,33 @@ router.post(
               minimumFractionDigits: 2,
               maximumFractionDigits: 2,
             });
+            // What the customer reads.
+            //
+            // This used to carry "the plan itself still has to be applied by
+            // hand, with the dates it should run between" — an instruction to
+            // us, on a thread the person who paid can read. Telling a customer
+            // their payment has landed and then that somebody still has to do
+            // something about it invites the one question the message was
+            // meant to prevent.
             await pool.execute(
               `INSERT INTO support_messages (ticket_id, author_user_id, author_role, author_name, body)
                VALUES (?, NULL, 'system', 'Taxify', ?)`,
               [
                 linked[0].id,
-                `Payment received — ${(invoice.currency || 'aud').toUpperCase()} ${amount} for ${label}. ` +
-                  'The invoice is stored against their account. The plan itself still has to be applied by hand, ' +
-                  'with the dates it should run between.',
+                `Payment of ${(invoice.currency || 'aud').toUpperCase()} ${amount} received, with thanks. ` +
+                  `Your receipt is on your billing page. We are moving you to ${label} now and will confirm here ` +
+                  'as soon as it is done.',
+              ]
+            );
+
+            // And what the team needs, where only the team sees it.
+            await pool.execute(
+              `INSERT INTO support_messages (ticket_id, author_user_id, author_role, author_name, body)
+               VALUES (?, NULL, 'note', 'Taxify', ?)`,
+              [
+                linked[0].id,
+                `Paid in full. Apply ${label} on their account with the dates it should run between — nothing here ` +
+                  'moves the plan, and the customer has been told it is being done.',
               ]
             );
             // Back into the queue. Somebody has to act on this, and a ticket
@@ -687,6 +706,67 @@ router.post(
           // paid. Failing the webhook here would make Stripe retry a payment
           // that was fully handled.
           console.error('Could not send plan-change notifications', err);
+        }
+        break;
+      }
+      // The invoice was withdrawn in Stripe rather than paid.
+      //
+      // Voided means we took it back; uncollectible means it was written off.
+      // Either way the plan change is not happening on that invoice, and the
+      // ticket was the last place to say so — before this the request sat as
+      // "invoiced" for ever, the customer's panel kept offering a payment link
+      // that no longer worked, and nothing in the app knew the difference.
+      case 'invoice.voided':
+      case 'invoice.marked_uncollectible': {
+        const invoice = event.data.object;
+        const requestId = Number(invoice.metadata?.planChangeRequestId);
+        if (!requestId) break;
+
+        const [rows] = await pool.execute('SELECT * FROM plan_change_requests WHERE id = ?', [requestId]);
+        const request = rows[0];
+        // A paid request is never unwound by this. Stripe can void a credit
+        // note against an invoice that was paid, and treating that as "the
+        // plan change is off" would take away something already bought.
+        if (!request || request.status === 'paid') break;
+
+        await pool.execute(
+          `UPDATE plan_change_requests
+              SET status = 'cancelled', voided_at = NOW(), cancelled_at = COALESCE(cancelled_at, NOW()),
+                  updated_at = NOW()
+            WHERE id = ?`,
+          [requestId]
+        );
+
+        try {
+          const [linked] = await pool.execute(
+            'SELECT id FROM support_tickets WHERE plan_change_request_id = ? LIMIT 1',
+            [requestId]
+          );
+          if (linked[0]) {
+            await pool.execute(
+              `INSERT INTO support_messages (ticket_id, author_user_id, author_role, author_name, body)
+               VALUES (?, NULL, 'system', 'Taxify', ?)`,
+              [
+                linked[0].id,
+                'This invoice has been withdrawn and there is nothing left to pay. Your plan is unchanged. ' +
+                  'Reply here if you would still like to move, and we will raise a new one.',
+              ]
+            );
+            await pool.execute(
+              `UPDATE support_tickets
+                  SET status = 'awaiting_support', last_message_at = NOW(), support_read_at = NULL
+                WHERE id = ?`,
+              [linked[0].id]
+            );
+          }
+          await notify(request.user_id, {
+            title: 'Your plan change invoice was withdrawn',
+            body: 'There is nothing to pay and your plan is unchanged. The ticket explains it.',
+            url: '/account?tab=billing',
+            kind: 'billing',
+          });
+        } catch (err) {
+          console.error('Could not record the withdrawn invoice', err);
         }
         break;
       }

@@ -854,8 +854,15 @@ export async function ensureSchema() {
       invoice_currency VARCHAR(10) NULL,
       invoiced_at DATETIME NULL,
       invoiced_by INT NULL,
+      -- When Stripe expects it paid by. Held so the panel can say "overdue"
+      -- rather than leaving somebody to open the invoice to find out.
+      invoice_due_at DATETIME NULL,
       paid_at DATETIME NULL,
       cancelled_at DATETIME NULL,
+      -- Withdrawn in Stripe rather than here: voided, or written off as
+      -- uncollectible. A separate column from cancelled_at because they are
+      -- different events with different explanations owed to the customer.
+      voided_at DATETIME NULL,
       created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
       updated_at DATETIME NULL,
       KEY idx_plan_requests_user (user_id, status),
@@ -866,6 +873,11 @@ export async function ensureSchema() {
       FOREIGN KEY (invoiced_by) REFERENCES users(id) ON DELETE SET NULL
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
   `);
+
+  // Repeated for installs that predate them, the same as everywhere else here.
+  for (const column of [`invoice_due_at DATETIME NULL`, `voided_at DATETIME NULL`]) {
+    await pool.query(`ALTER TABLE plan_change_requests ADD COLUMN IF NOT EXISTS ${column}`);
+  }
 
   // Support conversations.
   //

@@ -64,12 +64,18 @@ export default function PlanRequestPanel({ request, onChanged }) {
 
   const done = request.status === 'paid';
   const sent = request.status === 'invoiced';
+  const withdrawn = request.status === 'cancelled';
+  // Past due and still unpaid. No due date means it was due on receipt,
+  // which is not overdue.
+  const overdue = sent && request.invoiceDueAt && new Date(request.invoiceDueAt).getTime() < Date.now();
 
   return (
     <div
       style={{
         border: '1px solid var(--border)',
-        borderLeft: `3px solid ${done ? 'var(--emerald)' : sent ? 'var(--text-muted)' : 'var(--accent)'}`,
+        borderLeft: `3px solid ${
+          done ? 'var(--emerald)' : overdue ? 'var(--red)' : withdrawn ? 'var(--text-muted)' : sent ? 'var(--text-muted)' : 'var(--accent)'
+        }`,
         borderRadius: 10,
         padding: 14,
         background: 'var(--bg-subtle)',
@@ -87,8 +93,14 @@ export default function PlanRequestPanel({ request, onChanged }) {
         <span style={{ fontSize: 11.5, color: 'var(--text-muted)' }}>
           {done
             ? `Paid ${formatDateLong(request.paidAt)}`
+            : withdrawn
+            ? request.voidedAt
+              ? `Withdrawn in Stripe ${formatDateLong(request.voidedAt)}`
+              : 'Cancelled'
             : sent
-            ? `${money(request.invoiceAmountCents, request.invoiceCurrency)} invoiced`
+            ? `${money(request.invoiceAmountCents, request.invoiceCurrency)} ${overdue ? 'overdue' : 'invoiced'}${
+                request.invoiceDueAt ? ` · due ${formatDateLong(request.invoiceDueAt)}` : ''
+              }`
             : 'Not yet invoiced'}
         </span>
       </div>
@@ -97,6 +109,15 @@ export default function PlanRequestPanel({ request, onChanged }) {
         <div style={{ fontSize: 12.5, color: 'var(--text-muted)', lineHeight: 1.5 }}>
           They have paid. Apply the plan on their account with the dates it should run between — this panel does not
           move it for you.
+        </div>
+      )}
+
+      {withdrawn && (
+        <div style={{ fontSize: 12.5, color: 'var(--text-muted)', lineHeight: 1.5 }}>
+          {request.voidedAt
+            ? 'The invoice was voided or written off in Stripe. Nothing is owed and the customer has been told.'
+            : 'This request was cancelled. Nothing is owed.'}{' '}
+          Raising a new one means a new request — this one is closed.
         </div>
       )}
 

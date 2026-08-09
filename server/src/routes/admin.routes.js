@@ -1274,9 +1274,21 @@ router.post(
     await pool.execute(
       `UPDATE plan_change_requests
           SET status = 'invoiced', stripe_invoice_id = ?, invoice_url = ?, invoice_amount_cents = ?,
-              invoice_currency = ?, invoiced_at = NOW(), invoiced_by = ?, updated_at = NOW()
+              invoice_currency = ?, invoiced_at = NOW(), invoiced_by = ?,
+              invoice_due_at = ?, updated_at = NOW()
         WHERE id = ?`,
-      [sent.id, sent.hosted_invoice_url || null, Math.round(amount * 100), currency, req.user.id, request.id]
+      [
+        sent.id,
+        sent.hosted_invoice_url || null,
+        Math.round(amount * 100),
+        currency,
+        req.user.id,
+        // Stripe's own due date rather than one worked out here. Due on
+        // receipt comes back without one, which is not the same as unknown —
+        // it means now, and the panel reads a null as exactly that.
+        sent.due_date ? new Date(sent.due_date * 1000) : null,
+        request.id,
+      ]
     );
 
     // Stripe emails the invoice itself. This is so it is waiting for them in
