@@ -78,7 +78,7 @@ function RoleBadge({ role }) {
         border: `1px solid ${note ? 'var(--note)' : support ? 'var(--accent)' : 'var(--border)'}`,
       }}
     >
-      {note ? 'Internal note' : support ? 'Support' : 'Customer'}
+      {note ? 'Internal note' : support ? 'Support team' : 'Customer'}
     </span>
   );
 }

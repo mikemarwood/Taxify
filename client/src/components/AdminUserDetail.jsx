@@ -52,6 +52,23 @@ function statusWord(status, activatedAt) {
   }
 }
 
+// How long an unactivated account has left.
+//
+// Mirrors UNACTIVATED_LIFETIME_DAYS in server/src/jobs/billingJobs.js. The
+// sweep deletes them five days after they were created, with reminders on the
+// way, and until now nothing in the admin panel said so — an account simply
+// stopped existing.
+const UNACTIVATED_LIFETIME_DAYS = 5;
+
+function deleteCountdown(createdAt) {
+  if (!createdAt) return 'will be deleted if not activated';
+  const goesAt = new Date(createdAt).getTime() + UNACTIVATED_LIFETIME_DAYS * 86400000;
+  const days = Math.ceil((goesAt - Date.now()) / 86400000);
+  if (Number.isNaN(days)) return 'will be deleted if not activated';
+  if (days <= 0) return 'due to be deleted';
+  return `deleted in ${days} day${days === 1 ? '' : 's'} if not activated`;
+}
+
 function date(value) {
   if (!value) return '—';
   return formatDateShort(value);
@@ -290,7 +307,19 @@ export default function AdminUserDetail({ userId, me, onClose, onChanged, action
                     </span>
                   </Field>
                   <Field label="Joined">{date(u.createdAt)}</Field>
-                  <Field label="Activated">{u.activatedAt ? date(u.activatedAt) : 'Not yet'}</Field>
+                  <Field label="Activated">
+                    {u.activatedAt ? (
+                      date(u.activatedAt)
+                    ) : (
+                      // Never activated, so it is on a five-day clock. Said
+                      // here because the row disappears when it runs out, and
+                      // "where did that account go" is the question this
+                      // answers before it is asked.
+                      <span style={{ color: 'var(--red)', fontWeight: 600 }}>
+                        Not yet — {deleteCountdown(u.createdAt)}
+                      </span>
+                    )}
+                  </Field>
                   <Field label="Terms accepted">{date(u.termsAcceptedAt)}</Field>
                   {u.accountHolder && <Field label="Belongs to">{u.accountHolder.name}</Field>}
                   <Field label="Two-factor">{u.otpEnabled ? 'On' : 'Off'}</Field>

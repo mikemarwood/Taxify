@@ -621,10 +621,10 @@ export async function sendAccountantInviteEmail(to, name, clientName, acceptUrl,
     heading: `Hi${name ? ` ${escapeHtml(name)}` : ''}, ${escapeHtml(clientName)} has asked you to look over their records.`,
     bodyHtml: `
       <p style="font-size:14px;color:#1f2937;margin:0 0 16px;line-height:1.55;">
-        Taxify is where they keep their expenses and receipts. Accepting sets up an accountant login for you — one
-        login, however many clients you end up with. ${scopeSentence(yearScope)}
+        Taxify is where they keep their expenses and receipts. You already have a Taxify account, so there is nothing
+        to set up — opening the link below adds them to your client list. ${scopeSentence(yearScope)}
       </p>
-      ${button(acceptUrl, 'Accept and set up my login')}
+      ${button(acceptUrl, 'Accept and open their books')}
       ${linkFallback(acceptUrl)}
       ${termsPanel([
         termRow('Client', escapeHtml(clientName)),
@@ -633,11 +633,12 @@ export async function sendAccountantInviteEmail(to, name, clientName, acceptUrl,
         termRow('Ends', 'Automatically when the time is up, or whenever they choose', true),
       ])}
       <p style="font-size:13px;color:#4b5563;margin:0 0 16px;line-height:1.55;">
-        Two-factor sign-in is set up as part of creating your login — every Taxify account has it, and it cannot be turned off.
+        Sign in with the account this email was sent to. Nothing is granted until you open the link — not even to
+        somebody who already has an account.
       </p>
       <p style="font-size:13px;color:#4b5563;margin:0;line-height:1.55;">
-        This invitation expires ${expiryLabel}. If you were not expecting it, ignore this email \u2014 nothing has been
-        created and nobody has been given anything.
+        This invitation expires ${expiryLabel}. If you were not expecting it, ignore this email \u2014 nobody has been
+        given anything, and it stops working on its own.
       </p>
     `,
   });
@@ -780,6 +781,45 @@ export async function sendAccountantInviteAcceptedEmail(to, ownerName, accountan
     `,
   });
 }
+// An address a client tried to share their books with, that has no confirmed
+// Taxify account behind it.
+//
+// No invitation is created for these — there is nobody to accept one, and a
+// live link sitting against an address anybody could later register would hand
+// somebody's tax records to whoever got there first. So this is the whole of
+// what we do: tell them their client is waiting, and how to be somebody who can
+// be given access.
+export async function sendAccountantSignUpNeededEmail(to, clientName, registerUrl) {
+  const who = clientName ? escapeHtml(clientName) : 'A Taxify customer';
+  await sendMail({
+    to,
+    subject: `${clientName || 'A client'} would like to share their Taxify records with you`,
+    title: 'Your client is waiting',
+    heading: `${who} would like you to look over their records.`,
+    bodyHtml: `
+      <p style="font-size:14px;color:#1f2937;margin:0 0 16px;line-height:1.55;">
+        Taxify is where they keep their expenses and receipts, ready for tax time. To be given access you need a
+        Taxify account of your own at this email address — creating one takes a minute and there is nothing to pay
+        to act for a client.
+      </p>
+      ${button(registerUrl, 'Create my account')}
+      ${linkFallback(registerUrl)}
+      ${termsPanel([
+        termRow('Waiting for you', who),
+        termRow('What to do', 'Create an account at this email address, then tell them it is ready'),
+        termRow('Then', 'They share their books with you, and you accept from your email', true),
+      ])}
+      <p style="font-size:13px;color:#4b5563;margin:0 0 16px;line-height:1.55;">
+        Let them know once you have signed up. Nothing has been shared with you yet, and they have to ask again once
+        your account exists — we cannot give access to an address nobody has claimed.
+      </p>
+      <p style="font-size:13px;color:#4b5563;margin:0;line-height:1.55;">
+        If you were not expecting this, ignore it. Nothing has been created and nobody has been given anything.
+      </p>
+    `,
+  });
+}
+
 export async function sendAdminCreatedAccountEmail(to, name, acceptUrl) {
   await sendMail({
     to,

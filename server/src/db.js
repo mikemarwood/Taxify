@@ -875,6 +875,10 @@ export async function ensureSchema() {
   `);
 
   // Repeated for installs that predate them, the same as everywhere else here.
+  await pool.query(
+    `ALTER TABLE accountant_invites ADD COLUMN IF NOT EXISTS access_level VARCHAR(10) NOT NULL DEFAULT 'read'`
+  );
+
   for (const column of [`invoice_due_at DATETIME NULL`, `voided_at DATETIME NULL`]) {
     await pool.query(`ALTER TABLE plan_change_requests ADD COLUMN IF NOT EXISTS ${column}`);
   }

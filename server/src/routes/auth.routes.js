@@ -7,7 +7,7 @@ import { fileURLToPath } from 'url';
 import pool, { getSetting, getMfaMode } from '../db.js';
 import { hashPassword, verifyPassword, isStrongPassword } from '../auth/password.js';
 import { signToken, signAccountantToken, cookieOptions, COOKIE_NAME } from '../auth/jwt.js';
-import { requireAuth, requireAccountOwner } from '../auth/middleware.js';
+import { requireAuth, requireAccountOwner, optionalAuth } from '../auth/middleware.js';
 import { seedDefaultCategories } from '../seed/defaultCategories.js';
 import { ensureDefaultEntity } from '../lib/entities.js';
 import { asyncHandler } from '../lib/asyncHandler.js';
@@ -36,6 +36,7 @@ import {
   sendEmailChangedNoticeEmail,
   sendAccountantAccessGrantedEmail,
   sendAccountantInviteEmail,
+  sendAccountantSignUpNeededEmail,
   sendAccountantInviteAcceptedEmail,
   sendAccountantAccessUpdatedEmail,
   sendAccountantAccessEndedEmail,
@@ -563,27 +564,16 @@ router.post(
       });
     }
 
-    const { name, firstName: rawFirst, lastName: rawLast, companyName: rawCompany, email, role, financialYears } =
-      req.body || {};
-
-    // Older clients send a single `name`; the form sends the parts. Accept
-    // both rather than breaking a session that was open across the deploy.
-    const sentParts = Boolean(tidy(rawFirst) || tidy(rawLast) || tidy(rawCompany));
-    const firstName = titleCase(tidy(rawFirst)) || null;
-    const lastName = titleCase(tidy(rawLast)) || null;
-    const companyName = titleCase(tidy(rawCompany)) || null;
-    const composed = [firstName, lastName].filter(Boolean).join(' ') || tidy(name);
-
-    // The length rules apply to what the form sends. A client still posting a
-    // single `name` is only checked for being present — it was never split, so
-    // there is nothing to hold a first or last name to.
-    if (sentParts) {
-      const problem = inviteFieldsProblem({ firstName: rawFirst, lastName: rawLast, companyName: rawCompany });
-      if (problem) return res.status(400).json({ error: problem });
-    }
-
-    if (!composed) return res.status(400).json({ error: 'A first and last name are required' });
-    if (!email || !String(email).trim()) return res.status(400).json({ error: 'Email is required' });
+    // An address, and nothing else.
+    //
+    // The form used to ask for the accountant's first name, last name and
+    // firm, which the client had to know and type correctly for somebody
+    // else's records. All three were then shown back to them as the check on
+    // who they had shared with — a check made of their own typing, which
+    // checks nothing. The account being linked has a real name on it, entered
+    // by the person it belongs to, and that is what the list shows now.
+    const { email, role } = req.body || {};
+    if (!email || !String(email).trim()) return res.status(400).json({ error: 'Enter their email address' });
     // The only kind of invitation there is. A second login on one account was
     // removed with the Family plan — two people means two accounts.
     if (role !== 'accountant') {
@@ -591,7 +581,6 @@ router.post(
     }
 
     const normalizedEmail = String(email).trim().toLowerCase();
-    const displayName = composed;
 
     // A family member is a second person on this account, so there is only ever
     // room for one and only on the plan that includes them.
@@ -672,6 +661,11 @@ router.post(
         'SELECT id, role, name, activated_at FROM users WHERE email = ?',
         [normalizedEmail]
       );
+      // Registered *and* verified. An account whose address has never been
+      // confirmed is a claim that somebody controls a mailbox, not a fact —
+      // and access to a stranger's financial records is not something to hand
+      // out on a claim. Those are treated exactly like an address with no
+      // account at all: told to go and finish signing up.
       const found = existing[0]?.activated_at ? existing[0] : null;
 
       if (found) {
@@ -689,74 +683,88 @@ router.post(
         if (already.length > 0) {
           return res.status(400).json({ error: 'That accountant already has access to your account' });
         }
+
+        // An offer, not a grant.
+        //
+        // Access used to be created the moment the address was recognised, so
+        // somebody could be given sight of a stranger's tax records without
+        // ever agreeing to it — a mistyped address that happened to match a
+        // real account handed that account a client it had never heard of.
+        // Now it waits for them to open the link, which is the only thing that
+        // proves the invitation reached the person it was meant for.
+        const { token, tokenHash, expiresAt } = generateInviteToken();
         await pool.execute(
-          'INSERT INTO accountant_assignments (accountant_user_id, owner_user_id, financial_years, entity_ids, access_level, window_hours) VALUES (?, ?, ?, ?, ?, ?)',
-          [found.id, req.user.id, yearScope, bookScope, accessLevel, windowHours]
+          `INSERT INTO accountant_invites
+             (owner_user_id, email, name, financial_years, entity_ids, access_level, window_hours,
+              token_hash, expires_at, last_sent_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
+           ON DUPLICATE KEY UPDATE
+             name = VALUES(name),
+             financial_years = VALUES(financial_years), entity_ids = VALUES(entity_ids),
+             access_level = VALUES(access_level), window_hours = VALUES(window_hours),
+             token_hash = VALUES(token_hash), spent_token_hash = NULL,
+             expires_at = VALUES(expires_at), last_sent_at = NOW(),
+             accepted_at = NULL, accepted_user_id = NULL`,
+          [
+            req.user.id,
+            normalizedEmail,
+            found.name,
+            yearScope,
+            bookScope,
+            accessLevel,
+            windowHours,
+            tokenHash,
+            expiresAt,
+          ]
         );
 
-        const loginUrl = `${publicOrigin()}/login`;
+        const acceptUrl = `${publicOrigin()}/accept-invite?token=${token}`;
         let emailed = true;
         try {
-          await sendAccountantAccessGrantedEmail(
+          await sendAccountantInviteEmail(
             normalizedEmail,
             found.name,
             req.user.name,
-            loginUrl,
+            acceptUrl,
             yearScope,
-            describeWindow(windowHours)
+            describeWindow(windowHours),
+            `in ${INVITE_LIFETIME_HOURS} hours`
           );
         } catch (err) {
-          console.error('Failed to send accountant access email', err);
+          console.error('Failed to send accountant invitation', err);
           emailed = false;
         }
-        // They may be signed in right now, in which case a client appearing on
-        // their list with no explanation is the worse outcome.
+
+        // They may be signed in right now, in which case the email is the
+        // slower of the two ways to hear about it.
         await notify(found.id, {
-          title: `${req.user.name || req.user.email} has shared their books with you`,
-          body: `Read-only, for ${describeWindow(windowHours)} from the first time you open them.`,
-          url: '/clients',
+          title: `${req.user.name || req.user.email} would like to share their books with you`,
+          body: 'Open the link in your email to accept. It lasts 24 hours.',
           kind: 'accountant',
-        });
-        return res.status(201).json({ ok: true, existingAccountant: true, emailed, rejectedYears });
+        }).catch(() => {});
+
+        return res.status(201).json({ ok: true, outcome: 'invited', emailed, rejectedYears });
       }
 
-      // Nobody by that address, so there is nothing to grant yet — only an
-      // offer. No users row is created here on purpose: see accountant_invites
-      // in db.js for the three things that went wrong when one was.
-      const { token, tokenHash, expiresAt } = generateInviteToken();
-      await pool.execute(
-        `INSERT INTO accountant_invites (owner_user_id, email, name, first_name, last_name, company_name, financial_years, entity_ids, window_hours, token_hash, expires_at, last_sent_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
-         ON DUPLICATE KEY UPDATE
-           name = VALUES(name), first_name = VALUES(first_name), last_name = VALUES(last_name),
-           company_name = VALUES(company_name),
-           financial_years = VALUES(financial_years), entity_ids = VALUES(entity_ids),
-           window_hours = VALUES(window_hours),
-           token_hash = VALUES(token_hash), expires_at = VALUES(expires_at), last_sent_at = NOW(),
-           accepted_at = NULL, accepted_user_id = NULL`,
-        [req.user.id, normalizedEmail, displayName, firstName, lastName, companyName, yearScope, bookScope, windowHours, tokenHash, expiresAt]
-      );
-
-      const acceptUrl = `${publicOrigin()}/accept-invite?token=${token}`;
+      // Nobody by that address, or nobody who has confirmed it.
+      //
+      // Nothing is written down. There is no invitation to accept, because
+      // there is nobody to accept it — an invitation row here would be a live
+      // link sitting against an address that anybody could later register, and
+      // whoever got there first would inherit somebody's tax records.
+      //
+      // So they are told to sign up, and the client is told to ask again once
+      // they have. One extra round trip, in exchange for never granting access
+      // to an address that has not been proved.
       let emailed = true;
       try {
-        await sendAccountantInviteEmail(
-          normalizedEmail,
-          displayName,
-          req.user.name,
-          acceptUrl,
-          yearScope,
-          describeWindow(windowHours),
-          `in ${INVITE_LIFETIME_HOURS} hours`
-        );
+        await sendAccountantSignUpNeededEmail(normalizedEmail, req.user.name, `${publicOrigin()}/register`);
       } catch (err) {
-        console.error('Failed to send accountant invitation', err);
+        console.error('Failed to send the sign-up invitation', err);
         emailed = false;
       }
 
-      // A failed send must not roll back the invitation — but the owner has to
-      // be told, or they will assume it arrived and wonder why nothing happens.
-      return res.status(201).json({ ok: true, invited: true, emailed, rejectedYears });
+      return res.status(201).json({ ok: true, outcome: 'not_registered', emailed, rejectedYears });
     }
     // Only an accountant reaches this route now. The branch above always
     // returns, whether it granted access to somebody who already has an
@@ -944,6 +952,11 @@ router.post(
 // already has an account.
 router.get(
   '/accountant-invite/check',
+  // Signed in if they happen to be, and content if not — this route answers
+  // about the invitation, not about the session. optionalAuth is here only so
+  // the page can tell "already signed in as the right person, one press to
+  // accept" apart from "sign in first".
+  optionalAuth,
   asyncHandler(async (req, res) => {
     const invite = await findInviteByToken(req.query?.token);
     if (!invite) return res.status(404).json({ error: 'invalid' });
@@ -957,18 +970,22 @@ router.get(
     res.json({
       email: invite.email,
       name: invite.name || existing[0]?.name || null,
-      // What the client typed when inviting, so the accountant's own sign-up
-      // form arrives filled in rather than asking them to type their name
-      // again for somebody who already knew it. All three stay editable — the
-      // client may well have spelled it wrong.
-      firstName: invite.first_name || null,
-      lastName: invite.last_name || null,
-      practiceName: invite.company_name || null,
       inviterName: invite.owner_name,
+      // Whether the person reading this page is already signed in as the
+      // account the invitation is for. Everything on the page turns on it: one
+      // press if they are, sign in first if they are not.
+      signedInAs: req.user?.email || null,
       financialYears: invite.financial_years ? invite.financial_years.split(',') : null,
+      // What they are being offered. The page said "read and export, you can
+      // never change anything" to everybody, including somebody being given
+      // full access — so the one screen where the offer is accepted described
+      // a different offer.
+      canWrite: invite.access_level === 'write',
       windowHours: invite.window_hours,
       expiresAt: invite.expires_at,
-      // The page shows "sign in" rather than a set-up form for these.
+      // Always true now — an invitation is only ever created for an address
+      // that already has a confirmed account. Kept on the wire because a page
+      // loaded before the deploy still reads it.
       hasAccount: outcome === 'link_existing',
     });
   })
@@ -1004,11 +1021,26 @@ router.post(
         // entity_ids carried across from the invitation. Without it, a client
         // who invited somebody to one set of books would find on acceptance
         // that they had handed over all of them.
-        `INSERT INTO accountant_assignments (accountant_user_id, owner_user_id, financial_years, entity_ids, window_hours)
-         VALUES (?, ?, ?, ?, ?)
+        // access_level carried across too. It was not, so every invitation
+        // accepted became read-only whatever the client had chosen — the
+        // write option existed on the form and was silently discarded here.
+        `INSERT INTO accountant_assignments
+           (accountant_user_id, owner_user_id, financial_years, entity_ids, access_level, window_hours)
+         VALUES (?, ?, ?, ?, ?, ?)
          ON DUPLICATE KEY UPDATE financial_years = VALUES(financial_years),
-           entity_ids = VALUES(entity_ids), window_hours = VALUES(window_hours)`,
-        [accountantUserId, invite.owner_user_id, invite.financial_years, invite.entity_ids, invite.window_hours]
+           entity_ids = VALUES(entity_ids), access_level = VALUES(access_level),
+           window_hours = VALUES(window_hours)`,
+        [
+          accountantUserId,
+          invite.owner_user_id,
+          invite.financial_years,
+          invite.entity_ids,
+          // Anything that is not exactly write is read, the same rule the
+          // invitation route applies. A stray value must not hand over edit
+          // rights.
+          invite.access_level === 'write' ? 'write' : 'read',
+          invite.window_hours,
+        ]
       );
       await pool.execute(
         `UPDATE accountant_invites
@@ -1061,86 +1093,28 @@ router.post(
     // create a login; it may never write to one. Letting mailbox-proof set a
     // password on an account that already exists would make a forwarded
     // invitation email into account takeover.
-    if (outcome === 'link_existing') {
-      await grantAccess(existingUser.id);
-      return res.json({ existingAccount: true });
-    }
-
-    const { phone, password } = req.body || {};
-
-    // Name and firm come from the invitation, not from the form.
+    // An invitation links an account. It never creates one.
     //
-    // These are what the client reads back on their own account page when
-    // deciding whether the person holding their tax records is the one they
-    // meant to invite. Taking them from the request body meant an invitation
-    // addressed to one firm could be accepted as another, and the client would
-    // see the name the invitee chose rather than the one they typed. The form
-    // shows them fixed; this is what makes that true rather than decorative.
-    const first = toPersonName(invite.first_name) || toPersonName(String(invite.name || '').split(' ')[0]);
-    const last =
-      toPersonName(invite.last_name) ||
-      toPersonName(String(invite.name || '').split(' ').slice(1).join(' '));
-    if (!first || !last) {
-      return res.status(400).json({
-        error: 'That invitation is missing a name. Ask your client to cancel it and send a new one.',
+    // It used to do both: an address with no Taxify login had one built for
+    // it here, from a name and a firm the *client* had typed. That made a
+    // forwarded email into a way to have an account made in somebody else's
+    // name, and it meant the person holding a stranger's tax records had
+    // never agreed to anything — they had only opened a link.
+    //
+    // Now the address must already have a confirmed Taxify account. Anything
+    // else is refused here and told what to do, and the client is told to ask
+    // again once it exists. The route that creates the invitation refuses the
+    // same case, so this is the second of two closed doors rather than the
+    // only one.
+    if (outcome !== 'link_existing') {
+      return res.status(409).json({
+        error: 'no_account',
+        email: invite.email,
       });
     }
 
-    const firm = String(invite.company_name || '').trim();
-    if (firm.length < 2) {
-      return res.status(400).json({
-        error: 'That invitation is missing a practice name. Ask your client to cancel it and send a new one.',
-      });
-    }
-
-    if (!isStrongPassword(password)) {
-      return res.status(400).json({
-        error: 'Password must be at least 8 characters and include an uppercase letter, a lowercase letter, and a number',
-      });
-    }
-
-    const cleanedPhone = phone ? normalisePhone(phone) : null;
-    if (phone && !cleanedPhone) return res.status(400).json({ error: 'Enter a valid phone number' });
-
-    let userId;
-    try {
-      const [result] = await pool.execute(
-        `INSERT INTO users (email, password_hash, name, first_name, last_name, phone, practice_name,
-           role, account_holder_id, activated_at, subscription_status, terms_accepted_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, 'accountant', NULL, NOW(), 'none', NOW())`,
-        [
-          invite.email,
-          hashPassword(password),
-          `${first} ${last}`.trim(),
-          first,
-          last,
-          cleanedPhone,
-          firm.slice(0, 160),
-        ]
-      );
-      userId = result.insertId;
-    } catch (err) {
-      // Two people accepting at once, or an account created in between. The
-      // loser links rather than failing.
-      if (err.code === 'ER_DUP_ENTRY') {
-        const [again] = await pool.execute('SELECT id FROM users WHERE email = ?', [invite.email]);
-        if (again[0]) {
-          await grantAccess(again[0].id);
-          return res.json({ existingAccount: true });
-        }
-      }
-      throw err;
-    }
-
-    await grantAccess(userId);
-
-    const [rows] = await pool.execute('SELECT * FROM users WHERE id = ?', [userId]);
-    const publicUser = toPublicUser(rows[0], await getMfaMode());
-    publicUser.isAccountant = true;
-    publicUser.accessLocked = await computeAccessLocked(publicUser);
-
-    res.cookie(COOKIE_NAME, signToken(rows[0]), cookieOptions(true));
-    res.status(201).json({ user: publicUser });
+    await grantAccess(existingUser.id);
+    return res.json({ existingAccount: true });
   })
 );
 

@@ -774,10 +774,7 @@ function AccountantSection({ user }) {
     e.preventDefault();
     setBusy(true);
     try {
-      await api.post('/auth/invite', {
-        firstName: inviteFirst.trim(),
-        lastName: inviteLast.trim(),
-        companyName: inviteCompany.trim() || null,
+      const { data } = await api.post('/auth/invite', {
         email: inviteEmail.trim().toLowerCase(),
         role: 'accountant',
         // Omitted entirely for a family member — the server ignores it, and
@@ -796,10 +793,34 @@ function AccountantSection({ user }) {
             }
           : {}),
       });
-      toast('Invitation sent', 'success');
-      setInviteFirst('');
-    setInviteLast('');
-    setInviteCompany('');
+      // Two quite different things can have happened, and the difference
+      // decides what this person does next — wait, or go and tell their
+      // accountant to sign up. One word ("Sent") for both would leave somebody
+      // waiting for an acceptance that cannot come.
+      if (data?.outcome === 'not_registered') {
+        await confirm({
+          title: 'They do not have a Taxify account yet',
+          body: (
+            <>
+              <div style={{ marginBottom: 8 }}>
+                Nothing has been shared. We have emailed {inviteEmail.trim().toLowerCase()} to explain that you would
+                like to share your books with them, and how to create an account.
+              </div>
+              <div>
+                Access can only be given to an address somebody has claimed and confirmed. Once they tell you their
+                account is set up, enter their email here again and they will get an invitation to accept.
+              </div>
+            </>
+          ),
+          confirmLabel: 'I understand',
+          // Both buttons close it. This is a result being reported, not a
+          // decision being asked for — but it is too long to be a toast and
+          // too important to be missed.
+          cancelLabel: 'Close',
+        });
+      } else {
+        toast('Invitation sent — they will get an email to accept it', 'success');
+      }
       setInviteEmail('');
       setPickedYears([]);
       setAllYears(true);
@@ -879,13 +900,9 @@ function AccountantSection({ user }) {
   const lastProblem = inviteLast.trim() ? nameProblem(inviteLast, 'Last name') : '';
   const companyIssue = companyProblem(inviteCompany);
 
-  const canSubmit =
-    !nameProblem(inviteFirst, 'First name') &&
-    !nameProblem(inviteLast, 'Last name') &&
-    !companyIssue &&
-    emailLooksReal &&
-    (allYears || pickedYears.length > 0) &&
-    (allBooks || pickedBooks.length > 0);
+  // An address that looks like one, and a choice of years and books. The name
+  // and firm are no longer asked for, so they no longer gate the button.
+  const canSubmit = emailLooksReal && (allYears || pickedYears.length > 0) && (allBooks || pickedBooks.length > 0);
 
   return (
     <div className="card" style={{ padding: 20, display: 'flex', flexDirection: 'column', gap: 18 }}>
@@ -1034,10 +1051,14 @@ function AccountantSection({ user }) {
         </p>
       ) : (
       <form onSubmit={onInvite} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-        {/* titleCaseLive while typing and titleCase on blur, the same as the
-            book name: titleCase trims, so running it on every keystroke eats
-            the space before a second word can be started. */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+        {/* An address, and nothing else.
+            The form used to ask for the accountant's first name, last name and
+            firm — three things the client had to know and spell correctly for
+            somebody else, which were then shown back to them as the check on
+            who they had shared with. A check made of your own typing checks
+            nothing. The account being linked carries a real name, entered by
+            the person it belongs to, and that is what the list shows. */}
+        <div hidden style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
           <div>
             <input
               className="input"

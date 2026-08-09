@@ -154,22 +154,12 @@ export default function AcceptInvite() {
     }
   }
 
-  async function acceptAsAccountant(e) {
-    e.preventDefault();
-    if (password !== confirmPassword) {
-      toast('Passwords do not match', 'error');
-      return;
-    }
+  // One press. Nothing is created, nothing is typed — the account already
+  // exists and the invitation carries everything else.
+  async function accept() {
     setBusy(true);
     try {
-      await api.post('/auth/accountant-invite/accept', {
-        token,
-        firstName,
-        lastName,
-        practiceName,
-        phone,
-        password,
-      });
+      await api.post('/auth/accountant-invite/accept', { token });
       await refresh();
       toast(`You can now open ${invite.inviterName}'s books`, 'success');
       navigate('/clients');
@@ -291,10 +281,19 @@ export default function AcceptInvite() {
     : 'their full history';
   const window = invite.windowHours === 24 ? '24 hours' : `${invite.windowHours / 24} days`;
 
+  // Signed in as the person the invitation is for.
+  //
+  // The page used to build them a login here — name, firm, password — from
+  // details their client had typed. An invitation now only ever goes to an
+  // address that already has a confirmed account, so there is nothing to
+  // create: either they are signed in as that account and it is one press, or
+  // they need to sign in first.
+  const asThem = invite.signedInAs && invite.signedInAs.toLowerCase() === String(invite.email || '').toLowerCase();
+
   return (
     <AuthLayout
-      title={`${invite.inviterName} has asked you to look at their books`}
-      subtitle="Setting up your accountant login takes a moment. One login covers every client you act for."
+      title={`${invite.inviterName} would like to share their books with you`}
+      subtitle={asThem ? 'One press and they are on your client list.' : `Sign in as ${invite.email} to accept.`}
     >
       <div
         style={{
@@ -307,65 +306,56 @@ export default function AcceptInvite() {
           marginBottom: 18,
         }}
       >
-        You will be able to read and export {scope}, for {window} from the first time you open their books. You can
-        never change anything, and they can end it at any time.
+        You will be able to {invite.canWrite ? 'read, add and edit' : 'read and export'} {scope}, for {window} from the
+        first time you open their books. {invite.canWrite ? 'You can never delete their books. ' : 'You can never change anything. '}
+        They can end it at any time.
       </div>
 
-      {/* Said here rather than left to be discovered months later. Somebody
-          deciding what this login is for should know it can also be their own. */}
-      <p style={{ fontSize: 12.5, color: 'var(--text-muted)', margin: '-8px 0 18px', lineHeight: 1.6 }}>
-        You can keep your own expenses in Taxify on this same login too — start any time from your account, on the
-        same plans as anyone else. Your clients stay exactly as they are.
-      </p>
-
-      <form onSubmit={acceptAsAccountant} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-        {/* Set by the client who sent the invitation, and not editable here.
-            These three are what they read back on their own account page when
-            deciding whether the person looking at their tax records is the one
-            they meant to invite. If the invitee can change them on the way in,
-            that check is worth nothing — an invitation addressed to one firm
-            could be accepted as another. A misspelling is something to tell the
-            client about, not a field to overwrite. */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-          <div>
-            <label className="label">First name</label>
-            <input className="input" disabled readOnly value={firstName} maxLength={NAME_MAX} />
-          </div>
-          <div>
-            <label className="label">Last name</label>
-            <input className="input" disabled readOnly value={lastName} maxLength={NAME_MAX} />
-          </div>
-        </div>
-        <div>
-          <label className="label">Practice or firm name</label>
-          <input className="input" disabled readOnly value={practiceName} maxLength={COMPANY_MAX} />
-          <p style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 6 }}>
-            {invite?.inviterName ? `${invite.inviterName} entered these` : 'Your client entered these'} when they invited
-            you, and their account shows them exactly as they are here. If anything is wrong, ask them to cancel this
-            invitation and send a new one.
-          </p>
-        </div>
-        <div>
-          <label className="label">Phone (optional)</label>
-          <input className="input" value={phone} onChange={(e) => setPhone(e.target.value)} />
-        </div>
-        {passwordFields}
-        <p style={{ fontSize: 12, color: 'var(--text-muted)', margin: 0, lineHeight: 1.55 }}>
-          By continuing you agree to the{' '}
-          <Link to="/terms" target="_blank" style={{ color: 'var(--accent)', fontWeight: 600 }}>
-            Terms of Service
-          </Link>{' '}
-          and{' '}
-          <Link to="/privacy" target="_blank" style={{ color: 'var(--accent)', fontWeight: 600 }}>
-            Privacy Policy
-          </Link>
-          .
-        </p>
-        <button className="btn btn-primary" disabled={!canSubmit} type="submit" style={{ marginTop: 4 }}>
+      {asThem ? (
+        <button className="btn btn-primary" style={{ width: '100%' }} disabled={busy} onClick={accept}>
           {busy && <span className="spinner" />}
-          Create my accountant login
+          Accept and add {invite.inviterName}
         </button>
-      </form>
+      ) : (
+        <>
+          {/* Signed in as somebody else, or not at all. Said rather than left
+              to be discovered by pressing a button that refuses — an
+              invitation belongs to one address and only that address can take
+              it. */}
+          <div
+            style={{
+              display: 'flex',
+              gap: 10,
+              alignItems: 'flex-start',
+              padding: '11px 13px',
+              borderRadius: 'var(--radius-sm)',
+              border: '1px solid var(--border)',
+              borderLeft: '3px solid var(--accent)',
+              background: 'var(--bg-subtle)',
+              marginBottom: 14,
+            }}
+          >
+            <Icon name="user" size={15} style={{ color: 'var(--accent)', marginTop: 1, flexShrink: 0 }} />
+            <span style={{ fontSize: 12.5, lineHeight: 1.55, color: 'var(--text-muted)' }}>
+              {invite.signedInAs
+                ? `You are signed in as ${invite.signedInAs}. This invitation was sent to ${invite.email}, and only that account can accept it.`
+                : `This invitation was sent to ${invite.email}. Sign in with that account and open this link again.`}
+            </span>
+          </div>
+          <Link
+            to={`/login?next=${encodeURIComponent(`/accept-invite?token=${token}`)}`}
+            className="btn btn-primary"
+            style={{ width: '100%', textDecoration: 'none', justifyContent: 'center' }}
+          >
+            {invite.signedInAs ? 'Sign in as somebody else' : 'Go to sign in'}
+          </Link>
+        </>
+      )}
+
+      <p style={{ fontSize: 12, color: 'var(--text-muted)', margin: '16px 0 0', lineHeight: 1.6 }}>
+        Nothing is shared until you accept, and this link stops working 24 hours after it was sent. If you were not
+        expecting it, close this page — nobody has been given anything.
+      </p>
     </AuthLayout>
   );
 }
