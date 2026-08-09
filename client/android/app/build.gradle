@@ -1,5 +1,23 @@
 apply plugin: 'com.android.application'
 
+// The key this app is signed with.
+//
+// Every release until now was signed with the Android debug certificate — the
+// throwaway key Android Studio makes on its own. That key lives in one
+// developer machine's home directory, is not something anybody chose, and
+// Google Play refuses it outright. Worse, Android will not install an update
+// signed by a different key than the version already on the phone: losing that
+// file, or building on another machine, would mean every user having to
+// uninstall and start again.
+//
+// The keystore and its passwords are read from keystore.properties, which is
+// not in git. A signing key in a repository is a signing key everybody has.
+def keystoreProperties = new Properties()
+def keystorePropertiesFile = rootProject.file("keystore.properties")
+if (keystorePropertiesFile.exists()) {
+    keystorePropertiesFile.withInputStream { keystoreProperties.load(it) }
+}
+
 android {
     namespace = "com.mikesapphub.taxify"
     compileSdk = rootProject.ext.compileSdkVersion
@@ -10,8 +28,8 @@ android {
         applicationId "com.mikesapphub.taxify"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 5
-        versionName "1.0.4"
+        versionCode 6
+        versionName "1.1.0"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
              // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.
@@ -23,8 +41,24 @@ android {
             ignoreAssetsPattern = '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~:!downloads'
         }
     }
+    signingConfigs {
+        release {
+            if (keystoreProperties.containsKey("storeFile")) {
+                storeFile rootProject.file(keystoreProperties["storeFile"])
+                storePassword keystoreProperties["storePassword"]
+                keyAlias keystoreProperties["keyAlias"]
+                keyPassword keystoreProperties["keyPassword"]
+            }
+        }
+    }
     buildTypes {
         release {
+            // Only when the properties file is there. Without it the build
+            // produces an unsigned APK and says so, rather than silently
+            // falling back to the debug key and shipping it.
+            if (keystoreProperties.containsKey("storeFile")) {
+                signingConfig signingConfigs.release
+            }
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
         }

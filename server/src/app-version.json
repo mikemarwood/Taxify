@@ -1,5 +1,5 @@
 {
-  "versionCode": 5,
-  "versionName": "1.0.4",
-  "notes": "Notifications can now reach the phone, and the app stops offering an update it already has."
+  "versionCode": 6,
+  "versionName": "1.1.0",
+  "notes": "Links in our emails now open the app instead of a browser. Signed with a proper release key — you will need to uninstall the old version first."
 }

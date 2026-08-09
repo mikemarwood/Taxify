@@ -99,3 +99,11 @@ app/src/main/assets/public
 app/src/main/assets/capacitor.config.json
 app/src/main/assets/capacitor.plugins.json
 app/src/main/res/xml/config.xml
+
+# The release signing key and its passwords.
+#
+# A signing key in a repository is a signing key everybody has, and anybody
+# holding it can publish an update that Android will install over the real one.
+# Kept on disk, backed up somewhere private, never here.
+/taxify-release.jks
+/keystore.properties
