@@ -1336,10 +1336,21 @@ function AccountantSection({ user }) {
           </div>
         )}
 
-        <button className="btn btn-primary" type="submit" disabled={busy || !canSubmit} style={{ alignSelf: 'flex-start', fontSize: 13 }}>
-          {busy && <span className="spinner" />}
-          Invite accountant
-        </button>
+        {/* Only once there is somebody to invite. Before that the useful
+            button is the other one — leaving a dead "Invite accountant" beside
+            "Email them about creating an account" is two buttons where one of
+            them cannot work, and no way to tell which from looking. */}
+        {lookup.state === 'known' && (
+          <button
+            className="btn btn-primary"
+            type="submit"
+            disabled={busy || !canSubmit}
+            style={{ alignSelf: 'flex-start', fontSize: 13 }}
+          >
+            {busy && <span className="spinner" />}
+            Invite {lookup.name || 'them'}
+          </button>
+        )}
       </form>
       )}
 
