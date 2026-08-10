@@ -112,6 +112,12 @@ export async function getStripeAdminSettings() {
 }
 
 export async function saveStripeAdminSettings({ mode, live, test }) {
+  // Any change here can change what a plan costs — a new price id, or the
+  // whole mode flipping between live and test. Waiting five minutes to find
+  // out whether the change took is how somebody concludes it did not work and
+  // types it again.
+  forgetPlanPrices();
+
   if (mode !== undefined) {
     if (mode !== 'live' && mode !== 'test') throw new Error('mode must be "live" or "test"');
     await setSetting(SETTING_KEYS.mode, mode);
@@ -216,7 +222,40 @@ function yearlyAmount(price) {
   return amount;
 }
 
+// The prices, briefly remembered.
+//
+// Every plan card in the app and both landing pages call this, and it made two
+// Stripe API calls each time — so the billing panel sat empty across a round
+// trip to Stripe before it could say anything, and drew whatever it had until
+// the answer arrived. That is the flicker: not a slow page, a page waiting on
+// somebody else's server to tell it the price of something that changes a few
+// times a year.
+//
+// Five minutes. Long enough that nobody waits for it twice, short enough that
+// a price changed in the Stripe dashboard is live before anybody notices. The
+// admin Stripe tab clears it outright, so a deliberate change is never waited
+// on at all.
+let priceCache = null;
+let priceCachedAt = 0;
+const PRICE_CACHE_MS = 5 * 60 * 1000;
+
+export function forgetPlanPrices() {
+  priceCache = null;
+}
+
 export async function getSignupPlans() {
+  if (priceCache && Date.now() - priceCachedAt < PRICE_CACHE_MS) return priceCache;
+  const plans = await readSignupPlans();
+  // Only kept when Stripe actually answered. Caching a list with no prices in
+  // it would turn one bad minute into five.
+  if (plans.some((p) => p.amountPerYear !== null)) {
+    priceCache = plans;
+    priceCachedAt = Date.now();
+  }
+  return plans;
+}
+
+async function readSignupPlans() {
   const config = await getStripeConfig();
   // The old Family price stands in until the Business one is set, so the cards
   // keep showing a real figure through the rename.

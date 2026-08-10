@@ -17,7 +17,6 @@ import AccountantBooksPicker from '../components/AccountantBooksPicker.jsx';
 // accountant's own name is theirs to spell, and rewriting the row would make
 // this page the thing that changed it.
 import { titleCase, titleCaseLive, lowerEmail } from '../lib/textCase.js';
-import { nameProblem, companyProblem, NAME_MAX, COMPANY_MAX } from '../lib/inviteFields.js';
 import { currentPlanType, planLabel as labelForPlan, hasLiveSubscription } from '../lib/plans.js';
 
 // The window a date of birth may fall in — matches the sign-up form, so an
@@ -778,10 +777,11 @@ function AccountantSection({ user }) {
   // than read back from the list, so the button locks on the press instead of
   // waiting for the refetch.
   const [resentAt, setResentAt] = useState({});
-  const [inviteFirst, setInviteFirst] = useState('');
-  const [inviteLast, setInviteLast] = useState('');
-  const [inviteCompany, setInviteCompany] = useState('');
   const [inviteEmail, setInviteEmail] = useState('');
+  // What we know about that address: idle, checking, known, unknown, self.
+  // Everything below the field turns on it, so the form can say what pressing
+  // the button will do rather than finding out afterwards.
+  const [lookup, setLookup] = useState({ state: 'idle', name: null });
 
   const [allYears, setAllYears] = useState(true);
   const [allBooks, setAllBooks] = useState(true);
@@ -940,18 +940,47 @@ function AccountantSection({ user }) {
   // stray space.
   const emailLooksReal = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(inviteEmail.trim());
 
+  // Debounced, and only once the address could be one. Asking after every
+  // keystroke would be a request per letter, for an answer that cannot be
+  // right until the whole address is there.
+  useEffect(() => {
+    if (!emailLooksReal) {
+      setLookup({ state: 'idle', name: null });
+      return undefined;
+    }
+    setLookup((prev) => ({ ...prev, state: 'checking' }));
+    let alive = true;
+    const timer = setTimeout(() => {
+      api
+        .get(`/auth/accountant-lookup?email=${encodeURIComponent(inviteEmail.trim())}`)
+        .then((res) => {
+          if (!alive) return;
+          if (res.data.self) return setLookup({ state: 'self', name: null });
+          setLookup({ state: res.data.known ? 'known' : 'unknown', name: res.data.name || null });
+        })
+        // Rate limited, or offline. Treated as unknown rather than blocking the
+        // form — the server checks again on submit and is the authority either
+        // way.
+        .catch(() => alive && setLookup({ state: 'unknown', name: null }));
+    }, 350);
+    return () => {
+      alive = false;
+      clearTimeout(timer);
+    };
+  }, [inviteEmail, emailLooksReal]);
+
   // One accountant at a time. Two people holding read-only access to somebody
   // else's tax records is twice the exposure for no benefit, and an invitation
   // already waiting is the same commitment as a granted one.
   const alreadyShared = (accountants?.length || 0) > 0 || invites.length > 0;
 
-  const firstProblem = inviteFirst.trim() ? nameProblem(inviteFirst, 'First name') : '';
-  const lastProblem = inviteLast.trim() ? nameProblem(inviteLast, 'Last name') : '';
-  const companyIssue = companyProblem(inviteCompany);
 
   // An address that looks like one, and a choice of years and books. The name
   // and firm are no longer asked for, so they no longer gate the button.
-  const canSubmit = emailLooksReal && (allYears || pickedYears.length > 0) && (allBooks || pickedBooks.length > 0);
+  // Only for somebody who can actually receive it. An address with no account
+  // has its own button, which sends the sign-up email instead.
+  const canSubmit =
+    lookup.state === 'known' && (allYears || pickedYears.length > 0) && (allBooks || pickedBooks.length > 0);
 
   return (
     <div className="card" style={{ padding: 20, display: 'flex', flexDirection: 'column', gap: 18 }}>
@@ -1100,71 +1129,82 @@ function AccountantSection({ user }) {
         </p>
       ) : (
       <form onSubmit={onInvite} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-        {/* An address, and nothing else.
-            The form used to ask for the accountant's first name, last name and
-            firm — three things the client had to know and spell correctly for
-            somebody else, which were then shown back to them as the check on
-            who they had shared with. A check made of your own typing checks
-            nothing. The account being linked carries a real name, entered by
-            the person it belongs to, and that is what the list shows. */}
-        <div hidden style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-          <div>
-            <input
-              className="input"
-              required
-              maxLength={NAME_MAX}
-              placeholder="First name"
-              autoComplete="off"
-              value={inviteFirst}
-              onChange={(e) => setInviteFirst(titleCaseLive(e.target.value))}
-              onBlur={() => setInviteFirst(titleCase(inviteFirst))}
-              aria-invalid={firstProblem ? 'true' : undefined}
-              style={firstProblem ? { borderColor: 'var(--red)' } : undefined}
-            />
-            <FieldNote problem={firstProblem} />
-          </div>
-          <div>
-            <input
-              className="input"
-              required
-              maxLength={NAME_MAX}
-              placeholder="Last name"
-              autoComplete="off"
-              value={inviteLast}
-              onChange={(e) => setInviteLast(titleCaseLive(e.target.value))}
-              onBlur={() => setInviteLast(titleCase(inviteLast))}
-              aria-invalid={lastProblem ? 'true' : undefined}
-              style={lastProblem ? { borderColor: 'var(--red)' } : undefined}
-            />
-            <FieldNote problem={lastProblem} />
-          </div>
-        </div>
-
         <div>
+          <label className="label" style={{ fontSize: 11.5 }}>
+            Your accountant's email address
+          </label>
           <input
             className="input"
-            maxLength={COMPANY_MAX}
-            placeholder="Practice or firm name (optional)"
+            required
+            type="email"
             autoComplete="off"
-            value={inviteCompany}
-            onChange={(e) => setInviteCompany(titleCaseLive(e.target.value))}
-            onBlur={() => setInviteCompany(titleCase(inviteCompany))}
-            aria-invalid={companyIssue ? 'true' : undefined}
-            style={companyIssue ? { borderColor: 'var(--red)' } : undefined}
+            placeholder="them@theirfirm.com"
+            value={inviteEmail}
+            onChange={(e) => setInviteEmail(e.target.value.toLowerCase())}
           />
-          <FieldNote problem={companyIssue} />
+
+          {/* What is about to happen, before the button is pressed.
+              The form asks for an address and nothing else, so it has to say
+              which of two quite different things a press will do: invite
+              somebody who can accept, or write to a stranger asking them to
+              sign up first. */}
+          <div style={{ fontSize: 12.5, marginTop: 6, lineHeight: 1.55 }}>
+            {lookup.state === 'checking' && <span style={{ color: 'var(--text-muted)' }}>Checking…</span>}
+
+            {lookup.state === 'self' && (
+              <span style={{ color: 'var(--red)' }}>That is your own address.</span>
+            )}
+
+            {lookup.state === 'known' && (
+              <span style={{ color: 'var(--emerald)', fontWeight: 600 }}>
+                <Icon name="check-circle" size={13} style={{ verticalAlign: -2, marginRight: 5 }} />
+                Account found{lookup.name ? ` — ${lookup.name}` : ''}. Choose what they can see below.
+              </span>
+            )}
+
+            {lookup.state === 'unknown' && (
+              <span style={{ color: 'var(--text-muted)' }}>
+                No Taxify account at that address, so there is nobody to give access to yet.
+              </span>
+            )}
+          </div>
         </div>
 
-        <input
-          className="input"
-          required
-          type="email"
-          placeholder="Email"
-          value={inviteEmail}
-          onChange={(e) => setInviteEmail(e.target.value.toLowerCase())}
-        />
+        {/* Nothing to grant, so the only useful action is asking them to sign
+            up. Said as its own step rather than letting somebody fill in books
+            and years for a person who cannot receive them. */}
+        {lookup.state === 'unknown' && (
+          <div
+            style={{
+              padding: 14,
+              borderRadius: 'var(--radius-sm)',
+              border: '1px solid var(--border)',
+              borderLeft: '3px solid var(--accent)',
+              background: 'var(--bg-subtle)',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 10,
+            }}
+          >
+            <div style={{ fontSize: 12.5, lineHeight: 1.6, color: 'var(--text-muted)' }}>
+              Access can only be given to somebody with their own Taxify account, confirmed at that address — it is
+              how we know the person reading your records is the person you meant. We can email them and explain how
+              to set one up. Nothing is shared, and you enter their address again once they tell you it is done.
+            </div>
+            <button
+              type="button"
+              className="btn btn-primary"
+              style={{ alignSelf: 'flex-start', fontSize: 13 }}
+              disabled={busy}
+              onClick={onInvite}
+            >
+              {busy && <span className="spinner" />}
+              Email them about creating an account
+            </button>
+          </div>
+        )}
 
-        {true && (
+        {lookup.state === 'known' && (
           <div
             style={{
               padding: 14,

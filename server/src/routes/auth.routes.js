@@ -761,6 +761,54 @@ router.post(
 
 // Deliberately outside requireActiveAccess: an accountant reaches this before
 // they have a client, which is exactly the state that middleware rejects.
+// Is there an account at this address that could be given access?
+//
+// The form asks for an address and nothing else, so it has to be able to say
+// which of the two things is about to happen before the client commits to it:
+// an invitation to somebody who can accept one, or an email asking a stranger
+// to sign up first.
+//
+// This does tell a signed-in customer whether an address has an account, which
+// login and forgot-password deliberately refuse to do. The trade is made
+// knowingly: it is behind a paying account holder, it answers one address at a
+// time, and it is capped below — a rate a person uses and a scraper cannot.
+// The alternative is a form that cannot say what pressing the button will do.
+const lookupCounts = new Map();
+const LOOKUP_WINDOW_MS = 10 * 60 * 1000;
+const LOOKUP_MAX = 30;
+
+router.get(
+  '/accountant-lookup',
+  requireAuth,
+  requireAccountOwner,
+  asyncHandler(async (req, res) => {
+    const now = Date.now();
+    const seen = lookupCounts.get(req.user.id);
+    if (!seen || now - seen.since > LOOKUP_WINDOW_MS) {
+      lookupCounts.set(req.user.id, { since: now, count: 1 });
+    } else if (seen.count >= LOOKUP_MAX) {
+      return res.status(429).json({ error: 'That is a lot of addresses in a short time. Try again shortly.' });
+    } else {
+      seen.count += 1;
+    }
+
+    const email = String(req.query?.email || '').trim().toLowerCase();
+    if (!/^[^s@]+@[^s@]+.[^s@]{2,}$/.test(email)) return res.json({ known: false, self: false });
+    if (email === String(req.user.email).toLowerCase()) return res.json({ known: false, self: true });
+
+    // Activated only. An address that has never been confirmed cannot read
+    // what is sent to it, so it is treated exactly like one with no account.
+    const [rows] = await pool.execute(
+      "SELECT id, name FROM users WHERE email = ? AND activated_at IS NOT NULL AND role <> 'accountant'",
+      [email]
+    );
+
+    // The name is the account holder's own, not anything the client typed —
+    // which is the point: it is how they check they have the right person.
+    res.json({ known: Boolean(rows[0]), self: false, name: rows[0]?.name || null });
+  })
+);
+
 router.get(
   '/clients',
   requireAuth,

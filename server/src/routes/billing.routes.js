@@ -560,6 +560,26 @@ router.post(
       return res.status(400).json({ error: 'You are already on that plan' });
     }
 
+    // Moving down is only offered once the plan has run out.
+    //
+    // Small Business covers books that Individual does not, and a downgrade
+    // shuts them — read-only, nothing lost, but shut. Doing that in the middle
+    // of a paid year takes away something already paid for, and leaves us
+    // owing a refund nobody agreed on. At the end of the year there is nothing
+    // to take away: the books are already locked because the plan has lapsed,
+    // and choosing Individual is choosing what to pay for next rather than
+    // giving something up.
+    //
+    // Moving *up* is unrestricted. Nobody needs protecting from buying more.
+    const goingDown = req.user.planType === 'business' && toPlan === 'individual';
+    if (goingDown && !req.user.accessLocked) {
+      return res.status(400).json({
+        error:
+          'You can move down to Individual when your current plan ends. Until then it is paid for, and Individual ' +
+          'covers fewer sets of books — so switching now would shut some of yours with time still left on them.',
+      });
+    }
+
     // One open request at a time. Two invoices for the same move is the worst
     // outcome here, and "I already asked" is the more common complaint than
     // "I could not ask twice".

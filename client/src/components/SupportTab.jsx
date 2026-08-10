@@ -4,6 +4,7 @@ import Icon from './Icon.jsx';
 import Avatar from './Avatar.jsx';
 import { useToast } from './Toast.jsx';
 import { useConfirm } from './../lib/ConfirmContext.jsx';
+import { sentenceCaseLive } from '../lib/textCase.js';
 import SupportThread, { StatusPill } from './SupportThread.jsx';
 import { formatDateTime } from '../lib/dates.js';
 import { playInfo } from '../lib/sounds.js';
@@ -462,7 +463,7 @@ export default function SupportTab() {
               onClick={() => setStarting(true)}
             >
               <Icon name="plus" size={13} />
-              Write to a customer
+              Create ticket on behalf of customer
             </button>
           )}
 
@@ -533,7 +534,10 @@ export default function SupportTab() {
           value={query}
           onChange={(e) => {
             setPage(1);
-            setQuery(e.target.value);
+            // Capitalised as it is typed. Safe per keystroke because it only
+            // changes the case of characters already there — the length never
+            // moves, so neither does the caret.
+            setQuery(sentenceCaseLive(e.target.value));
           }}
           style={{ fontSize: 12.5 }}
         />

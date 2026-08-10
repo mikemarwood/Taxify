@@ -4,6 +4,7 @@ import Icon from './Icon.jsx';
 import Avatar from './Avatar.jsx';
 import { useToast } from './Toast.jsx';
 import { sentenceCase } from '../lib/text.js';
+import { sentenceCaseLive } from '../lib/textCase.js';
 import { AttachmentPicker, MIN_MESSAGE, MAX_MESSAGE, messageProblem } from './SupportThread.jsx';
 
 // Raising a ticket for somebody else.
@@ -308,7 +309,7 @@ export default function NewTicketForSomebody({ categories, staff, currentUserId,
           maxLength={MAX_SUBJECT}
           placeholder="What this is about"
           value={subject}
-          onChange={(e) => setSubject(e.target.value)}
+          onChange={(e) => setSubject(sentenceCaseLive(e.target.value))}
           onBlur={() => setSubject(sentenceCase(subject))}
           style={{ fontSize: 13 }}
         />
@@ -325,7 +326,7 @@ export default function NewTicketForSomebody({ categories, staff, currentUserId,
           maxLength={MAX_MESSAGE}
           placeholder="They see this exactly as written, and it is emailed to them."
           value={message}
-          onChange={(e) => setMessage(e.target.value)}
+          onChange={(e) => setMessage(sentenceCaseLive(e.target.value))}
           onBlur={() => setMessage(sentenceCase(message))}
           style={{ resize: 'vertical', fontSize: 13.5, lineHeight: 1.6 }}
         />

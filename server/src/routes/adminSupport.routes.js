@@ -417,10 +417,14 @@ router.get(
          FROM users
         WHERE activated_at IS NOT NULL
           AND role <> 'accountant'
+          -- Never yourself. A ticket raised against your own account would
+          -- sit in the queue as a customer waiting on a reply from the
+          -- person who wrote it.
+          AND id <> ?
           AND (email LIKE ? OR name LIKE ?)
         ORDER BY name
         LIMIT 8`,
-      [like, like]
+      [req.user.id, like, like]
     );
 
     res.json({
