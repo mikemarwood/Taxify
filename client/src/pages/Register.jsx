@@ -816,6 +816,44 @@ export default function Register() {
                         }}
                       />
                     ))}
+
+                    {/* Not a plan — the absence of one.
+                        Somebody who only ever acts for clients has no use for
+                        books of their own, and until now had to take a trial
+                        they never wanted and then be told it had expired. It
+                        sits with the plans because this is where the choice is
+                        made, not because it is one of them. */}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        playClick();
+                        setPlanType('accountant');
+                      }}
+                      style={{
+                        textAlign: 'left',
+                        padding: 16,
+                        borderRadius: 'var(--radius)',
+                        cursor: 'pointer',
+                        font: 'inherit',
+                        fontFamily: 'inherit',
+                        color: 'var(--text)',
+                        border: `2px solid ${planType === 'accountant' ? 'var(--accent)' : 'var(--border)'}`,
+                        background: planType === 'accountant' ? 'var(--accent-soft)' : 'var(--bg-card)',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: 6,
+                      }}
+                    >
+                      <span style={{ fontWeight: 700, fontSize: 15 }}>I'm an accountant</span>
+                      <span style={{ fontSize: 20, fontWeight: 800 }}>Free</span>
+                      <span style={{ fontSize: 12.5, color: 'var(--text-muted)', lineHeight: 1.5 }}>
+                        You act for clients and keep no books of your own. No plan, no trial, nothing to pay — your
+                        clients share their books with you by email.
+                      </span>
+                      <span style={{ fontSize: 12, color: 'var(--text-muted)', lineHeight: 1.5 }}>
+                        Want to track your own expenses too? Add a plan from your account whenever you like.
+                      </span>
+                    </button>
                   </div>
 
                   <div style={{ display: 'flex', gap: 8, alignItems: 'flex-end' }}>

@@ -15,6 +15,7 @@ import { generateOtp, hashOtp, OTP_TTL_MINUTES, OTP_MAX_ATTEMPTS, OTP_LOCKOUT_MI
 import { toPublicUser } from '../auth/publicUser.js';
 import { recordLogin } from '../lib/deviceInfo.js';
 import { computeAccessLocked } from '../auth/access.js';
+import { trialDecision, TRIAL_DAYS as TRIAL_LENGTH_DAYS } from '../lib/trialGrant.js';
 import {
   listAssignments,
   openAssignment,
@@ -56,7 +57,9 @@ import { getSignupPlans } from '../lib/stripe.js';
 import { evaluatePromoCode, recordPromoRedemption } from '../lib/promoCodes.js';
 import { publicOrigin } from '../lib/publicOrigin.js';
 
-const TRIAL_DAYS = 14;
+// Re-exported from the one place that decides it, so the sign-up page and the
+// rule cannot disagree about how long a trial is.
+const TRIAL_DAYS = TRIAL_LENGTH_DAYS;
 
 // Seconds from now until a stored timestamp, worked out entirely server-side.
 // The pool returns DATETIMEs as strings with no timezone on them, so a browser
@@ -325,11 +328,29 @@ router.post(
       return res.status(400).json({ error: 'You must accept the Terms of Service and Privacy Policy to continue' });
     }
 
-    const finalPlanType = planType === 'business' ? 'business' : 'individual';
+    // Signing up to act for clients and nothing else.
+    //
+    // Not a plan, which is why it is not in PLAN_LIMITS or anything that reads
+    // plan_type: it is the absence of one. The account gets no trial, no books
+    // and no countdown to something it never wanted, and can add a plan later
+    // if that changes.
+    //
+    // Nobody picks this to avoid paying — an account with no books cannot
+    // record a single expense, which is the whole of what the paid product
+    // does.
+    const asAccountant = planType === 'accountant';
+    const finalRole = asAccountant ? 'accountant' : 'owner';
+    const finalPlanType = asAccountant ? null : planType === 'business' ? 'business' : 'individual';
 
     // Checked again here rather than trusted from the form — the price shown
     // during sign-up came from an endpoint anyone can call.
+    // A discount on nothing is nothing. Refused rather than quietly ignored,
+    // or somebody types a code, sees it accepted and expects it to mean
+    // something later.
     let finalPromo = null;
+    if (asAccountant && promoCode && String(promoCode).trim()) {
+      return res.status(400).json({ error: 'An accountant account is free, so a promo code does not apply to it.' });
+    }
     if (promoCode && String(promoCode).trim()) {
       const plans = await getSignupPlans();
       const plan = plans.find((p) => p.planType === finalPlanType);
@@ -373,7 +394,7 @@ router.post(
             role, plan_type, promo_code, currency, country, state, referral_source,
             fy_start_month, fy_start_day,
             terms_accepted_at, activation_token_hash, activation_token_expires_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, 'owner', ?, ?, ?, ?, ?, ?, ?, ?, NOW(), ?, ?)`,
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), ?, ?)`,
         [
           normalizedEmail,
           placeholderHash,
@@ -383,6 +404,7 @@ router.post(
           dob,
           cleanedPhone || null,
           otpEnabledAtSignup,
+          finalRole,
           finalPlanType,
           finalPromo,
           finalCurrency,
@@ -474,17 +496,26 @@ router.post(
     const user = await findActivationCandidate(token);
     if (!user) return res.status(400).json({ error: 'This activation link is invalid or has expired.' });
 
-    const trialEndsAt = new Date(Date.now() + TRIAL_DAYS * 24 * 60 * 60 * 1000);
+    // The trial is granted here, not at registration, which makes this the one
+    // place that has to know an accountant does not get one. They activate with
+    // no trial and no subscription: not lapsed, not counting down, simply not
+    // paying for books they do not have.
+    const wantsPlan = user.role !== 'accountant';
+    const trial = trialDecision({ hasHadTrial: Boolean(user.trial_ends_at), isAccountant: !wantsPlan });
+    const trialEndsAt = trial.endsAt;
+
     await pool.execute(
       `UPDATE users SET password_hash = ?, activated_at = NOW(), activation_token_hash = NULL,
-       activation_token_expires_at = NULL, trial_ends_at = ?, subscription_status = 'trialing' WHERE id = ?`,
-      [hashPassword(password), trialEndsAt, user.id]
+       activation_token_expires_at = NULL, trial_ends_at = COALESCE(?, trial_ends_at),
+       subscription_status = ? WHERE id = ?`,
+      [hashPassword(password), trialEndsAt, trial.status, user.id]
     );
 
     try {
       await sendAccountActivatedEmail(user.email, user.first_name || user.name, {
         planType: user.plan_type,
         trialEndsAt,
+        asAccountant: !wantsPlan,
       });
     } catch (err) {
       console.error('Failed to send activation confirmation email', err);
@@ -493,10 +524,13 @@ router.post(
     const jwt = signToken(user);
     res.cookie(COOKIE_NAME, jwt, cookieOptions());
     const mfaMode = await getMfaMode();
-    user.trial_ends_at = trialEndsAt;
-    user.subscription_status = 'trialing';
+    user.trial_ends_at = trialEndsAt || user.trial_ends_at;
+    user.subscription_status = trial.status;
     const publicUser = toPublicUser(user, mfaMode);
-    publicUser.accessLocked = false;
+    // An accountant has no books of their own, so their own access genuinely is
+    // locked — what governs them is whichever client they open. Saying false
+    // here would be a lie the first page they load would contradict.
+    publicUser.accessLocked = wantsPlan ? false : await computeAccessLocked(publicUser);
     res.json({ user: publicUser });
   })
 );
@@ -798,8 +832,13 @@ router.get(
 
     // Activated only. An address that has never been confirmed cannot read
     // what is sent to it, so it is treated exactly like one with no account.
+    //
+    // Accountants are deliberately *included*. This clause once read
+    // role <> 'accountant', copied from the support customer search where it is
+    // right — here it excluded the only people the form exists to find, so an
+    // account created as an accountant could never be given a client.
     const [rows] = await pool.execute(
-      "SELECT id, name FROM users WHERE email = ? AND activated_at IS NOT NULL AND role <> 'accountant'",
+      'SELECT id, name FROM users WHERE email = ? AND activated_at IS NOT NULL',
       [email]
     );
 
@@ -940,6 +979,50 @@ router.post(
 // An accountant who was only ever invited to look at other people's books
 // deciding to keep their own. They become an ordinary account holder — same
 // trial, same plans, same everything — while keeping every client they had.
+// Stepping down to acting for clients only.
+//
+// The other end of start-own-account. Somebody whose plan has run out and who
+// does not want another one is not "expired" — they are an accountant, which
+// is a state this app already understands. Until now their only options were
+// to pay or to sit looking at a lapsed screen for ever.
+//
+// Only once the plan has actually ended, the same test the plan-downgrade rule
+// uses, so the two agree about when the door opens. Doing it mid-year would
+// throw away time already paid for.
+//
+// Their books, expenses and receipts are left exactly as they are. They are
+// already read-only while nothing is being paid, and adding a plan brings them
+// straight back — losing somebody's financial records because they changed
+// what they pay for would be indefensible, and it is not what this does.
+router.post(
+  '/become-accountant',
+  requireAuth,
+  requireAccountOwner,
+  asyncHandler(async (req, res) => {
+    if (!req.user.accessLocked) {
+      return res.status(400).json({
+        error:
+          'You can step down to an accountant account when your current plan ends. Until then it is paid for, and ' +
+          'stepping down now would give up time you have already bought.',
+      });
+    }
+
+    await pool.execute(
+      // trial_ends_at is deliberately left alone. It is the record that this
+      // account has had its trial, and clearing it here would make stepping
+      // down the way to earn another one.
+      `UPDATE users SET role = 'accountant', subscription_status = 'none' WHERE id = ?`,
+      [req.user.id]
+    );
+
+    // Re-signed so the next request is read as an accountant rather than as an
+    // owner whose access has lapsed — which is the screen they just left.
+    const [rows] = await pool.execute('SELECT * FROM users WHERE id = ?', [req.user.id]);
+    res.cookie(COOKIE_NAME, signToken(rows[0]), cookieOptions(true));
+    res.json({ ok: true });
+  })
+);
+
 router.post(
   '/start-own-account',
   requireAuth,
@@ -948,7 +1031,22 @@ router.post(
       return res.status(400).json({ error: 'You already have your own Taxify account' });
     }
 
-    const trialEndsAt = new Date(Date.now() + TRIAL_DAYS * 24 * 60 * 60 * 1000);
+    // A trial is granted once per account, ever.
+    //
+    // This used to hand out a fresh fourteen days every time it was called.
+    // With a way to step back down to accountant, that is an unlimited free
+    // subscription: let it lapse, step down, add a plan, fourteen more days,
+    // for as long as anybody cares to keep clicking.
+    //
+    // trial_ends_at already means "has had one" — nothing clears it, including
+    // stepping down — so it is the test, and no new column is needed. Somebody
+    // who has had their trial goes to the renew path instead, which is the same
+    // place a lapsed subscriber goes.
+    const [[seen]] = await pool.execute('SELECT trial_ends_at FROM users WHERE id = ?', [req.user.id]);
+    const trial = trialDecision({ hasHadTrial: Boolean(seen?.trial_ends_at), isAccountant: false });
+    const firstTime = trial.grant;
+    const trialEndsAt = trial.endsAt;
+
     await pool.execute(
       // account_holder_id is cleared, not just left behind. It pointed at the
       // client who first invited them, and an account holder who "belongs to"
@@ -956,8 +1054,8 @@ router.post(
       // expenses inside that client's books.
       `UPDATE users SET role = 'owner', account_holder_id = NULL,
        plan_type = COALESCE(plan_type, 'individual'),
-       subscription_status = 'trialing', trial_ends_at = ? WHERE id = ?`,
-      [trialEndsAt, req.user.id]
+       subscription_status = ?, trial_ends_at = COALESCE(?, trial_ends_at) WHERE id = ?`,
+      [trial.status, trialEndsAt, req.user.id]
     );
 
     // Their own books start with the same defaults as anybody else's.
@@ -971,7 +1069,9 @@ router.post(
     // signed out when they close the tab — for having started their own
     // account, which is the last thing that should cost them anything.
     res.cookie(COOKIE_NAME, signToken(req.user), cookieOptions(true));
-    res.json({ ok: true, trialEndsAt });
+    // trialEndsAt is null for somebody who has had theirs. The page reads that
+    // as "go and pay" rather than showing a countdown that does not exist.
+    res.json({ ok: true, trialEndsAt, trialGranted: firstTime });
   })
 );
 

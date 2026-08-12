@@ -15,6 +15,26 @@ function daysUntil(value) {
 export function describeSubscription(user) {
   if (!user) return { state: 'unknown', label: '', detail: '', daysLeft: null, tone: 'neutral' };
 
+  // Acting for clients, with no books of their own.
+  //
+  // Checked before anything about subscriptions, because an accountant has no
+  // subscription by design — and without this they fall through every branch
+  // below to the last one and are labelled Expired. Nothing has expired. They
+  // are not paying because there is nothing to pay for, which is a perfectly
+  // good state to be in and reads as a fault only if we call it one.
+  //
+  // Neutral, not good: it is a statement of what the account is, not a
+  // reassurance about it.
+  if (user.role === 'accountant') {
+    return {
+      state: 'accountant',
+      label: 'Accountant',
+      detail: 'Acting for clients — no plan needed',
+      daysLeft: null,
+      tone: 'neutral',
+    };
+  }
+
   // An admin-granted account isn't on a trial or a subscription and shouldn't
   // be told it's about to lose access.
   if (user.accessBypass) {

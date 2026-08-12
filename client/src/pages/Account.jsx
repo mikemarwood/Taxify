@@ -468,9 +468,17 @@ function StartOwnAccount() {
   async function start() {
     setBusy(true);
     try {
-      await api.post('/auth/start-own-account');
+      const { data } = await api.post('/auth/start-own-account');
       await refresh();
-      toast('Your own account is ready — your 14-day trial has started', 'success');
+      // A trial is granted once per account. Somebody who has had theirs is
+      // told what actually happened rather than promised fourteen days they
+      // are not getting.
+      toast(
+        data?.trialGranted
+          ? 'Your own account is ready — your 14-day trial has started'
+          : 'Your own account is back. Choose a plan to open your books again.',
+        'success'
+      );
       navigate('/');
     } catch (err) {
       toast(err.message, 'error');

@@ -113,6 +113,44 @@ export default function SubscriptionRequired() {
     }
   }
 
+  // Stepping down rather than paying.
+  //
+  // Somebody who no longer wants books of their own is not "expired" — they
+  // are an accountant, which this app already understands. Their records are
+  // kept and come back if they ever add a plan again, and the confirmation
+  // says so, because "give up my plan" sounds like losing everything and needs
+  // to be shown that it is not.
+  async function becomeAccountant() {
+    const ok = await confirm({
+      title: 'Use Taxify only to act for clients?',
+      body: (
+        <>
+          <div style={{ marginBottom: 8 }}>
+            Your own books, expenses and receipts are all kept. They stay read-only while you have no plan, and come
+            straight back if you add one later.
+          </div>
+          <div>
+            You will stop being told your access has ended, and clients can share their books with you as usual.
+          </div>
+        </>
+      ),
+      confirmLabel: 'Yes, I only act for clients',
+      cancelLabel: 'Not now',
+    });
+    if (!ok) return;
+
+    setBusy(true);
+    try {
+      await api.post('/auth/become-accountant');
+      await refresh();
+      toast('Done — your account is set up for acting for clients', 'success');
+    } catch (err) {
+      toast(err.message, 'error');
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function checkout(planType) {
     setBusy(true);
     try {
@@ -210,6 +248,27 @@ export default function SubscriptionRequired() {
               <div style={{ fontSize: 11.5, color: 'var(--text-muted)' }}>
                 Prices are in AUD and billed yearly. Payment is handled by Stripe — Taxify never sees your card details.
               </div>
+            </div>
+
+            {/* Neither paying nor lapsing. Offered here because this is the
+                screen somebody is looking at when it becomes the thing they
+                want — burying it in account settings would mean finding it
+                while being told they cannot get in. */}
+            <div className="card" style={{ padding: 20, display: 'flex', flexDirection: 'column', gap: 10 }}>
+              <div style={{ fontWeight: 700 }}>Only here for clients?</div>
+              <div style={{ fontSize: 13, color: 'var(--text-muted)', lineHeight: 1.6 }}>
+                If you use Taxify to look after other people’s books and not your own, you do not need a plan at all.
+                Your own records are kept either way, and you can add a plan again whenever you like.
+              </div>
+              <button
+                className="btn btn-ghost"
+                style={{ alignSelf: 'flex-start', fontSize: 13 }}
+                disabled={busy}
+                onClick={becomeAccountant}
+              >
+                {busy && <span className="spinner" />}
+                I only act for clients
+              </button>
             </div>
 
             <div

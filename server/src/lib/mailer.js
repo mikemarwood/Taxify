@@ -329,7 +329,7 @@ export async function sendActivationReminderEmail(to, name, activationUrl, daysL
 }
 
 export async function sendAccountActivatedEmail(to, name, options = {}) {
-  const { planType = 'individual', trialEndsAt = null } = options;
+  const { planType = 'individual', trialEndsAt = null, asAccountant = false } = options;
   const planLabel = planType === 'business' ? 'Small Business' : 'Individual';
   const loginUrl = `${publicOrigin()}/login`;
   const trialLine = trialEndsAt
@@ -349,17 +349,33 @@ export async function sendAccountActivatedEmail(to, name, options = {}) {
       ${button(loginUrl, 'Sign in to Taxify')}
 
       <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 18px;">
-        ${bullet(`You're on the <strong>${planLabel} plan</strong>`)}
+        ${
+          asAccountant
+            ? bullet('You act for clients — there is no plan and nothing to pay')
+            : bullet(`You're on the <strong>${planLabel} plan</strong>`)
+        }
         ${trialLine ? bullet(`Your free trial runs until <strong>${trialLine}</strong>`) : ''}
-        ${bullet('No card details are held — add them from Account when you\'re ready to continue')}
+        ${
+          asAccountant
+            ? bullet('Your clients invite you by email — their books appear on your list once you accept')
+            : bullet('No card details are held — add them from Account when you\'re ready to continue')
+        }
       </table>
 
       <p style="font-size:12px;font-weight:700;letter-spacing:0.6px;text-transform:uppercase;color:#6b7280;margin:0 0 6px;">
         A good first step
       </p>
       <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 18px;">
-        ${bullet('Add an expense and drag its receipt in — that\'s the whole loop')}
-        ${bullet('Check Categories: a starter set is already there, and you can rename or add your own')}
+        ${
+          asAccountant
+            ? bullet('Tell your client the account is ready, and they can share their books with you')
+            : bullet('Add an expense and drag its receipt in — that\'s the whole loop')
+        }
+        ${
+          asAccountant
+            ? bullet('Want books of your own as well? Add a plan from Account at any time')
+            : bullet('Check Categories: a starter set is already there, and you can rename or add your own')
+        }
         ${bullet('Two-factor sign-in is already on — every account has it, and it cannot be turned off')}
       </table>
 
