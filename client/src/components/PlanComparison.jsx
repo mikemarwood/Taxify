@@ -59,11 +59,26 @@ export default function PlanComparison({ user, onChoose, chooseLabel, refreshKey
         // goes inert, the same as the plan you are already on — the difference
         // is that this one points at the conversation.
         const waiting = !current && asked?.toPlan === plan.planType;
+
+        // Moving down, while the plan they are on is still paid for.
+        //
+        // The server refuses this, but refusing it there and offering it here
+        // means somebody reads the card, presses it, confirms a dialog, and is
+        // then told no — three steps to find out about a rule that could have
+        // been stated on the card. Individual covers fewer sets of books, so a
+        // downgrade mid-year shuts books they have paid to the end of the year
+        // for. Once the plan lapses there is nothing left to take away and the
+        // card offers itself normally.
+        const tooEarly =
+          !current &&
+          plan.planType === 'individual' &&
+          currentPlanType(user) === 'business' &&
+          !user?.accessLocked;
         const invoiced = waiting && asked?.status === 'invoiced';
         // The plan you already have is not something to pick again — the whole
         // card goes inert and says so, rather than offering a button that
         // would do nothing.
-        const inert = current || waiting;
+        const inert = current || waiting || tooEarly;
         const Tag = inert ? 'div' : 'button';
         return (
           <motion.div
@@ -82,7 +97,7 @@ export default function PlanComparison({ user, onChoose, chooseLabel, refreshKey
                 padding: 0,
                 overflow: 'hidden',
                 borderRadius: 'var(--radius)',
-                border: `2px solid ${current ? 'var(--accent)' : waiting ? 'var(--text-muted)' : 'var(--border)'}`,
+                border: `2px solid ${current ? 'var(--accent)' : waiting || tooEarly ? 'var(--text-muted)' : 'var(--border)'}`,
                 background: current ? 'var(--accent-soft)' : 'var(--bg-card)',
                 boxShadow: inert ? 'none' : 'var(--shadow-sm)',
                 cursor: inert ? 'default' : 'pointer',
@@ -103,7 +118,7 @@ export default function PlanComparison({ user, onChoose, chooseLabel, refreshKey
                   letterSpacing: 0.7,
                   textTransform: 'uppercase',
                   color: current ? '#fff' : 'var(--text-muted)',
-                  background: current ? 'var(--accent)' : waiting ? 'var(--bg-subtle)' : 'var(--bg-inset)',
+                  background: current ? 'var(--accent)' : waiting || tooEarly ? 'var(--bg-subtle)' : 'var(--bg-inset)',
                   borderBottom: '1px solid var(--border)',
                   display: 'flex',
                   alignItems: 'center',
@@ -119,6 +134,11 @@ export default function PlanComparison({ user, onChoose, chooseLabel, refreshKey
                   <>
                     <Icon name="clock" size={12} />
                     Pending · {invoiced ? 'invoice sent' : 'with us'}
+                  </>
+                ) : tooEarly ? (
+                  <>
+                    <Icon name="lock" size={12} />
+                    Available when your plan ends
                   </>
                 ) : (
                   <>
@@ -160,6 +180,12 @@ export default function PlanComparison({ user, onChoose, chooseLabel, refreshKey
                 >
                   {current
                     ? "You're on this plan"
+                    : tooEarly
+                    ? user?.subscriptionCurrentPeriodEnd
+                      ? `You can move down when Small Business ends on ${new Date(
+                          user.subscriptionCurrentPeriodEnd
+                        ).toLocaleDateString()} — it covers more books than this one`
+                      : 'You can move down when your current plan ends — it covers more books than this one'
                     : waiting
                     ? invoiced
                       ? 'Already asked for — the invoice is on its way'
