@@ -9,6 +9,11 @@ const SETTING_KEYS = {
     webhookSecret: 'stripe_live_webhook_secret',
     priceIndividual: 'stripe_live_price_individual',
     priceBusiness: 'stripe_live_price_business',
+    // One-time prices, for paying a year outright instead of subscribing.
+    // Optional: with nothing here the choice is simply not offered, and
+    // everything carries on subscribing as before.
+    priceIndividualOnce: 'stripe_live_price_individual_once',
+    priceBusinessOnce: 'stripe_live_price_business_once',
     // The Small Business plan was the Family plan, and it is the same product
     // at the same price — so an account with nothing in the new key keeps
     // billing from the old one and nobody has to touch Stripe.
@@ -20,6 +25,8 @@ const SETTING_KEYS = {
     webhookSecret: 'stripe_test_webhook_secret',
     priceIndividual: 'stripe_test_price_individual',
     priceBusiness: 'stripe_test_price_business',
+    priceIndividualOnce: 'stripe_test_price_individual_once',
+    priceBusinessOnce: 'stripe_test_price_business_once',
     priceFamily: 'stripe_test_price_family',
   },
 };
@@ -36,13 +43,24 @@ let stripeClientKey = null;
 
 async function getModeConfig(mode) {
   const keys = SETTING_KEYS[mode];
-  const [publishableKey, secretKey, webhookSecret, priceIndividual, priceBusiness, priceFamily] = await Promise.all([
+  const [
+    publishableKey,
+    secretKey,
+    webhookSecret,
+    priceIndividual,
+    priceBusiness,
+    priceFamily,
+    priceIndividualOnce,
+    priceBusinessOnce,
+  ] = await Promise.all([
     getSetting(keys.publishableKey),
     getSetting(keys.secretKey),
     getSetting(keys.webhookSecret),
     getSetting(keys.priceIndividual),
     getSetting(keys.priceBusiness),
     getSetting(keys.priceFamily),
+    getSetting(keys.priceIndividualOnce),
+    getSetting(keys.priceBusinessOnce),
   ]);
 
   if (mode === 'live' && !publishableKey && !secretKey && !webhookSecret) {
@@ -59,6 +77,8 @@ async function getModeConfig(mode) {
       priceIndividual: priceIndividual || process.env.STRIPE_PRICE_ID_INDIVIDUAL || '',
       priceBusiness: priceBusiness || process.env.STRIPE_PRICE_ID_BUSINESS || '',
       priceFamily: priceFamily || process.env.STRIPE_PRICE_ID_FAMILY || '',
+      priceIndividualOnce: priceIndividualOnce || '',
+      priceBusinessOnce: priceBusinessOnce || '',
     };
   }
 
@@ -70,6 +90,8 @@ async function getModeConfig(mode) {
       priceIndividual: priceIndividual || process.env.STRIPE_PRICE_ID_INDIVIDUAL || '',
       priceBusiness: priceBusiness || process.env.STRIPE_PRICE_ID_BUSINESS || '',
       priceFamily: priceFamily || process.env.STRIPE_PRICE_ID_FAMILY || '',
+      priceIndividualOnce: priceIndividualOnce || '',
+      priceBusinessOnce: priceBusinessOnce || '',
     };
   }
 
@@ -80,6 +102,8 @@ async function getModeConfig(mode) {
     priceIndividual: priceIndividual || process.env.STRIPE_PRICE_ID_INDIVIDUAL_TEST || '',
     priceBusiness: priceBusiness || process.env.STRIPE_PRICE_ID_BUSINESS_TEST || '',
     priceFamily: priceFamily || process.env.STRIPE_PRICE_ID_FAMILY_TEST || '',
+    priceIndividualOnce: priceIndividualOnce || '',
+    priceBusinessOnce: priceBusinessOnce || '',
   };
 }
 
@@ -131,6 +155,10 @@ export async function saveStripeAdminSettings({ mode, live, test }) {
     if (values.priceIndividual !== undefined) await setSetting(keys.priceIndividual, values.priceIndividual);
     if (values.priceBusiness !== undefined) await setSetting(keys.priceBusiness, values.priceBusiness);
     if (values.priceFamily !== undefined) await setSetting(keys.priceFamily, values.priceFamily);
+    if (values.priceIndividualOnce !== undefined)
+      await setSetting(keys.priceIndividualOnce, values.priceIndividualOnce);
+    if (values.priceBusinessOnce !== undefined)
+      await setSetting(keys.priceBusinessOnce, values.priceBusinessOnce);
   }
   stripeClient = null;
   stripeClientKey = null;
@@ -262,6 +290,8 @@ async function readSignupPlans() {
   const ids = {
     individual: config.priceIndividual,
     business: config.priceBusiness || config.priceFamily,
+    individualOnce: config.priceIndividualOnce,
+    businessOnce: config.priceBusinessOnce,
   };
 
   let stripe = null;
@@ -288,9 +318,44 @@ async function readSignupPlans() {
       }
     }
 
-    plans.push({ planType, ...copy, priceId: priceId || null, amountPerYear: amount, currency });
+    // What paying once costs, read from its own price rather than assumed to
+    // match the subscription. They are two Stripe prices and nothing makes
+    // them equal — a one-off is often dearer, and quoting the wrong one is
+    // quoting a figure we will not charge.
+    const onceId = planType === 'business' ? ids.businessOnce : ids.individualOnce;
+    let onceAmount = null;
+    if (stripe && onceId) {
+      try {
+        const price = await stripe.prices.retrieve(onceId);
+        onceAmount = price.unit_amount ?? null;
+      } catch (err) {
+        console.error(`Could not read the one-off ${planType} price from Stripe`, err.message);
+      }
+    }
+
+    plans.push({
+      planType,
+      ...copy,
+      priceId: priceId || null,
+      amountPerYear: amount,
+      currency,
+      // Null means "not offered", which is what the cards check.
+      oneOffPriceId: onceId || null,
+      oneOffAmount: onceAmount,
+    });
   }
   return plans;
+}
+
+// The one-time price for a plan, or null when none is configured.
+//
+// With nothing set the choice is simply not offered and everything subscribes
+// as before, so this can be turned on by pasting two price ids and off by
+// clearing them.
+export async function oneOffPriceIdForPlan(planType) {
+  const config = await getStripeConfig();
+  const id = planType === 'business' ? config.priceBusinessOnce : config.priceIndividualOnce;
+  return id || null;
 }
 
 // The inverse of priceIdForPlan.

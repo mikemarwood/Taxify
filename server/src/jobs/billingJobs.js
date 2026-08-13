@@ -99,7 +99,7 @@ export async function runBillingReminders(pool) {
 
   for (const days of [7, 1]) {
     const [rows] = await pool.execute(
-      `SELECT id, email, name, subscription_current_period_end FROM users
+      `SELECT id, email, name, subscription_current_period_end, stripe_subscription_id FROM users
        WHERE role = 'owner' AND subscription_status = 'active' AND subscription_current_period_end IS NOT NULL
          AND subscription_current_period_end BETWEEN DATE_ADD(NOW(), INTERVAL ${days - 1} DAY) AND DATE_ADD(NOW(), INTERVAL ${days} DAY)`
     );
@@ -107,7 +107,12 @@ export async function runBillingReminders(pool) {
       const key = `renewal_${days}d`;
       if (await alreadySent(pool, u.id, key)) continue;
       try {
-        await sendSubscriptionRenewingEmail(u.email, u.name, u.subscription_current_period_end);
+        // "Renewing" is wrong for a year bought outright — nothing is going
+        // to happen, which is exactly why they need telling. Same schedule,
+        // different sentence.
+        await sendSubscriptionRenewingEmail(u.email, u.name, u.subscription_current_period_end, {
+          autoRenews: Boolean(u.stripe_subscription_id),
+        });
         await markSent(pool, u.id, key);
       } catch (err) {
         console.error('Failed to send renewal reminder email', err);

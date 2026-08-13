@@ -54,5 +54,10 @@ export function toPublicUser(user, mfaMode) {
     trialEndsAt: user.trial_ends_at || null,
     subscriptionCurrentPeriodEnd: user.subscription_current_period_end || null,
     stripeCustomerId: user.stripe_customer_id || null,
+    // Whether the plan renews itself. A year bought outright has no
+    // subscription behind it, so nothing will happen when it ends — which is
+    // the difference between "renews on the 9th" and "ends on the 9th", and
+    // saying the wrong one is how somebody loses access expecting not to.
+    autoRenews: Boolean(user.stripe_subscription_id),
   };
 }

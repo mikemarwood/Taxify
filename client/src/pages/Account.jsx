@@ -279,6 +279,43 @@ function BillingSection({ user }) {
     }
   }
 
+  // Acting for clients instead of paying for books of your own.
+  //
+  // The same route the lapsed screen offers. Somebody who has decided they no
+  // longer want their own books is more likely to come looking for it here, in
+  // the plan settings, than to wait to be locked out and find it there.
+  //
+  // Only once the plan has actually ended, matching the rule on every other
+  // downgrade: stepping down mid-year would give up time already paid for.
+  async function stepDownToAccountant() {
+    const ok = await confirm({
+      title: 'Use Taxify only to act for clients?',
+      body: (
+        <>
+          <div style={{ marginBottom: 8 }}>
+            Your books, expenses and receipts are all kept. They stay read-only while you have no plan, and come
+            straight back if you add one later.
+          </div>
+          <div>You will stop being told your access has ended, and clients can share their books with you as usual.</div>
+        </>
+      ),
+      confirmLabel: 'Yes, I only act for clients',
+      cancelLabel: 'Not now',
+    });
+    if (!ok) return;
+
+    setBusy(true);
+    try {
+      await api.post('/auth/become-accountant');
+      await refresh();
+      toast('Done — your account is set up for acting for clients', 'success');
+    } catch (err) {
+      toast(err.message, 'error');
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function goToPortal() {
     setBusy(true);
     try {
@@ -441,6 +478,14 @@ function BillingSection({ user }) {
           open and offering one leads only to an error. */}
       {user.stripeCustomerId && (user.subscriptionStatus === 'active' || user.subscriptionStatus === 'past_due') && (
         <div style={{ display: 'flex', gap: 10 }}>
+          {/* Only once the plan has ended. Before that it would be offering
+              somebody the chance to give up time they have paid for. */}
+          {user?.accessLocked && user?.role === 'owner' && (
+            <button className="btn btn-ghost" onClick={stepDownToAccountant} disabled={busy} style={{ fontSize: 13 }}>
+              I only act for clients
+            </button>
+          )}
+
           <button className="btn btn-ghost" onClick={goToPortal} disabled={busy} style={{ fontSize: 13 }}>
             {busy && <span className="spinner" />}
             Manage billing

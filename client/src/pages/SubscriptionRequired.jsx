@@ -39,6 +39,21 @@ export default function SubscriptionRequired() {
   // Bumped after a request is lodged, so the plan cards refetch and the one
   // that was pressed says Pending instead of inviting a second ticket.
   const [asked, setAsked] = useState(0);
+  // The plans, for the renew card. PlanComparison fetches its own copy, but
+  // the renew button is outside it and needs to know whether paying once is
+  // configured before it can offer the choice.
+  const [plans, setPlans] = useState(null);
+
+  useEffect(() => {
+    let alive = true;
+    api
+      .get('/auth/plans')
+      .then((res) => alive && setPlans(res.data.plans || []))
+      .catch(() => alive && setPlans([]));
+    return () => {
+      alive = false;
+    };
+  }, []);
   const isOwner = user?.role === 'owner';
 
   // Check with Stripe before telling somebody they have lapsed.
@@ -151,10 +166,38 @@ export default function SubscriptionRequired() {
     }
   }
 
-  async function checkout(planType) {
+  // How they want to pay, when both are configured.
+  //
+  // Asked rather than assumed. A subscription is less work for somebody who
+  // wants to keep going and worse for somebody who does not — and being signed
+  // up to a yearly charge you did not choose is the complaint that follows.
+  async function chooseBilling(plan) {
+    if (!plan?.oneOffPriceId) return 'auto';
+
+    const once = await confirm({
+      title: 'How would you like to pay?',
+      body: (
+        <>
+          <div style={{ marginBottom: 8 }}>
+            <strong>Pay once</strong> — one payment for the year. Nothing renews, no card is kept, and we email you
+            before it ends.
+          </div>
+          <div>
+            <strong>Subscribe</strong> — renews itself each year using the card on file. Cancel any time from your
+            account.
+          </div>
+        </>
+      ),
+      confirmLabel: 'Pay once',
+      cancelLabel: 'Subscribe',
+    });
+    return once ? 'once' : 'auto';
+  }
+
+  async function checkout(planType, billing) {
     setBusy(true);
     try {
-      const res = await api.post('/billing/checkout', { planType });
+      const res = await api.post('/billing/checkout', { planType, billing });
       window.location.href = res.data.url;
     } catch (err) {
       toast(err.message, 'error');
@@ -230,7 +273,10 @@ export default function SubscriptionRequired() {
                 className="btn btn-primary"
                 style={{ alignSelf: 'flex-start' }}
                 disabled={busy}
-                onClick={() => checkout(currentPlanType(user))}
+                onClick={async () => {
+                  const plan = plans?.find?.((p) => p.planType === currentPlanType(user)) || null;
+                  checkout(currentPlanType(user), await chooseBilling(plan));
+                }}
               >
                 {busy && <span className="spinner" />}
                 Renew my plan

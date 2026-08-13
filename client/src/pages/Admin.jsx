@@ -955,6 +955,40 @@ function StripeModeSection({ label, hint, section, values, secretDraft, onFieldC
         </label>
       </div>
 
+      {/* One-time prices, for paying a year outright.
+          Optional: leave them empty and customers only ever subscribe, which
+          is how this behaved before. Stripe will not sell a recurring price in
+          payment mode, so these have to be separate price objects — create them
+          as one-off prices on the same products. */}
+      <div style={{ display: 'flex', gap: 12 }}>
+        <label style={{ fontSize: 13, fontWeight: 600, flex: 1 }}>
+          Individual — pay once price ID
+          <input
+            className="input"
+            style={{ marginTop: 6, width: '100%' }}
+            placeholder="price_… (optional)"
+            value={values.priceIndividualOnce || ''}
+            onChange={(e) => onFieldChange(section, 'priceIndividualOnce', e.target.value)}
+          />
+        </label>
+        <label style={{ fontSize: 13, fontWeight: 600, flex: 1 }}>
+          Small Business — pay once price ID
+          <input
+            className="input"
+            style={{ marginTop: 6, width: '100%' }}
+            placeholder="price_… (optional)"
+            value={values.priceBusinessOnce || ''}
+            onChange={(e) => onFieldChange(section, 'priceBusinessOnce', e.target.value)}
+          />
+        </label>
+      </div>
+
+      <p style={{ fontSize: 12, color: 'var(--text-muted)', margin: 0, lineHeight: 1.55 }}>
+        Leave the pay-once fields empty and everybody subscribes, exactly as before. Fill them in and customers are
+        asked which they would rather do — one payment for the year, or a subscription that renews itself. They must
+        be <strong>one-time</strong> prices; Stripe refuses to sell a recurring price outright.
+      </p>
+
       <div>
         <button className="btn btn-ghost" disabled={testing} onClick={() => onTest(section)} type="button">
           {testing ? 'Testing…' : `Test ${section} connection`}

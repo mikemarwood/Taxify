@@ -66,6 +66,23 @@ export function describeSubscription(user) {
 
   if (user.subscriptionStatus === 'active') {
     const left = daysUntil(user.subscriptionCurrentPeriodEnd);
+    // A year paid outright renews nothing. Telling somebody it renews when it
+    // does not is how they lose access on a day they were not expecting, so
+    // the two are described as what they are.
+    const renews = user.autoRenews !== false;
+
+    if (!renews) {
+      return {
+        state: 'active',
+        label: 'Paid',
+        detail: left === null ? 'Paid up' : `Ends in ${left} day${left === 1 ? '' : 's'} — renew to keep going`,
+        daysLeft: left,
+        // Worth flagging as it gets close, because nothing will happen unless
+        // they act.
+        tone: left !== null && left <= 14 ? 'warn' : 'good',
+      };
+    }
+
     return {
       state: 'active',
       label: 'Subscribed',

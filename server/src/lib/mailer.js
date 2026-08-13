@@ -888,8 +888,38 @@ export async function sendTrialExpiredEmail(to, name) {
   });
 }
 
-export async function sendSubscriptionRenewingEmail(to, name, periodEnd) {
+// Two quite different emails on the same schedule.
+//
+// A subscription renews itself, so the message is a courtesy: here is what will
+// happen, do nothing. A year bought outright renews nothing, so the same
+// message would be a lie with a deadline attached — they need to act, and the
+// email is the only thing that will tell them.
+export async function sendSubscriptionRenewingEmail(to, name, periodEnd, { autoRenews = true } = {}) {
   const when = new Date(periodEnd).toLocaleDateString(undefined, { day: '2-digit', month: 'long', year: 'numeric' });
+  const accountUrl = `${publicOrigin()}/account?tab=billing`;
+
+  if (!autoRenews) {
+    await sendMail({
+      to,
+      subject: `Your Taxify plan ends on ${when}`,
+      title: 'Your plan is ending',
+      heading: `Hi ${name},`,
+      bodyHtml: `
+        <p style="font-size:14px;color:#1f2937;margin:0 0 16px;line-height:1.55;">
+          Your Taxify year ends on <strong>${when}</strong>. You paid for it outright rather than subscribing, so
+          nothing renews on its own and there is no card on file to charge — renewing is one payment whenever
+          you are ready.
+        </p>
+        ${button(accountUrl, 'Renew my plan')}
+        <p style="font-size:13px;color:#4b5563;margin:0;line-height:1.55;">
+          Nothing is deleted if you let it lapse. Your books, expenses and receipts stay exactly where they are and
+          come straight back when you renew — you simply cannot add to them in the meantime.
+        </p>
+      `,
+    });
+    return;
+  }
+
   await sendMail({
     to,
     subject: `Your Taxify plan renews on ${when}`,

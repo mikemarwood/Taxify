@@ -5,7 +5,13 @@ import { asyncHandler } from '../lib/asyncHandler.js';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import { getStripe, getStripeConfig, priceIdForPlan, planTypeForPriceId } from '../lib/stripe.js';
+import {
+  getStripe,
+  getStripeConfig,
+  priceIdForPlan,
+  oneOffPriceIdForPlan,
+  planTypeForPriceId,
+} from '../lib/stripe.js';
 import { invoicesDir, invoiceFilename, shapeInvoice, isStored, storeInvoicePdf } from '../lib/invoiceStorage.js';
 import { serveAttachment } from '../lib/serveAttachment.js';
 import { publicOrigin } from '../lib/publicOrigin.js';
@@ -114,14 +120,41 @@ router.post(
       console.error('Could not apply promo code at checkout', err);
     }
 
+    // Paying once, or subscribing.
+    //
+    // Stripe will not sell a recurring price in payment mode, so the two are
+    // genuinely different price objects and the mode has to match the one being
+    // charged. Asked for explicitly rather than inferred: a request that does
+    // not say gets the subscription, which is what every existing caller meant.
+    const payOnce = req.body?.billing === 'once';
+    const onceId = payOnce ? await oneOffPriceIdForPlan(planType) : null;
+
+    // Refused rather than quietly subscribing them. Somebody who chose to pay
+    // once and was signed up to a yearly charge instead has been sold something
+    // they declined.
+    if (payOnce && !onceId) {
+      return res.status(400).json({
+        error: 'Paying once is not set up for that plan yet. Choose the subscription, or ask us to sort it out.',
+      });
+    }
+
     const session = await stripe.checkout.sessions.create({
-      mode: 'subscription',
+      mode: payOnce ? 'payment' : 'subscription',
       customer: req.user.stripeCustomerId || undefined,
       customer_email: req.user.stripeCustomerId ? undefined : req.user.email,
-      line_items: [{ price: priceId, quantity: 1 }],
+      line_items: [{ price: payOnce ? onceId : priceId, quantity: 1 }],
       ...(discounts ? { discounts } : {}),
+      // A one-off has no subscription behind it to carry a customer forward, so
+      // Stripe is asked to keep one — otherwise the next payment creates a
+      // second customer and their invoices end up split across two.
+      ...(payOnce ? { customer_creation: req.user.stripeCustomerId ? undefined : 'always' } : {}),
       client_reference_id: String(req.user.id),
-      metadata: { userId: String(req.user.id), planType, ...(promoUsed ? { promoCode: promoUsed } : {}) },
+      metadata: {
+        userId: String(req.user.id),
+        planType,
+        billing: payOnce ? 'once' : 'auto',
+        ...(promoUsed ? { promoCode: promoUsed } : {}),
+      },
       success_url: `${CLIENT_ORIGIN}/account?checkout=success`,
       cancel_url: `${CLIENT_ORIGIN}/account?checkout=cancelled`,
     });
@@ -977,6 +1010,32 @@ router.post(
       case 'checkout.session.completed': {
         const session = event.data.object;
         const userId = Number(session.client_reference_id || session.metadata?.userId);
+        // Paid outright: there is no subscription object, so the year is
+        // granted here rather than read off one. Access already runs on
+        // subscription_current_period_end, so a paid year and a subscribed year
+        // are the same thing to everything downstream — the only difference is
+        // that nothing renews this one, and stripe_subscription_id staying null
+        // is how the rest of the app knows to say "ends" rather than "renews".
+        if (userId && session.mode === 'payment') {
+          const planType = session.metadata?.planType === 'business' ? 'business' : 'individual';
+          const endsAt = new Date();
+          endsAt.setFullYear(endsAt.getFullYear() + 1);
+
+          if (session.metadata?.promoCode) {
+            await pool
+              .execute('UPDATE users SET promo_redeemed_at = NOW() WHERE id = ? AND promo_redeemed_at IS NULL', [userId])
+              .catch((err) => console.error('Could not mark the promo redeemed', err));
+          }
+
+          await pool.execute(
+            `UPDATE users SET stripe_customer_id = COALESCE(?, stripe_customer_id), stripe_subscription_id = NULL,
+             subscription_status = 'active', plan_type = ?, subscription_current_period_end = ?
+           WHERE id = ?`,
+            [session.customer || null, planType, endsAt, userId]
+          );
+          break;
+        }
+
         if (userId) {
           const subscription = await stripe.subscriptions.retrieve(session.subscription);
           // They may have switched plan at checkout, so the plan recorded here

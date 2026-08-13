@@ -887,7 +887,16 @@ function validateSection(values, name) {
   if (typeof values !== 'object' || values === null) {
     throw Object.assign(new Error(`${name} must be an object`), { status: 400 });
   }
-  for (const field of ['publishableKey', 'secretKey', 'webhookSecret', 'priceIndividual', 'priceFamily']) {
+  for (const field of [
+    'publishableKey',
+    'secretKey',
+    'webhookSecret',
+    'priceIndividual',
+    'priceBusiness',
+    'priceFamily',
+    'priceIndividualOnce',
+    'priceBusinessOnce',
+  ]) {
     if (values[field] !== undefined && typeof values[field] !== 'string') {
       throw Object.assign(new Error(`${name}.${field} must be a string`), { status: 400 });
     }
