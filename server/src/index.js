@@ -111,7 +111,44 @@ async function serveLandingPage(req, res) {
   }
 }
 
-app.get('/landing', serveLandingPage);
+// The address people are given, link to and search for.
+//
+// It used to be the app, so a signed-out visitor arriving from an ad or a
+// search result was shown a login form for a product nobody had explained to
+// them yet — while the page written to do the explaining sat at /landing, a URL
+// nobody would ever type.
+//
+// Shown to everybody, signed in or not. That is what keeps it cacheable: no
+// session is read here, so it is the same bytes for every visitor.
+app.get('/', serveLandingPage);
+
+// The old address for it, kept working.
+app.get('/landing', (req, res) => res.redirect(301, '/'));
+
+// Where the app used to live.
+//
+// Every one of these is sitting in somebody's inbox right now — an activation
+// link, a password reset, an accountant invitation, a support ticket. A
+// permanent redirect is the difference between those working and those being a
+// blank page a fortnight after we moved the furniture.
+//
+// An explicit list rather than a wildcard, so there is no path that can bounce
+// back and forth: /app is not in it, and nothing here collides with a static
+// file. The query string carries over, because for half of these the token is
+// the link.
+const MOVED_TO_APP = [
+  // Taken from the route table in client/src/App.jsx rather than guessed —
+  // a path invented here is a link in somebody's inbox that quietly 404s.
+  'accept-invite', 'account', 'activate', 'add', 'admin', 'books', 'categories',
+  'clients', 'confirm-email', 'deductions', 'expenses', 'forgot-password', 'login',
+  'privacy', 'register', 'reports', 'reset-password', 'support', 'terms',
+];
+
+app.get(new RegExp('^/(' + MOVED_TO_APP.join('|') + ')(/.*)?$'), (req, res) => {
+  const mark = req.originalUrl.indexOf('?');
+  const query = mark === -1 ? '' : req.originalUrl.slice(mark);
+  res.redirect(301, '/app' + req.path + query);
+});
 
 // Before everything else that answers a GET. Android fetches this over plain
 // HTTPS with no session, and the catch-all at the bottom would hand it
@@ -169,8 +206,10 @@ if (isProd) {
   if (fs.existsSync(clientDist)) {
     // Vite writes a content hash into every filename in /assets, so those can
     // be cached forever — the name changes when the content does.
+    // Vite writes /app/assets/… into index.html now, so this is where the
+    // hashed bundle has to answer from.
     app.use(
-      '/assets',
+      '/app/assets',
       express.static(path.join(clientDist, 'assets'), {
         immutable: true,
         maxAge: '1y',
@@ -187,6 +226,12 @@ if (isProd) {
       setHeaders: (res) => res.set('Cache-Control', 'no-store'),
     }));
 
+    // Everything else in the build, still answering at the root.
+    //
+    // The landing page asks for /media/… and /logo.svg absolutely, Android
+    // fetches /downloads/taxify.apk, and browsers look for /favicon.ico and
+    // /site.webmanifest wherever they please. None of that belongs to the app,
+    // so none of it moves.
     app.use(express.static(clientDist, {
       // index.html is the one file that must never be cached. It is the map to
       // every hashed asset, so a stale copy points at chunks that were deleted
@@ -195,12 +240,39 @@ if (isProd) {
       setHeaders: (res, filePath) => {
         if (filePath.endsWith('index.html')) res.set('Cache-Control', 'no-store, must-revalidate');
       },
+      // The app's own routes are handled below. Without this, a request for /
+      // would be answered with the built index.html before the landing page
+      // ever got a look at it.
+      index: false,
     }));
 
-    app.get(/^(?!\/api).*/, (req, res) => {
+    // The same files again, under /app.
+    //
+    // Vite rewrites everything index.html references — including the favicons
+    // and the manifest, which live in public/ — to sit under the base path. So
+    // the built page asks for /app/favicon.svg while landing.html asks for
+    // /favicon.svg, and both are correct. Serving the build at both addresses
+    // is cheaper than arguing with the bundler about which of the two is right.
+    app.use('/app', express.static(clientDist, {
+      setHeaders: (res, filePath) => {
+        if (filePath.endsWith('index.html')) res.set('Cache-Control', 'no-store, must-revalidate');
+      },
+      index: false,
+    }));
+
+    // The app itself. Any depth under /app is a route the router will match, so
+    // it gets index.html and React works out what it means.
+    //
+    // Narrowed from "anything that is not /api", which is what let the app own
+    // the whole site.
+    app.get(/^\/app(\/.*)?$/, (req, res) => {
       res.set('Cache-Control', 'no-store, must-revalidate');
       res.sendFile(path.join(clientDist, 'index.html'));
     });
+
+    // Anything else. A mistyped URL is a visitor, not a 404 — they get the page
+    // that explains what this is.
+    app.get(/^(?!\/api).*/, serveLandingPage);
   }
 }
 

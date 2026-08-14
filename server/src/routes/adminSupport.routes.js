@@ -2,7 +2,7 @@ import { Router } from 'express';
 import pool from '../db.js';
 import { requireAuth, requireAdmin, requireSupportStaff } from '../auth/middleware.js';
 import { asyncHandler } from '../lib/asyncHandler.js';
-import { publicOrigin } from '../lib/publicOrigin.js';
+import { publicOrigin, appOrigin } from '../lib/publicOrigin.js';
 import { notify } from '../lib/notify.js';
 import { categoryLabel, isPriority, PRIORITIES } from '../lib/support.js';
 import { sendSupportClosedEmail } from '../lib/mailer.js';
@@ -340,7 +340,7 @@ router.post(
             reference: ticket.reference,
             subject: ticket.subject,
             category: categoryLabel(ticket.category),
-            url: ticket.user_id ? ticketUrl(ticket) : `${publicOrigin()}/support`,
+            url: ticket.user_id ? ticketUrl(ticket) : `${appOrigin()}/support`,
           });
         }
       } catch (err) {

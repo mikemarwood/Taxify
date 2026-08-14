@@ -14,7 +14,7 @@ import {
 } from '../lib/stripe.js';
 import { invoicesDir, invoiceFilename, shapeInvoice, isStored, storeInvoicePdf } from '../lib/invoiceStorage.js';
 import { serveAttachment } from '../lib/serveAttachment.js';
-import { publicOrigin } from '../lib/publicOrigin.js';
+import { publicOrigin, appOrigin } from '../lib/publicOrigin.js';
 import { notify, notifyAdmins } from '../lib/notify.js';
 import { planLabel } from '../lib/planLimits.js';
 import { shouldApplyPayment } from '../lib/planRequests.js';
@@ -23,7 +23,12 @@ import { pendingPromoFor, stripeCouponFor } from '../lib/promoCodes.js';
 
 const uploadsDir = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', '..', 'uploads');
 
-const CLIENT_ORIGIN = publicOrigin();
+// Where Stripe sends somebody back to, which is a page inside the app.
+//
+// Evaluated once at import, which is fine for an origin that cannot change
+// while the process is running — but it is /app now, not the root, or a
+// completed checkout lands on the marketing page.
+const CLIENT_ORIGIN = appOrigin();
 
 const router = Router();
 

@@ -2,7 +2,7 @@ import { Router } from 'express';
 import pool from '../db.js';
 import { requireAuth, optionalAuth } from '../auth/middleware.js';
 import { asyncHandler } from '../lib/asyncHandler.js';
-import { publicOrigin } from '../lib/publicOrigin.js';
+import { publicOrigin, appOrigin } from '../lib/publicOrigin.js';
 import { notify, notifyAdmins } from '../lib/notify.js';
 import { titleCase, lowerEmail } from '../lib/text.js';
 import { createCaptcha, verifyCaptcha } from '../lib/captcha.js';
@@ -206,8 +206,8 @@ async function messagesFor(ticketId, { token = null, includeNotes = false } = {}
 // link carries the token; everyone else opens it from inside the app.
 function ticketUrl(ticket, token = null) {
   return token
-    ? `${publicOrigin()}/support/ticket/${encodeURIComponent(token)}`
-    : `${publicOrigin()}/support/${ticket.id}`;
+    ? `${appOrigin()}/support/ticket/${encodeURIComponent(token)}`
+    : `${appOrigin()}/support/${ticket.id}`;
 }
 
 // Telling whoever is now waiting. Never awaited by the caller for its own sake:
@@ -230,7 +230,7 @@ async function announce(ticket, { body, fromSupport, isNew = false }) {
       ? ticketUrl(ticket)
       : ticket.guest_token
       ? ticketUrl(ticket, ticket.guest_token)
-      : `${publicOrigin()}/support`,
+      : `${appOrigin()}/support`,
   };
 
   try {

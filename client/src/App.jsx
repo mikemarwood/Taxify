@@ -6,7 +6,6 @@ import Layout from './components/Layout.jsx';
 import ErrorBoundary from './components/ErrorBoundary.jsx';
 import StartupScreen from './components/StartupScreen.jsx';
 import PublicShell from './components/PublicShell.jsx';
-import Landing from './pages/Landing.jsx';
 import Login from './pages/Login.jsx';
 import Register from './pages/Register.jsx';
 import Terms from './pages/Terms.jsx';
@@ -153,7 +152,6 @@ function AccountantOnly({ children }) {
 export default function App() {
   return (
     <Routes>
-      <Route path="/landing" element={<Landing />} />
       <Route path="/login" element={<PublicOnly><Login /></PublicOnly>} />
       <Route path="/register" element={<PublicOnly><Register /></PublicOnly>} />
       <Route path="/terms" element={<Terms />} />

@@ -44,3 +44,18 @@ export function publicOrigin() {
 
   return configured || DEV_DEFAULT;
 }
+
+// The same address, plus where the app actually lives.
+//
+// The landing page owns the root now and the app sits under /app, so every
+// link *into* the app has to say so — an activation link, a password reset, an
+// accountant invitation, a support ticket. Get this wrong and the failure is
+// invisible until somebody opens their email a week later.
+//
+// Kept beside publicOrigin rather than folded into it, because the two are
+// genuinely different questions: publicOrigin is "where is this site", which
+// is still what the landing page, the APK download and the address printed on
+// an invoice all want.
+export function appOrigin() {
+  return `${publicOrigin()}/app`;
+}

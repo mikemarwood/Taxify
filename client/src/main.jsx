@@ -52,7 +52,12 @@ setTimeout(() => window.__taxifyBoot?.done(), 10000);
 
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
-    <BrowserRouter>
+    {/* Every route in the app is written without the prefix — "/expenses",
+        "/account" — and this is what puts /app in front of all of them, for
+        both matching and for the links React Router builds. Setting it here
+        rather than editing several hundred paths is the whole reason a
+        basename exists. */}
+    <BrowserRouter basename="/app">
       <ToastProvider>
         <AuthProvider>
           {/* Inside AuthProvider, because which sets of books exist depends on

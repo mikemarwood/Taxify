@@ -55,7 +55,7 @@ import { createCaptcha, verifyCaptcha } from '../lib/captcha.js';
 import { assignAccountNumber } from '../lib/accountNumber.js';
 import { getSignupPlans } from '../lib/stripe.js';
 import { evaluatePromoCode, recordPromoRedemption } from '../lib/promoCodes.js';
-import { publicOrigin } from '../lib/publicOrigin.js';
+import { publicOrigin, appOrigin } from '../lib/publicOrigin.js';
 
 // Re-exported from the one place that decides it, so the sign-up page and the
 // rule cannot disagree about how long a trial is.
@@ -441,7 +441,7 @@ router.post(
 
     if (finalPromo) await recordPromoRedemption(finalPromo);
 
-    const activationUrl = `${publicOrigin()}/activate?token=${token}`;
+    const activationUrl = `${appOrigin()}/activate?token=${token}`;
     try {
       await sendActivationEmail(normalizedEmail, first, activationUrl, {
         planType: finalPlanType,
@@ -565,7 +565,7 @@ router.post(
       user.id,
     ]);
 
-    const activationUrl = `${publicOrigin()}/activate?token=${token}`;
+    const activationUrl = `${appOrigin()}/activate?token=${token}`;
     try {
       await sendActivationEmail(user.email, user.first_name || user.name, activationUrl, {
         planType: user.plan_type,
@@ -732,7 +732,7 @@ router.post(
           ]
         );
 
-        const acceptUrl = `${publicOrigin()}/accept-invite?token=${token}`;
+        const acceptUrl = `${appOrigin()}/accept-invite?token=${token}`;
         let emailed = true;
         try {
           await sendAccountantInviteEmail(
@@ -772,7 +772,7 @@ router.post(
       // to an address that has not been proved.
       let emailed = true;
       try {
-        await sendAccountantSignUpNeededEmail(normalizedEmail, req.user.name, `${publicOrigin()}/register`);
+        await sendAccountantSignUpNeededEmail(normalizedEmail, req.user.name, `${appOrigin()}/register`);
       } catch (err) {
         console.error('Failed to send the sign-up invitation', err);
         emailed = false;
@@ -1435,7 +1435,7 @@ router.post(
       [tokenHash, expiresAt, invite.id]
     );
 
-    const acceptUrl = `${publicOrigin()}/accept-invite?token=${token}`;
+    const acceptUrl = `${appOrigin()}/accept-invite?token=${token}`;
     let emailed = true;
     try {
       await sendAccountantInviteEmail(
@@ -1998,7 +1998,7 @@ router.post(
       [normalized, tokenHash, expiresAt, req.user.id]
     );
 
-    const confirmUrl = `${publicOrigin()}/confirm-email?token=${token}`;
+    const confirmUrl = `${appOrigin()}/confirm-email?token=${token}`;
     try {
       await sendEmailChangeEmail(normalized, row.first_name || row.name, confirmUrl, EMAIL_CHANGE_HOURS, req.user.email);
     } catch (err) {
@@ -2139,7 +2139,7 @@ router.post(
         [tokenHash, expiresAt, user.id]
       );
 
-      const activationUrl = `${publicOrigin()}/activate?token=${token}`;
+      const activationUrl = `${appOrigin()}/activate?token=${token}`;
       try {
         await sendActivationEmail(user.email, user.first_name || user.name, activationUrl, {
           trialDays: TRIAL_DAYS,
@@ -2170,7 +2170,7 @@ router.post(
       [tokenHash, expiresAt, user.id]
     );
 
-    const resetUrl = `${publicOrigin()}/reset-password?token=${token}`;
+    const resetUrl = `${appOrigin()}/reset-password?token=${token}`;
     try {
       await sendPasswordResetEmail(user.email, user.first_name || user.name, resetUrl, RESET_TOKEN_HOURS);
     } catch (err) {

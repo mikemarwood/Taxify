@@ -3,7 +3,7 @@
   "appName": "Taxify",
   "webDir": "dist",
   "server": {
-    "url": "https://taxify.mikesapphub.com",
+    "url": "https://taxify.mikesapphub.com/app",
     "androidScheme": "https",
     "cleartext": false
   },

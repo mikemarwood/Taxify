@@ -54,7 +54,12 @@
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
-                <data android:scheme="https" android:host="taxify.mikesapphub.com" />
+                <!-- Only the app, not the whole site.
+                     Without a path prefix the app also claims the landing
+                     page, so somebody tapping a link to the marketing site
+                     from a text message would be dropped into a signed-in
+                     dashboard instead of the page they were sent. -->
+                <data android:scheme="https" android:host="taxify.mikesapphub.com" android:pathPrefix="/app" />
             </intent-filter>
         </activity>
 

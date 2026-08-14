@@ -1,7 +1,7 @@
 import nodemailer from 'nodemailer';
 import crypto from 'crypto';
 import { getSetting, setSetting } from '../db.js';
-import { publicOrigin } from './publicOrigin.js';
+import { publicOrigin, appOrigin } from './publicOrigin.js';
 
 const SMTP_SETTING_KEYS = {
   host: 'smtp_host',
@@ -331,7 +331,7 @@ export async function sendActivationReminderEmail(to, name, activationUrl, daysL
 export async function sendAccountActivatedEmail(to, name, options = {}) {
   const { planType = 'individual', trialEndsAt = null, asAccountant = false } = options;
   const planLabel = planType === 'business' ? 'Small Business' : 'Individual';
-  const loginUrl = `${publicOrigin()}/login`;
+  const loginUrl = `${appOrigin()}/login`;
   const trialLine = trialEndsAt
     ? new Date(trialEndsAt).toLocaleDateString('en-AU', { day: '2-digit', month: 'long', year: 'numeric' })
     : null;
@@ -411,7 +411,7 @@ export async function sendPasswordResetEmail(to, name, resetUrl, expiryHours) {
 }
 
 export async function sendPasswordChangedEmail(to, name) {
-  const loginUrl = `${publicOrigin()}/login`;
+  const loginUrl = `${appOrigin()}/login`;
   await sendMail({
     to,
     subject: 'Your Taxify password was changed',
@@ -523,7 +523,7 @@ export async function sendAccountantAccessEmail(to, name, clientName, loginUrl, 
 // `periodLabel` arrives ready to read ("FY 2025-2026", "Jul – Sep 2025"),
 // because the caller is the only thing that knows which of those this is.
 export async function sendBookTaxReminderEmail(to, name, periodLabel, endsOn, daysLeft, expenseCount, entityName) {
-  const reportsUrl = `${publicOrigin()}/reports`;
+  const reportsUrl = `${appOrigin()}/reports`;
   const whose = entityName ? ` for ${entityName}` : '';
   await sendMail({
     to,
@@ -552,7 +552,7 @@ export async function sendBookTaxReminderEmail(to, name, periodLabel, endsOn, da
 // The day before an appointment someone entered themselves. They asked to be
 // reminded by putting the date in, so this is the one email that is expected.
 export async function sendTaxAppointmentReminderEmail(to, name, financialYear, when, company, accountant) {
-  const reportsUrl = `${publicOrigin()}/reports`;
+  const reportsUrl = `${appOrigin()}/reports`;
   await sendMail({
     to,
     subject: `Tomorrow: your ${financialYear} tax appointment with ${company}`,
@@ -774,7 +774,7 @@ export async function sendAccountantInviteAcceptedEmail(to, ownerName, accountan
   const who = accountantName
     ? `${escapeHtml(accountantName)} (${escapeHtml(accountantEmail)})`
     : escapeHtml(accountantEmail);
-  const accountUrl = `${publicOrigin()}/account`;
+  const accountUrl = `${appOrigin()}/account`;
   await sendMail({
     to,
     subject: 'Your accountant now has access',
@@ -896,7 +896,7 @@ export async function sendTrialExpiredEmail(to, name) {
 // email is the only thing that will tell them.
 export async function sendSubscriptionRenewingEmail(to, name, periodEnd, { autoRenews = true } = {}) {
   const when = new Date(periodEnd).toLocaleDateString(undefined, { day: '2-digit', month: 'long', year: 'numeric' });
-  const accountUrl = `${publicOrigin()}/account?tab=billing`;
+  const accountUrl = `${appOrigin()}/account?tab=billing`;
 
   if (!autoRenews) {
     await sendMail({
@@ -1055,7 +1055,7 @@ export async function sendTestEmail(to) {
 // do, so it gets the same treatment as a password change: told about, in
 // writing, with what to do if it was not them.
 export async function sendPlanChangedEmail(to, name, { fromLabel, toLabel, complimentary = false, until = null } = {}) {
-  const accountUrl = `${publicOrigin()}/account?tab=billing`;
+  const accountUrl = `${appOrigin()}/account?tab=billing`;
   await sendMail({
     to,
     subject: `Your Taxify plan is now ${toLabel}`,

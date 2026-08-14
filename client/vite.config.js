@@ -2,6 +2,14 @@ import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 
 export default defineConfig({
+  // The app is served under /app; the root belongs to the landing page.
+  //
+  // This is what rewrites the script and stylesheet URLs Vite writes into
+  // index.html. Without it the built page asks for /assets/… at the root,
+  // where the landing page now lives, and comes back with HTML where it
+  // expected JavaScript — a blank screen with nothing in the console to
+  // explain it.
+  base: '/app/',
   plugins: [react()],
   resolve: {
     preserveSymlinks: true,
