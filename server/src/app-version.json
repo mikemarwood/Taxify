@@ -1,5 +1,5 @@
 {
-  "versionCode": 6,
-  "versionName": "1.1.0",
-  "notes": "Links in our emails now open the app instead of a browser. Signed with a proper release key — you will need to uninstall the old version first."
+  "versionCode": 7,
+  "versionName": "1.2.0",
+  "notes": "The app now opens straight into your account, and links in our emails open it rather than a browser."
 }
