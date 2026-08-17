@@ -18,6 +18,7 @@ function readableSize(bytes) {
   return `${Math.max(1, Math.round(bytes / 1024))} KB`;
 }
 import { playInfo } from '../lib/sounds.js';
+import { onCasedInput } from '../lib/casedInput.js';
 
 // How often an open conversation checks for a reply. Slow enough to be no load
 // at all, fast enough that somebody watching the page sees an answer arrive
@@ -301,7 +302,7 @@ function Message({ message, canEdit, canDelete, onDelete, onEdit, onPreview }) {
               rows={4}
               maxLength={MAX_MESSAGE}
               value={draft}
-              onChange={(e) => setDraft(sentenceCaseLive(e.target.value))}
+              onChange={onCasedInput(sentenceCaseLive, setDraft)}
               style={{ resize: 'vertical', fontSize: 13.5, lineHeight: 1.6 }}
             />
 
@@ -585,7 +586,7 @@ export default function SupportThread({
             // changes the case of characters already there — the length never
             // moves, so neither does the caret, and whitespace is untouched so
             // paragraphs can still be written.
-            onChange={(e) => setDraft(sentenceCaseLive(e.target.value))}
+            onChange={onCasedInput(sentenceCaseLive, setDraft)}
             style={{ resize: 'vertical', fontSize: 13.5, lineHeight: 1.6 }}
           />
           <AttachmentPicker files={files} setFiles={setFiles} disabled={sending || busy} />

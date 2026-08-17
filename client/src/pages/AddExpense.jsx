@@ -319,14 +319,21 @@ export default function AddExpense() {
                 className="input"
                 required
                 inputMode="decimal"
-                style={{ paddingLeft: 26 }}
                 maxLength={10}
                 value={amount}
                 onChange={(e) => setAmount(amountWhileTyping(e.target.value))}
                 onBlur={() => setAmount(amountOnBlur(amount))}
                 placeholder="0.00"
                 aria-invalid={amountIssue ? 'true' : undefined}
-                style={{ flex: 1, minWidth: 0, borderColor: amountIssue ? 'var(--red)' : undefined }}
+                // One style prop. There were two, and JSX keeps the last —
+                // so the padding that made room for the currency symbol was
+                // discarded and the symbol sat against the first digit.
+                style={{
+                  flex: 1,
+                  minWidth: 0,
+                  paddingLeft: 28,
+                  borderColor: amountIssue ? 'var(--red)' : undefined,
+                }}
               />
               <select className="input" value={currency} onChange={(e) => setCurrency(e.target.value)} style={{ width: 90 }}>
                 {CURRENCIES.map((c) => (

@@ -11,6 +11,7 @@ import { formatDateShort, formatAppointmentTime } from '../lib/dates.js';
 import { lodgementPeriodsFor } from '../lib/lodgementPeriods.js';
 import { claimable } from '../lib/money.js';
 import { useConfirm } from '../lib/ConfirmContext.jsx';
+import { onCasedInput } from '../lib/casedInput.js';
 
 function formatWhen(value) {
   if (!value) return null;
@@ -634,13 +635,12 @@ export default function TaxYears({ years, spendByYear, expenses, onFinalisedChan
                         <label className="label">Company</label>
                         <input
                           className="input"
-                          maxLength={160}
                           maxLength={NAME_MAX}
                           placeholder="e.g. H&R Block Parramatta"
                           value={booking.company}
                           // titleCaseLive while typing — titleCase trims, so a
                           // space would be eaten before the second word.
-                          onChange={(e) => setBooking((b) => ({ ...b, company: titleCaseLive(e.target.value) }))}
+                          onChange={onCasedInput(titleCaseLive, (value) => setBooking((b) => ({ ...b, company: value })))}
                           onBlur={() => setBooking((b) => ({ ...b, company: titleCase(b.company) }))}
                         />
                         <div style={{ fontSize: 11.5, minHeight: 15, marginTop: 4, color: 'var(--red)' }}>
@@ -653,11 +653,10 @@ export default function TaxYears({ years, spendByYear, expenses, onFinalisedChan
                         <label className="label">Accountant (optional)</label>
                         <input
                           className="input"
-                          maxLength={160}
                           maxLength={NAME_MAX}
                           placeholder="Who you're seeing"
                           value={booking.accountant}
-                          onChange={(e) => setBooking((b) => ({ ...b, accountant: titleCaseLive(e.target.value) }))}
+                          onChange={onCasedInput(titleCaseLive, (value) => setBooking((b) => ({ ...b, accountant: value })))}
                           onBlur={() => setBooking((b) => ({ ...b, accountant: titleCase(b.accountant) }))}
                         />
                         <div style={{ fontSize: 11.5, minHeight: 15, marginTop: 4, color: 'var(--red)' }}>

@@ -9,6 +9,7 @@ import { fileVerb, filingNoun, FilingNoun, taxOffice } from '../lib/taxWords.js'
 import Icon from './Icon.jsx';
 import { playClick } from '../lib/sounds.js';
 import { useConfirm } from '../lib/ConfirmContext.jsx';
+import { onCasedInput } from '../lib/casedInput.js';
 
 // Creating and organising sets of books, on the page where categories live —
 // because a category belongs to one set of books, so "which business" has to be
@@ -366,7 +367,7 @@ export default function EntityManager() {
                 // titleCaseLive, not titleCase: the latter trims, so the space
                 // between two words was deleted as soon as it was typed and a
                 // name could never be more than one word.
-                onChange={(ev) => setName(titleCaseLive(ev.target.value))}
+                onChange={onCasedInput(titleCaseLive, setName)}
                 onBlur={() => setName(titleCase(name))}
                 placeholder="e.g. Marwood Plumbing"
                 aria-invalid={createProblem ? 'true' : undefined}
@@ -512,7 +513,7 @@ function EditRow({ entity, busy, canBecomeBusiness, siblings = [], onSave, onArc
           maxLength={NAME_MAX}
           // titleCaseLive while typing — titleCase trims, so the space between
           // two words vanished the moment it was typed.
-          onChange={(e) => setName(titleCaseLive(e.target.value))}
+          onChange={onCasedInput(titleCaseLive, setName)}
           onBlur={() => setName(titleCase(name))}
           aria-invalid={problem ? 'true' : undefined}
           style={{ fontSize: 13, borderColor: problem ? 'var(--red)' : undefined }}

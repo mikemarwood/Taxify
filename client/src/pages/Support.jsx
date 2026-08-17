@@ -8,6 +8,7 @@ import Icon from '../components/Icon.jsx';
 import SupportThread, { StatusPill, AttachmentPicker } from '../components/SupportThread.jsx';
 import { formatDateTime } from '../lib/dates.js';
 import { titleCase, titleCaseLive, sentenceCase, sentenceCaseLive } from '../lib/textCase.js';
+import { onCasedInput } from '../lib/casedInput.js';
 
 // Raising a ticket, listing the ones you have, and reading one. Reachable
 // signed in or not — the whole point is that somebody locked out can still get
@@ -186,7 +187,7 @@ function NewTicket({ user, onRaised }) {
               required
               maxLength={120}
               value={name}
-              onChange={(e) => setName(titleCaseLive(e.target.value))}
+              onChange={onCasedInput(titleCaseLive, setName)}
               onBlur={() => setName(titleCase(name))}
             />
           </div>
@@ -214,7 +215,7 @@ function NewTicket({ user, onRaised }) {
           maxLength={SUBJECT_MAX}
           placeholder="A short summary — for example, receipts will not upload"
           value={subject}
-          onChange={(e) => setSubject(sentenceCaseLive(e.target.value))}
+          onChange={onCasedInput(sentenceCaseLive, setSubject)}
           onBlur={() => setSubject(sentenceCase(subject))}
         />
         <Counter value={subject} min={SUBJECT_MIN} max={SUBJECT_MAX} />
@@ -229,7 +230,7 @@ function NewTicket({ user, onRaised }) {
           maxLength={MESSAGE_MAX}
           placeholder="What you were doing, what you expected to happen, and what happened instead. Anything you have already tried is useful too."
           value={message}
-          onChange={(e) => setMessage(sentenceCaseLive(e.target.value))}
+          onChange={onCasedInput(sentenceCaseLive, setMessage)}
           // No sentenceCase on blur here, unlike the subject. It collapses runs
           // of whitespace, and in a message box that means the blank line
           // between two paragraphs is destroyed the moment somebody clicks

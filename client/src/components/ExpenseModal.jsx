@@ -290,11 +290,17 @@ export default function ExpenseModal({ expense, onClose, onSaved, onDeleted }) {
                       required
                       inputMode="decimal"
                       maxLength={14}
-                      style={{ paddingLeft: 26 }}
                       value={amount}
                       onChange={(e) => setAmount(amountWhileTyping(e.target.value))}
                       onBlur={() => setAmount(amountOnBlur(amount))}
-                      style={{ flex: 1, minWidth: 0 }}
+                      // One style prop, not two.
+                      //
+                      // There were two, and JSX keeps the last — so the
+                      // paddingLeft that makes room for the currency symbol was
+                      // thrown away and the "$" sat against the first digit.
+                      // Nothing warns about a duplicate prop; the later one
+                      // simply wins.
+                      style={{ flex: 1, minWidth: 0, paddingLeft: 28 }}
                     />
                     <select className="input" value={currency} onChange={(e) => setCurrency(e.target.value)} style={{ width: 90 }}>
                       {CURRENCIES.map((c) => (
