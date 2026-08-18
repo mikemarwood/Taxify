@@ -464,7 +464,7 @@
     </a>
     <div class="nav-actions">
       <a href="https://taxify.mikesapphub.com/app/login" class="btn btn-ghost">Log in</a>
-      <a href="https://taxify.mikesapphub.com/app/register" class="btn btn-primary">Sign up free</a>
+      <a href="https://taxify.mikesapphub.com/app/login" class="btn btn-primary">Sign up free</a>
     </div>
   </header>
 
@@ -474,7 +474,7 @@
       <h1>Track every deduction, cleanly and simply.</h1>
       <p class="lede">Taxify logs your expenses, sorts them into categories, and builds year-over-year reports — so tax time takes minutes, not weekends.</p>
       <div class="hero-actions">
-        <a href="https://taxify.mikesapphub.com/app/register" class="btn btn-primary btn-lg">Get started — it's free</a>
+        <a href="https://taxify.mikesapphub.com/app/login" class="btn btn-primary btn-lg">Get started — it's free</a>
       </div>
       <p class="hero-note">Fast, simple and effective · Works on any device</p>
       <p class="hero-note" style="margin-top: 6px;">14-day free trial · No credit card required</p>
@@ -737,7 +737,7 @@
     <section class="card cta-card">
       <h2>Ready to stop losing receipts?</h2>
       <p>Start your 14-day free trial and have your first expense logged before your coffee's cold.</p>
-      <a href="https://taxify.mikesapphub.com/app/register" class="btn btn-primary btn-lg" id="cta">Start free trial</a>
+      <a href="https://taxify.mikesapphub.com/app/login" class="btn btn-primary btn-lg" id="cta">Start free trial</a>
     </section>
   </main>
 
@@ -749,15 +749,19 @@
   <script>
     // Absolute when the page is somewhere other than Taxify, relative when it
     // is already there. Everything on the page that navigates goes through it.
-    // Where signing up happens, stated absolutely. The meta tag is the only
+    // Where signing in happens, stated absolutely. The meta tag is the only
     // thing that knows it; without one we fall back to a relative path, which
     // is correct when Taxify is serving this page itself.
-    function registerUrl(plan) {
+    //
+    // No plan is carried across any more. The sign-in page does not read one,
+    // and a parameter nothing acts on is worse than no parameter at all — it
+    // reads like a working feature to whoever finds it next.
+    function signInUrl() {
       var meta = document.querySelector('meta[name="taxify-origin"]');
       var origin = meta && meta.content ? meta.content.replace(/\/$/, '') : '';
       var host = window.location.host;
       var local = /^(localhost|127\.0\.0\.1|\[::1\])(:\d+)?$/.test(host);
-      var path = '/register?plan=' + plan;
+      var path = '/app/login';
       return origin && !local ? origin + path : path;
     }
 
@@ -853,11 +857,11 @@
           // resolves against the hub, so choosing a plan sent people to a
           // registration page on the wrong site. Signing up is the one
           // destination on this page that has no correct relative form.
-          cta.href = registerUrl(plan);
+          cta.href = signInUrl();
         } else {
           grid.removeAttribute('data-chosen');
           cta.textContent = 'Start free trial';
-          cta.href = taxifyUrl('/register');
+          cta.href = signInUrl();
         }
       }
 
