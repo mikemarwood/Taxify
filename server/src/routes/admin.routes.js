@@ -81,6 +81,12 @@ router.get(
     const [users] = await pool.execute(
       `SELECT u.id, u.name, u.email, u.is_admin, u.is_support, u.avatar_path, u.created_at, u.activated_at,
               u.access_bypass, u.access_bypass_until, u.subscription_status, u.trial_ends_at,
+              -- The filters read the date as well as the status, because the
+              -- status only moves when something happens. Without this an
+              -- account that has paid reads as having no end date, which the
+              -- Active filter takes as "runs for ever" — right by accident
+              -- today, wrong the moment somebody lapses.
+              u.subscription_current_period_end,
               u.role, u.account_holder_id, holder.name AS holder_name,
               (SELECT COUNT(*) FROM expenses e WHERE e.user_id = u.id) AS expense_count
        FROM users u
@@ -102,6 +108,7 @@ router.get(
         trialEndsAt: u.trial_ends_at,
         accessBypass: !!u.access_bypass,
         accessBypassUntil: u.access_bypass_until,
+        subscriptionCurrentPeriodEnd: u.subscription_current_period_end,
         // Removing a family member is an administrator's job — neither of the
         // two can remove the other — so the panel has to be able to tell one
         // apart from an account holder at a glance.

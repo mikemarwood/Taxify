@@ -21,6 +21,15 @@ function formatBytes(bytes) {
 
 // "in 12 days", "today", "9 days ago" — the thing somebody is working out in
 // their head while looking at a date, done for them.
+// Whether a trial date has already passed.
+//
+// Worth its own name: subscription_status stays 'trialing' after the date
+// goes by, because nothing rewrites it on the way through. The date is the
+// only thing that knows.
+function trialOver(value) {
+  return Boolean(value) && new Date(value).getTime() < Date.now();
+}
+
 function daysAway(value) {
   if (!value) return '';
   const days = Math.ceil((new Date(value).getTime() - Date.now()) / 86400000);
@@ -367,8 +376,19 @@ export default function AdminUserDetail({ userId, me, onClose, onChanged, action
 
               <Section title="Billing" icon="credit-card">
                 <div className="admin-grid">
+                  {/* Coloured once it has gone, and said in words.
+                      A date with "(3 days ago)" beside it is still something to
+                      work out, and the whole question being asked here is
+                      whether this person can use the product today. */}
                   <Field label="Trial ends">
-                    {u.trialEndsAt ? `${date(u.trialEndsAt)} ${daysAway(u.trialEndsAt)}` : '—'}
+                    {u.trialEndsAt ? (
+                      <span style={trialOver(u.trialEndsAt) ? { color: 'var(--red)', fontWeight: 600 } : undefined}>
+                        {date(u.trialEndsAt)} {daysAway(u.trialEndsAt)}
+                        {trialOver(u.trialEndsAt) ? ' — ended' : ''}
+                      </span>
+                    ) : (
+                      '—'
+                    )}
                   </Field>
                   <Field label="Renews / ends">
                     {u.subscriptionCurrentPeriodEnd

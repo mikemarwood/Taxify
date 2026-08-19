@@ -85,6 +85,62 @@ const TAB_KEYS = [...TAB_GROUPS.flatMap((group) => group.tabs.map((t) => t.key))
 // nothing about what is behind it.
 const SUPPORT_TABS = ['support'];
 
+// How many days are left on a trial, and whether it has already gone.
+//
+// Read from trial_ends_at rather than from the status, because the status
+// stays "trialing" after the date passes — nothing rewrites it on the way
+// through, and the nightly job only ever moves somebody who acts. So an
+// account can read "On trial" for weeks after the trial ended, which is the
+// opposite of what somebody scanning this list needs to know.
+function trialDaysLeft(user) {
+  if (user?.subscriptionStatus !== 'trialing' || !user?.trialEndsAt) return null;
+  return Math.ceil((new Date(user.trialEndsAt).getTime() - Date.now()) / 86400000);
+}
+
+function trialLapsed(user) {
+  const left = trialDaysLeft(user);
+  return left !== null && left <= 0;
+}
+
+// Whether the plan is paid up today.
+//
+// The date is checked as well as the status, because subscription_status only
+// moves when something happens — a webhook, a job, somebody paying. Nothing
+// rewrites it as a date quietly goes by, so an account reads 'active' or
+// 'trialing' long after it stopped being either. Filtering on the status alone
+// would put lapsed accounts in the Active list, which is the one thing these
+// filters must never do.
+function onTrial(user) {
+  return user?.subscriptionStatus === 'trialing';
+}
+
+function stillRunning(value) {
+  return !value || new Date(value).getTime() > Date.now();
+}
+
+function planCurrent(user) {
+  if (!user?.active) return false;
+  // Granted access outranks everything, the same as it does on the server.
+  if (user.accessBypass) return stillRunning(user.accessBypassUntil);
+  if (onTrial(user)) return !trialLapsed(user);
+  if (user.subscriptionStatus === 'active') return stillRunning(user.subscriptionCurrentPeriodEnd);
+  return false;
+}
+
+// Had access and lost it. Not somebody who never activated — that is a
+// different list and a different conversation — and not an accountant, who has
+// no plan to expire.
+function planExpired(user) {
+  return Boolean(user?.active) && user.role !== 'accountant' && !planCurrent(user);
+}
+
+function trialBadge(user) {
+  const left = trialDaysLeft(user);
+  if (left === null) return 'On trial';
+  if (left === 1) return 'Trial · 1 day left';
+  return `Trial · ${left} days left`;
+}
+
 export default function Admin() {
   // ?tab= opens a particular one, because the notifications link straight here.
   // "Somebody wants to change plan" is no use if the link lands on Live stats
@@ -311,17 +367,18 @@ function UsersTab() {
   // What each filter means, in one place, so the count on a chip and the rows
   // it shows can never disagree.
   const FILTERS = [
+    // The four that answer what this page is usually opened to find out: who
+    // can use Taxify today, and who cannot.
     { key: 'all', label: 'Everyone', match: () => true },
+    { key: 'current', label: 'Active', match: planCurrent },
+    { key: 'trialing', label: 'On trial', match: (u) => onTrial(u) && !trialLapsed(u) },
+    { key: 'expired', label: 'Plan expired', match: planExpired },
+
     // Invited or signed up and never opened the link. These are the accounts
     // worth chasing, and they were indistinguishable in a list.
     { key: 'pending', label: 'Not activated', match: (u) => !u.active },
-    { key: 'trialing', label: 'On trial', match: (u) => u.subscriptionStatus === 'trialing' },
-    { key: 'paying', label: 'Paying', match: (u) => u.subscriptionStatus === 'active' && !u.accessBypass },
-    {
-      key: 'due',
-      label: 'Payment due',
-      match: (u) => u.subscriptionStatus === 'past_due' || u.subscriptionStatus === 'expired',
-    },
+    { key: 'paying', label: 'Paying', match: (u) => planCurrent(u) && !u.accessBypass && !onTrial(u) },
+    { key: 'due', label: 'Payment failed', match: (u) => u.subscriptionStatus === 'past_due' },
     { key: 'free', label: 'Free', match: (u) => !!u.accessBypass },
     { key: 'individual', label: 'Individual', match: (u) => u.role === 'owner' && u.planType !== 'business' },
     { key: 'business', label: 'Small Business', match: (u) => u.role === 'owner' && u.planType === 'business' },
@@ -437,7 +494,16 @@ function UsersTab() {
                       whiteSpace: 'nowrap',
                     }}
                   >
-                    {u.name}{' '}
+                    {/* Struck through once the trial has run out.
+                        A list of names all rendered the same way makes the
+                        lapsed ones invisible — you had to open each account to
+                        find out. The line is only ever drawn for a trial that
+                        has actually ended, not for a subscription that was
+                        cancelled or a payment that failed: those are different
+                        problems and deserve their own reading. */}
+                    <span style={trialLapsed(u) ? { textDecoration: 'line-through', opacity: 0.65 } : undefined}>
+                      {u.name}
+                    </span>{' '}
                     {u.id === me.id && <span style={{ color: 'var(--text-muted)', fontWeight: 400 }}>(you)</span>}
                   </div>
                   <div
@@ -493,7 +559,14 @@ function UsersTab() {
                     ) : u.subscriptionStatus === 'active' ? (
                       <Badge tone="emerald">Active</Badge>
                     ) : u.subscriptionStatus === 'trialing' ? (
-                      <Badge tone="accent">On trial</Badge>
+                      // How long is left, not merely that a trial exists. The
+                      // question anybody scanning this list is actually asking
+                      // is which of these is about to lapse.
+                      trialLapsed(u) ? (
+                        <Badge tone="red">Trial ended</Badge>
+                      ) : (
+                        <Badge tone="accent">{trialBadge(u)}</Badge>
+                      )
                     ) : u.subscriptionStatus === 'past_due' ? (
                       <Badge tone="red">Payment failed</Badge>
                     ) : u.subscriptionStatus === 'canceled' ? (

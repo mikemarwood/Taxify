@@ -221,7 +221,12 @@
   /* The product, shown rather than described. Drawn as vector so it is sharp
      at any width and carries no customer's real expenses onto a public page. */
   .shot { max-width: 940px; margin: 0 auto clamp(36px, 6vw, 64px); }
-  .shot img { display: block; width: 100%; height: auto; }
+  /* Zoomable like the three panels below it, so it has to say so. A picture
+     that opens on click and looks like a picture that does not is the same
+     confusion either way round. */
+  .shot img { display: block; width: 100%; height: auto; cursor: zoom-in; }
+  .shot img:focus-visible,
+  .handset-frame img:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
 
   .shots {
     display: grid;
@@ -230,10 +235,20 @@
     margin-bottom: clamp(48px, 8vw, 88px);
   }
   .shot-panel { min-width: 0; }
+  /* One shape for all three, whatever is dropped in.
+     Each image used to set its own, so a 4:3 drawing sat beside a nearly
+     square screenshot and the row came out ragged. Cropping to a shared
+     aspect means a screenshot can be supplied at whatever size it happens to
+     come out of the tool.
+
+     From the top, because that is where a screenshot keeps its heading and its
+     numbers — the part worth showing is never the footer. */
   .shot-panel img {
     display: block;
     width: 100%;
-    height: auto;
+    aspect-ratio: 4 / 3;
+    object-fit: cover;
+    object-position: top;
     border-radius: 14px;
     border: 1px solid var(--border);
     background: var(--bg-card);
@@ -242,6 +257,66 @@
   }
   .shot-panel img:hover { transform: translateY(-2px); box-shadow: 0 18px 40px -22px rgba(0,0,0,.55); }
   .shot-panel img:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+
+  /* The app on a phone.
+
+     The handset is drawn here rather than supplied as artwork, so the only
+     thing anybody has to produce is a plain screenshot straight off a phone —
+     no frame, no shadow, no compositing. Swapping it later is one file. */
+  .handset {
+    display: grid;
+    grid-template-columns: minmax(0, 260px) minmax(0, 1fr);
+    gap: clamp(24px, 5vw, 56px);
+    align-items: center;
+    margin-bottom: clamp(48px, 8vw, 88px);
+  }
+  .handset-frame {
+    /* A modern phone, near enough. The screenshot is cropped to it rather than
+       the frame stretched to the screenshot, so an odd-sized capture still
+       looks like a phone. */
+    aspect-ratio: 9 / 19.5;
+    width: 100%;
+    max-width: 260px;
+    padding: 10px;
+    border-radius: 34px;
+    background: #10151d;
+    box-shadow: 0 26px 60px -28px rgba(0,0,0,.75), inset 0 0 0 1px rgba(255,255,255,.06);
+    position: relative;
+  }
+  .handset-frame img {
+    cursor: zoom-in;
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    object-position: top;
+    border-radius: 25px;
+    background: var(--bg-card);
+  }
+  /* The speaker slit. Small, and the thing that stops the frame reading as a
+     plain rounded rectangle. */
+  .handset-frame::after {
+    content: "";
+    position: absolute;
+    top: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 52px;
+    height: 5px;
+    border-radius: 999px;
+    background: rgba(255,255,255,.16);
+  }
+  .handset-copy h2 { margin: 0 0 10px; }
+  .handset-note {
+    font-size: 12.5px;
+    color: var(--text-muted);
+    line-height: 1.55;
+    margin: 14px 0 0;
+  }
+  @media (max-width: 860px) {
+    .handset { grid-template-columns: 1fr; justify-items: center; text-align: center; }
+    .handset-copy { text-align: center; }
+  }
 
   /* Full size, on a ground dark enough that the screenshot is the only thing
      being looked at. */
@@ -316,25 +391,6 @@
     .shots { grid-template-columns: 1fr; gap: 26px; }
   }
 
-  /* The comparison. Two columns, because the honest answer only needs two. */
-  .versus { margin-bottom: clamp(48px, 8vw, 88px); }
-  .versus-grid {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 16px;
-    max-width: 820px;
-    margin: 0 auto;
-  }
-  .versus-col { padding: 22px; border-radius: 14px; border: 1px solid var(--border); background: var(--bg-card); }
-  .versus-col.ours { border-color: rgba(59, 130, 246, 0.45); box-shadow: 0 0 0 1px rgba(59, 130, 246, 0.14); }
-  .versus-head { font-size: 14.5px; font-weight: 800; margin-bottom: 4px; }
-  .versus-sub { font-size: 12.5px; color: var(--text-muted); margin-bottom: 16px; }
-  .versus-list { list-style: none; display: flex; flex-direction: column; gap: 10px; }
-  .versus-list li { display: flex; gap: 9px; font-size: 13px; line-height: 1.5; color: var(--text-muted); }
-  .versus-list .mark { flex-shrink: 0; margin-top: 1px; }
-  @media (max-width: 700px) {
-    .versus-grid { grid-template-columns: 1fr; }
-  }
 
   .demo { padding: 0 0 clamp(32px, 6vw, 64px); }
   .demo-frame {
@@ -530,6 +586,42 @@
       </span>
     </section>
 
+    <!-- The chips above claim an Android app and then offer no way to get one.
+
+         Hidden until the screenshot exists — the script at the foot checks for
+         the file before un-hiding, so a missing image reads as "no phone
+         section yet" rather than as an empty frame with a broken picture in it.
+         Same approach as the demo film. -->
+    <section class="handset" id="handset" aria-label="Taxify on Android" hidden>
+      <div class="handset-frame">
+        <img
+          id="handset-shot"
+          src="https://taxify.mikesapphub.com/media/phone-app.png"
+          alt="Taxify on an Android phone, showing an expense being added with its receipt attached"
+          width="1080"
+          height="2340"
+          loading="lazy"
+        >
+      </div>
+      <div class="handset-copy">
+        <h2>It fits in your pocket</h2>
+        <p>
+          The same account, on your phone. Photograph a receipt at the counter and it is filed before you have put
+          your wallet away — right year, right category, named so you can find it again.
+        </p>
+        <a href="https://taxify.mikesapphub.com/downloads/taxify.apk" class="btn btn-primary btn-lg" download>
+          Download for Android
+        </a>
+        <!-- Both of these cause an email if they are not said. It is Android
+             only, and it installs from us rather than from the Play Store, so
+             the phone will ask before it allows it. -->
+        <p class="handset-note">
+          Android only for now. It installs directly rather than through the Play Store, so your phone will ask you to
+          allow it once — that is normal, and everything else works the same as the website.
+        </p>
+      </div>
+    </section>
+
     <section class="flow" aria-label="How Taxify works">
       <div class="section-head">
         <h2>From the counter to your accountant</h2>
@@ -596,38 +688,6 @@
       </div>
     </section>
 
-    <!-- The objection nobody else answers. Most tax offices give away something
-         like this, and theirs is free and genuinely
-         useful, and pretending otherwise would be both dishonest and obvious to
-         anybody who has tried it. -->
-    <section class="versus" aria-label="How this compares with a free tax office app">
-      <div class="section-head">
-        <h2>Your tax office has a free app. Why pay for this?</h2>
-        <p>A fair question, and most of them are decent. Here is the honest difference.</p>
-      </div>
-      <div class="versus-grid">
-        <div class="versus-col">
-          <div class="versus-head">Your tax office app</div>
-          <div class="versus-sub">Free, and fine if this is all you need.</div>
-          <ul class="versus-list">
-            <li><span class="mark">•</span><span>Built for this year, then hands it to this year’s return</span></li>
-            <li><span class="mark">•</span><span>One set of records — no separate businesses</span></li>
-            <li><span class="mark">•</span><span>Nothing to give an accountant but a file</span></li>
-            <li><span class="mark">•</span><span>No way to compare this year against last</span></li>
-          </ul>
-        </div>
-        <div class="versus-col ours">
-          <div class="versus-head">Taxify</div>
-          <div class="versus-sub">From $79 a year, and deductible.</div>
-          <ul class="versus-list">
-            <li><span class="check">✓</span><span>Every year kept, and comparable side by side</span></li>
-            <li><span class="check">✓</span><span>Your own tax plus up to two businesses, kept apart</span></li>
-            <li><span class="check">✓</span><span>Hand the whole year to your accountant</span></li>
-            <li><span class="check">✓</span><span>Vehicle logbook and home-office hours, worked out for you</span></li>
-          </ul>
-        </div>
-      </div>
-    </section>
 
     <section>
       <div class="section-head">
@@ -900,6 +960,25 @@
           // Offline, or no file. Either way there is nothing to show.
         });
     })();
+
+    // The phone section, on the same terms as the film above.
+    //
+    // Nothing to show until somebody supplies a screenshot, and an empty phone
+    // frame with a broken image in it is worse than no section at all.
+    (function () {
+      var section = document.getElementById('handset');
+      var shot = document.getElementById('handset-shot');
+      if (!section || !shot) return;
+
+      fetch(shot.src, { method: 'HEAD' })
+        .then(function (res) {
+          var type = res.headers.get('content-type') || '';
+          if (res.ok && type.indexOf('image') === 0) section.hidden = false;
+        })
+        .catch(function () {
+          // Offline, or no screenshot yet.
+        });
+    })();
   </script>
 
   <div id="shotbox" role="dialog" aria-modal="true" aria-label="Screenshot" data-open="false">
@@ -943,7 +1022,13 @@
         if (lastFocused) lastFocused.focus();
       }
 
-      Array.prototype.forEach.call(document.querySelectorAll('.shot-panel img'), function (img) {
+      // Every picture of the product, not just the three in the row.
+      //
+      // The hero and the phone are screenshots too, and clicking one did
+      // nothing — which reads as broken once the ones beside them open.
+      var ZOOMABLE = '.shot-panel img, .shot img, .handset-frame img';
+
+      Array.prototype.forEach.call(document.querySelectorAll(ZOOMABLE), function (img) {
         // Reachable by keyboard as well as by pointer — it is a control now,
         // even though it is still an <img>.
         img.setAttribute('tabindex', '0');
