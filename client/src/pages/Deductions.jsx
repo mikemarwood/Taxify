@@ -92,7 +92,12 @@ export default function Deductions() {
 
   const readOnly = !!user?.actingAsClient;
 
-  const [trip, setTrip] = useState({ date: '', vehicle: '', km: '', purpose: '' });
+  // Two ways to say the same thing: the distance, or the two odometer
+  // readings it came from. A logbook is kept in readings, and subtracting them
+  // by hand is both a chore and the easiest place to make a mistake nobody
+  // would ever catch.
+  const [trip, setTrip] = useState({ date: '', vehicle: '', km: '', purpose: '', from: '', to: '' });
+  const [byOdometer, setByOdometer] = useState(false);
   // Hours and minutes are chosen, not typed — see deductionInput.js for why.
   // The decimal the server wants is worked out on the way out.
   const [hours, setHours] = useState({ date: '', h: '', m: '', note: '' });
@@ -131,9 +136,18 @@ export default function Deductions() {
     setBusy(true);
     try {
       // The separators are display only. What goes to the server is a number.
-      await api.post('/deductions/vehicle-trips', { ...trip, km: parseKm(trip.km), entityId });
+      // Only ever a distance on the wire. The readings are how somebody
+      // arrived at it, not something the claim is made of.
+      await api.post('/deductions/vehicle-trips', {
+        date: trip.date,
+        vehicle: trip.vehicle,
+        purpose: trip.purpose,
+        km: tripKm,
+        entityId,
+      });
       playSuccess();
-      setTrip({ date: '', vehicle: trip.vehicle, km: '', purpose: '' });
+      // The vehicle stays, because the next trip is usually the same car.
+      setTrip({ date: '', vehicle: trip.vehicle, km: '', purpose: '', from: '', to: '' });
       load();
     } catch (err) {
       playError();
@@ -184,7 +198,26 @@ export default function Deductions() {
   // A trip needs a date, something to call the vehicle, and a distance above
   // zero. Purpose stays optional — it is the description of a trip, not the
   // claim, and demanding one would have people typing "work" to get past it.
-  const tripReady = Boolean(trip.date) && trip.vehicle.trim().length > 0 && (parseKm(trip.km) || 0) > 0;
+  // What is being claimed, whichever way it was entered. One reading, so the
+  // figure shown, the figure checked and the figure sent cannot differ.
+  const odoFrom = parseKm(trip.from);
+  const odoTo = parseKm(trip.to);
+  const odoKm = odoFrom !== null && odoTo !== null ? odoTo - odoFrom : null;
+  const tripKm = byOdometer ? odoKm : parseKm(trip.km);
+
+  // Said rather than left to be discovered by a disabled button. Readings the
+  // wrong way round is the ordinary mistake — the trip is still real, the two
+  // numbers are just in the wrong boxes.
+  const odoProblem =
+    !byOdometer || odoFrom === null || odoTo === null
+      ? ''
+      : odoTo < odoFrom
+      ? 'The finishing reading is lower than the starting one.'
+      : odoTo === odoFrom
+      ? 'Both readings are the same, so there is no distance to claim.'
+      : '';
+
+  const tripReady = Boolean(trip.date) && trip.vehicle.trim().length > 0 && (tripKm || 0) > 0;
 
   // Hours needs a date and a time above zero. Either dropdown alone is enough
   // — 45 minutes with no hours is a perfectly ordinary entry — so it is the
@@ -336,16 +369,81 @@ export default function Deductions() {
                     onChange={onCasedInput(titleCaseLive, (value) => setTrip({ ...trip, vehicle: value }))}
                   />
                 </div>
-                <div style={{ flex: '1 1 100px', minWidth: 92 }}>
-                  <label className="label">Kilometres</label>
-                  <input
-                    className="input"
-                    required
-                    inputMode="numeric"
-                    placeholder="e.g. 3,000"
-                    value={trip.km}
-                    onChange={onCasedInput(kmWhileTyping, (value) => setTrip({ ...trip, km: value }))}
-                  />
+                <div style={{ flex: byOdometer ? '2 1 240px' : '1 1 100px', minWidth: byOdometer ? 220 : 92 }}>
+                  <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, flexWrap: 'wrap' }}>
+                    <label className="label" style={{ margin: 0 }}>
+                      {byOdometer ? 'Odometer' : 'Kilometres'}
+                    </label>
+                    {/* Switching keeps whatever has been typed. Somebody who
+                        starts one way and changes their mind should not be
+                        made to start again. */}
+                    <button
+                      type="button"
+                      onClick={() => setByOdometer((v) => !v)}
+                      style={{
+                        border: 0,
+                        background: 'transparent',
+                        padding: 0,
+                        cursor: 'pointer',
+                        font: 'inherit',
+                        fontSize: 11.5,
+                        fontWeight: 600,
+                        color: 'var(--accent)',
+                      }}
+                    >
+                      {byOdometer ? 'or type the distance' : 'or use odometer readings'}
+                    </button>
+                  </div>
+
+                  {byOdometer ? (
+                    <>
+                      <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                        <input
+                          className="input"
+                          required
+                          inputMode="numeric"
+                          placeholder="Start"
+                          aria-label="Odometer at the start"
+                          value={trip.from}
+                          onChange={onCasedInput(kmWhileTyping, (value) => setTrip({ ...trip, from: value }))}
+                          style={{ flex: 1, minWidth: 0 }}
+                        />
+                        <span style={{ color: 'var(--text-muted)', fontSize: 13 }}>→</span>
+                        <input
+                          className="input"
+                          required
+                          inputMode="numeric"
+                          placeholder="End"
+                          aria-label="Odometer at the end"
+                          value={trip.to}
+                          onChange={onCasedInput(kmWhileTyping, (value) => setTrip({ ...trip, to: value }))}
+                          style={{ flex: 1, minWidth: 0 }}
+                        />
+                      </div>
+                      {/* The answer, as it is typed. The whole point of
+                          entering readings is not having to do this bit. */}
+                      <div style={{ fontSize: 11.5, marginTop: 4, lineHeight: 1.5 }}>
+                        {odoProblem ? (
+                          <span style={{ color: 'var(--red)' }}>{odoProblem}</span>
+                        ) : odoKm > 0 ? (
+                          <span style={{ color: 'var(--emerald)', fontWeight: 600 }}>
+                            {odoKm.toLocaleString()} km
+                          </span>
+                        ) : (
+                          <span style={{ color: 'var(--text-muted)' }}>Both readings, and the distance works itself out.</span>
+                        )}
+                      </div>
+                    </>
+                  ) : (
+                    <input
+                      className="input"
+                      required
+                      inputMode="numeric"
+                      placeholder="e.g. 3,000"
+                      value={trip.km}
+                      onChange={onCasedInput(kmWhileTyping, (value) => setTrip({ ...trip, km: value }))}
+                    />
+                  )}
                 </div>
                 <div style={{ flex: '2 1 200px', minWidth: 150 }}>
                   <label className="label">Purpose</label>

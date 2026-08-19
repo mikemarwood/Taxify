@@ -47,22 +47,29 @@ function Splash() {
 // picker, because it is a page of the app like any other. Signed out there is
 // no navigation to give it — but it still needs to look like Taxify rather
 // than a bare form floating on a background, which is what it did before.
-function SupportShell({ children }) {
+// The frame a page gets when it can be read either signed in or signed out.
+//
+// Signed in, it is the app: the sidebar, the books switcher, everything else
+// somebody expects to still be there. Signed out, the public frame. Terms and
+// the privacy policy used to render bare — no navigation of any kind — so
+// following the footer link out of the app left somebody on a page with no way
+// back except the browser button.
+function PageShell({ children }) {
   const { user, loading } = useAuth();
   if (loading) return <Splash />;
 
   if (user) {
     return (
-      <ErrorBoundary key="shell|support">
+      <ErrorBoundary key="shell|page">
         <Layout>
-          <ErrorBoundary key="page|support">{children}</ErrorBoundary>
+          <ErrorBoundary key="page|content">{children}</ErrorBoundary>
         </Layout>
       </ErrorBoundary>
     );
   }
 
   return (
-    <ErrorBoundary key="public|support">
+    <ErrorBoundary key="public|page">
       <PublicShell>{children}</PublicShell>
     </ErrorBoundary>
   );
@@ -154,8 +161,8 @@ export default function App() {
     <Routes>
       <Route path="/login" element={<PublicOnly><Login /></PublicOnly>} />
       <Route path="/register" element={<PublicOnly><Register /></PublicOnly>} />
-      <Route path="/terms" element={<Terms />} />
-      <Route path="/privacy" element={<Privacy />} />
+      <Route path="/terms" element={<PageShell><Terms /></PageShell>} />
+      <Route path="/privacy" element={<PageShell><Privacy /></PageShell>} />
       <Route path="/forgot-password" element={<PublicOnly><ForgotPassword /></PublicOnly>} />
       <Route path="/reset-password" element={<ResetPassword />} />
       <Route path="/activate" element={<Activate />} />
@@ -174,13 +181,13 @@ export default function App() {
       {/* Support is reachable signed in or not. Somebody who cannot get into
           their account is exactly who most needs it, so it sits outside
           Protected and decides for itself what to show. */}
-      <Route path="/support" element={<SupportShell><Support /></SupportShell>} />
+      <Route path="/support" element={<PageShell><Support /></PageShell>} />
       <Route
         path="/support/ticket/:token"
         element={
-          <SupportShell>
+          <PageShell>
             <SupportTicketByToken />
-          </SupportShell>
+          </PageShell>
         }
       />
       <Route path="/support/:id" element={<Protected><SupportTicket /></Protected>} />

@@ -526,8 +526,10 @@ export default function SupportTab() {
         />
       )}
 
-    <div style={{ display: 'grid', gap: 14, gridTemplateColumns: 'minmax(230px, 300px) 1fr', alignItems: 'start' }}>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+    {/* data-reading is what the stylesheet uses to get the list out of the
+        way on a phone once a ticket is open. On a wide screen both stay. */}
+    <div className="support-layout" data-reading={openId ? 'true' : 'false'}>
+      <div className="support-list" style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
         <input
           className="input"
           placeholder="Search reference, subject or person…"
@@ -645,6 +647,19 @@ export default function SupportTab() {
               {/* The category as a mark rather than a word buried in a line
                   of dot-separated text. Somebody scanning a screen full of
                   tickets recognises the shape before they read anything. */}
+              {/* The way out on a phone, where the list is hidden while a
+                  ticket is open. Shown by the stylesheet at the same width
+                  that hides the list, so the two can never disagree. */}
+              <button
+                type="button"
+                className="btn btn-ghost support-back"
+                style={{ fontSize: 12.5, gap: 6, alignItems: 'center', flexShrink: 0 }}
+                onClick={() => setOpenId(null)}
+              >
+                <Icon name="chevron-down" size={14} style={{ transform: 'rotate(90deg)' }} />
+                All tickets
+              </button>
+
               <span
                 title={thread.ticket.categoryLabel}
                 style={{

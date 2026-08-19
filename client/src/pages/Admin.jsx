@@ -26,6 +26,7 @@ import PushSettingsTab from '../components/PushSettingsTab.jsx';
 import { IconPicker, ColourPicker, CategoryPreview, SWATCHES } from '../components/CategoryPickers.jsx';
 import Avatar from '../components/Avatar.jsx';
 import AdminUserDetail from '../components/AdminUserDetail.jsx';
+import { planLabel } from '../lib/plans.js';
 
 
 // Storage figures are for a human deciding whether someone is using a lot, so
@@ -549,10 +550,19 @@ function UsersTab() {
                         ? 'Second login (legacy)'
                         : u.role === 'accountant'
                         ? 'Accountant'
-                        : u.planType === 'business'
-                        ? 'Small Business'
-                        : 'Individual'}
+                        : planLabel(u.planType)}
                     </Badge>
+
+                    {/* An administrator is also somebody's customer.
+                        This badge showed the role *instead* of the plan, so the
+                        two people most likely to be looked up — whoever runs
+                        the place and whoever answers the tickets — were the
+                        only two whose plan the list would not say. They pay
+                        like anybody else. An accountant is the exception that
+                        stays: they genuinely have no plan. */}
+                    {(u.isAdmin || u.isSupport) && u.role !== 'accountant' && (
+                      <Badge tone="accent">{planLabel(u.planType)}</Badge>
+                    )}
                     {/* What state the account is actually in, in words.
                         "Invite pending" appeared only for unactivated accounts
                         and nothing at all for the rest, so a row gave no way to

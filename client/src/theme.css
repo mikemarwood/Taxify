@@ -731,3 +731,28 @@ input[type="date"].input::-webkit-calendar-picker-indicator:hover { opacity: 1; 
 @media (max-width: 900px) and (max-height: 560px) {
   .app-sidebar nav { overflow-y: auto; min-height: 0; }
 }
+
+/* The support queue on a phone.
+
+   It was a two-column grid with a fixed 230px minimum on the list, so on a
+   375px screen the conversation — the part somebody opened the page to read —
+   was left about 130 pixels to do it in. Every message wrapped to two or three
+   words a line.
+
+   Stacked below 860px, and once a ticket is open the list gets out of the way
+   entirely rather than making somebody scroll past all of it to reach the
+   thread. The back control appears at the same width, because without it there
+   is no way out of a ticket on a phone. */
+.support-layout {
+  display: grid;
+  gap: 14px;
+  grid-template-columns: minmax(230px, 300px) 1fr;
+  align-items: start;
+}
+.support-back { display: none; }
+
+@media (max-width: 860px) {
+  .support-layout { grid-template-columns: 1fr; }
+  .support-layout[data-reading='true'] .support-list { display: none; }
+  .support-back { display: inline-flex; }
+}
