@@ -10,6 +10,7 @@ import Icon from './Icon.jsx';
 import Avatar from './Avatar.jsx';
 import { formatMoney } from '../lib/money.js';
 import { formatDateShort, formatDateTime } from '../lib/dates.js';
+import { planLabel } from '../lib/plans.js';
 
 function formatBytes(bytes) {
   if (!bytes) return '0 MB';
@@ -26,6 +27,28 @@ function formatBytes(bytes) {
 // Worth its own name: subscription_status stays 'trialing' after the date
 // goes by, because nothing rewrites it on the way through. The date is the
 // only thing that knows.
+// The status in words, and coloured by what it means.
+//
+// The column stores pending | invoiced | paid | cancelled, which are fine as
+// data and poor as a sentence — 'pending' beside a request answered months
+// ago reads as still waiting.
+const PLAN_STATUS = {
+  pending: 'awaiting an invoice',
+  invoiced: 'invoice sent',
+  paid: 'paid',
+  cancelled: 'cancelled',
+};
+
+function planStatusLabel(status) {
+  return PLAN_STATUS[status] || status;
+}
+
+function planStatusTone(status) {
+  if (status === 'paid') return 'var(--emerald)';
+  if (status === 'cancelled') return 'var(--text-muted)';
+  return 'var(--accent)';
+}
+
 function trialOver(value) {
   return Boolean(value) && new Date(value).getTime() < Date.now();
 }
@@ -477,9 +500,16 @@ export default function AdminUserDetail({ userId, me, onClose, onChanged, action
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                     {data.planChanges.map((c) => (
                       <div key={c.id} style={{ fontSize: 12.5, paddingBottom: 8, borderBottom: '1px solid var(--border)' }}>
+                        {/* Plans by the names people are sold, and a status
+                            in words rather than the column's own value —
+                            "cancelled" reads as something somebody did, which
+                            is what somebody reading this needs to know. */}
                         <div style={{ fontWeight: 600 }}>
-                          {c.fromPlan || '—'} → {c.toPlan}
-                          <span style={{ color: 'var(--text-muted)', fontWeight: 400 }}> · {c.status}</span>
+                          {c.fromPlan ? planLabel(c.fromPlan) : '—'} → {planLabel(c.toPlan)}
+                          <span style={{ color: planStatusTone(c.status), fontWeight: 400 }}>
+                            {' '}
+                            · {planStatusLabel(c.status)}
+                          </span>
                         </div>
                         <div style={{ fontSize: 11.5, color: 'var(--text-muted)', marginTop: 2, lineHeight: 1.6 }}>
                           Asked {dateTime(c.askedAt)}
@@ -572,49 +602,82 @@ export default function AdminUserDetail({ userId, me, onClose, onChanged, action
                     answering tickets has no need to change plans or read
                     anybody's books, and giving them that anyway is how a
                     support login becomes the most valuable thing to steal. */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12, flexWrap: 'wrap' }}>
-                  <Toggle
-                    checked={Boolean(u.isSupport)}
-                    onChange={async (next) => {
-                      // Asked first. This hands somebody the ability to read
-                      // every customer's support conversation, which is not a
-                      // thing to do by brushing a switch.
-                      const ok = await confirm(
-                        next
-                          ? {
-                              title: `Put ${u.name} on the support team?`,
-                              body: 'They will be able to read every support conversation, including attachments people send in, and answer any ticket assigned to them. They get nothing else — no users, no billing, no Stripe.',
-                              confirmLabel: 'Add to support',
-                            }
-                          : {
-                              title: `Take ${u.name} off the support team?`,
-                              body: 'They lose the support queue immediately. Any tickets assigned to them stay assigned until somebody else takes them.',
-                              confirmLabel: 'Remove',
-                            }
-                      );
-                      if (!ok) return;
+                {/* Chosen from a list, not brushed with a switch.
+                    A toggle invites a fingertip and gives no moment to read
+                    what it does, and what it does here is hand somebody the
+                    ability to read every customer's support conversation.
+                    Picking a role and confirming it is two deliberate acts.
 
-                      try {
-                        await api.patch(`/admin/users/${u.id}`, { isSupport: next });
-                        // This panel holds its own copy of the account, loaded
-                        // once. Without updating it the switch springs back to
-                        // where it was, because onChanged refreshes the list
-                        // behind rather than the panel in front.
-                        setData((prev) => (prev ? { ...prev, user: { ...prev.user, isSupport: next } } : prev));
-                        toast(next ? `${u.name} can now answer tickets` : `${u.name} removed from support`, 'success');
-                        onChanged?.();
-                      } catch (err) {
-                        toast(err.message, 'error');
-                      }
-                    }}
-                  />
-                  <div>
-                    <div style={{ fontSize: 13, fontWeight: 600 }}>On the support team</div>
-                    <div style={{ fontSize: 11.5, color: 'var(--text-muted)' }}>
-                      Reads the support queue and answers tickets assigned to them. Nothing else.
+                    Not offered for an administrator at all: they already have
+                    the queue and everything else besides, so the only thing
+                    this could do for them is look as though it meant
+                    something. */}
+                {!u.isAdmin && (
+                <div style={{ display: 'flex', alignItems: 'flex-end', gap: 10, marginBottom: 12, flexWrap: 'wrap' }}>
+                  <div style={{ flex: '1 1 220px', minWidth: 200 }}>
+                    <label className="label" style={{ fontSize: 11.5 }}>
+                      Role
+                    </label>
+                    <select
+                      className="input"
+                      value={u.isSupport ? 'support' : 'user'}
+                      style={{ fontSize: 13 }}
+                      onChange={async (event) => {
+                        const next = event.target.value === 'support';
+                        if (next === Boolean(u.isSupport)) return;
+
+                        const ok = await confirm(
+                          next
+                            ? {
+                                title: `Make ${u.name} a support operator?`,
+                                body: 'They will be able to read every support conversation, including attachments people send in, and answer any ticket assigned to them. They get nothing else — no users, no billing, no Stripe.',
+                                confirmLabel: 'Yes, make them an operator',
+                                cancelLabel: 'Cancel',
+                              }
+                            : {
+                                title: `Return ${u.name} to a regular user?`,
+                                body: 'They lose the support queue straight away and stop receiving support email. Any open tickets they are holding go back to the queue to be picked up by somebody else, and the administrators are told.',
+                                confirmLabel: 'Yes, remove them',
+                                cancelLabel: 'Cancel',
+                                danger: true,
+                              }
+                        );
+                        // Put back where it was. The select is controlled by
+                        // u.isSupport, so declining redraws it correctly on its
+                        // own — but only once the state below is left alone.
+                        if (!ok) return;
+
+                        try {
+                          await api.patch(`/admin/users/${u.id}`, { isSupport: next });
+                          // This panel holds its own copy of the account, loaded
+                          // once. Without updating it the dropdown springs back,
+                          // because onChanged refreshes the list behind rather
+                          // than the panel in front.
+                          setData((prev) => (prev ? { ...prev, user: { ...prev.user, isSupport: next } } : prev));
+                          toast(
+                            next
+                              ? `${u.name} is now a support operator`
+                              : `${u.name} is no longer a support user`,
+                            'success'
+                          );
+                          onChanged?.();
+                        } catch (err) {
+                          toast(err.message, 'error');
+                        }
+                      }}
+                    >
+                      <option value="user">Regular user</option>
+                      <option value="support">Support operator</option>
+                    </select>
+                  </div>
+                  <div style={{ flex: '2 1 240px', minWidth: 200 }}>
+                    <div style={{ fontSize: 11.5, color: 'var(--text-muted)', lineHeight: 1.5 }}>
+                      An operator reads the support queue and answers tickets assigned to them. Nothing else — no
+                      users, no billing, no Stripe.
                     </div>
                   </div>
                 </div>
+                )}
 
                 <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                   {!isSelf && (

@@ -12,6 +12,16 @@ import { useFinancialYears } from '../lib/useFinancialYears.js';
 import { currentFinancialYear } from '../lib/financialYear.js';
 import { playSuccess, playError, onDigitKeyDown } from '../lib/sounds.js';
 import { useConfirm } from '../lib/ConfirmContext.jsx';
+import { onCasedInput } from '../lib/casedInput.js';
+import { sentenceCaseLive, titleCaseLive } from '../lib/textCase.js';
+import {
+  kmWhileTyping,
+  parseKm,
+  toDecimalHours,
+  formatHours,
+  HOUR_CHOICES,
+  MINUTE_CHOICES,
+} from '../lib/deductionInput.js';
 
 // The deductions that aren't receipts: kilometres driven for work and hours
 // worked at home. Both are logged as they happen, because both are claimed at
@@ -83,7 +93,9 @@ export default function Deductions() {
   const readOnly = !!user?.actingAsClient;
 
   const [trip, setTrip] = useState({ date: '', vehicle: '', km: '', purpose: '' });
-  const [hours, setHours] = useState({ date: '', hours: '', note: '' });
+  // Hours and minutes are chosen, not typed — see deductionInput.js for why.
+  // The decimal the server wants is worked out on the way out.
+  const [hours, setHours] = useState({ date: '', h: '', m: '', note: '' });
 
   useEffect(() => {
     if (!year && years.length > 0) setYear(years.includes(currentFinancialYear()) ? currentFinancialYear() : years[0]);
@@ -118,7 +130,8 @@ export default function Deductions() {
     e.preventDefault();
     setBusy(true);
     try {
-      await api.post('/deductions/vehicle-trips', { ...trip, entityId });
+      // The separators are display only. What goes to the server is a number.
+      await api.post('/deductions/vehicle-trips', { ...trip, km: parseKm(trip.km), entityId });
       playSuccess();
       setTrip({ date: '', vehicle: trip.vehicle, km: '', purpose: '' });
       load();
@@ -134,9 +147,14 @@ export default function Deductions() {
     e.preventDefault();
     setBusy(true);
     try {
-      await api.post('/deductions/home-office', { ...hours, entityId });
+      await api.post('/deductions/home-office', {
+        date: hours.date,
+        hours: toDecimalHours(hours.h, hours.m),
+        note: hours.note,
+        entityId,
+      });
       playSuccess();
-      setHours({ date: '', hours: '', note: '' });
+      setHours({ date: '', h: '', m: '', note: '' });
       load();
     } catch (err) {
       playError();
@@ -155,6 +173,23 @@ export default function Deductions() {
       toast(err.message, 'error');
     }
   }
+
+  // What each form needs before it can be sent.
+  //
+  // Stated here rather than left to the browser, because required alone lets
+  // somebody press a live button and be refused — and the two forms disagreed
+  // about what counted anyway: purpose and note were never required, but the
+  // button looked exactly as ready without them as with.
+  //
+  // A trip needs a date, something to call the vehicle, and a distance above
+  // zero. Purpose stays optional — it is the description of a trip, not the
+  // claim, and demanding one would have people typing "work" to get past it.
+  const tripReady = Boolean(trip.date) && trip.vehicle.trim().length > 0 && (parseKm(trip.km) || 0) > 0;
+
+  // Hours needs a date and a time above zero. Either dropdown alone is enough
+  // — 45 minutes with no hours is a perfectly ordinary entry — so it is the
+  // total that has to be more than nothing.
+  const hoursReady = Boolean(hours.date) && toDecimalHours(hours.h, hours.m) > 0;
 
   const vehicle = data?.vehicle;
   const office = data?.homeOffice;
@@ -298,7 +333,7 @@ export default function Deductions() {
                     maxLength={80}
                     placeholder="e.g. Hilux"
                     value={trip.vehicle}
-                    onChange={(e) => setTrip({ ...trip, vehicle: e.target.value })}
+                    onChange={onCasedInput(titleCaseLive, (value) => setTrip({ ...trip, vehicle: value }))}
                   />
                 </div>
                 <div style={{ flex: '1 1 100px', minWidth: 92 }}>
@@ -306,10 +341,10 @@ export default function Deductions() {
                   <input
                     className="input"
                     required
-                    inputMode="decimal"
+                    inputMode="numeric"
+                    placeholder="e.g. 3,000"
                     value={trip.km}
-                    onKeyDown={onDigitKeyDown}
-                    onChange={(e) => setTrip({ ...trip, km: e.target.value.replace(/[^0-9.]/g, '') })}
+                    onChange={onCasedInput(kmWhileTyping, (value) => setTrip({ ...trip, km: value }))}
                   />
                 </div>
                 <div style={{ flex: '2 1 200px', minWidth: 150 }}>
@@ -319,7 +354,7 @@ export default function Deductions() {
                     maxLength={255}
                     placeholder="e.g. Site visit, Parramatta"
                     value={trip.purpose}
-                    onChange={(e) => setTrip({ ...trip, purpose: e.target.value })}
+                    onChange={onCasedInput(sentenceCaseLive, (value) => setTrip({ ...trip, purpose: value }))}
                   />
                 </div>
                 {/* Full width once it is on a line of its own, rather than a
@@ -327,7 +362,7 @@ export default function Deductions() {
                 <button
                   className="btn btn-primary"
                   type="submit"
-                  disabled={busy}
+                  disabled={busy || !tripReady}
                   style={{ fontSize: 13, flex: '1 1 auto', minWidth: 110, justifyContent: 'center' }}
                 >
                   Add trip
@@ -375,7 +410,7 @@ export default function Deductions() {
             rateNote={
               data.rates.perHour === null
                 ? `No rate set for FY ${year}`
-                : `${office.hours} hours · ${data.rates.perHour}/hour`
+                : `${formatHours(office.hours)} · ${data.rates.perHour}/hour`
             }
           >
             {!readOnly && (
@@ -394,16 +429,44 @@ export default function Deductions() {
                     onChange={(e) => setHours({ ...hours, date: e.target.value })}
                   />
                 </div>
-                <div style={{ flex: '1 1 100px', minWidth: 92 }}>
-                  <label className="label">Hours</label>
-                  <input
-                    className="input"
-                    required
-                    inputMode="decimal"
-                    value={hours.hours}
-                    onKeyDown={onDigitKeyDown}
-                    onChange={(e) => setHours({ ...hours, hours: e.target.value.replace(/[^0-9.]/g, '') })}
-                  />
+                {/* Chosen rather than typed.
+                    "Half an hour" is 0.5 as a decimal and 0.30 on a clock, and
+                    somebody entering the second meaning the first claims
+                    eighteen minutes. Two dropdowns have no such reading to get
+                    wrong, and on a phone they are quicker than a keyboard. */}
+                <div style={{ flex: '1 1 150px', minWidth: 140 }}>
+                  <label className="label">Time worked</label>
+                  <div style={{ display: 'flex', gap: 6 }}>
+                    <select
+                      className="input"
+                      required
+                      value={hours.h}
+                      onChange={(e) => setHours({ ...hours, h: e.target.value })}
+                      style={{ flex: 1, minWidth: 0 }}
+                      aria-label="Hours"
+                    >
+                      <option value="">Hrs</option>
+                      {HOUR_CHOICES.map((v) => (
+                        <option key={v} value={v}>
+                          {v} h
+                        </option>
+                      ))}
+                    </select>
+                    <select
+                      className="input"
+                      value={hours.m}
+                      onChange={(e) => setHours({ ...hours, m: e.target.value })}
+                      style={{ flex: 1, minWidth: 0 }}
+                      aria-label="Minutes"
+                    >
+                      <option value="">Min</option>
+                      {MINUTE_CHOICES.map((v) => (
+                        <option key={v} value={v}>
+                          {v} m
+                        </option>
+                      ))}
+                    </select>
+                  </div>
                 </div>
                 <div style={{ flex: '2 1 200px', minWidth: 150 }}>
                   <label className="label">Note</label>
@@ -412,13 +475,13 @@ export default function Deductions() {
                     maxLength={255}
                     placeholder="Optional"
                     value={hours.note}
-                    onChange={(e) => setHours({ ...hours, note: e.target.value })}
+                    onChange={onCasedInput(sentenceCaseLive, (value) => setHours({ ...hours, note: value }))}
                   />
                 </div>
                 <button
                   className="btn btn-primary"
                   type="submit"
-                  disabled={busy}
+                  disabled={busy || !hoursReady}
                   style={{ fontSize: 13, flex: '1 1 auto', minWidth: 110, justifyContent: 'center' }}
                 >
                   Add hours
@@ -432,7 +495,7 @@ export default function Deductions() {
               render={(h) => (
                 <>
                   <span style={{ width: 62, color: 'var(--text-muted)' }}>{formatDayMonth(h.date)}</span>
-                  <span style={{ fontWeight: 600, width: 80, whiteSpace: 'nowrap' }}>{h.hours} hrs</span>
+                  <span style={{ fontWeight: 600, width: 80, whiteSpace: 'nowrap' }}>{formatHours(h.hours)}</span>
                   <span className="deduction-note" style={{ flex: 1, minWidth: 0, color: 'var(--text-muted)' }}>
                     {h.note}
                   </span>

@@ -29,7 +29,7 @@ import {
 } from '../lib/mailer.js';
 import { getStripeAdminSettings, saveStripeAdminSettings, getStripeSecretKeyForMode } from '../lib/stripe.js';
 import { isFinancialYearLabel } from '../lib/financialYear.js';
-import { notify, verifyFcm } from '../lib/notify.js';
+import { notify, notifyAdmins, verifyFcm } from '../lib/notify.js';
 import Stripe from 'stripe';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -160,6 +160,51 @@ router.patch(
     // Told, because it changes what the app looks like the next time they load
     // it — a Support section appears in their navigation with no explanation
     // otherwise.
+    // Taken off the team: their open tickets go back to the queue.
+    //
+    // They were left assigned to somebody who can no longer open them, which is
+    // worse than unassigned — the ticket looks handled, stays out of the
+    // "nobody has this" list, and nothing chases it. The customer waits on a
+    // person who cannot answer.
+    //
+    // Only the open ones. A closed ticket is the record of who dealt with it,
+    // and rewriting that would be falsifying history to tidy a list.
+    if (setsSupport && !isSupport) {
+      const [orphaned] = await pool.execute(
+        `SELECT id FROM support_tickets WHERE assigned_to = ? AND status <> 'closed'`,
+        [targetId]
+      );
+
+      if (orphaned.length > 0) {
+        await pool.execute(
+          `UPDATE support_tickets
+              SET assigned_to = NULL, assigned_at = NULL, support_read_at = NULL, updated_at = NOW()
+            WHERE assigned_to = ? AND status <> 'closed'`,
+          [targetId]
+        );
+
+        // Noted on each thread, so whoever picks one up can see why it came
+        // back rather than assuming somebody dropped it. An internal note, not
+        // a system line — the customer has no use for our staffing.
+        for (const ticket of orphaned) {
+          await pool
+            .execute(
+              `INSERT INTO support_messages (ticket_id, author_user_id, author_role, author_name, body)
+               VALUES (?, NULL, 'note', 'Taxify', ?)`,
+              [ticket.id, 'Back in the queue — whoever had this is no longer on the support team.']
+            )
+            .catch((err) => console.error('Could not note the handback', err.message));
+        }
+
+        await notifyAdmins({
+          title: `${orphaned.length} ticket${orphaned.length === 1 ? '' : 's'} back in the queue`,
+          body: 'Somebody was taken off the support team, so what they were holding needs assigning again.',
+          url: '/admin?tab=support',
+          kind: 'support',
+        }).catch((err) => console.error('Could not tell the admins about the handback', err.message));
+      }
+    }
+
     if (setsSupport) {
       try {
         await notify(targetId, {

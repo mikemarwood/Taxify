@@ -218,15 +218,84 @@
   }
   .device-chip svg { color: var(--blue); flex-shrink: 0; }
 
-  /* The product, shown rather than described. Drawn as vector so it is sharp
-     at any width and carries no customer's real expenses onto a public page. */
+  /* The product, shown rather than described.
+
+     Two real screenshots in two drawn frames: the app on a laptop, and the app
+     on a phone standing in front of it. Both devices are CSS, so the only
+     things anybody has to produce are two plain screenshots — no compositing,
+     no mockup tool, and swapping either is one file.
+
+     It replaces a single drawing that had to be redrawn whenever the interface
+     moved, and never quite matched it. */
   .shot { max-width: 940px; margin: 0 auto clamp(36px, 6vw, 64px); }
+  .device-scene { position: relative; padding-bottom: 6%; }
+
+  .device-laptop {
+    /* The browser it actually runs in. The dots are what makes a rectangle
+       read as a window rather than as a picture with a border. */
+    border-radius: 14px;
+    overflow: hidden;
+    border: 1px solid var(--border);
+    background: var(--bg-card);
+    box-shadow: 0 30px 70px -34px rgba(0,0,0,.6);
+    /* Room on the right so the phone overlaps the screenshot's margin rather
+       than anything worth reading. */
+    width: 88%;
+  }
+  .device-bar {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 9px 12px;
+    background: rgba(255,255,255,.03);
+    border-bottom: 1px solid var(--border);
+  }
+  .device-dot { width: 9px; height: 9px; border-radius: 50%; background: rgba(255,255,255,.18); }
+
+  .device-phone {
+    position: absolute;
+    right: 0;
+    bottom: 0;
+    width: 25%;
+    min-width: 130px;
+    padding: 6px;
+    border-radius: 22px;
+    background: #10151d;
+    box-shadow: 0 24px 50px -22px rgba(0,0,0,.8), inset 0 0 0 1px rgba(255,255,255,.07);
+  }
+  .device-phone::after {
+    content: "";
+    position: absolute;
+    top: 13px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 34px;
+    height: 4px;
+    border-radius: 999px;
+    background: rgba(255,255,255,.18);
+  }
+  .device-phone .device-screen { border-radius: 17px; aspect-ratio: 9 / 19.5; }
+
+  .device-screen { overflow: hidden; background: var(--bg-inset); }
+  .device-screen img {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    object-position: top;
+    cursor: zoom-in;
+  }
+  .device-screen img:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+
+  /* Nothing to show yet. The frames would otherwise stand there empty with a
+     broken-image glyph in them, which looks like a fault rather than like
+     something not done. */
+  .device-scene[data-ready="false"] .device-phone { display: none; }
   /* Zoomable like the three panels below it, so it has to say so. A picture
      that opens on click and looks like a picture that does not is the same
      confusion either way round. */
   .shot img { display: block; width: 100%; height: auto; cursor: zoom-in; }
   .shot img:focus-visible,
-  .handset-frame img:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
 
   .shots {
     display: grid;
@@ -257,66 +326,6 @@
   }
   .shot-panel img:hover { transform: translateY(-2px); box-shadow: 0 18px 40px -22px rgba(0,0,0,.55); }
   .shot-panel img:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
-
-  /* The app on a phone.
-
-     The handset is drawn here rather than supplied as artwork, so the only
-     thing anybody has to produce is a plain screenshot straight off a phone —
-     no frame, no shadow, no compositing. Swapping it later is one file. */
-  .handset {
-    display: grid;
-    grid-template-columns: minmax(0, 260px) minmax(0, 1fr);
-    gap: clamp(24px, 5vw, 56px);
-    align-items: center;
-    margin-bottom: clamp(48px, 8vw, 88px);
-  }
-  .handset-frame {
-    /* A modern phone, near enough. The screenshot is cropped to it rather than
-       the frame stretched to the screenshot, so an odd-sized capture still
-       looks like a phone. */
-    aspect-ratio: 9 / 19.5;
-    width: 100%;
-    max-width: 260px;
-    padding: 10px;
-    border-radius: 34px;
-    background: #10151d;
-    box-shadow: 0 26px 60px -28px rgba(0,0,0,.75), inset 0 0 0 1px rgba(255,255,255,.06);
-    position: relative;
-  }
-  .handset-frame img {
-    cursor: zoom-in;
-    display: block;
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-    object-position: top;
-    border-radius: 25px;
-    background: var(--bg-card);
-  }
-  /* The speaker slit. Small, and the thing that stops the frame reading as a
-     plain rounded rectangle. */
-  .handset-frame::after {
-    content: "";
-    position: absolute;
-    top: 20px;
-    left: 50%;
-    transform: translateX(-50%);
-    width: 52px;
-    height: 5px;
-    border-radius: 999px;
-    background: rgba(255,255,255,.16);
-  }
-  .handset-copy h2 { margin: 0 0 10px; }
-  .handset-note {
-    font-size: 12.5px;
-    color: var(--text-muted);
-    line-height: 1.55;
-    margin: 14px 0 0;
-  }
-  @media (max-width: 860px) {
-    .handset { grid-template-columns: 1fr; justify-items: center; text-align: center; }
-    .handset-copy { text-align: center; }
-  }
 
   /* Full size, on a ground dark enough that the screenshot is the only thing
      being looked at. */
@@ -540,7 +549,38 @@
          of the product in one picture: capture on the phone, totals on the
          desktop. -->
     <section class="shot" aria-label="Taxify on a laptop and a phone">
-      <img src="/media/shot-dashboard.svg" alt="The Taxify dashboard showing a year's totals and spending by category, with the phone app photographing a receipt beside it" width="940" height="560">
+      <div class="device-scene" id="device-scene" data-ready="false">
+        <div class="device-laptop">
+          <div class="device-bar" aria-hidden="true">
+            <span class="device-dot"></span>
+            <span class="device-dot"></span>
+            <span class="device-dot"></span>
+          </div>
+          <div class="device-screen">
+            <img
+              id="hero-desktop"
+              src="/media/shot-dashboard.svg"
+              alt="The Taxify dashboard: a year's totals with spending broken down by category"
+              width="940"
+              height="560"
+            >
+          </div>
+        </div>
+
+        <!-- The same account on a phone, standing in front of it. Hidden until
+             a screenshot exists rather than framing nothing. -->
+        <div class="device-phone">
+          <div class="device-screen">
+            <img
+              id="hero-phone"
+              src="/media/shot-phone.png"
+              alt="Taxify on a phone, photographing a receipt at the counter"
+              width="1080"
+              height="2340"
+            >
+          </div>
+        </div>
+      </div>
     </section>
 
     <!-- Removed from the page entirely when there is no film to show, rather
@@ -586,41 +626,6 @@
       </span>
     </section>
 
-    <!-- The chips above claim an Android app and then offer no way to get one.
-
-         Hidden until the screenshot exists — the script at the foot checks for
-         the file before un-hiding, so a missing image reads as "no phone
-         section yet" rather than as an empty frame with a broken picture in it.
-         Same approach as the demo film. -->
-    <section class="handset" id="handset" aria-label="Taxify on Android" hidden>
-      <div class="handset-frame">
-        <img
-          id="handset-shot"
-          src="https://taxify.mikesapphub.com/media/phone-app.png"
-          alt="Taxify on an Android phone, showing an expense being added with its receipt attached"
-          width="1080"
-          height="2340"
-          loading="lazy"
-        >
-      </div>
-      <div class="handset-copy">
-        <h2>It fits in your pocket</h2>
-        <p>
-          The same account, on your phone. Photograph a receipt at the counter and it is filed before you have put
-          your wallet away — right year, right category, named so you can find it again.
-        </p>
-        <a href="https://taxify.mikesapphub.com/downloads/taxify.apk" class="btn btn-primary btn-lg" download>
-          Download for Android
-        </a>
-        <!-- Both of these cause an email if they are not said. It is Android
-             only, and it installs from us rather than from the Play Store, so
-             the phone will ask before it allows it. -->
-        <p class="handset-note">
-          Android only for now. It installs directly rather than through the Play Store, so your phone will ask you to
-          allow it once — that is normal, and everything else works the same as the website.
-        </p>
-      </div>
-    </section>
 
     <section class="flow" aria-label="How Taxify works">
       <div class="section-head">
@@ -961,23 +966,24 @@
         });
     })();
 
-    // The phone section, on the same terms as the film above.
-    //
-    // Nothing to show until somebody supplies a screenshot, and an empty phone
-    // frame with a broken image in it is worse than no section at all.
-    (function () {
-      var section = document.getElementById('handset');
-      var shot = document.getElementById('handset-shot');
-      if (!section || !shot) return;
+  </script>
 
-      fetch(shot.src, { method: 'HEAD' })
-        .then(function (res) {
-          var type = res.headers.get('content-type') || '';
-          if (res.ok && type.indexOf('image') === 0) section.hidden = false;
-        })
-        .catch(function () {
-          // Offline, or no screenshot yet.
-        });
+  <script>
+    // The phone only appears once there is a screenshot for it.
+    //
+    // A drawn frame standing empty, with a broken-image glyph inside it, reads
+    // as a fault. Absent reads as something not done yet, which is the truth.
+    (function () {
+      var scene = document.getElementById('device-scene');
+      var phone = document.getElementById('hero-phone');
+      if (!scene || !phone) return;
+
+      function ready() { scene.setAttribute('data-ready', 'true'); }
+
+      // Already in cache and decoded before this ran, which is the usual case
+      // on a second visit.
+      if (phone.complete && phone.naturalWidth > 0) ready();
+      phone.addEventListener('load', ready);
     })();
   </script>
 
@@ -1026,7 +1032,7 @@
       //
       // The hero and the phone are screenshots too, and clicking one did
       // nothing — which reads as broken once the ones beside them open.
-      var ZOOMABLE = '.shot-panel img, .shot img, .handset-frame img';
+      var ZOOMABLE = '.shot-panel img, .shot img, .device-screen img';
 
       Array.prototype.forEach.call(document.querySelectorAll(ZOOMABLE), function (img) {
         // Reachable by keyboard as well as by pointer — it is a control now,

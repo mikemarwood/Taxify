@@ -305,6 +305,27 @@ router.post(
           WHERE id = ?`,
         [req.user.id, ticket.id]
       );
+
+      // A plan change that was never invoiced dies with its conversation.
+      //
+      // Closing the ticket already retired the request everywhere that matters
+      // — it stopped blocking a new one, stopped showing on the customer's
+      // account — but the row itself was left saying 'pending'. So the admin
+      // panel went on reporting a request as waiting months after it had been
+      // answered and closed, which is the one place somebody looks to find out
+      // what happened.
+      //
+      // Only the uninvoiced ones. An invoiced request has real money against
+      // it and is cancelled deliberately, by voiding the invoice, not as a
+      // side effect of tidying a queue.
+      await pool
+        .execute(
+          `UPDATE plan_change_requests
+              SET status = 'cancelled', cancelled_at = NOW(), updated_at = NOW()
+            WHERE id = ? AND status = 'pending'`,
+          [ticket.plan_change_request_id || 0]
+        )
+        .catch((err) => console.error('Could not close the plan request with its ticket', err.message));
     } else {
       // Back to needing a reply from us, not from them: whoever reopened it did
       // so because something was left undone at our end.
