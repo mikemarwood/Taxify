@@ -328,8 +328,18 @@
   .shot-panel img:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
 
   /* Full size, on a ground dark enough that the screenshot is the only thing
-     being looked at. */
-  #shotbox {
+     being looked at.
+
+     Opened by :target rather than by script, and that is not a preference.
+     This page is scraped by Mikes App Hub and re-rendered inside its own
+     shell, which keeps the markup and the CSS and drops every script block — so
+     the version real visitors see had markup for a lightbox and nothing to
+     open it. Clicking a screenshot did nothing, and nothing in the page could
+     have told you why.
+
+     A link to #shot-x and a rule on :target needs no script, so it works in
+     both places: here, and in whatever the hub renders. */
+  .lightbox {
     position: fixed;
     inset: 0;
     z-index: 2000;
@@ -340,8 +350,8 @@
     background: rgba(6, 10, 18, .88);
     backdrop-filter: blur(3px);
   }
-  #shotbox[data-open="true"] { display: flex; }
-  #shotbox img {
+  .lightbox:target { display: flex; }
+  .lightbox img {
     max-width: min(1200px, 100%);
     /* Room left for the caption underneath rather than the image filling the
        screen and pushing it off. */
@@ -352,15 +362,15 @@
     border: 1px solid rgba(255,255,255,.14);
     box-shadow: 0 40px 90px -30px rgba(0,0,0,.8);
   }
-  #shotbox figure { margin: 0; display: flex; flex-direction: column; gap: 12px; align-items: center; }
-  #shotbox figcaption {
+  .lightbox figure { margin: 0; display: flex; flex-direction: column; gap: 12px; align-items: center; }
+  .lightbox figcaption {
     font-size: 13px;
     color: rgba(255,255,255,.72);
     text-align: center;
     max-width: 62ch;
     line-height: 1.5;
   }
-  #shotbox .shotbox-close {
+  .lightbox .shotbox-close {
     position: absolute;
     top: 18px;
     right: 18px;
@@ -379,11 +389,19 @@
     font-weight: 700;
     cursor: pointer;
   }
-  #shotbox .shotbox-close:hover { background: rgba(255,255,255,.18); }
+  .lightbox .shotbox-close:hover { background: rgba(255,255,255,.18); }
+  /* Clicking anywhere off the picture closes it, which is what most people try
+     first. A link rather than a handler, for the same reason as the rest. */
+  .lightbox-backdrop { position: absolute; inset: 0; cursor: zoom-out; }
+  /* The wrapper around each picture is a link now. Without this it inherits
+     the page link colour and underline, and draws a box round the image. */
+  .shot-open { display: block; text-decoration: none; color: inherit; border: 0; }
+  .shot-open:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+  .lightbox figure, .lightbox .shotbox-close { position: relative; z-index: 1; }
   @media (max-width: 640px) {
-    #shotbox { padding: 14px; }
-    #shotbox img { max-height: calc(100dvh - 150px); }
-    #shotbox .shotbox-close { top: 10px; right: 10px; }
+    .lightbox { padding: 14px; }
+    .lightbox img { max-height: calc(100dvh - 150px); }
+    .lightbox .shotbox-close { top: 10px; right: 10px; }
   }
   .shot-step {
     display: inline-block;
@@ -557,13 +575,13 @@
             <span class="device-dot"></span>
           </div>
           <div class="device-screen">
-            <img
+            <a class="shot-open" href="#shot-desktop" aria-label="See this larger"><img
               id="hero-desktop"
               src="/media/shot-dashboard.svg"
               alt="The Taxify dashboard: a year's totals with spending broken down by category"
               width="940"
               height="560"
-            >
+            ></a>
           </div>
         </div>
 
@@ -571,13 +589,13 @@
              a screenshot exists rather than framing nothing. -->
         <div class="device-phone">
           <div class="device-screen">
-            <img
+            <a class="shot-open" href="#shot-phone" aria-label="See this larger"><img
               id="hero-phone"
               src="/media/shot-phone.png"
               alt="Taxify on a phone, photographing a receipt at the counter"
               width="1080"
               height="2340"
-            >
+            ></a>
           </div>
         </div>
       </div>
@@ -673,19 +691,19 @@
       </div>
       <div class="shots">
         <div class="shot-panel">
-          <img src="/media/shot-capture.svg" alt="A receipt being photographed on a phone, then confirmed as filed" width="480" height="360" loading="lazy">
+          <a class="shot-open" href="#shot-capture" aria-label="See this larger"><img src="/media/shot-capture.svg" alt="A receipt being photographed on a phone, then confirmed as filed" width="480" height="360" loading="lazy"></a>
           <span class="shot-step">You do this</span>
           <div class="shot-title">Photograph it and move on</div>
           <div class="shot-text">One tap at the counter. Taxify reads the date and the total, and files it under the right category and year.</div>
         </div>
         <div class="shot-panel">
-          <img src="/media/shot-expenses.svg" alt="A list of expenses sorted into categories with a running total" width="480" height="360" loading="lazy">
+          <a class="shot-open" href="#shot-expenses" aria-label="See this larger"><img src="/media/shot-expenses.svg" alt="A list of expenses sorted into categories with a running total" width="480" height="360" loading="lazy"></a>
           <span class="shot-step">Taxify does this</span>
           <div class="shot-title">Everything in one place</div>
           <div class="shot-text">Sorted, searchable, with the receipt attached to the expense — so a question in two years takes a moment, not an afternoon.</div>
         </div>
         <div class="shot-panel">
-          <img src="/media/shot-reports.png" alt="The reports page: three tax years side by side, each category totalled and its share of the whole" width="966" height="896" loading="lazy">
+          <a class="shot-open" href="#shot-reports" aria-label="See this larger"><img src="/media/shot-reports.png" alt="The reports page: three tax years side by side, each category totalled and its share of the whole" width="966" height="896" loading="lazy"></a>
           <span class="shot-step">Come tax time</span>
           <div class="shot-title">The numbers, already added up</div>
           <div class="shot-text">Every category, every year side by side. Hand it to your accountant, or copy it straight into your return.</div>
@@ -987,78 +1005,47 @@
     })();
   </script>
 
-  <div id="shotbox" role="dialog" aria-modal="true" aria-label="Screenshot" data-open="false">
-    <button type="button" class="shotbox-close" aria-label="Close the image">&times; Close</button>
+<div class="lightbox" id="shot-desktop" role="dialog" aria-label="Screenshot">
+    <a class="lightbox-backdrop" href="#" aria-label="Close"></a>
+    <a class="shotbox-close" href="#" aria-label="Close the image">&times; Close</a>
     <figure>
-      <img alt="">
-      <figcaption></figcaption>
+      <img src="/media/shot-dashboard.svg" alt="The Taxify dashboard: a year's totals with spending broken down by category" loading="lazy">
+      <figcaption>The Taxify dashboard: a year's totals with spending broken down by category</figcaption>
+    </figure>
+  </div>
+  <div class="lightbox" id="shot-phone" role="dialog" aria-label="Screenshot">
+    <a class="lightbox-backdrop" href="#" aria-label="Close"></a>
+    <a class="shotbox-close" href="#" aria-label="Close the image">&times; Close</a>
+    <figure>
+      <img src="/media/shot-phone.png" alt="Taxify on a phone, photographing a receipt at the counter" loading="lazy">
+      <figcaption>Taxify on a phone, photographing a receipt at the counter</figcaption>
+    </figure>
+  </div>
+  <div class="lightbox" id="shot-capture" role="dialog" aria-label="Screenshot">
+    <a class="lightbox-backdrop" href="#" aria-label="Close"></a>
+    <a class="shotbox-close" href="#" aria-label="Close the image">&times; Close</a>
+    <figure>
+      <img src="/media/shot-capture.svg" alt="A receipt being photographed on a phone, then confirmed as filed" loading="lazy">
+      <figcaption>A receipt being photographed on a phone, then confirmed as filed</figcaption>
+    </figure>
+  </div>
+  <div class="lightbox" id="shot-expenses" role="dialog" aria-label="Screenshot">
+    <a class="lightbox-backdrop" href="#" aria-label="Close"></a>
+    <a class="shotbox-close" href="#" aria-label="Close the image">&times; Close</a>
+    <figure>
+      <img src="/media/shot-expenses.svg" alt="A list of expenses sorted into categories with a running total" loading="lazy">
+      <figcaption>A list of expenses sorted into categories with a running total</figcaption>
+    </figure>
+  </div>
+  <div class="lightbox" id="shot-reports" role="dialog" aria-label="Screenshot">
+    <a class="lightbox-backdrop" href="#" aria-label="Close"></a>
+    <a class="shotbox-close" href="#" aria-label="Close the image">&times; Close</a>
+    <figure>
+      <img src="/media/shot-reports.png" alt="The reports page: three tax years side by side, each category totalled and its share of the whole" loading="lazy">
+      <figcaption>The reports page: three tax years side by side, each category totalled and its share of the whole</figcaption>
     </figure>
   </div>
 
-  <script>
-    // Clicking a screenshot opens it at full size.
-    //
-    // The panels show a screen at a third of its real width, so every figure in
-    // them is unreadable — which makes the section decorative when the point of
-    // it is "this is what you actually get".
-    (function () {
-      var box = document.getElementById('shotbox');
-      if (!box) return;
-      var full = box.querySelector('img');
-      var caption = box.querySelector('figcaption');
-      var closeButton = box.querySelector('.shotbox-close');
-      var lastFocused = null;
-
-      function open(source) {
-        lastFocused = source;
-        full.src = source.currentSrc || source.src;
-        full.alt = source.alt || '';
-        caption.textContent = source.alt || '';
-        box.setAttribute('data-open', 'true');
-        // The page behind must not scroll under the image.
-        document.body.style.overflow = 'hidden';
-        closeButton.focus();
-      }
-
-      function close() {
-        box.setAttribute('data-open', 'false');
-        document.body.style.overflow = '';
-        // Back where they were, so keyboard and screen-reader users are not
-        // dropped at the top of the document.
-        if (lastFocused) lastFocused.focus();
-      }
-
-      // Every picture of the product, not just the three in the row.
-      //
-      // The hero and the phone are screenshots too, and clicking one did
-      // nothing — which reads as broken once the ones beside them open.
-      var ZOOMABLE = '.shot-panel img, .shot img, .device-screen img';
-
-      Array.prototype.forEach.call(document.querySelectorAll(ZOOMABLE), function (img) {
-        // Reachable by keyboard as well as by pointer — it is a control now,
-        // even though it is still an <img>.
-        img.setAttribute('tabindex', '0');
-        img.setAttribute('role', 'button');
-        img.addEventListener('click', function () { open(img); });
-        img.addEventListener('keydown', function (event) {
-          if (event.key === 'Enter' || event.key === ' ') {
-            event.preventDefault();
-            open(img);
-          }
-        });
-      });
-
-      closeButton.addEventListener('click', close);
-      // Anywhere off the picture also closes it, which is what most people try
-      // first.
-      box.addEventListener('click', function (event) {
-        if (event.target === box) close();
-      });
-      document.addEventListener('keydown', function (event) {
-        if (event.key === 'Escape' && box.getAttribute('data-open') === 'true') close();
-      });
-    })();
-  </script>
 
   <script>
     document.getElementById('year').textContent = new Date().getFullYear();

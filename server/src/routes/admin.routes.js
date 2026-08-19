@@ -448,6 +448,10 @@ router.get(
         promoCode: u.promo_code,
         role: u.role || 'owner',
         isAdmin: !!u.is_admin,
+        // Sent with isAdmin, not only on the list. Without it the Role
+        // dropdown read every account as a regular user — including the ones
+        // the list beside it was correctly badging as support.
+        isSupport: !!u.is_support,
         accountHolder: u.account_holder_id ? { id: u.account_holder_id, name: u.holder_name, email: u.holder_email } : null,
         planType: u.plan_type,
         subscriptionStatus: u.subscription_status,

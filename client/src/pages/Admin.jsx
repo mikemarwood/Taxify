@@ -111,7 +111,13 @@ function trialLapsed(user) {
 // would put lapsed accounts in the Active list, which is the one thing these
 // filters must never do.
 function onTrial(user) {
-  return user?.subscriptionStatus === 'trialing';
+  // Activated, or it is not a trial yet. subscription_status defaults to
+  // trialing on the column, so a sign-up that never opened its activation link
+  // reads as on trial while having no end date and no access — the clock only
+  // starts when they confirm their email. Without this they turn up under On
+  // trial as well as Not activated, which double-counts the one thing this
+  // list is for.
+  return Boolean(user?.active) && user?.subscriptionStatus === 'trialing';
 }
 
 function stillRunning(value) {
@@ -554,6 +560,14 @@ function UsersTab() {
                         opening them. */}
                     {!u.active ? (
                       <Badge tone="amber">Pending activation</Badge>
+                    ) : u.role === 'accountant' ? (
+                      // Somebody who only acts for clients has no plan, so no
+                      // plan state to report. Checked before the statuses
+                      // because the column defaults to trialing and never
+                      // stops saying so — an accountant would otherwise be
+                      // badged as on a trial they were never given, or as
+                      // expired for a plan they never had.
+                      <Badge tone="muted">No plan needed</Badge>
                     ) : u.accessBypass ? (
                       <Badge tone="emerald">Access granted</Badge>
                     ) : u.subscriptionStatus === 'active' ? (

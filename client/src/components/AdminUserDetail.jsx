@@ -278,7 +278,25 @@ export default function AdminUserDetail({ userId, me, onClose, onChanged, action
           exit={{ opacity: 0, y: 16 }}
           onClick={(e) => e.stopPropagation()}
           className="card admin-detail"
-          style={{ width: '100%', maxWidth: 720, padding: 0, marginTop: 24, marginBottom: 24, overflow: 'hidden' }}
+          // The card scrolls, not the backdrop behind it.
+          //
+          // It was overflow: hidden, so the sticky header was stuck to a box
+          // that never moved while the whole card slid up the backdrop — the
+          // name and email scrolled away, which on a long account is exactly
+          // when they are wanted. Giving the card a height and its own
+          // scrollbar is what makes sticky mean anything here, and it fixes the
+          // sticky Actions block at the foot for the same reason.
+          style={{
+            width: '100%',
+            maxWidth: 720,
+            padding: 0,
+            marginTop: 24,
+            marginBottom: 24,
+            maxHeight: 'calc(100dvh - 48px)',
+            overflowY: 'auto',
+            // Still hidden across, so the rounded corners keep their shape.
+            overflowX: 'hidden',
+          }}
         >
           <div
             style={{
