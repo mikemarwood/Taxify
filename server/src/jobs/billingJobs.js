@@ -3,6 +3,7 @@ import {
   sendTrialExpiredEmail,
   sendSubscriptionRenewingEmail,
   sendActivationReminderEmail,
+  sendAccountRemovedEmail,
 } from '../lib/mailer.js';
 import { generateActivationToken } from '../auth/activationToken.js';
 import { publicOrigin, appOrigin } from '../lib/publicOrigin.js';
@@ -16,13 +17,16 @@ const UNACTIVATED_LIFETIME_DAYS = 5;
 // Reminders go out with days remaining, not days elapsed — "expires in 1 day"
 // is the part that matters to the reader.
 //
-// Accountants are excluded from both halves, and that is not tidying-up. An
-// invited accountant's row is unactivated through no fault of their own — their
-// client created it — and deleting it took the client's grant with it by
-// cascade, silently, with the client never told their accountant had vanished
-// from the list. The reminder was wrong for them too: it links to /activate,
-// which is not the page an invitation leads to.
-const NOT_AN_ACCOUNTANT = `role <> 'accountant'`;
+// Accountants used to be excluded from both halves, and the reason was good:
+// an invited accountant's row was unactivated through no fault of their own —
+// their client had created it — and deleting it took the client's grant with it
+// by cascade, silently.
+//
+// That reason is gone. An invitation no longer creates a user row at all; it
+// only ever links an account that already exists. So the only unactivated
+// accountant rows now are people who signed up as accountants themselves and
+// never set a password — exactly the sign-ups this job exists to clear — and
+// excluding them meant they were reminded of nothing and lived for ever.
 
 export async function purgeUnactivatedAccounts(pool) {
   for (const daysLeft of [2, 1]) {
@@ -30,7 +34,6 @@ export async function purgeUnactivatedAccounts(pool) {
     const [rows] = await pool.execute(
       `SELECT id, email, name, first_name FROM users
        WHERE activated_at IS NULL
-         AND ${NOT_AN_ACCOUNTANT}
          AND created_at BETWEEN DATE_SUB(NOW(), INTERVAL ${elapsed + 1} DAY) AND DATE_SUB(NOW(), INTERVAL ${elapsed} DAY)`
     );
 
@@ -58,14 +61,46 @@ export async function purgeUnactivatedAccounts(pool) {
     }
   }
 
-  const [result] = await pool.query(
-    `DELETE FROM users
+  // Read, tell, then delete — one at a time.
+  //
+  // This was a single bulk DELETE, so nobody was ever told their sign-up had
+  // been removed. The row was there one day and gone the next, and somebody
+  // coming back a month later would find their address unrecognised at sign-in
+  // with nothing anywhere to say why.
+  //
+  // The email goes out *before* the row is deleted. Sending afterwards would
+  // mean holding the address in memory to write to it, and a failure between
+  // the two would delete somebody with no word at all. This way a send that
+  // fails leaves the row alone, and the next run an hour later tries again.
+  const [doomed] = await pool.query(
+    `SELECT id, email, name, first_name FROM users
      WHERE activated_at IS NULL
-       AND ${NOT_AN_ACCOUNTANT}
        AND created_at < DATE_SUB(NOW(), INTERVAL ${UNACTIVATED_LIFETIME_DAYS} DAY)`
   );
-  if (result.affectedRows > 0) {
-    console.log(`[cleanup] removed ${result.affectedRows} account(s) that were never activated`);
+
+  let removed = 0;
+  for (const user of doomed) {
+    try {
+      await sendAccountRemovedEmail(
+        user.email,
+        user.first_name || user.name,
+        `${appOrigin()}/register`,
+        UNACTIVATED_LIFETIME_DAYS
+      );
+    } catch (err) {
+      // Left in place deliberately. A mail server having a bad minute is not a
+      // reason to delete somebody's sign-up without telling them, and this runs
+      // again in an hour.
+      console.error(`Could not tell ${user.email} their sign-up was removed — leaving it for now`, err.message);
+      continue;
+    }
+
+    await pool.execute('DELETE FROM users WHERE id = ?', [user.id]);
+    removed += 1;
+  }
+
+  if (removed > 0) {
+    console.log(`[cleanup] removed ${removed} account(s) that were never activated`);
   }
 }
 

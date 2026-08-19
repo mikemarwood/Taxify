@@ -836,6 +836,42 @@ export async function sendAccountantSignUpNeededEmail(to, clientName, registerUr
   });
 }
 
+// The account has gone.
+//
+// Sent as it is deleted, not afterwards, so the last thing that happens to the
+// address is an explanation rather than silence. Somebody who signed up, missed
+// two reminders and then came looking a month later would otherwise find their
+// email unrecognised at sign-in and no record anywhere of why.
+//
+// Warm rather than final: the overwhelmingly likely story is a first email that
+// went to spam, not a decision. Signing up again takes a minute and costs
+// nothing, and this says so.
+export async function sendAccountRemovedEmail(to, name, registerUrl, days) {
+  await sendMail({
+    to,
+    subject: 'Your Taxify sign-up has been removed',
+    title: 'Sign-up removed',
+    heading: `Hi${name ? ` ${escapeHtml(name)}` : ''}, we have cleared up your unfinished sign-up.`,
+    bodyHtml: `
+      <p style="font-size:14px;color:#1f2937;margin:0 0 16px;line-height:1.55;">
+        You started a Taxify account ${days} days ago but never set a password, so it could not be used. We have
+        removed it, along with the email address you gave us — we do not keep details for an account that was never
+        finished.
+      </p>
+      <p style="font-size:14px;color:#1f2937;margin:0 0 16px;line-height:1.55;">
+        Nothing has been lost: there was never anything in it. If the first email went to your junk folder, or life
+        simply got in the way, starting again takes a minute and the 14-day free trial is still there.
+      </p>
+      ${button(registerUrl, 'Sign up again')}
+      ${linkFallback(registerUrl)}
+      <p style="font-size:13px;color:#4b5563;margin:0;line-height:1.55;">
+        If you did not sign up for Taxify, somebody typed your address by mistake and there is nothing left to do —
+        the account is gone and you will hear no more about it.
+      </p>
+    `,
+  });
+}
+
 export async function sendAdminCreatedAccountEmail(to, name, acceptUrl) {
   await sendMail({
     to,
