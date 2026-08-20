@@ -107,6 +107,19 @@ export async function ensureSchema() {
   // also does the books for a relative with nothing to turn on.
   await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS acts_for_clients TINYINT(1) NOT NULL DEFAULT 0`);
 
+  // The readings a distance was worked out from.
+  //
+  // Only the distance was ever kept — "the readings are how somebody arrived at
+  // it, not something the claim is made of", which is true of the claim and
+  // wrong about the logbook. A logbook that records 338 km and a logbook that
+  // records 41,200 to 41,538 are not equally good answers to somebody asking
+  // where the number came from, and the second one is the one being asked for.
+  //
+  // Nullable, because every trip entered before this had no readings to keep
+  // and inventing them would be worse than leaving them blank.
+  await pool.query(`ALTER TABLE vehicle_trips ADD COLUMN IF NOT EXISTS odo_start INT NULL`);
+  await pool.query(`ALTER TABLE vehicle_trips ADD COLUMN IF NOT EXISTS odo_end INT NULL`);
+
   await pool.query(`ALTER TABLE accountant_invites ADD COLUMN IF NOT EXISTS declined_at DATETIME NULL`);
   await pool.query(
     `ALTER TABLE accountant_invites ADD COLUMN IF NOT EXISTS expired_notified_at DATETIME NULL`

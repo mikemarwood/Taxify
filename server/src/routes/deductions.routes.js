@@ -62,7 +62,7 @@ router.get(
     const params = entityId ? [userId, financialYear, entityId] : [userId, financialYear];
 
     const [trips] = await pool.execute(
-      `SELECT id, trip_date, vehicle, km, purpose FROM vehicle_trips
+      `SELECT id, trip_date, vehicle, km, purpose, odo_start, odo_end FROM vehicle_trips
        WHERE user_id = ? AND financial_year = ?${scope} ORDER BY trip_date DESC, id DESC`,
       params
     );
@@ -98,6 +98,10 @@ router.get(
           vehicle: t.vehicle,
           km: Number(t.km),
           purpose: t.purpose || '',
+          // Null for anything logged before the readings were kept, which the
+          // page shows as a distance on its own rather than as a gap.
+          odoStart: t.odo_start === null ? null : Number(t.odo_start),
+          odoEnd: t.odo_end === null ? null : Number(t.odo_end),
         })),
       },
       homeOffice: {
@@ -141,14 +145,28 @@ router.post(
     if (!Number.isFinite(distance) || distance <= 0) return res.status(400).json({ error: 'Enter the kilometres driven' });
     if (distance > 100000) return res.status(400).json({ error: 'That distance is too large' });
 
+    // The readings, where they were given.
+    //
+    // Optional on the wire: trips entered before these existed have none, and a
+    // future caller might only know the distance. Kept only when they are a
+    // pair that agrees with the distance being claimed — a start and an end
+    // that do not subtract to the number on the claim are two different
+    // stories, and storing both would leave nobody able to say which is true.
+    const start = Number(req.body?.odoStart);
+    const end = Number(req.body?.odoEnd);
+    const readings =
+      Number.isInteger(start) && Number.isInteger(end) && start >= 0 && end - start === distance
+        ? { start, end }
+        : null;
+
     // The page names the books rather than relying on what is selected, so a
     // trip can be logged from the combined view without guessing.
     const entityId = await resolveWriteEntity(req.user, ownerOf(req), req.body?.entityId);
     if (!(await assertWritable(req, res, date, entityId))) return;
 
     const [result] = await pool.execute(
-      `INSERT INTO vehicle_trips (user_id, entity_id, financial_year, trip_date, vehicle, km, purpose, created_by)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO vehicle_trips (user_id, entity_id, financial_year, trip_date, vehicle, km, purpose, created_by, odo_start, odo_end)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         ownerOf(req),
         entityId,
@@ -158,6 +176,8 @@ router.post(
         distance,
         purpose ? sentenceCase(purpose).slice(0, 255) || null : null,
         req.user.id,
+        readings ? readings.start : null,
+        readings ? readings.end : null,
       ]
     );
     res.status(201).json({ id: result.insertId });

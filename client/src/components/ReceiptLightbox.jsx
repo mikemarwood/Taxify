@@ -35,11 +35,14 @@ export default function ReceiptLightbox({ url, filename, onClose }) {
           zIndex: 1300,
           padding: 20,
         }}
-        // Clicking the dark outside closes it, which the card below has
-        // always assumed — it stops propagation so a press on the receipt
-        // does not count as a press outside it. That guard was there and
-        // the thing it was guarding against was not.
-        onClick={onClose}
+        // Clicking outside deliberately does nothing.
+        //
+        // A receipt is looked at, dragged and zoomed, and any of those can
+        // end with the pointer past the edge of the image — closing on that
+        // throws away what somebody was in the middle of reading. The cross
+        // and Escape and the Close button are three deliberate ways out,
+        // which is enough; a fourth that fires by accident is not a way out
+        // at all.
       >
         <motion.div
           initial={{ opacity: 0, y: 16, scale: 0.97 }}
@@ -56,7 +59,6 @@ export default function ReceiptLightbox({ url, filename, onClose }) {
             flexDirection: 'column',
             gap: 12,
           }}
-          onClick={(e) => e.stopPropagation()}
         >
           <button
             type="button"

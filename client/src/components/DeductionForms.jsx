@@ -120,6 +120,11 @@ export function TripForm({ entityId, year, onAdded }) {
         vehicle: trip.vehicle,
         purpose: trip.purpose,
         km: tripKm,
+        // The readings as well as the distance. The distance is still what
+        // is claimed and what everything is worked out from; these are the
+        // evidence for it, which is what a logbook is for.
+        odoStart: odoFrom,
+        odoEnd: odoTo,
         entityId,
       });
       playSuccess();

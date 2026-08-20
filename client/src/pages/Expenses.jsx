@@ -77,6 +77,11 @@ function DeductionPanel({ title, icon, rows, summary, render, onRemove, chips })
         {rows.map((row, i) => (
           <div
             key={row.id}
+            // The same class the deductions rows use, so the mobile
+            // rules that give the note a line of its own apply here too.
+            // Without it, at 360px the purpose was allotted whatever was
+            // left over and rendered one word per line.
+            className="deduction-row"
             style={{
               display: 'flex',
               alignItems: 'center',
@@ -456,9 +461,76 @@ export default function Expenses() {
             }
             render={(t) => (
               <>
-                <span style={{ flex: 1, minWidth: 0, fontWeight: 600 }}>{t.vehicle}</span>
-                <span style={{ color: 'var(--text-muted)', flex: 2, minWidth: 0 }}>{t.purpose}</span>
-                <span style={{ fontWeight: 700, whiteSpace: 'nowrap' }}>{t.km.toLocaleString()} km</span>
+                {/* Fixed widths, not flex.
+                    Every column here was elastic, so each row divided itself up
+                    according to how long its own kilometre figure happened to
+                    be — 8 km and 17,792 km pushed the name and the purpose to
+                    different places on adjacent lines, and the column of names
+                    zig-zagged down the page. A width the widest plausible value
+                    fits in holds the same shape on every row. */}
+                <span
+                  style={{
+                    width: 130,
+                    flexShrink: 0,
+                    fontWeight: 600,
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    whiteSpace: 'nowrap',
+                  }}
+                >
+                  {t.vehicle}
+                </span>
+                {/* The readings the distance came from, where they were kept.
+                    A logbook that says 338 km and one that says 41,200 to
+                    41,538 are not equally good answers to somebody asking where
+                    the number came from. Blank for trips entered before they
+                    were stored, rather than invented. */}
+                <span
+                  className="deduction-note"
+                  style={{
+                    width: 150,
+                    flexShrink: 0,
+                    fontSize: 12,
+                    color: 'var(--text-subtle)',
+                    fontVariantNumeric: 'tabular-nums',
+                    whiteSpace: 'nowrap',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                  }}
+                  title={t.odoStart !== null ? 'Odometer at the start and finish' : undefined}
+                >
+                  {t.odoStart !== null && t.odoEnd !== null
+                    ? `${t.odoStart.toLocaleString()} → ${t.odoEnd.toLocaleString()}`
+                    : ''}
+                </span>
+                <span
+                  className="deduction-note"
+                  style={{
+                    flex: 1,
+                    minWidth: 0,
+                    color: 'var(--text-muted)',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    whiteSpace: 'nowrap',
+                  }}
+                >
+                  {t.purpose}
+                </span>
+                {/* Right-aligned in a fixed box and tabular, so the digits line
+                    up as a column of numbers rather than ending wherever each
+                    one happens to end. */}
+                <span
+                  style={{
+                    width: 92,
+                    flexShrink: 0,
+                    textAlign: 'right',
+                    fontWeight: 700,
+                    whiteSpace: 'nowrap',
+                    fontVariantNumeric: 'tabular-nums',
+                  }}
+                >
+                  {t.km.toLocaleString()} km
+                </span>
               </>
             )}
           />
@@ -474,8 +546,33 @@ export default function Expenses() {
             onRemove={(id) => removeDeduction('home-office', id)}
             render={(h) => (
               <>
-                <span style={{ flex: 3, minWidth: 0, color: 'var(--text-muted)' }}>{h.note}</span>
-                <span style={{ fontWeight: 700, whiteSpace: 'nowrap' }}>{formatHours(h.hours)}</span>
+                <span
+                  className="deduction-note"
+                  style={{
+                    flex: 1,
+                    minWidth: 0,
+                    color: 'var(--text-muted)',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    whiteSpace: 'nowrap',
+                  }}
+                >
+                  {h.note}
+                </span>
+                {/* Same fixed, right-aligned, tabular box as the kilometres, so
+                    the two panels read as one page rather than two. */}
+                <span
+                  style={{
+                    width: 92,
+                    flexShrink: 0,
+                    textAlign: 'right',
+                    fontWeight: 700,
+                    whiteSpace: 'nowrap',
+                    fontVariantNumeric: 'tabular-nums',
+                  }}
+                >
+                  {formatHours(h.hours)}
+                </span>
               </>
             )}
           />

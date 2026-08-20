@@ -126,18 +126,45 @@ export default function HoursPicker({ hours, minutes, onChange, disabled = false
         </div>
       </div>
 
-      {/* What is about to be logged, in the form it will be read back in, and
-          in the same place the odometer puts its running distance. The decimal
-          the database keeps is nobody's business but ours. */}
-      <div style={{ fontSize: 11.5, marginTop: 4, lineHeight: 1.5 }}>
+      {/* What is about to be logged, said properly.
+
+          It was 11.5px grey text reading "2h 30m" — the same size as a hint,
+          under two rows of controls, saying the one thing on this form that is
+          actually being claimed. It reads "2 hours 30 minutes" now, at a size
+          that matches its importance rather than its position, in a box that
+          holds its shape whether there is a figure in it or not so the form
+          below does not shift as the numbers change.
+
+          Words rather than the h/m shorthand, because this is the value being
+          checked before it is saved and "2h 30m" is a thing to decode. The
+          decimal the database keeps is nobody's business but ours. */}
+      <div
+        aria-live="polite"
+        style={{
+          marginTop: 6,
+          minHeight: 30,
+          display: 'flex',
+          alignItems: 'center',
+          gap: 7,
+          padding: '4px 10px',
+          borderRadius: 8,
+          border: `1px solid ${h === 0 && m === 0 ? 'var(--border)' : 'var(--emerald)'}`,
+          background: h === 0 && m === 0 ? 'var(--bg-inset)' : 'rgba(12, 115, 67, 0.08)',
+          alignSelf: 'flex-start',
+        }}
+      >
+        <Icon
+          name="clock"
+          size={14}
+          style={{ color: h === 0 && m === 0 ? 'var(--text-subtle)' : 'var(--emerald)', flexShrink: 0 }}
+        />
         {h === 0 && m === 0 ? (
-          <span style={{ color: 'var(--text-muted)' }}>Nothing yet</span>
+          <span style={{ fontSize: 12.5, color: 'var(--text-muted)' }}>No time chosen yet</span>
         ) : (
-          <span style={{ color: 'var(--emerald)', fontWeight: 700 }}>
-            <Icon name="clock" size={13} style={{ verticalAlign: -2, marginRight: 4 }} />
-            {h ? `${h}h` : ''}
-            {h && m ? ' ' : ''}
-            {m ? `${m}m` : ''}
+          <span style={{ fontSize: 13.5, fontWeight: 700, color: 'var(--emerald)' }}>
+            {h > 0 && `${h} ${h === 1 ? 'hour' : 'hours'}`}
+            {h > 0 && m > 0 && ' '}
+            {m > 0 && `${m} minutes`}
           </span>
         )}
       </div>

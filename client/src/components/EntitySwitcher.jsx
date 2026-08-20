@@ -156,15 +156,24 @@ export default function EntitySwitcher({ compact = false }) {
                   it is where 'and I want another one' occurs to them. The row
                   that used to be here pointed at the Categories page, which was
                   never a sensible place for it. */}
-              <div style={{ height: 1, background: 'var(--border)', margin: '5px 2px' }} />
-              <Row
-                icon="book"
-                title="Manage your books"
-                onClick={() => {
-                  setOpen(false);
-                  navigate('/books');
-                }}
-              />
+              {/* Not for an accountant. Inside a client the books are not
+                  theirs to organise, and the page it points at refuses
+                  them — so it was a row that could only ever be a dead
+                  end, offered at the exact moment somebody is looking at
+                  somebody else's books. */}
+              {!user?.actingAsClient && user?.role !== 'accountant' && (
+                <>
+                  <div style={{ height: 1, background: 'var(--border)', margin: '5px 2px' }} />
+                  <Row
+                    icon="book"
+                    title="Manage your books"
+                    onClick={() => {
+                      setOpen(false);
+                      navigate('/books');
+                    }}
+                  />
+                </>
+              )}
             </motion.div>
           )}
         </AnimatePresence>,
