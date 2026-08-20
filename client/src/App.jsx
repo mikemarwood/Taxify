@@ -22,7 +22,6 @@ import AddExpense from './pages/AddExpense.jsx';
 import Categories from './pages/Categories.jsx';
 import Books from './pages/Books.jsx';
 import Reports from './pages/Reports.jsx';
-import Deductions from './pages/Deductions.jsx';
 import Admin from './pages/Admin.jsx';
 import Account from './pages/Account.jsx';
 import Support, { SupportTicket, SupportTicketByToken } from './pages/Support.jsx';
@@ -175,7 +174,10 @@ export default function App() {
       <Route path="/categories" element={<Protected><Categories /></Protected>} />
       <Route path="/books" element={<Protected><Books /></Protected>} />
       <Route path="/reports" element={<Protected><Reports /></Protected>} />
-      <Route path="/deductions" element={<Protected><Deductions /></Protected>} />
+      {/* Kilometres and hours live on Add expense and All expenses now.
+          The path stays because it was in the sidebar for months and is in
+          bookmarks and old emails. */}
+      <Route path="/deductions" element={<Navigate to="/expenses" replace />} />
       <Route path="/account" element={<Protected><Account /></Protected>} />
 
       {/* Support is reachable signed in or not. Somebody who cannot get into

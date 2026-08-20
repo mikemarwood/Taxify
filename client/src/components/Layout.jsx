@@ -37,12 +37,12 @@ const navGroups = [
   {
     title: 'Expenses',
     items: [
+      // Kilometres and hours are the claims that arrive without a receipt.
+      // They had a page of their own, which meant one day of work was filed
+      // across two screens. Adding them is a tab on Add expense now and
+      // reading them is two panels on All expenses, so there is nothing left
+      // here to point at.
       { to: '/add', label: 'Add expense', icon: 'plus-circle' },
-      // Kilometres and hours are the claims that arrive without a receipt, so
-      // this belongs beside adding one rather than three items further down
-      // where it read as an unrelated page. Indented, because it is the same
-      // job done a different way.
-      { to: '/deductions', label: 'Other deductions', icon: 'car', sub: true },
       { to: '/expenses', label: 'All expenses', icon: 'list' },
       { to: '/categories', label: 'Categories', icon: 'tag' },
     ],

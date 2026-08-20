@@ -315,7 +315,7 @@ export default function AddExpense() {
 
           {/* No year is passed, so the date is bounded by today and nothing
               else: the server files an entry into whatever year it falls in,
-              and this page — unlike Other deductions — is not showing one. */}
+              and this page is not showing one. */}
           {kind === 'trip' ? (
             <TripForm entityId={entityId} onAdded={() => setLogged((n) => n + 1)} />
           ) : (
@@ -328,7 +328,7 @@ export default function AddExpense() {
             <div style={{ marginTop: 16, fontSize: 13, color: 'var(--emerald)', fontWeight: 600 }}>
               <Icon name="check" size={14} style={{ verticalAlign: -2, marginRight: 6 }} />
               {logged === 1 ? 'Logged.' : `${logged} logged.`}{' '}
-              <Link to="/deductions" style={{ color: 'var(--accent)', fontWeight: 600 }}>
+              <Link to="/expenses" style={{ color: 'var(--accent)', fontWeight: 600 }}>
                 See them all
               </Link>
             </div>

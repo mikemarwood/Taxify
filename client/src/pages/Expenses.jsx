@@ -14,6 +14,8 @@ import { useAuth } from '../lib/AuthContext.jsx';
 import { formatDayMonth } from '../lib/dates.js';
 import { formatHours } from '../lib/deductionInput.js';
 import { Link } from 'react-router-dom';
+import { useConfirm } from '../lib/ConfirmContext.jsx';
+import { useToast } from '../components/Toast.jsx';
 import Amount from '../components/Amount.jsx';
 import UnconvertedNotice from '../components/UnconvertedNotice.jsx';
 
@@ -49,7 +51,7 @@ function matchesAmount(amount, rawQuery) {
 // total on the right — because it is the same kind of thing: a heap of entries
 // that add up to part of a claim. What it adds up to is kilometres or hours,
 // which is the only difference worth showing.
-function DeductionPanel({ title, icon, rows, summary, render }) {
+function DeductionPanel({ title, icon, rows, summary, render, onRemove, chips }) {
   if (rows.length === 0) return null;
   return (
     <div style={{ marginTop: 20 }}>
@@ -59,6 +61,7 @@ function DeductionPanel({ title, icon, rows, summary, render }) {
         <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>no receipt</span>
         <span style={{ marginLeft: 'auto', fontWeight: 700 }}>{summary}</span>
       </div>
+      {chips}
       <div className="card" style={{ overflow: 'hidden' }}>
         {rows.map((row, i) => (
           <div
@@ -74,12 +77,31 @@ function DeductionPanel({ title, icon, rows, summary, render }) {
           >
             <span style={{ width: 78, flexShrink: 0, color: 'var(--text-muted)' }}>{formatDayMonth(row.date)}</span>
             {render(row)}
+            {onRemove && (
+              <button
+                type="button"
+                title="Remove this entry"
+                aria-label="Remove this entry"
+                onClick={() => onRemove(row.id)}
+                style={{
+                  lineHeight: 0,
+                  background: 'none',
+                  border: 'none',
+                  padding: 0,
+                  cursor: 'pointer',
+                  color: 'var(--text-muted)',
+                  flexShrink: 0,
+                }}
+              >
+                <Icon name="trash" size={15} />
+              </button>
+            )}
           </div>
         ))}
       </div>
       <div style={{ marginTop: 8, fontSize: 12 }}>
-        <Link to="/deductions" style={{ color: 'var(--accent)', fontWeight: 600 }}>
-          Add or remove entries
+        <Link to="/add" style={{ color: 'var(--accent)', fontWeight: 600 }}>
+          Add another
         </Link>
       </div>
     </div>
@@ -88,6 +110,8 @@ function DeductionPanel({ title, icon, rows, summary, render }) {
 
 export default function Expenses() {
   const { user } = useAuth();
+  const confirm = useConfirm();
+  const toast = useToast();
   const { isAll, showSwitcher } = useEntities();
   const [expenses, setExpenses] = useState(null);
   const [year, setYear] = useState(null);
@@ -117,17 +141,18 @@ export default function Expenses() {
 
   useEffect(load, []);
 
+  function loadDeductions(forYear = year) {
+    if (!forYear || forYear === 'all') return;
+    api
+      .get(`/deductions/${encodeURIComponent(forYear)}`)
+      .then((res) => setDeductions(res.data))
+      .catch(() => setDeductions(null));
+  }
+
   useEffect(() => {
     setDeductions(null);
-    if (!year || year === 'all') return;
-    let live = true;
-    api
-      .get(`/deductions/${encodeURIComponent(year)}`)
-      .then((res) => live && setDeductions(res.data))
-      .catch(() => live && setDeductions(null));
-    return () => {
-      live = false;
-    };
+    loadDeductions(year);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [year]);
 
   const years = useMemo(() => {
@@ -192,6 +217,16 @@ export default function Expenses() {
   const tripRows = (deductions?.vehicle?.trips || []).filter(
     (t) => !q || t.vehicle.toLowerCase().includes(q) || t.purpose.toLowerCase().includes(q)
   );
+  async function removeDeduction(kind, id) {
+    if (!(await confirm({ tone: 'danger', title: 'Remove this entry?', confirmLabel: 'Remove' }))) return;
+    try {
+      await api.delete(`/deductions/${kind}/${id}`);
+      loadDeductions();
+    } catch (err) {
+      toast(err.message, 'error');
+    }
+  }
+
   const hourRows = (deductions?.homeOffice?.entries || []).filter((h) => !q || h.note.toLowerCase().includes(q));
 
   return (
@@ -390,6 +425,31 @@ export default function Expenses() {
                   }`
                 : null
             }
+            onRemove={(id) => removeDeduction('vehicle-trips', id)}
+            chips={
+              // One line per car. Two sets of readings against one vehicle are
+              // one claim, and where a country caps the kilometres per car, the
+              // cap applies per car and not to the pile.
+              (deductions?.vehicle?.vehicles || []).length > 1 && (
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 10 }}>
+                  {deductions.vehicle.vehicles.map((v) => (
+                    <span
+                      key={v.vehicle}
+                      style={{
+                        fontSize: 12,
+                        fontWeight: 600,
+                        padding: '5px 11px',
+                        borderRadius: 999,
+                        background: 'var(--bg-inset)',
+                        border: '1px solid var(--border)',
+                      }}
+                    >
+                      {v.vehicle}: {v.claimableKm.toLocaleString()} km
+                    </span>
+                  ))}
+                </div>
+              )
+            }
             render={(t) => (
               <>
                 <span style={{ flex: 1, minWidth: 0, fontWeight: 600 }}>{t.vehicle}</span>
@@ -409,6 +469,7 @@ export default function Expenses() {
                   }`
                 : null
             }
+            onRemove={(id) => removeDeduction('home-office', id)}
             render={(h) => (
               <>
                 <span style={{ flex: 3, minWidth: 0, color: 'var(--text-muted)' }}>{h.note}</span>

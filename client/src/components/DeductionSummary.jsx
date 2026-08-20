@@ -53,7 +53,7 @@ export default function DeductionSummary({ financialYear, expenseClaim }) {
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '14px 18px', borderBottom: '1px solid var(--border)' }}>
         <Icon name="cash" size={18} style={{ color: 'var(--emerald)' }} />
         <span style={{ fontWeight: 700, fontSize: 14 }}>What you're claiming for FY {financialYear}</span>
-        <Link to="/deductions" style={{ marginLeft: 'auto', fontSize: 12.5, color: 'var(--accent)', fontWeight: 600 }}>
+        <Link to="/expenses" style={{ marginLeft: 'auto', fontSize: 12.5, color: 'var(--accent)', fontWeight: 600 }}>
           Kilometres &amp; hours →
         </Link>
       </div>
