@@ -195,12 +195,32 @@ export default function AddExpense() {
   const conversionSettled =
     !foreignCurrency || (conversion.baseAmount !== null && confirmedBase === conversion.baseAmount);
 
-  const formComplete =
-    conversionSettled &&
-    itemName.trim().length >= ITEM_MIN &&
-    amountValue > 0 &&
-    amountValue <= AMOUNT_MAX &&
-    !!purchaseDate;
+  // What is still missing, in the order somebody filled the form in.
+  //
+  // The button was disabled with nothing said, which from the other side of the
+  // screen is a button that does nothing when pressed. Every one of these was
+  // already a condition of submitting — they were simply never mentioned, so
+  // whichever one you had not met was invisible.
+  const missing = [];
+  if (itemName.trim().length < ITEM_MIN) missing.push('what you bought');
+  if (!(amountValue > 0 && amountValue <= AMOUNT_MAX)) missing.push('an amount');
+  // Business use, which is a question only a business is asked — and the one
+  // gate here that could be failed without any sign of it. Typing 0 left the
+  // button live and the server refused with "Business use must be between 1 and
+  // 100 percent", so pressing submit produced a toast about a field halfway up
+  // the form, or nothing at all if it was missed.
+  if (asksBusinessUse) {
+    const pct = Number(businessUsePct);
+    if (!Number.isFinite(pct) || pct <= 0 || pct > 100) missing.push('a business use between 1 and 100%');
+  }
+  // Which books, when there is a choice and nothing has been chosen. The server
+  // refuses this one too, and its refusal is about "books" while the form calls
+  // them something else on the label above.
+  if (!entityId) missing.push('which books this belongs to');
+  if (!purchaseDate) missing.push('a date');
+  if (!conversionSettled) missing.push('the converted amount confirmed');
+
+  const formComplete = missing.length === 0;
 
   async function onSubmit(e) {
     e.preventDefault();
@@ -606,7 +626,14 @@ export default function AddExpense() {
         </div>
 
         <div>
-          <label className="label">Category</label>
+          {/* Optional, and now labelled so. The server has always accepted an
+              expense without one and files it as Uncategorised; the form simply
+              never said, so a required-looking dropdown sat between somebody
+              and a receipt they wanted to file. It can be set later from the
+              expense itself, which is often when it is actually known. */}
+          <label className="label">
+            Category <span style={{ fontWeight: 500, color: 'var(--text-subtle)' }}>— optional</span>
+          </label>
           <select
             className="input"
             value={categoryId}
@@ -618,6 +645,14 @@ export default function AddExpense() {
               setCategoryTouched(true);
             }}
           >
+            {/* Somewhere to land when none of them is right.
+                The list had no empty option, so whatever happened to be
+                first was always selected and there was no way to say
+                "not one of these" — which is the honest answer at the
+                counter more often than it is later. The server has always
+                accepted an expense with no category and files it exactly
+                like this. */}
+            <option value="">Uncategorised</option>
             {categories.map((c) => (
               <option key={c.id} value={c.id}>
                 {c.name}
@@ -698,6 +733,12 @@ export default function AddExpense() {
           />
         </div>
 
+        {/* Why it will not go, rather than a grey button and no explanation. */}
+        {!formComplete && !submitting && !submitted && (
+          <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 4, lineHeight: 1.55 }}>
+            Still needed: {missing.join(', ')}.
+          </div>
+        )}
         <button className="btn btn-primary" type="submit" disabled={submitting || submitted || !formComplete} style={{ marginTop: 4 }}>
           {submitting && !submitted && <span className="spinner" />}
           {submitted ? 'Saved' : submitting ? 'Saving…' : 'Save expense'}
