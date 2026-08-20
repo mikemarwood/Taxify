@@ -745,19 +745,36 @@ router.patch(
 router.get(
   '/:id/receipt',
   asyncHandler(async (req, res) => {
+    // Scoped exactly like the list that links here.
+    //
+    // It read e.user_id = req.user.id, which is the signed-in account. For an
+    // accountant inside a client's books that is the accountant, so every
+    // receipt on the page 404'd — the expense was listed, its thumbnail was
+    // offered, and opening it found nothing. The same was true of a family
+    // member opening an expense somebody else in the household had entered.
+    //
+    // expenseScope rather than dataOwnerId, because it carries the year and
+    // books restrictions as well: an accountant granted one financial year
+    // cannot reach an older year's receipt by guessing an id. The list already
+    // refuses that, and this now refuses it from the same function rather than
+    // from a second opinion.
+    const scope = await expenseScope(req.user);
     const [rows] = await pool.execute(
-      `SELECT e.receipt_path, e.item_name, e.purchase_date, c.name AS category_name, en.path_segment
+      `SELECT e.user_id, e.receipt_path, e.item_name, e.purchase_date, c.name AS category_name, en.path_segment
        FROM expenses e
        LEFT JOIN categories c ON c.id = e.category_id
        LEFT JOIN entities en ON en.id = e.entity_id
-       WHERE e.id = ? AND e.user_id = ?`,
-      [req.params.id, req.user.id]
+       WHERE e.id = ? AND ${scope.clause}`,
+      [req.params.id, ...scope.params]
     );
     const row = rows[0];
     if (!row || !row.receipt_path) return res.status(404).json({ error: 'Receipt not found' });
     // The expense's own books, not whichever ones are selected — a receipt has
     // to open from the combined view too, where nothing is selected at all.
-    const dir = dirFor(req.user.id, row.purchase_date, row.category_name || 'Uncategorised', req.user.financialYearRule, row.path_segment);
+    //
+    // row.user_id, not req.user.id: the file sits under the folder of whoever
+    // entered the expense, which is not the person reading it.
+    const dir = dirFor(row.user_id, row.purchase_date, row.category_name || 'Uncategorised', req.user.financialYearRule, row.path_segment);
     const filePath = assertWithin(uploadsDir, path.join(dir, row.receipt_path));
     if (req.query.download) {
       const ext = path.extname(row.receipt_path);

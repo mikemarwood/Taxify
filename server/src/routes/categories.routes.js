@@ -18,6 +18,7 @@ import {
 } from '../lib/receiptStorage.js';
 import { financialYearRange, defaultFinancialYear } from '../lib/financialYear.js';
 import { ensureCategoriesForYear } from '../lib/categoryYears.js';
+import { dataOwnerId } from '../auth/access.js';
 import { writeEntityId } from '../lib/entities.js';
 import { viewableCopy } from '../lib/heicPreview.js';
 import { serveAttachment } from '../lib/serveAttachment.js';
@@ -419,7 +420,10 @@ router.get(
        JOIN categories c ON c.id = d.category_id
        WHERE d.user_id = ? AND d.financial_year = ?
        ORDER BY c.name, d.uploaded_at DESC, d.id DESC`,
-      [req.user.id, financialYear]
+      // Whose books, not who is reading them. This listed the reader's own
+      // documents, so an accountant inside a client saw an empty year and
+      // concluded there was no paperwork.
+      [dataOwnerId(req.user), financialYear]
     );
 
     res.json({
@@ -456,7 +460,7 @@ router.get(
       `SELECT id, filename, original_name, document_name, financial_year, size_bytes, uploaded_at
        FROM category_documents WHERE category_id = ? AND user_id = ?
        ORDER BY financial_year DESC, uploaded_at DESC, id DESC`,
-      [category.id, req.user.id]
+      [category.id, dataOwnerId(req.user)]
     );
 
     // Grouped server-side because the financial year is the organising idea
@@ -537,13 +541,21 @@ router.get(
     // The row is the authority on what belongs to this category, and on which
     // year folder it sits in — neither the filename nor the year off the URL
     // reaches the filesystem unverified.
+    // dataOwnerId, not req.user.id — whose books these are, rather than who is
+    // reading them. An accountant inside a client's books is themselves, so
+    // every document 404'd for exactly the person the sharing exists for.
+    //
+    // Which categories may be read at all is settled by loadRentalCategory
+    // above, so this is only "which document, inside a category you already
+    // hold" — the narrower question, asked after the wider one.
+    const ownerId = dataOwnerId(req.user);
     const [rows] = await pool.execute(
       'SELECT filename, original_name, financial_year FROM category_documents WHERE category_id = ? AND user_id = ? AND filename = ?',
-      [category.id, req.user.id, req.params.filename]
+      [category.id, ownerId, req.params.filename]
     );
     if (!rows[0]) return res.status(404).json({ error: 'Document not found' });
 
-    const dir = categoryDocumentDir(uploadsDir, req.user.id, category.name, rows[0].financial_year, await entitySegmentFor(category.entity_id));
+    const dir = categoryDocumentDir(uploadsDir, ownerId, category.name, rows[0].financial_year, await entitySegmentFor(category.entity_id));
     let filePath;
     try {
       filePath = assertWithin(uploadsDir, path.join(dir, rows[0].filename));
