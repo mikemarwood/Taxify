@@ -697,6 +697,52 @@ export async function sendAccountantAccessGrantedEmail(to, name, clientName, log
   });
 }
 
+// A change to what this account is, confirmed to the person who made it.
+//
+// Sent to yourself rather than to anyone else, which is the point: turning on
+// acting for clients is a change to what your login can be asked to do, and a
+// change like that arriving in your inbox is how somebody notices one they did
+// not make.
+export async function sendAccountantRoleChangedEmail(to, name, nowActing) {
+  const accountUrl = `${appOrigin()}/account`;
+  await sendMail({
+    to,
+    subject: nowActing ? 'You can now act for clients' : 'You no longer act for clients',
+    title: nowActing ? 'Acting for clients is on' : 'Acting for clients is off',
+    heading: nowActing
+      ? `Hi${name ? ` ${escapeHtml(name)}` : ''}, your account can now act for clients.`
+      : `Hi${name ? ` ${escapeHtml(name)}` : ''}, your account no longer acts for clients.`,
+    bodyHtml: nowActing
+      ? `
+      <p style="font-size:14px;color:#1f2937;margin:0 0 16px;line-height:1.55;">
+        Clients can share their books with you, and invitations will appear on your client list for you to accept or
+        decline. Your own books and everything in them are untouched.
+      </p>
+      <p style="font-size:14px;color:#1f2937;margin:0 0 16px;line-height:1.55;">
+        Two things are asked of anyone who reads somebody else's records: two-factor sign-in, and a practice or firm
+        name so clients know who they have shared with. You will be prompted for both the first time you open a
+        client.
+      </p>
+      ${button(accountUrl, 'See my account')}
+      ${linkFallback(accountUrl)}
+      <p style="font-size:13px;color:#4b5563;margin:0;line-height:1.55;">
+        If this was not you, turn it off from that page and change your password.
+      </p>
+    `
+      : `
+      <p style="font-size:14px;color:#1f2937;margin:0 0 16px;line-height:1.55;">
+        Nobody can share their books with you any more, and you will not be sent invitations. Your own books and
+        everything in them are untouched, and you can turn it back on whenever you like.
+      </p>
+      ${button(accountUrl, 'See my account')}
+      ${linkFallback(accountUrl)}
+      <p style="font-size:13px;color:#4b5563;margin:0;line-height:1.55;">
+        If this was not you, turn it back on from that page and change your password.
+      </p>
+    `,
+  });
+}
+
 // They said no.
 //
 // Worth an email rather than only a badge: the client asked somebody to look at

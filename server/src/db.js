@@ -100,6 +100,13 @@ export async function ensureSchema() {
   // declined_at is the accountant saying no. expired_notified_at is our own
   // bookkeeping: the moment we told the client nobody answered, so the nightly
   // sweep cannot tell them twice.
+  // Acting for other people, as a thing you choose rather than a thing that
+  // happens to you. isAccountant used to mean "has at least one live
+  // assignment", so you became one by being invited and stopped being one
+  // when the last access lapsed — leaving an ordinary account holder who
+  // also does the books for a relative with nothing to turn on.
+  await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS acts_for_clients TINYINT(1) NOT NULL DEFAULT 0`);
+
   await pool.query(`ALTER TABLE accountant_invites ADD COLUMN IF NOT EXISTS declined_at DATETIME NULL`);
   await pool.query(
     `ALTER TABLE accountant_invites ADD COLUMN IF NOT EXISTS expired_notified_at DATETIME NULL`

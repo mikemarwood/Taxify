@@ -39,7 +39,10 @@ export const requireAuth = asyncHandler(async (req, res, next) => {
   // same login can be an account holder tracking their own expenses and an
   // accountant doing someone else's books — which hat they are wearing right
   // now is whether the token names a client.
-  req.user.isAccountant = await hasAssignments(req.user.id);
+  // Assignments, or having said so. The first is how somebody becomes an
+  // accountant by being invited; the second is how an existing account holder
+  // says they act for clients before anybody has invited them.
+  req.user.isAccountant = req.user.actsForClients || (await hasAssignments(req.user.id));
   req.user.actingAsClient = null;
   req.user.allowedFinancialYears = null;
   // null means every set of books. Only ever narrowed for a session that is

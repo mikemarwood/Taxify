@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { describeHours } from '../lib/accessWindow.js';
 import { OFF_SCREEN_INPUT } from '../lib/fileInput.js';
 import { motion } from 'framer-motion';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import Icon from '../components/Icon.jsx';
 import { useAuth } from '../lib/AuthContext.jsx';
 import { useToast } from '../components/Toast.jsx';
@@ -21,6 +21,7 @@ import AccountantBooksPicker from '../components/AccountantBooksPicker.jsx';
 import { titleCase, titleCaseLive, lowerEmail } from '../lib/textCase.js';
 import { onCasedInput } from '../lib/casedInput.js';
 import StartOwnAccount from '../components/StartOwnAccount.jsx';
+import ActsForClientsCard from '../components/ActsForClientsCard.jsx';
 import { currentPlanType, planLabel as labelForPlan, hasLiveSubscription } from '../lib/plans.js';
 
 // The window a date of birth may fall in — matches the sign-up form, so an
@@ -1074,6 +1075,36 @@ function AccountantSection({ user }) {
   const canSubmit =
     lookup.state === 'known' && (allYears || pickedYears.length > 0) && (allBooks || pickedBooks.length > 0);
 
+  // An account that acts for clients does not have an accountant here.
+  //
+  // The two roles pull in opposite directions on the same login: one reads
+  // other people's books, the other hands out sight of its own. Said as a card
+  // rather than a hidden section, because a page that simply drops the thing
+  // somebody came looking for is a page they will keep looking on. The server
+  // refuses it too — this is the half that explains rather than the half that
+  // enforces.
+  if (user?.actsForClients) {
+    return (
+      <div className="card" style={{ padding: 20, display: 'flex', flexDirection: 'column', gap: 12 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
+          <Icon name="briefcase" size={18} style={{ color: 'var(--accent)' }} />
+          <span style={{ fontWeight: 700 }}>Your account acts for clients</span>
+        </div>
+        <p style={{ fontSize: 13.5, color: 'var(--text-muted)', margin: 0, lineHeight: 1.6 }}>
+          So it cannot also share its books with an accountant — one login does one or the other. If you want to give
+          somebody access to your own books, turn off acting for clients under your plan first.
+        </p>
+        <Link
+          to="/account?tab=billing"
+          className="btn btn-ghost"
+          style={{ alignSelf: 'flex-start', fontSize: 13, textDecoration: 'none' }}
+        >
+          Go to my plan
+        </Link>
+      </div>
+    );
+  }
+
   return (
     <div className="card" style={{ padding: 20, display: 'flex', flexDirection: 'column', gap: 18 }}>
       <div>
@@ -1703,6 +1734,10 @@ export default function Account() {
         {tab === 'profile' && <AvatarSection user={user} setUser={setUser} />}
 
         {tab === 'billing' && <BillingSection user={user} />}
+        {/* Beside the plan, because this is the other question about what
+            this account is. Only for an account holder — somebody whose role
+            is already accountant has nothing to turn on. */}
+        {tab === 'billing' && user.role === 'owner' && <ActsForClientsCard user={user} />}
         {tab === 'family' && <AccountantSection user={user} />}
 
       <form

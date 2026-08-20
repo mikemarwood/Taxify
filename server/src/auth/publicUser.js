@@ -31,6 +31,9 @@ export function toPublicUser(user, mfaMode) {
     state: user.state || null,
     businessName: user.business_name || null,
     practiceName: user.practice_name || null,
+    // The switch itself, apart from isAccountant — the page needs to know
+    // which of the two made them one before it can offer to turn it off.
+    actsForClients: !!user.acts_for_clients,
     // How dates should read for this person — from their country, not from
     // whatever the browser happens to be set to.
     locale: localeForCountry(user.country),

@@ -3,6 +3,8 @@ import { EMAIL_PATTERN } from '../lib/emailAddress.js';
 import { PLANS } from '../lib/planLimits.js';
 import { acceptInvite, declineInvite } from '../lib/accountantInviteFlow.js';
 import { wasSent, mergedName, buildProfileUpdate } from '../lib/profilePatch.js';
+import { accountantRoleBlockers, describeBlocker } from '../lib/accountantRole.js';
+import { sendAccountantRoleChangedEmail } from '../lib/mailer.js';
 import multer from 'multer';
 import path from 'path';
 import fs from 'fs';
@@ -593,6 +595,20 @@ router.post(
       return res.status(403).json({
         error:
           'Your plan has ended, so there is nothing to share yet. Start a plan and you can invite your accountant straight away.',
+      });
+    }
+
+    // An accountant does not have an accountant here.
+    //
+    // The two roles pull in opposite directions on the same account: one reads
+    // other people's books, the other hands out sight of its own. Somebody who
+    // acts for clients can turn that off and invite one, which is the same
+    // decision made explicitly rather than both at once.
+    if (req.user.actsForClients) {
+      return res.status(409).json({
+        error:
+          'Your account acts for clients, so it cannot also share its books with an accountant. Turn off acting for clients first.',
+        code: 'acts_for_clients',
       });
     }
 
@@ -1291,6 +1307,64 @@ async function inviteForCaller(req) {
   );
   return rows[0] || null;
 }
+
+// Turning acting-for-clients on and off.
+//
+// Only while nothing is outstanding, in either direction. Moving the switch
+// under live access would change what the word means underneath guards that are
+// written in terms of it, and turning it off with an invitation in flight would
+// leave that invitation to be accepted into an account that no longer claims to
+// act for anybody. What counts as outstanding is in lib/accountantRole.js.
+//
+// requireAccountOwner: this is a choice an account holder makes about their own
+// account. Somebody whose role *is* accountant has nothing to turn on, and a
+// family member is not the person who decides.
+router.post(
+  '/accountant-role',
+  requireAuth,
+  requireAccountOwner,
+  asyncHandler(async (req, res) => {
+    const wanted = req.body?.actsForClients === true;
+    if (wanted === Boolean(req.user.actsForClients)) return res.json({ ok: true, actsForClients: wanted });
+
+    const blockers = await accountantRoleBlockers(req.user);
+    if (blockers.length > 0) {
+      return res.status(409).json({
+        error: `That cannot change while ${describeBlocker(blockers[0])}.`,
+        code: 'accountant_role_blocked',
+        blockers,
+      });
+    }
+
+    await pool.execute('UPDATE users SET acts_for_clients = ? WHERE id = ?', [wanted ? 1 : 0, req.user.id]);
+
+    // Re-signed so the very next request reads the new answer. Without this the
+    // client list would refuse them until the cookie happened to be reissued,
+    // which is the sort of thing that gets reported as "it did not work".
+    const [rows] = await pool.execute('SELECT * FROM users WHERE id = ?', [req.user.id]);
+    res.cookie(COOKIE_NAME, signToken(rows[0]), cookieOptions(true));
+
+    // Told to themselves. A change to what a login can be asked to do is worth
+    // an email, because an email is how somebody notices one they did not make.
+    // Never allowed to fail the change: it has already happened.
+    try {
+      await sendAccountantRoleChangedEmail(req.user.email, req.user.name, wanted);
+    } catch (err) {
+      console.error('Could not confirm the accountant role change by email', err);
+    }
+
+    await notify(req.user.id, {
+      title: wanted ? 'You can now act for clients' : 'You no longer act for clients',
+      body: wanted
+        ? 'Invitations will appear on your client list for you to accept or decline.'
+        : 'Nobody can share their books with you until you turn it back on.',
+      url: '/account',
+      kind: 'accountant',
+    });
+
+    res.json({ ok: true, actsForClients: wanted });
+  })
+);
 
 router.post(
   '/accountant-invites/:id/accept',
