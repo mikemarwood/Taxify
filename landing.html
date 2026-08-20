@@ -440,7 +440,32 @@
   }
   /* The box is reserved before the file arrives, so the page below does not
      jump when it does. */
-  .ad-video { display: block; width: 100%; aspect-ratio: 16 / 9; background: #000; }
+  /* What fills the frame before anybody presses play.
+
+     A poster is optional, and without one a <video> shows whatever is behind
+     it — which was #000, so an advertisement with no poster was a black
+     rectangle that read as broken rather than as a film waiting to be played.
+
+     So the ground is the brand instead: the mark, centred, over the same blue
+     the rest of the page uses. Drawn in CSS rather than shipped as an image so
+     there is no second file to keep, and it costs nothing when a real poster
+     is uploaded — the poster simply covers it.
+
+     The server strips the poster attribute when there is no file, so the
+     browser never requests one that would 404. */
+  .ad-video {
+    display: block;
+    width: 100%;
+    aspect-ratio: 16 / 9;
+    background-color: #0b2e6b;
+    background-image:
+      url('/logo.svg'),
+      radial-gradient(120% 90% at 50% 0%, rgba(59, 130, 246, 0.55) 0%, rgba(11, 46, 107, 0) 70%),
+      linear-gradient(140deg, #12376f 0%, #0b2e6b 55%, #071d45 100%);
+    background-repeat: no-repeat;
+    background-position: center, center, center;
+    background-size: clamp(56px, 12%, 92px) auto, cover, cover;
+  }
 
 
   section { margin-bottom: clamp(48px, 8vw, 88px); }

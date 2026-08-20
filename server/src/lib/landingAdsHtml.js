@@ -14,8 +14,9 @@ import { AD_SLOTS } from './landingAds.js';
 //
 // HTML comments do survive the proxy. That was measured against the live hub
 // copy, not assumed.
-export function cutEmptyAdSlots(html, present) {
+export function cutEmptyAdSlots(html, present, withPoster) {
   const live = Array.isArray(present) ? present : [];
+  const posters = Array.isArray(withPoster) ? withPoster : [];
 
   // Nothing uploaded at all: the whole section goes, heading and all.
   if (live.length === 0) {
@@ -24,9 +25,18 @@ export function cutEmptyAdSlots(html, present) {
 
   let out = html;
   for (const slot of AD_SLOTS) {
-    if (live.includes(slot)) continue;
-    // One film on its own is a single centred frame, not a frame and a gap.
-    out = out.replace(new RegExp(`<!--SLOT:${slot}-->[\\s\\S]*?<!--/SLOT:${slot}-->`), '');
+    if (!live.includes(slot)) {
+      // One film on its own is a single centred frame, not a frame and a gap.
+      out = out.replace(new RegExp(`<!--SLOT:${slot}-->[\\s\\S]*?<!--/SLOT:${slot}-->`), '');
+      continue;
+    }
+    // No poster uploaded: the attribute goes rather than pointing at a URL
+    // that would 404. A poster that fails to load and no poster at all look
+    // the same to the eye, but one of them is a wasted request and a red line
+    // in the console for anybody who opens it.
+    if (!posters.includes(slot)) {
+      out = out.replace(` poster="/media/ads/${slot}-poster"`, '');
+    }
   }
   return out;
 }

@@ -19,7 +19,7 @@ import taxYearRoutes from './routes/taxYears.routes.js';
 import deductionRoutes from './routes/deductions.routes.js';
 import notificationRoutes from './routes/notifications.routes.js';
 import entityRoutes from './routes/entities.routes.js';
-import { adFile, posterFile, adsPresent } from './lib/landingAds.js';
+import { AD_SLOTS, adFile, posterFile, adsPresent } from './lib/landingAds.js';
 import { cutEmptyAdSlots } from './lib/landingAdsHtml.js';
 import { purgeUnactivatedAccounts, runBillingReminders } from './jobs/billingJobs.js';
 import { runRecurringExpenses } from './jobs/expenseJobs.js';
@@ -92,7 +92,11 @@ const LANDING_HTML_PATH = path.join(__dirname, '..', '..', 'landing.html');
 // Comments survive the proxy, which is what makes them usable as cut marks.
 // Verified against the live hub copy rather than assumed.
 function withLandingAds(html) {
-  return cutEmptyAdSlots(html, adsPresent());
+  return cutEmptyAdSlots(
+    html,
+    adsPresent(),
+    AD_SLOTS.filter((slot) => posterFile(slot) !== null)
+  );
 }
 
 async function serveLandingPage(req, res) {

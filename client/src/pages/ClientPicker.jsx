@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { describeHours } from '../lib/accessWindow.js';
 import { onCasedInput } from '../lib/casedInput.js';
 import StartOwnAccount from '../components/StartOwnAccount.jsx';
 import { titleCaseLive } from '../lib/textCase.js';
@@ -11,7 +12,7 @@ import Icon from '../components/Icon.jsx';
 import { SkeletonList } from '../components/Skeletons.jsx';
 import { formatMoney } from '../lib/money.js';
 import { playClick } from '../lib/sounds.js';
-import { formatDateShort } from '../lib/dates.js';
+import { formatDateShort, formatDateLong } from '../lib/dates.js';
 
 function formatDate(value) {
   if (!value) return null;
@@ -136,12 +137,15 @@ export default function ClientPicker() {
   const [opening, setOpening] = useState(null);
   // Whether the plan question has taken over the empty-state card.
   const [startingOwn, setStartingOwn] = useState(false);
+  // Invitations sent to this address that nobody has accepted yet.
+  const [invitations, setInvitations] = useState([]);
 
   useEffect(() => {
     api
       .get('/auth/clients')
       .then((res) => {
         setClients(res.data.clients);
+        setInvitations(res.data.invitations || []);
         setWindowHours(res.data.windowHours || 24);
       })
       .catch((err) => {
@@ -199,6 +203,53 @@ export default function ClientPicker() {
         </div>
 
         {blocked && <SetupRequired missing={setup.missing} onDone={refresh} />}
+
+        {/* Somebody has asked this account to act for them and the invitation
+            has not been accepted yet.
+
+            It appeared nowhere at all before: the email went out, and until the
+            link in it was opened this page said "No clients have shared their
+            books with you" — which was not true, and this is the page an
+            accountant comes to when they are expecting one. An email that went
+            to spam left no trace in the product.
+
+            It says who and until when, and points at the email rather than
+            offering a button. The link is what proves the invitation reached
+            the person it was addressed to, so accepting has to happen there —
+            a button here would accept on behalf of whoever is signed in, which
+            is exactly the check the link exists to make. */}
+        {!startingOwn && invitations.length > 0 && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 22 }}>
+            {invitations.map((invite) => (
+              <div
+                key={invite.id}
+                className="card"
+                style={{
+                  padding: '14px 16px',
+                  display: 'flex',
+                  alignItems: 'flex-start',
+                  gap: 12,
+                  borderLeft: '3px solid var(--accent)',
+                }}
+              >
+                <Icon name="mail" size={17} style={{ color: 'var(--accent)', marginTop: 2, flexShrink: 0 }} />
+                <div style={{ minWidth: 0, flex: 1 }}>
+                  <div style={{ fontWeight: 700, fontSize: 14 }}>
+                    {invite.from} would like you to act for them
+                  </div>
+                  <div style={{ fontSize: 12.5, color: 'var(--text-muted)', marginTop: 3, lineHeight: 1.55 }}>
+                    Open the link in the invitation we emailed you to accept it. It expires{' '}
+                    {formatDateLong(invite.expiresAt)}, and until then their books are not open to anybody.
+                  </div>
+                  <div style={{ fontSize: 11.5, color: 'var(--text-subtle)', marginTop: 5 }}>
+                    Sent to your address · {invite.canWrite ? 'Read and write' : 'Read-only'} ·{' '}
+                    {describeHours(invite.windowHours)} once opened
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
 
         {clients === null ? (
           <SkeletonList rows={3} />

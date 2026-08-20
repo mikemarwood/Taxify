@@ -872,7 +872,42 @@ router.get(
     //
     // The two routes below keep their refusal: acting for nobody is a real
     // reason not to open a client or leave one.
-    if (!(await hasAssignments(req.user.id))) return res.json({ clients: [] });
+
+    // Invitations waiting on this accountant to accept.
+    //
+    // They were nowhere in the product. Somebody asks you to act for them, the
+    // email goes out, and until the link in it is opened this page says "No
+    // clients have shared their books with you" — which is not true, and this
+    // is the exact page an accountant comes to when they are expecting one. An
+    // email that went to spam, or was read on a phone and lost, left no trace
+    // anywhere at all.
+    //
+    // Matched on the address rather than a user id, because that is what the
+    // invitation was addressed to and the account may not have existed when it
+    // was written. Expired ones are left out: a link that no longer works is
+    // not something to offer somebody.
+    const [pendingRows] = await pool.execute(
+      `SELECT i.id, i.expires_at, i.created_at, i.window_hours, i.access_level,
+              u.name AS owner_name, u.email AS owner_email, u.business_name AS owner_business
+         FROM accountant_invites i
+         JOIN users u ON u.id = i.owner_user_id
+        WHERE i.email = ? AND i.accepted_at IS NULL AND i.expires_at > NOW()
+        ORDER BY i.created_at DESC`,
+      [String(req.user.email || '').toLowerCase()]
+    );
+    const invitations = pendingRows.map((r) => ({
+      id: r.id,
+      from: r.owner_business || r.owner_name,
+      email: r.owner_email,
+      expiresAt: r.expires_at,
+      invitedAt: r.created_at,
+      windowHours: normaliseWindowHours(r.window_hours) ?? ACCOUNTANT_WINDOW_HOURS,
+      canWrite: r.access_level === 'write',
+    }));
+
+    if (!(await hasAssignments(req.user.id))) {
+      return res.json({ clients: [], invitations, windowHours: ACCOUNTANT_WINDOW_HOURS });
+    }
 
     const clients = await listAssignments(req.user.id);
 
@@ -924,6 +959,7 @@ router.get(
     // open client has to come from the session rather than from the user row.
     res.json({
       clients: enriched,
+      invitations,
       activeClientId: req.user.actingAsClient?.id || null,
       windowHours: ACCOUNTANT_WINDOW_HOURS,
     });

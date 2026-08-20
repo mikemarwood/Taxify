@@ -45,8 +45,9 @@ test('the other way round, so the loop is not just cutting the first', () => {
   assert.ok(!out.includes('/media/ads/ad-2'));
 });
 
+// Everything uploaded, films and posters both: the page goes out as written.
 test('both uploaded changes nothing at all', () => {
-  const out = cutEmptyAdSlots(LANDING, ['ad-1', 'ad-2']);
+  const out = cutEmptyAdSlots(LANDING, ['ad-1', 'ad-2'], ['ad-1', 'ad-2']);
   assert.equal(out, LANDING);
 });
 
@@ -60,7 +61,7 @@ test('a cut stops at its own closing marker', () => {
 });
 
 test('an unrecognised slot name is ignored rather than cutting anything', () => {
-  const out = cutEmptyAdSlots(LANDING, ['ad-1', 'ad-2', 'ad-99']);
+  const out = cutEmptyAdSlots(LANDING, ['ad-1', 'ad-2', 'ad-99'], ['ad-1', 'ad-2', 'ad-99']);
   assert.equal(out, LANDING);
 });
 
@@ -68,4 +69,34 @@ test('a page with no markers is returned untouched', () => {
   const page = '<html><body>nothing to do here</body></html>';
   assert.equal(cutEmptyAdSlots(page, []), page);
   assert.equal(cutEmptyAdSlots(page, ['ad-1']), page);
+});
+
+// A poster is optional, and the attribute has to go when there is no file —
+// otherwise the browser requests a URL that 404s, for nothing.
+test('the poster attribute is stripped when no poster was uploaded', () => {
+  const out = cutEmptyAdSlots(LANDING, ['ad-1', 'ad-2'], []);
+  assert.ok(!out.includes('poster="/media/ads/ad-1-poster"'));
+  assert.ok(!out.includes('poster="/media/ads/ad-2-poster"'));
+  // The films themselves are untouched.
+  assert.ok(out.includes('/media/ads/ad-1'));
+  assert.ok(out.includes('/media/ads/ad-2'));
+});
+
+test('a poster that was uploaded keeps its attribute', () => {
+  const out = cutEmptyAdSlots(LANDING, ['ad-1', 'ad-2'], ['ad-1']);
+  assert.ok(out.includes('poster="/media/ads/ad-1-poster"'));
+  assert.ok(!out.includes('poster="/media/ads/ad-2-poster"'));
+});
+
+test('a cut slot takes its poster attribute with it', () => {
+  const out = cutEmptyAdSlots(LANDING, ['ad-2'], ['ad-1', 'ad-2']);
+  assert.ok(!out.includes('ad-1-poster'));
+  assert.ok(out.includes('poster="/media/ads/ad-2-poster"'));
+});
+
+// Omitting the third argument has to keep meaning "no posters", so an older
+// caller cannot leave a 404 behind.
+test('no poster list means no posters', () => {
+  const out = cutEmptyAdSlots(LANDING, ['ad-1']);
+  assert.ok(!out.includes('ad-1-poster'));
 });
