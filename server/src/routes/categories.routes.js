@@ -184,7 +184,13 @@ router.post(
       res.status(201).json({ category: rows[0] });
     } catch (err) {
       if (err.code === 'ER_DUP_ENTRY') {
-        return res.status(409).json({ error: `You already have a category called that in ${financialYear}` });
+        // Named for the books as well as the year. A name can repeat across
+        // sets of books now, so "you already have one" without saying where
+        // would be about a category they may be looking straight at on a
+        // different book.
+        return res
+          .status(409)
+          .json({ error: `These books already have a category called that in ${financialYear}` });
       }
       throw err;
     }
@@ -287,7 +293,7 @@ router.patch(
       });
     } catch (err) {
       if (err.code === 'ER_DUP_ENTRY') {
-        return res.status(409).json({ error: 'A category with that name already exists' });
+        return res.status(409).json({ error: 'These books already have a category with that name' });
       }
       throw err;
     }

@@ -477,17 +477,31 @@ export async function ensureSchema() {
   if (indexNames.includes('uniq_categories_user_name')) {
     await pool.query(`ALTER TABLE categories DROP INDEX uniq_categories_user_name`);
   }
-  // Already superseded — leave it alone, and remove it if a previous boot put it
-  // back alongside the key that replaced it.
-  if (indexNames.includes('uniq_categories_user_entity_name_year')) {
-    if (indexNames.includes('uniq_categories_user_name_year')) {
-      await pool.query(`ALTER TABLE categories DROP INDEX uniq_categories_user_name_year`);
-      console.log('[schema] removed the superseded category key that was blocking two businesses sharing a name');
-    }
-  } else if (!indexNames.includes('uniq_categories_user_name_year')) {
+  // Categories belong to a set of books, and the key has to agree.
+  //
+  // entity_id has been on this table for a long time and the list has always
+  // filtered by it, so categories looked per-book — but the unique key was
+  // (user_id, name, financial_year) with no entity in it, which made "Fuel" on
+  // the business and "Fuel" on the personal books the same row as far as the
+  // database was concerned. One of the two could exist and the other collided.
+  // So they were per-book in the reading and shared in the writing, which is
+  // the worst of both.
+  //
+  // This block already knew about the wider key by name and only ever dropped
+  // the narrow one *if the wide one was already there* — which nothing created.
+  // It creates it now.
+  //
+  // Order matters: the wider key is added first, and it cannot fail on
+  // duplicates because the narrower key it replaces forbade them.
+  if (!indexNames.includes('uniq_categories_user_entity_name_year')) {
     await pool.query(
-      `ALTER TABLE categories ADD UNIQUE KEY uniq_categories_user_name_year (user_id, name, financial_year)`
+      `ALTER TABLE categories ADD UNIQUE KEY uniq_categories_user_entity_name_year (user_id, entity_id, name, financial_year)`
     );
+    console.log('[schema] categories are keyed per set of books');
+  }
+  if (indexNames.includes('uniq_categories_user_name_year')) {
+    await pool.query(`ALTER TABLE categories DROP INDEX uniq_categories_user_name_year`);
+    console.log('[schema] removed the category key that stopped two books sharing a name');
   }
 
   // A property rental has paperwork that belongs to the property itself rather

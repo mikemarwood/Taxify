@@ -32,6 +32,7 @@ import { migrateCurrencyBase } from './migrations/currencyBase.js';
 import { migrateEntities } from './migrations/entities.js';
 import { migrateAccountantInvites } from './migrations/accountantInvites.js';
 import { migrateCategoryEntities } from './migrations/categoryEntities.js';
+import { migrateCategoriesEveryBook } from './migrations/categoriesEveryBook.js';
 import { migrateRemoveSecondLogins } from './migrations/removeSecondLogins.js';
 import { migrateAccountNumbers } from './migrations/accountNumbers.js';
 import { closeExpiredAssignments } from './auth/accountants.js';
@@ -414,6 +415,9 @@ try {
 // owner's default set of books, and that has to exist first.
 try {
   await migrateCategoryEntities(pool);
+  // After the one above, which is what puts a set of books on the stranded
+  // rows — copying them across before that would copy rows with no book.
+  await migrateCategoriesEveryBook(pool);
 } catch (err) {
   console.error('Failed to place categories into their set of books');
   console.error(err);
