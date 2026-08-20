@@ -75,6 +75,13 @@ export async function acceptInvite(invite, accountantUserId) {
     [accountantUserId, invite.id]
   );
 
+  // Accepting is somebody saying they act for clients, so it is recorded as
+  // that rather than inferred from the assignment that happens to exist right
+  // now. Otherwise removing the last client takes away the fact along with the
+  // client, and the sidebar loses Your clients for somebody who is plainly
+  // still an accountant.
+  await pool.execute('UPDATE users SET acts_for_clients = 1 WHERE id = ?', [accountantUserId]);
+
   await notify(invite.owner_user_id, {
     title: 'Your accountant accepted',
     body: 'They can now open your books. You will be told the first time they do.',

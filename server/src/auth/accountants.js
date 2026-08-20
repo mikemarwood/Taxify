@@ -178,6 +178,34 @@ export async function openAssignment(accountantUserId, ownerUserId) {
 // Whether this login acts for anybody. Being an accountant is no longer a role
 // someone is instead of being a normal user — it is simply having clients, so
 // an account holder who also does other people's books is one login with both.
+// Whether this login has anything to do with acting for other people.
+//
+// hasAssignments alone was the test, and it is the wrong one in both
+// directions.
+//
+// Remove the last client and it goes false, so Your clients vanishes from the
+// sidebar — and with it the only page where an invitation can be accepted. Send
+// that same person access again and they cannot get to it: a pending invitation
+// is not an assignment, so the page that would let them accept is hidden until
+// they have accepted. A deadlock with no way out from inside the app.
+//
+// One query rather than two, because this runs on every authenticated request.
+export async function actsForAnyone(userId, email) {
+  const [rows] = await pool.execute(
+    `SELECT
+       EXISTS(
+         SELECT 1 FROM accountant_assignments a
+          WHERE a.accountant_user_id = ? AND ${LIVE_ASSIGNMENT}
+       ) AS holds,
+       EXISTS(
+         SELECT 1 FROM accountant_invites i
+          WHERE i.email = ? AND i.accepted_at IS NULL AND i.declined_at IS NULL AND i.expires_at > NOW()
+       ) AS invited`,
+    [userId, String(email || '').toLowerCase()]
+  );
+  return Boolean(rows[0]?.holds) || Boolean(rows[0]?.invited);
+}
+
 export async function hasAssignments(userId) {
   const [rows] = await pool.execute(
     `SELECT 1 FROM accountant_assignments a WHERE a.accountant_user_id = ? AND ${LIVE_ASSIGNMENT} LIMIT 1`,

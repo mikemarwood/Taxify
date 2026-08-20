@@ -3,7 +3,7 @@ import pool, { getMfaMode } from '../db.js';
 import { asyncHandler } from '../lib/asyncHandler.js';
 import { toPublicUser } from './publicUser.js';
 import { computeAccessLocked, dataOwnerId, financialYearRuleFor } from './access.js';
-import { findAssignment, hasAssignments } from './accountants.js';
+import { actsForAnyone, findAssignment } from './accountants.js';
 import { accountantSetupState, blocksExistingSession } from './accountantOnboarding.js';
 import { resolveRequestEntity } from '../lib/entityScope.js';
 import { touchLastSeen } from '../lib/presence.js';
@@ -39,10 +39,20 @@ export const requireAuth = asyncHandler(async (req, res, next) => {
   // same login can be an account holder tracking their own expenses and an
   // accountant doing someone else's books — which hat they are wearing right
   // now is whether the token names a client.
-  // Assignments, or having said so. The first is how somebody becomes an
-  // accountant by being invited; the second is how an existing account holder
-  // says they act for clients before anybody has invited them.
-  req.user.isAccountant = req.user.actsForClients || (await hasAssignments(req.user.id));
+  // Three ways to be one, and any of them is enough.
+  //
+  // acts_for_clients is the switch on the plan page — an account holder saying
+  // they do this, before anybody has invited them. It is also set the first
+  // time an invitation is accepted, which is what makes it stick: removing the
+  // last client takes away that client, not the fact that this login acts for
+  // people.
+  //
+  // The live check covers the case that used to deadlock. Somebody invited for
+  // the first time has no assignment yet, and Your clients is the only page
+  // where an invitation can be accepted — so hiding it until they had accepted
+  // meant they never could.
+  req.user.isAccountant =
+    req.user.actsForClients || (await actsForAnyone(req.user.id, req.user.email));
   req.user.actingAsClient = null;
   req.user.allowedFinancialYears = null;
   // null means every set of books. Only ever narrowed for a session that is
