@@ -6,9 +6,9 @@ import { useEntities } from '../lib/EntityContext.jsx';
 import { useToast } from '../components/Toast.jsx';
 import Icon from '../components/Icon.jsx';
 import { SkeletonList } from '../components/Skeletons.jsx';
-import { formatDayMonth } from '../lib/dates.js';
+import { formatDayMonth, todayIso } from '../lib/dates.js';
 import { useFinancialYears } from '../lib/useFinancialYears.js';
-import { currentFinancialYear } from '../lib/financialYear.js';
+import { currentFinancialYear, financialYearRange } from '../lib/financialYear.js';
 import { playSuccess, playError, onDigitKeyDown } from '../lib/sounds.js';
 import { useConfirm } from '../lib/ConfirmContext.jsx';
 import HoursPicker from '../components/HoursPicker.jsx';
@@ -95,6 +95,25 @@ export default function Deductions() {
 
   const readOnly = !!user?.actingAsClient;
 
+  // What a date field will accept.
+  //
+  // Two limits, and both belong on the picker rather than in a message
+  // afterwards. Nothing in the future, because a logbook is a record of what
+  // happened. And nothing outside the year the page is showing, because the
+  // server files an entry by its date: a trip dated outside this year would
+  // save successfully and then not be in the list it was just added to.
+  //
+  // The bounds come from the same rule the rest of the app uses, so a year
+  // that runs April to April is bounded April to April.
+  const fyRange = financialYearRange(year, user?.financialYearRule);
+  const today = todayIso();
+  const dateMin = fyRange ? fyRange.start : undefined;
+  const dateMax = fyRange && fyRange.end < today ? fyRange.end : today;
+
+  // The picker enforces this, but a date can still be typed into it, so the
+  // button reads the same bounds rather than trusting the widget.
+  const dateOk = (value) => Boolean(value) && (!dateMin || value >= dateMin) && value <= dateMax;
+
   // Two ways to say the same thing: the distance, or the two odometer
   // readings it came from. A logbook is kept in readings, and subtracting them
   // by hand is both a chore and the easiest place to make a mistake nobody
@@ -109,7 +128,13 @@ export default function Deductions() {
   const [hours, setHours] = useState({ date: '', h: '', m: '', note: '' });
 
   useEffect(() => {
-    if (!year && years.length > 0) setYear(years.includes(currentFinancialYear()) ? currentFinancialYear() : years[0]);
+    // The rule matters here: without it this asks for the Australian year and
+    // never matches a British one, so those accounts always opened on their
+    // oldest year instead of this one.
+    if (!year && years.length > 0) {
+      const now = currentFinancialYear(user?.financialYearRule);
+      setYear(years.includes(now) ? now : years[0]);
+    }
   }, [years, year]);
 
   // Follows the sidebar until somebody changes it here, and falls back to the
@@ -225,12 +250,12 @@ export default function Deductions() {
       : '';
 
   const tripReady =
-    Boolean(trip.date) && trip.vehicle.trim().length > 0 && (tripKm || 0) > 0 && !odoProblem;
+    dateOk(trip.date) && trip.vehicle.trim().length > 0 && (tripKm || 0) > 0 && !odoProblem;
 
   // Hours needs a date and a time above zero. Either dropdown alone is enough
   // — 45 minutes with no hours is a perfectly ordinary entry — so it is the
   // total that has to be more than nothing.
-  const hoursReady = Boolean(hours.date) && toDecimalHours(hours.h, hours.m) > 0;
+  const hoursReady = dateOk(hours.date) && toDecimalHours(hours.h, hours.m) > 0;
 
   const vehicle = data?.vehicle;
   const office = data?.homeOffice;
@@ -359,6 +384,8 @@ export default function Deductions() {
                     className="input"
                     type="date"
                     required
+                    min={dateMin}
+                    max={dateMax}
                     value={trip.date}
                     onChange={(e) => setTrip({ ...trip, date: e.target.value })}
                   />
@@ -514,6 +541,8 @@ export default function Deductions() {
                     className="input"
                     type="date"
                     required
+                    min={dateMin}
+                    max={dateMax}
                     value={hours.date}
                     onChange={(e) => setHours({ ...hours, date: e.target.value })}
                   />

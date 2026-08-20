@@ -15,6 +15,20 @@ import { ratesFor, vehicleClaim, homeOfficeClaim, RATE_KEYS } from '../lib/deduc
 const router = Router();
 router.use(requireAuth, requireActiveAccess);
 
+// A logbook records what happened, so neither entry may be dated ahead.
+//
+// The pickers already stop this, and stopping it there is the useful half —
+// but the picker is a suggestion to anything that is not a browser, and a
+// claim dated next March is the sort of thing an audit asks about.
+//
+// A day of slack, because this server keeps UTC and an account in Auckland is
+// most of a day ahead of it. Refusing somebody their own today to be strict
+// about a date nobody can reach anyway is the worse trade.
+function isFutureDate(date) {
+  const limit = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+  return String(date) > limit;
+}
+
 // The two deductions that are not expenses: kilometres driven for work and
 // hours worked from home. Both are logged as they happen, because both are
 // claimed at a rate that only works if the record is contemporaneous.
@@ -120,6 +134,7 @@ router.post(
   asyncHandler(async (req, res) => {
     const { date, vehicle, km, purpose } = req.body || {};
     if (!/^\d{4}-\d{2}-\d{2}$/.test(String(date || ''))) return res.status(400).json({ error: 'Enter the trip date' });
+    if (isFutureDate(date)) return res.status(400).json({ error: 'A trip cannot be dated in the future' });
     if (!vehicle || !String(vehicle).trim()) return res.status(400).json({ error: 'Name the vehicle' });
 
     const distance = Number(km);
@@ -169,6 +184,7 @@ router.post(
   asyncHandler(async (req, res) => {
     const { date, hours, note } = req.body || {};
     if (!/^\d{4}-\d{2}-\d{2}$/.test(String(date || ''))) return res.status(400).json({ error: 'Enter the date' });
+    if (isFutureDate(date)) return res.status(400).json({ error: 'Hours cannot be dated in the future' });
 
     const worked = Number(hours);
     if (!Number.isFinite(worked) || worked <= 0) return res.status(400).json({ error: 'Enter the hours worked' });

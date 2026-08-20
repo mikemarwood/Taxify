@@ -20,6 +20,18 @@ export function getDateLocale() {
   return locale;
 }
 
+// Today, as an <input type="date"> reads it.
+//
+// Built from the local parts rather than toISOString(), which converts to UTC
+// first: at any hour before 10am in Sydney that returns yesterday, so a "no
+// future dates" limit would refuse today for half the working day.
+export function todayIso() {
+  const now = new Date();
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  const day = String(now.getDate()).padStart(2, '0');
+  return `${now.getFullYear()}-${month}-${day}`;
+}
+
 function toDate(value) {
   if (!value) return null;
   const d = value instanceof Date ? value : new Date(value);
