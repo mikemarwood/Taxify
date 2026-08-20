@@ -195,8 +195,8 @@ export default function PlanComparison({ user, onChoose, chooseLabel, refreshKey
                       : 'You can move down when your current plan ends — it covers more books than this one'
                     : waiting
                     ? invoiced
-                      ? 'Already asked for — the invoice is on its way'
-                      : 'Already asked for — we are looking at it'
+                      ? 'Already requested — the invoice is on its way'
+                      : 'Already requested — we are looking at it'
                     : onChoose
                     ? `${chooseLabel || 'Subscribe to'} ${plan.name} →`
                     : `Switch to ${plan.name} →`}

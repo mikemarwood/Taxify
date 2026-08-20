@@ -22,7 +22,19 @@ export default function ActsForClientsCard({ user }) {
   const confirm = useConfirm();
   const [busy, setBusy] = useState(false);
 
-  const on = Boolean(user?.actsForClients);
+  // isAccountant, not the stored flag.
+  //
+  // The flag is only one of the three ways to be an accountant — the other two
+  // are holding a client and having the role. Reading it alone meant somebody
+  // who became an accountant by accepting an invitation saw this card offering
+  // to turn on a thing they had been doing for months, and no way at all to
+  // turn it off. The switch has to show the state somebody is actually in
+  // before it can offer to change it.
+  //
+  // Turning it off from here still goes through the same guard: it clears the
+  // flag, and if a client or an invitation is what is making them an accountant
+  // the server refuses and names it, which is the useful answer.
+  const on = Boolean(user?.isAccountant);
 
   async function set(next) {
     const ok = await confirm({
@@ -80,6 +92,15 @@ export default function ActsForClientsCard({ user }) {
           ? 'Clients can share their books with you, and invitations appear on your client list. Your own books and plan are unaffected.'
           : 'Turn this on if you keep books for other people as well as your own. They share theirs with you, on this same login, and your own books and plan are unaffected.'}
       </p>
+
+      {/* Said while it is on, not only when the press is refused. Somebody who
+          wants to stop should know what is in the way before they try, and the
+          two things in the way are the two things they can go and clear. */}
+      {on && (
+        <p style={{ fontSize: 12, color: 'var(--text-subtle)', margin: 0, lineHeight: 1.55 }}>
+          To turn it off, first decline or let go of every client, and make sure no invitation is waiting either way.
+        </p>
+      )}
 
       {/* Said before it is pressed rather than as a refusal afterwards. The two
           roles pull in opposite directions on one account: one reads other

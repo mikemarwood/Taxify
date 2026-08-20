@@ -1311,6 +1311,14 @@ function StripeSettingsTab() {
   );
 }
 
+// The three lists, in the order they matter: what everybody gets, then what
+// each kind of books gets on top of it.
+const GROUPS = [
+  { id: 'both', label: 'Every set of books', hint: 'personal and business alike' },
+  { id: 'individual', label: 'Personal books only', hint: 'not added to a business' },
+  { id: 'business', label: 'Business books only', hint: 'not added to personal books' },
+];
+
 function DefaultCategoriesTab() {
   const toast = useToast();
   const [categories, setCategories] = useState(null);
@@ -1329,14 +1337,15 @@ function DefaultCategoriesTab() {
   // account's first set of books, while a hard-coded pair fed every book made
   // afterwards. Editing here changed nothing about the rest, and there was
   // nothing on screen to say so.
-  const [kind, setKind] = useState('individual');
+  const [kind, setKind] = useState('both');
   const [editKind, setEditKind] = useState('individual');
 
-  // A name only clashes with the list it is on, plus the shared one — the same
-  // rule the unique key enforces, asked here so the answer arrives before the
-  // press rather than as a refusal after it.
-  const onThisList = (categories || []).filter((c) => c.kind === kind || c.kind === 'both');
-  const existingNames = onThisList.map((c) => c.name);
+  // A name clashes with the list being added to, plus the shared one — the
+  // same rule the unique key enforces, asked here so the answer arrives before
+  // the press rather than as a refusal after it.
+  const existingNames = (categories || [])
+    .filter((c) => (kind === 'both' ? true : c.kind === kind || c.kind === 'both'))
+    .map((c) => c.name);
   const nameError = categoryNameError(name, existingNames);
   const nameReady = isCategoryNameReady(name, existingNames);
   const editNameError = categoryNameError(editName, existingNames, categories?.find((c) => c.id === editingId)?.name);
@@ -1430,51 +1439,82 @@ function DefaultCategoriesTab() {
 
         <IconPicker value={icon} onChange={setIcon} />
 
+        {/* Which list this one goes on. On the form, because it is a
+            property of the category being added rather than of the page —
+            a tab at the top made it look like a filter while quietly
+            deciding this as well. */}
+        <div>
+          <label className="label">Added to</label>
+          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+            {GROUPS.map((g) => {
+              const on = kind === g.id;
+              return (
+                <button
+                  key={g.id}
+                  type="button"
+                  onClick={() => setKind(g.id)}
+                  style={{
+                    fontSize: 12.5,
+                    fontWeight: 600,
+                    padding: '7px 12px',
+                    borderRadius: 8,
+                    cursor: 'pointer',
+                    color: on ? '#fff' : 'var(--text-muted)',
+                    background: on ? 'var(--accent)' : 'var(--bg-card)',
+                    border: `1px solid ${on ? 'var(--accent)' : 'var(--border)'}`,
+                  }}
+                >
+                  {g.label}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
         <button className="btn btn-primary" disabled={busy || !nameReady} type="submit" style={{ alignSelf: 'flex-start' }}>
           {busy && <span className="spinner" />}
           Add default category
         </button>
       </form>
 
-      {/* Which list is on screen. Individual and business start different sets
-          of books off, and "both" is for the handful — General, Other — that
-          belong on either. */}
-      <div style={{ display: 'flex', gap: 8, marginBottom: 16, flexWrap: 'wrap' }}>
-        {[
-          { id: 'individual', label: 'Personal books' },
-          { id: 'business', label: 'Business books' },
-        ].map((tab) => {
-          const on = kind === tab.id;
-          const count = (categories || []).filter((c) => c.kind === tab.id || c.kind === 'both').length;
-          return (
-            <button
-              key={tab.id}
-              type="button"
-              onClick={() => setKind(tab.id)}
-              style={{
-                fontSize: 13,
-                fontWeight: 600,
-                padding: '8px 14px',
-                borderRadius: 999,
-                cursor: 'pointer',
-                color: on ? '#fff' : 'var(--text-muted)',
-                background: on ? 'var(--accent)' : 'var(--bg-card)',
-                border: `1px solid ${on ? 'var(--accent)' : 'var(--border)'}`,
-              }}
-            >
-              {tab.label}
-              <span style={{ opacity: 0.75, marginLeft: 7, fontWeight: 500 }}>{count}</span>
-            </button>
-          );
-        })}
-      </div>
+      {/* All three groups at once, rather than one at a time.
 
+          They were tabs, which meant looking at the personal list hid the
+          business one — and the question an administrator actually has is
+          usually about the difference between them. Comparing two lists by
+          clicking back and forth is not comparing them. */}
       {categories === null ? (
         <SkeletonList rows={4} />
       ) : (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 14 }}>
-          <AnimatePresence initial={false}>
-            {onThisList.map((c) => {
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 26 }}>
+          {GROUPS.map((group) => {
+            const rows = categories.filter((c) => (c.kind || 'both') === group.id);
+            return (
+              <div key={group.id}>
+                <div style={{ display: 'flex', alignItems: 'baseline', gap: 9, marginBottom: 10, flexWrap: 'wrap' }}>
+                  <span style={{ fontWeight: 700, fontSize: 14 }}>{group.label}</span>
+                  <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>{group.hint}</span>
+                  <span style={{ marginLeft: 'auto', fontSize: 12, color: 'var(--text-muted)' }}>
+                    {rows.length} {rows.length === 1 ? 'category' : 'categories'}
+                  </span>
+                </div>
+
+                {rows.length === 0 ? (
+                  <div
+                    style={{
+                      padding: 18,
+                      borderRadius: 'var(--radius-sm)',
+                      border: '1px dashed var(--border)',
+                      fontSize: 12.5,
+                      color: 'var(--text-muted)',
+                    }}
+                  >
+                    Nothing here yet.
+                  </div>
+                ) : (
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 14 }}>
+                    <AnimatePresence initial={false}>
+                      {rows.map((c) => {
               const editing = editingId === c.id;
               return (
                 <motion.div
@@ -1553,8 +1593,13 @@ function DefaultCategoriesTab() {
                   )}
                 </motion.div>
               );
-            })}
-          </AnimatePresence>
+                      })}
+                    </AnimatePresence>
+                  </div>
+                )}
+              </div>
+            );
+          })}
         </div>
       )}
     </div>

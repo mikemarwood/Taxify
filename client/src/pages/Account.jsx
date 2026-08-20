@@ -486,7 +486,7 @@ function BillingSection({ user }) {
         </div>
       )}
 
-      <PlanComparison user={user} onChoose={requestPlan} chooseLabel="Ask to move to" refreshKey={openRequest?.id || 0} />
+      <PlanComparison user={user} onChoose={requestPlan} chooseLabel="Request to move to" refreshKey={openRequest?.id || 0} />
 
       {openRequest && openRequest.status !== 'cancelled' && (
         <div
@@ -1140,10 +1140,10 @@ function AccountantSection({ user }) {
                 padding: '10px 12px',
                 borderRadius: 'var(--radius-sm)',
                 background: 'var(--bg-elevated)',
-                borderLeft: '3px solid var(--amber)',
+                borderLeft: '3px solid var(--accent)',
               }}
             >
-              <Icon name="mail" size={16} style={{ color: 'var(--amber)' }} />
+              <Icon name="mail" size={16} style={{ color: 'var(--accent)' }} />
               <span style={{ minWidth: 140, flex: 1 }}>
                 <span style={{ fontWeight: 600 }}>{i.name ? titleCase(i.name) : lowerEmail(i.email)}</span>
                 <span style={{ display: 'block', fontSize: 11.5, color: 'var(--text-muted)' }}>
@@ -1153,7 +1153,7 @@ function AccountantSection({ user }) {
               <span style={{ fontSize: 11.5, color: 'var(--text-muted)' }}>
                 {i.financialYears ? `FY ${i.financialYears.join(', ')}` : 'All years'}
               </span>
-              <span style={{ fontSize: 11.5, color: 'var(--amber)' }}>Link expires {formatWhen(i.expiresAt)}</span>
+              <span style={{ fontSize: 11.5, color: 'var(--text-muted)' }}>Link expires {formatWhen(i.expiresAt)}</span>
               {/* No Resend.
 
                   One invitation is out and it works until it expires — sending
@@ -1203,7 +1203,7 @@ function AccountantSection({ user }) {
                   empty one means "not started", never "expired". Until then
                   there is no cut-off to show — only how long it will run for
                   once the clock starts. */}
-              <span style={{ fontSize: 11.5, color: a.expiresAt ? 'var(--amber)' : 'var(--text-muted)' }}>
+              <span style={{ fontSize: 11.5, color: 'var(--text-muted)' }}>
                 {a.expiresAt
                   ? `Ends ${formatDeadline(a.expiresAt)}`
                   : `Not opened yet — ${describeHours(a.windowHours || 24)} once they do`}
