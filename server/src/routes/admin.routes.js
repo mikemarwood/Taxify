@@ -847,12 +847,16 @@ router.patch(
       }
       await setSetting('registration_enabled', registrationEnabled ? 'true' : 'false');
     }
-    if (mfaMode !== undefined) {
-      if (mfaMode !== 'optional' && mfaMode !== 'required') {
-        return res.status(400).json({ error: "mfaMode must be 'optional' or 'required'" });
-      }
-      await setSetting('mfa_mode', mfaMode);
-    }
+    // The mfaMode block that stood here has gone, and it had to. It read a bare
+    // `mfaMode` that the destructure above deliberately stopped providing — so
+    // this endpoint threw a ReferenceError on every call and the registration
+    // toggle never saved. The comment said the field was ignored; the code
+    // underneath still tried to read it.
+    //
+    // Deleted rather than repaired. Two-factor is required of every account and
+    // cannot be turned off, so an endpoint able to set it back to optional is a
+    // way to weaken every account on the system with nothing in the interface
+    // to show for it.
     res.json({ ok: true });
   })
 );

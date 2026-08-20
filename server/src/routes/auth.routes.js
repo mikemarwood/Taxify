@@ -622,7 +622,11 @@ router.post(
     let yearScope = null;
     let rejectedYears = [];
     if (req.body?.allYears !== true) {
-      const grant = parseYearGrant(financialYears);
+      // req.body.financialYears, not a bare `financialYears` — which was not
+      // destructured anywhere in this handler and so was simply not a thing.
+      // Every invitation scoped to particular years threw a ReferenceError
+      // before it reached the database.
+      const grant = parseYearGrant(req.body?.financialYears);
       if (!grant.ok) {
         return res.status(400).json({
           error: grant.tooMany

@@ -222,6 +222,11 @@ function AvatarSection({ user, setUser }) {
 
 function BillingSection({ user }) {
   const confirmRequest = useConfirm();
+  // Stepping down to an accountant account calls refresh() and never had it,
+  // so the change went through on the server and then threw here: the account
+  // really had become an accountant one, while the page reported a failure and
+  // went on showing the old state until it was reloaded.
+  const { refresh } = useAuth();
   const [requesting, setRequesting] = useState(false);
   const [openRequest, setOpenRequest] = useState(null);
 
@@ -918,14 +923,80 @@ function AccountantSection({ user }) {
 
   useEffect(load, []);
 
-
+  // Kept current while the page is open.
+  //
+  // An invitation is waiting on somebody else to act, and the moment they do
+  // is the moment this list is wrong — "Invited, waiting for them to accept"
+  // sitting there long after they accepted, until somebody thought to reload.
+  // Nothing here is expensive and the answer changes rarely, so it asks every
+  // twenty seconds and stops when the tab is not being looked at.
+  useEffect(() => {
+    let timer = null;
+    function tick() {
+      if (document.visibilityState === 'visible') load();
+    }
+    timer = setInterval(tick, 20000);
+    // And immediately on coming back to the tab, rather than up to twenty
+    // seconds later — returning to a page is exactly when somebody looks at it.
+    document.addEventListener('visibilitychange', tick);
+    return () => {
+      clearInterval(timer);
+      document.removeEventListener('visibilitychange', tick);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   async function onInvite(e) {
     e.preventDefault();
+
+    // Asked before it is sent, not reported after.
+    //
+    // Pressing this hands somebody a look at your tax records, and it used to
+    // happen on one press with nothing in between — the first sign it had
+    // worked was a line appearing in a list further up the page. The dialog
+    // reads back the three things that were chosen: who, which years and
+    // books, and how long they get once they open it.
+    const address = inviteEmail.trim().toLowerCase();
+    const scope = allYears ? 'every financial year' : `${pickedYears.length} financial year${pickedYears.length === 1 ? '' : 's'}`;
+    const books = allBooks ? 'all of your books' : `${pickedBooks.length} set${pickedBooks.length === 1 ? '' : 's'} of books`;
+    if (lookup.state === 'known') {
+      const ok = await confirm({
+        title: `Give ${lookup.name || address} access?`,
+        body: (
+          <>
+            <div style={{ marginBottom: 8 }}>
+              They will be emailed an invitation to accept. Once they open your books they can read {scope} across{' '}
+              {books}{inviteCanWrite ? ', and add and change entries' : ', and change nothing'}.
+            </div>
+            <div>
+              Access lasts {describeHours(inviteWindow)} from the first time they open it, then removes itself. You
+              can take it back at any point before or after that.
+            </div>
+          </>
+        ),
+        confirmLabel: 'Send the invitation',
+        cancelLabel: 'Not yet',
+      });
+      if (!ok) return;
+    } else {
+      // The other button. Nothing is shared by it, so it asks a smaller
+      // question — but it does still put this account’s name in a stranger’s
+      // inbox, which is worth a press to agree to.
+      const ok = await confirm({
+        title: `Email ${address} about creating an account?`,
+        body:
+          'Nothing is shared. They are told you would like to share your books with them and how to set up an ' +
+          'account, and you enter their address again once they tell you it is done.',
+        confirmLabel: 'Send the email',
+        cancelLabel: 'Not yet',
+      });
+      if (!ok) return;
+    }
+
     setBusy(true);
     try {
       const { data } = await api.post('/auth/invite', {
-        email: inviteEmail.trim().toLowerCase(),
+        email: address,
         role: 'accountant',
         // Omitted entirely for a family member — the server ignores it, and
         // sending it anyway would suggest it did something.
@@ -953,7 +1024,7 @@ function AccountantSection({ user }) {
           body: (
             <>
               <div style={{ marginBottom: 8 }}>
-                Nothing has been shared. We have emailed {inviteEmail.trim().toLowerCase()} to explain that you would
+                Nothing has been shared. We have emailed {address} to explain that you would
                 like to share your books with them, and how to create an account.
               </div>
               <div>

@@ -5,8 +5,9 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "node scripts/check-imports.mjs && vite build",
+    "build": "node scripts/check-imports.mjs && node scripts/check-undefined.mjs && vite build",
     "check-imports": "node scripts/check-imports.mjs",
+    "check-undefined": "node scripts/check-undefined.mjs",
     "preview": "vite preview"
   },
   "dependencies": {
