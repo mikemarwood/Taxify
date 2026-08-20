@@ -79,6 +79,12 @@ api.interceptors.response.use(
     // Which field a refusal belongs to, so a form can put the message beside
     // the box that caused it instead of in a corner toast.
     if (data.field) wrapped.field = data.field;
+    // A machine-readable name for the refusal, where there is one, so a page
+    // can do something about it rather than only say it. This wrapper used to
+    // keep the sentence and drop everything else, which is why a refusal a
+    // page knew how to handle arrived as a string it could only toast.
+    if (data.code) wrapped.code = data.code;
+    if (data.missing) wrapped.missing = data.missing;
     return Promise.reject(wrapped);
   }
 );

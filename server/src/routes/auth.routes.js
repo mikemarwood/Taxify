@@ -995,9 +995,22 @@ router.post(
     // anywhere that merely reads. Refused before openAssignment, so a blocked
     // attempt cannot start somebody's clock.
     if (!req.user.accountantSetup?.ready) {
+      // A sentence as well as a code.
+      //
+      // 'accountant_setup_required' was the whole of it, and anything that
+      // toasted the error — which is most of the app — put that string in front
+      // of somebody as though it meant something. The code stays, under its own
+      // key, for the page that knows what to do with it.
+      const missing = req.user.accountantSetup?.missing || [];
+      const needs = [];
+      if (missing.includes('mfa')) needs.push('turn on two-factor sign-in');
+      if (missing.includes('profile')) needs.push('add your practice or firm name');
       return res.status(403).json({
-        error: 'accountant_setup_required',
-        missing: req.user.accountantSetup?.missing || [],
+        error: needs.length
+          ? `Before you can open a client's books you need to ${needs.join(' and ')}.`
+          : "There is one step left before you can open a client's books.",
+        code: 'accountant_setup_required',
+        missing,
       });
     }
 

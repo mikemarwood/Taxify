@@ -87,6 +87,16 @@ function SetupRequired({ missing, onDone }) {
             sign-in, and the people whose records they are did not get a say in it.
           </p>
 
+          {missing.length === 0 && (
+            <p style={{ fontSize: 12.5, color: 'var(--text-muted)', margin: '0 0 14px', lineHeight: 1.55 }}>
+              Check two-factor sign-in is on and your practice name is filled in under{' '}
+              <Link to="/account" style={{ color: 'var(--accent)', fontWeight: 600 }}>
+                My account
+              </Link>
+              .
+            </p>
+          )}
+
           {missing.includes('mfa') && (
             <div style={{ marginBottom: 16 }}>
               <div style={{ fontWeight: 600, fontSize: 13.5, marginBottom: 4 }}>Turn on two-factor sign-in</div>
@@ -134,8 +144,18 @@ function SetupRequired({ missing, onDone }) {
 export default function ClientPicker() {
   const { user, refresh, logout } = useAuth();
   // What they still have to do. Sent with every /auth/me, so it is already here.
+  // What the session last told us is outstanding, and what the server said
+  // when we actually tried.
+  //
+  // These can disagree. The user object is fetched once at sign-in, so an
+  // account that was fine then and is not now — a practice name cleared, or
+  // two-factor turned off in another tab — reads as ready here while the door
+  // refuses. That is how a card stayed pressable and answered with a machine
+  // code: the page had no idea anything was wrong until the server said so.
+  const [refused, setRefused] = useState(null);
   const setup = user?.accountantSetup;
-  const blocked = setup && !setup.ready;
+  const blocked = (setup && !setup.ready) || Boolean(refused);
+  const missing = refused || setup?.missing || [];
   const navigate = useNavigate();
   const toast = useToast();
   const [clients, setClients] = useState(null);
@@ -208,6 +228,14 @@ export default function ClientPicker() {
       // client, and the card that replaces it is built from figures only the
       // server has.
       load();
+      // And the session, which accepting has just changed the meaning of.
+      //
+      // isAccountant is "has at least one client", so the first acceptance
+      // flips it — and with it the requirement to have two-factor on and a
+      // firm name before opening anybody's books. Without this the browser
+      // still held the old answer, so the card looked pressable, the door
+      // refused, and the refusal arrived as a machine code.
+      await refresh();
     } catch (err) {
       toast(err.message, 'error');
     } finally {
@@ -223,7 +251,18 @@ export default function ClientPicker() {
       await refresh();
       navigate('/');
     } catch (err) {
-      toast(err.message, 'error');
+      // The door refusing for want of setup is not an error to toast and
+      // forget. It is the one refusal with something to do about it, so the
+      // page raises the panel that says what and offers the way to fix it.
+      if (err.code === 'accountant_setup_required') {
+        setRefused(err.missing || []);
+        // The session was stale by definition if we got here — re-read it, so
+        // the moment they finish the setup the cards come back to life without
+        // a reload.
+        refresh();
+      } else {
+        toast(err.message, 'error');
+      }
       setOpening(null);
     }
   }
@@ -260,7 +299,15 @@ export default function ClientPicker() {
           </p>
         </div>
 
-        {blocked && <SetupRequired missing={setup.missing} onDone={refresh} />}
+        {blocked && (
+          <SetupRequired
+            missing={missing}
+            onDone={() => {
+              setRefused(null);
+              refresh();
+            }}
+          />
+        )}
 
         {clients === null ? (
           <SkeletonList rows={3} />
