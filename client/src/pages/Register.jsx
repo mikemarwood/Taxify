@@ -762,7 +762,18 @@ export default function Register() {
                           }}
                         >
                           <Icon name="check-circle" size={16} style={{ color: 'var(--accent)' }} />
-                          {financialYearSpan(knownFinancialYear)}
+                          {/* The country is named, not only the dates.
+                              Twenty-five of the countries offered here run
+                              1 January to 31 December, so switching between
+                              most of them leaves this line reading identically
+                              and the field looks stuck — it did read the
+                              change, the answer was just the same. Saying whose
+                              year it is makes the response visible. */}
+                          <span>
+                            {country}
+                            <span style={{ color: 'var(--text-muted)', fontWeight: 500 }}> — </span>
+                            {financialYearSpan(knownFinancialYear)}
+                          </span>
                         </div>
                       ) : (
                         <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
