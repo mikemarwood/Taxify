@@ -6,7 +6,6 @@ import { useEntities } from '../lib/EntityContext.jsx';
 import { useToast } from '../components/Toast.jsx';
 import Icon from '../components/Icon.jsx';
 import { SkeletonList } from '../components/Skeletons.jsx';
-import { formatMoney } from '../lib/money.js';
 import { formatDayMonth } from '../lib/dates.js';
 import { useFinancialYears } from '../lib/useFinancialYears.js';
 import { currentFinancialYear } from '../lib/financialYear.js';
@@ -26,7 +25,19 @@ import {
 // worked at home. Both are logged as they happen, because both are claimed at
 // a rate that only holds up if the record was contemporaneous.
 
-function Panel({ title, icon, claim, rateNote, children }) {
+// What has been logged, not what it is worth.
+//
+// Both panels used to lead with a dollar figure worked out from a published
+// rate. There is nowhere to set those rates, so every account saw "No rate set"
+// and $0.00 for ever — a permanent warning about a thing nobody could do
+// anything about, sitting where the most useful number should be.
+//
+// Rates also differ across every country this is sold in and change each year.
+// Publishing them is a maintenance burden and, if one is ever wrong, somebody
+// files a return on our arithmetic. The totals are the part that is ours to be
+// right about: this many kilometres, these many hours, all of it exportable.
+// Multiplying is the accountant's job, or the return's.
+function Panel({ title, icon, summary, children }) {
   return (
     <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
       <div
@@ -55,14 +66,7 @@ function Panel({ title, icon, claim, rateNote, children }) {
             minWidth: 0,
           }}
         >
-          {claim === null ? (
-            <span style={{ fontSize: 12.5, color: 'var(--amber)', fontWeight: 600 }}>{rateNote}</span>
-          ) : (
-            <>
-              <span style={{ fontSize: 18, fontWeight: 800, color: 'var(--emerald)' }}>{formatMoney(claim)}</span>
-              <span style={{ fontSize: 11.5, color: 'var(--text-muted)' }}>{rateNote}</span>
-            </>
-          )}
+          <span style={{ fontSize: 13.5, fontWeight: 700 }}>{summary}</span>
         </span>
       </div>
       {/* deduction-panel so the padding can come down on a phone — 18px each
@@ -306,15 +310,12 @@ export default function Deductions() {
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
           <Panel
-            title="Vehicle — cents per kilometre"
+            title="Vehicle — kilometres driven"
             icon="car"
-            claim={vehicle.amount}
-            rateNote={
-              data.rates.centsPerKm === null
-                ? `No rate set for FY ${year}`
-                : `${vehicle.totalKm} km · ${data.rates.centsPerKm}c/km${
-                    data.rates.kmCap ? ` · capped at ${data.rates.kmCap} km per car` : ''
-                  }`
+            summary={
+              vehicle.totalKm > 0
+                ? `${vehicle.totalKm.toLocaleString()} km · ${vehicle.trips.length} trip${vehicle.trips.length === 1 ? '' : 's'}`
+                : 'Nothing logged yet'
             }
           >
             {vehicle.vehicles.length > 0 && (
@@ -368,31 +369,8 @@ export default function Deductions() {
                     onChange={onCasedInput(titleCaseLive, (value) => setTrip({ ...trip, vehicle: value }))}
                   />
                 </div>
-                <div style={{ flex: byOdometer ? '2 1 240px' : '1 1 100px', minWidth: byOdometer ? 220 : 92 }}>
-                  <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, flexWrap: 'wrap' }}>
-                    <label className="label" style={{ margin: 0 }}>
-                      {byOdometer ? 'Odometer' : 'Kilometres'}
-                    </label>
-                    {/* Switching keeps whatever has been typed. Somebody who
-                        starts one way and changes their mind should not be
-                        made to start again. */}
-                    <button
-                      type="button"
-                      onClick={() => setByOdometer((v) => !v)}
-                      style={{
-                        border: 0,
-                        background: 'transparent',
-                        padding: 0,
-                        cursor: 'pointer',
-                        font: 'inherit',
-                        fontSize: 11.5,
-                        fontWeight: 600,
-                        color: 'var(--accent)',
-                      }}
-                    >
-                      {byOdometer ? 'or type the distance' : 'or use odometer readings'}
-                    </button>
-                  </div>
+                <div style={{ flex: byOdometer ? '2 1 260px' : '1 1 140px', minWidth: byOdometer ? 240 : 130 }}>
+                  <label className="label">{byOdometer ? 'Odometer' : 'Kilometres'}</label>
 
                   {byOdometer ? (
                     <>
@@ -443,6 +421,29 @@ export default function Deductions() {
                       onChange={onCasedInput(kmWhileTyping, (value) => setTrip({ ...trip, km: value }))}
                     />
                   )}
+
+                  {/* Switching keeps whatever has been typed: somebody who
+                      starts one way and changes their mind should not have to
+                      start again. */}
+                  <button
+                    type="button"
+                    onClick={() => setByOdometer((v) => !v)}
+                    style={{
+                      display: 'block',
+                      marginTop: 4,
+                      border: 0,
+                      background: 'transparent',
+                      padding: 0,
+                      cursor: 'pointer',
+                      font: 'inherit',
+                      fontSize: 11.5,
+                      fontWeight: 600,
+                      color: 'var(--accent)',
+                      textAlign: 'left',
+                    }}
+                  >
+                    {byOdometer ? 'or just enter the distance' : 'or use odometer readings'}
+                  </button>
                 </div>
                 <div style={{ flex: '2 1 200px', minWidth: 150 }}>
                   <label className="label">Purpose</label>
@@ -503,11 +504,10 @@ export default function Deductions() {
           <Panel
             title="Home office — hours worked"
             icon="home"
-            claim={office.amount}
-            rateNote={
-              data.rates.perHour === null
-                ? `No rate set for FY ${year}`
-                : `${formatHours(office.hours)} · ${data.rates.perHour}/hour`
+            summary={
+              office.hours > 0
+                ? `${formatHours(office.hours)} · ${office.entries.length} day${office.entries.length === 1 ? '' : 's'}`
+                : 'Nothing logged yet'
             }
           >
             {!readOnly && (
@@ -574,12 +574,15 @@ export default function Deductions() {
             />
           </Panel>
 
-          {(data.rates.centsPerKm === null || data.rates.perHour === null) && (
-            <p style={{ fontSize: 12, color: 'var(--text-muted)', margin: 0, lineHeight: 1.55 }}>
-              A claim can only be worked out once the rate for that year is set. Your entries are being recorded either
-              way — nothing is lost while the rate is missing.
-            </p>
-          )}
+          {/* What this page is for, said once at the foot.
+              It used to apologise for a missing rate. There is no rate: the
+              cents per kilometre and the hourly figure differ by country and
+              change every year, so the totals are ours to get right and the
+              multiplying belongs to whoever prepares the return. */}
+          <p style={{ fontSize: 12, color: 'var(--text-muted)', margin: 0, lineHeight: 1.55 }}>
+            Your logbook, kept as you go. Apply your own tax office’s rate for the year to these totals — or hand
+            them to your accountant, who will.
+          </p>
         </div>
       )}
     </div>
