@@ -419,31 +419,8 @@
   }
 
 
-  .demo { padding: 0 0 clamp(32px, 6vw, 64px); }
-  .demo-frame {
-    max-width: 880px;
-    margin: 0 auto;
-    border-radius: 18px;
-    overflow: hidden;
-    border: 1px solid var(--border);
-    background: var(--bg-card);
-    /* Lifted off the page with the brand colours rather than a grey drop
-       shadow, so it reads as the centrepiece it is. */
-    box-shadow: 0 24px 60px -20px rgba(37, 99, 235, 0.45), 0 0 0 1px rgba(59, 130, 246, 0.12);
-  }
-  /* Reserved before the file loads, so the rest of the page does not jump
-     down when it arrives. */
-  .demo-video { display: block; width: 100%; aspect-ratio: 16 / 9; background: #000; }
-  .demo-caption {
-    text-align: center;
-    font-size: 13px;
-    color: var(--text-muted);
-    margin-top: 14px;
-  }
-
   /* The two advertisement films.
-     Same frame as the demo above, side by side on a wide screen and stacked on
-     a narrow one. They are uploaded from the admin panel rather than deployed,
+     Side by side on a wide screen, stacked on a narrow one. They are uploaded from the admin panel rather than deployed,
      and the server removes whichever slot has no file — so this never renders
      an empty player. */
   .ads { padding: 0 0 clamp(32px, 6vw, 64px); }
@@ -634,24 +611,6 @@
           </div>
         </div>
       </div>
-    </section>
-
-    <!-- Removed from the page entirely when there is no film to show, rather
-         than left as a broken frame. See the script at the foot of the page. -->
-    <section class="demo" id="demo" hidden>
-      <div class="demo-frame">
-        <video
-          id="demo-video"
-          class="demo-video"
-          controls
-          playsinline
-          preload="none"
-          poster="/media/taxify-demo-poster.jpg"
-        >
-          <source src="/media/taxify-demo.mp4" type="video/mp4">
-        </video>
-      </div>
-      <p class="demo-caption">Buy a tool, photograph the receipt, done — about twenty seconds.</p>
     </section>
 
     <!--ADS-START-->
@@ -1043,29 +1002,6 @@
         });
       });
     })();
-  </script>
-
-  <script>
-    // Shown only once we know there is something to play. A poster frame over
-    // a missing file is worse than no section at all — it looks like the page
-    // is broken rather than like the film has not been made yet.
-    (function () {
-      var section = document.getElementById('demo');
-      var video = document.getElementById('demo-video');
-      if (!section || !video) return;
-
-      fetch(taxifyUrl('/media/taxify-demo.mp4'), { method: 'HEAD' })
-        .then(function (res) {
-          // The SPA fallback used to answer 200 with HTML for anything missing,
-          // so the type is checked as well as the status.
-          var type = res.headers.get('content-type') || '';
-          if (res.ok && type.indexOf('video') === 0) section.hidden = false;
-        })
-        .catch(function () {
-          // Offline, or no file. Either way there is nothing to show.
-        });
-    })();
-
   </script>
 
   <script>
