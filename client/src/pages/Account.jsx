@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { OFF_SCREEN_INPUT } from '../lib/fileInput.js';
 import { motion } from 'framer-motion';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import Icon from '../components/Icon.jsx';
@@ -186,7 +187,17 @@ function AvatarSection({ user, setUser }) {
               </button>
             </div>
           )}
-          <input ref={fileInputRef} type="file" accept="image/*" hidden onChange={onSelectFile} />
+          {/* Off-screen rather than hidden, so it opens on an iPhone too — see
+              fileInput.js. */}
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*"
+            style={OFF_SCREEN_INPUT}
+            tabIndex={-1}
+            aria-hidden="true"
+            onChange={onSelectFile}
+          />
           <span style={{ fontSize: 11.5, color: 'var(--text-muted)' }}>Any image, up to 10MB.</span>
         </div>
       </div>

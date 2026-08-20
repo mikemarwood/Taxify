@@ -4,6 +4,7 @@ import { useToast } from './Toast.jsx';
 import Icon from './Icon.jsx';
 import ProgressBar from './ProgressBar.jsx';
 import { playSuccess, playError } from '../lib/sounds.js';
+import { OFF_SCREEN_INPUT } from '../lib/fileInput.js';
 
 const RADIUS = 26;
 const CIRCUMFERENCE = 2 * Math.PI * RADIUS;
@@ -14,6 +15,21 @@ const DOC_MIME = new Set([
   'application/msword',
   'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
 ]);
+
+// The extensions are for Windows, which matches on those; the MIME types are
+// for iOS, which matches on those and greys out everything else in Files if it
+// is only ever given extensions. Both lists, so both behave.
+const BROWSE_ACCEPT = [
+  'image/*',
+  'application/pdf',
+  'application/msword',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  '.heic',
+  '.heif',
+  '.pdf',
+  '.doc',
+  '.docx',
+].join(',');
 
 // Any image, plus PDF and Word. The extension is the fallback because a HEIC
 // off an iPhone — or a .doc off a network share — often arrives with no usable
@@ -59,6 +75,18 @@ export default function ReceiptDropzone({ file, onFileChange, uploadProgress, st
     [onFileChange, toast]
   );
 
+  // Cleared after every pick, so choosing the same file again still counts as
+  // a change. Remove a receipt, decide you wanted it after all, pick the same
+  // one — without this the input's value never changed, onChange never fired,
+  // and the second attempt looked like a dead button.
+  const onPicked = useCallback(
+    (e) => {
+      handleFiles(e.target.files);
+      e.target.value = '';
+    },
+    [handleFiles]
+  );
+
   const preview = file ? URL.createObjectURL(file) : null;
   const isImage = file && file.type.startsWith('image/');
   const offset = CIRCUMFERENCE - (uploadProgress / 100) * CIRCUMFERENCE;
@@ -87,20 +115,25 @@ export default function ReceiptDropzone({ file, onFileChange, uploadProgress, st
         position: 'relative',
       }}
     >
+      {/* Off-screen rather than hidden — see fileInput.js for why. */}
       <input
         ref={inputRef}
         type="file"
-        accept="image/*,.heic,.heif,.pdf,.doc,.docx"
-        hidden
-        onChange={(e) => handleFiles(e.target.files)}
+        accept={BROWSE_ACCEPT}
+        style={OFF_SCREEN_INPUT}
+        tabIndex={-1}
+        aria-hidden="true"
+        onChange={onPicked}
       />
       <input
         ref={cameraInputRef}
         type="file"
         accept="image/*"
         capture="environment"
-        hidden
-        onChange={(e) => handleFiles(e.target.files)}
+        style={OFF_SCREEN_INPUT}
+        tabIndex={-1}
+        aria-hidden="true"
+        onChange={onPicked}
       />
 
       <AnimatePresence mode="wait">
