@@ -382,11 +382,53 @@ export default function ExpenseModal({ expense, onClose, onSaved, onDeleted }) {
                     style={{ width: 74 }}
                   />
                 </div>
-                {Number(businessUsePct) > 0 && Number(businessUsePct) < 100 && amountValue > 0 && (
-                  <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 6 }}>
-                    Claiming{' '}
-                    <strong>{formatMoney((amountValue * Number(businessUsePct)) / 100, currency)}</strong> of{' '}
-                    {formatMoney(amountValue, currency)}
+                {/* The same readout as Add expense, and shown at 100% for the
+                    same reason: the press most likely to be made first
+                    produced no visible answer, so the control read as
+                    inert. The amount above stays what was actually paid —
+                    only the claim is apportioned. */}
+                {amountValue > 0 && Number(businessUsePct) > 0 && (
+                  <div
+                    aria-live="polite"
+                    style={{
+                      marginTop: 8,
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: 7,
+                      padding: '5px 11px',
+                      borderRadius: 8,
+                      border: `1px solid ${Number(businessUsePct) < 100 ? 'var(--emerald)' : 'var(--border)'}`,
+                      background:
+                        Number(businessUsePct) < 100 ? 'rgba(12, 115, 67, 0.08)' : 'var(--bg-inset)',
+                      fontSize: 12.5,
+                    }}
+                  >
+                    <Icon
+                      name="cash"
+                      size={14}
+                      style={{
+                        color:
+                          Number(businessUsePct) < 100 ? 'var(--emerald)' : 'var(--text-subtle)',
+                        flexShrink: 0,
+                      }}
+                    />
+                    <span>
+                      Claiming{' '}
+                      <strong
+                        style={{
+                          color:
+                            Number(businessUsePct) < 100 ? 'var(--emerald)' : 'var(--text)',
+                          fontVariantNumeric: 'tabular-nums',
+                        }}
+                      >
+                        {formatMoney((amountValue * Number(businessUsePct)) / 100, currency)}
+                      </strong>
+                      {Number(businessUsePct) < 100 ? (
+                        <span style={{ color: 'var(--text-muted)' }}> of {formatMoney(amountValue, currency)}</span>
+                      ) : (
+                        <span style={{ color: 'var(--text-muted)' }}> — the whole amount</span>
+                      )}
+                    </span>
                   </div>
                 )}
               </div>

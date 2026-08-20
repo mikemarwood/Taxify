@@ -525,10 +525,58 @@ export default function AddExpense() {
                 style={{ width: 70, padding: '6px 9px', fontSize: 12.5 }}
               />
             </div>
-            {Number(businessUsePct) > 0 && Number(businessUsePct) < 100 && amountValue > 0 && (
-              <div style={{ marginTop: 6, fontSize: 12, color: 'var(--text-muted)' }}>
-                Claiming <strong style={{ color: 'var(--text)' }}>{formatMoney((amountValue * Number(businessUsePct)) / 100, currency)}</strong>{' '}
-                of {formatMoney(amountValue, currency)}
+            {/* What is being claimed, kept on screen while the percentage is
+                being chosen.
+
+                It already changed with every press — it was 12px grey text
+                under the buttons, and it disappeared entirely at 100%, so the
+                one press most likely to be made first produced no visible
+                answer at all and the whole thing read as inert. Shown from the
+                moment there is an amount, at 100% as well, so pressing 80 and
+                watching a figure move is how somebody learns what this control
+                does.
+
+                The amount above is deliberately untouched. The receipt is for
+                what was actually paid; only the claim is apportioned, and
+                rewriting the price to 60% of itself would throw away both the
+                real figure and the reason for it. */}
+            {amountValue > 0 && Number(businessUsePct) > 0 && (
+              <div
+                aria-live="polite"
+                style={{
+                  marginTop: 8,
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 7,
+                  padding: '5px 11px',
+                  borderRadius: 8,
+                  border: `1px solid ${Number(businessUsePct) < 100 ? 'var(--emerald)' : 'var(--border)'}`,
+                  background: Number(businessUsePct) < 100 ? 'rgba(12, 115, 67, 0.08)' : 'var(--bg-inset)',
+                  fontSize: 12.5,
+                  lineHeight: 1.5,
+                }}
+              >
+                <Icon
+                  name="cash"
+                  size={14}
+                  style={{ color: Number(businessUsePct) < 100 ? 'var(--emerald)' : 'var(--text-subtle)', flexShrink: 0 }}
+                />
+                <span>
+                  Claiming{' '}
+                  <strong
+                    style={{
+                      color: Number(businessUsePct) < 100 ? 'var(--emerald)' : 'var(--text)',
+                      fontVariantNumeric: 'tabular-nums',
+                    }}
+                  >
+                    {formatMoney((amountValue * Number(businessUsePct)) / 100, currency)}
+                  </strong>
+                  {Number(businessUsePct) < 100 ? (
+                    <span style={{ color: 'var(--text-muted)' }}> of {formatMoney(amountValue, currency)}</span>
+                  ) : (
+                    <span style={{ color: 'var(--text-muted)' }}> — the whole amount</span>
+                  )}
+                </span>
               </div>
             )}
           </div>
