@@ -143,6 +143,10 @@ function SetupRequired({ missing, onDone }) {
 // first question is always whose books — never assumed, even when there is only
 // one, because opening a client is what starts their 24-hour window.
 export default function ClientPicker() {
+  // useConfirm, not the browser. Without it `confirm` resolves to
+  // window.confirm — a global, so nothing complains — and passing it an
+  // options object gave a native grey box reading [object Object].
+  const confirm = useConfirm();
   const { user, refresh, logout } = useAuth();
   // What they still have to do. Sent with every /auth/me, so it is already here.
   // What the session last told us is outstanding, and what the server said

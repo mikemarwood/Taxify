@@ -695,15 +695,33 @@ router.post(
       // used to match this branch anyway, and the person was told to sign in
       // with credentials that had never existed.
       const [existing] = await pool.execute(
-        'SELECT id, role, name, activated_at FROM users WHERE email = ?',
+        `SELECT u.id, u.role, u.name, u.activated_at,
+                (
+                  u.acts_for_clients = 1
+                  OR u.role = 'accountant'
+                  OR EXISTS (
+                    SELECT 1 FROM accountant_assignments a
+                     WHERE a.accountant_user_id = u.id AND (a.expires_at IS NULL OR a.expires_at > NOW())
+                  )
+                ) AS acts
+           FROM users u WHERE u.email = ?`,
         [normalizedEmail]
       );
-      // Registered *and* verified. An account whose address has never been
-      // confirmed is a claim that somebody controls a mailbox, not a fact —
-      // and access to a stranger's financial records is not something to hand
-      // out on a claim. Those are treated exactly like an address with no
-      // account at all: told to go and finish signing up.
-      const found = existing[0]?.activated_at ? existing[0] : null;
+      // Registered, verified, and somebody who acts for clients.
+      //
+      // Verified because an account whose address has never been confirmed is a
+      // claim that somebody controls a mailbox, not a fact — and access to a
+      // stranger's financial records is not something to hand out on a claim.
+      //
+      // Acting for clients because an ordinary account holder cannot accept
+      // this. They have no client list to see it on and no button to press, so
+      // an invitation sent to one is an email nobody can act on and a row that
+      // sits until it expires. The same three tests as the lookup that offered
+      // the button, so the form and the door cannot disagree about who counts.
+      //
+      // Both cases fall through to the same answer as an address with no
+      // account: told what to do, and nothing shared.
+      const found = existing[0]?.activated_at && Number(existing[0].acts) === 1 ? existing[0] : null;
 
       if (found) {
         // An account holder who also does other people's books is one login
@@ -861,21 +879,55 @@ router.get(
     if (!EMAIL_PATTERN.test(email)) return res.json({ known: false, self: false });
     if (email === String(req.user.email).toLowerCase()) return res.json({ known: false, self: true });
 
-    // Activated only. An address that has never been confirmed cannot read
+    // Activated, and someone who actually acts for clients.
+    //
+    // Activated because an address that has never been confirmed cannot read
     // what is sent to it, so it is treated exactly like one with no account.
     //
-    // Accountants are deliberately *included*. This clause once read
-    // role <> 'accountant', copied from the support customer search where it is
-    // right — here it excluded the only people the form exists to find, so an
-    // account created as an accountant could never be given a client.
+    // Acting for clients because this form exists to find an accountant, and
+    // every other Taxify account is a stranger. Answering "yes, that address
+    // has an account" for anybody at all made the lookup a way to test whether
+    // a given person is a customer — thirty guesses per ten minutes, behind
+    // nothing more than a paying account. Narrowing it to accountants makes it
+    // a way to test whether a given person is an accountant on Taxify, which is
+    // a far smaller set and a fact they have published to their own clients
+    // anyway.
+    //
+    // It is also the honest answer to the question being asked. Somebody typing
+    // their accountant's address wants to know "can I share with them", and an
+    // ordinary account holder who has not turned acting-for-clients on cannot
+    // accept — so "known" for them would have promised something the invitation
+    // route then refuses.
+    //
+    // Three ways to qualify, the same three the session uses, so the form and
+    // the door agree: the switch on their plan page, a live assignment for
+    // somebody else, or the role itself.
     const [rows] = await pool.execute(
-      'SELECT id, name FROM users WHERE email = ? AND activated_at IS NOT NULL',
+      `SELECT u.id, u.name, u.practice_name
+         FROM users u
+        WHERE u.email = ?
+          AND u.activated_at IS NOT NULL
+          AND (
+            u.acts_for_clients = 1
+            OR u.role = 'accountant'
+            OR EXISTS (
+              SELECT 1 FROM accountant_assignments a
+               WHERE a.accountant_user_id = u.id AND (a.expires_at IS NULL OR a.expires_at > NOW())
+            )
+          )`,
       [email]
     );
 
     // The name is the account holder's own, not anything the client typed —
-    // which is the point: it is how they check they have the right person.
-    res.json({ known: Boolean(rows[0]), self: false, name: rows[0]?.name || null });
+    // which is the point: it is how they check they have the right person. The
+    // firm goes with it where there is one, because "Chen & Co" is what somebody
+    // recognises about their accountant more readily than a personal name.
+    res.json({
+      known: Boolean(rows[0]),
+      self: false,
+      name: rows[0]?.name || null,
+      practiceName: rows[0]?.practice_name || null,
+    });
   })
 );
 

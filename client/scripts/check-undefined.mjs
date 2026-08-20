@@ -42,7 +42,16 @@ const GLOBALS = new Set([
   'AbortController', 'Event', 'CustomEvent', 'MessageChannel', 'Notification',
   'setTimeout', 'clearTimeout', 'setInterval', 'clearInterval', 'queueMicrotask',
   'requestAnimationFrame', 'cancelAnimationFrame', 'requestIdleCallback',
-  'matchMedia', 'getComputedStyle', 'alert', 'confirm', 'prompt', 'atob', 'btoa', 'open', 'close', 'print',
+  'matchMedia', 'getComputedStyle', 'atob', 'btoa', 'open', 'close', 'print',
+  // alert, confirm and prompt are deliberately NOT here.
+  //
+  // This app has its own dialogs, so calling the browser ones is always a
+  // mistake — and one that hides, because they are globals. A component
+  // that forgot useConfirm() still called something named confirm, passed
+  // it an options object, and produced a native grey box reading
+  // [object Object]. Nothing was undefined, so nothing complained.
+  //
+  // Leaving them out turns that into a build failure naming the file.
   'structuredClone', 'crypto', 'performance', 'IntersectionObserver',
   'ResizeObserver', 'MutationObserver', 'DOMParser', 'XMLHttpRequest', 'WebSocket',
   'HTMLElement', 'Node', 'Element', 'Audio', 'AudioContext', 'webkitAudioContext',

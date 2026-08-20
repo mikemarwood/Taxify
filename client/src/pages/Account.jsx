@@ -224,6 +224,12 @@ function AvatarSection({ user, setUser }) {
 
 function BillingSection({ user }) {
   const confirmRequest = useConfirm();
+  // The same dialog under its own name. stepDownToAccountant called a bare
+  // confirm(), which is window.confirm — a global, so nothing complained —
+  // and it was handed an options object with JSX in it. A native grey box
+  // reading [object Object], for the one action on this page that cannot
+  // be undone.
+  const confirm = useConfirm();
   // Stepping down to an accountant account calls refresh() and never had it,
   // so the change went through on the server and then threw here: the account
   // really had become an accountant one, while the page reported a failure and
