@@ -177,11 +177,24 @@ export default function ClientPicker() {
             rendered outside Layout with no navigation of any kind. With the
             sidebar beside it, every one of them was a second copy of something
             already on screen a few inches to the left. */}
+        {/* The heading changes with the question being asked.
+            "Your clients — choose whose books to open" sat above a plan
+            chooser, telling somebody to do one thing while the page asked them
+            another. It is the same page and the same card either way; only
+            what it is for has changed. */}
         <div style={{ marginBottom: 26 }}>
-          <h1 style={{ margin: '0 0 4px', fontSize: 25 }}>Your clients</h1>
+          <h1 style={{ margin: '0 0 4px', fontSize: 25 }}>
+            {startingOwn ? 'Choose your plan' : 'Your clients'}
+          </h1>
           <p style={{ color: 'var(--text-muted)', margin: 0, fontSize: 14 }}>
-            Choose whose books to open — access is read-only and lasts {windowHours} hours from the first time you
-            open each one.
+            {startingOwn ? (
+              'Your clients stay exactly as they are — this adds books of your own on the same login.'
+            ) : (
+              <>
+                Choose whose books to open — access is read-only and lasts {windowHours} hours from the first time
+                you open each one.
+              </>
+            )}
           </p>
         </div>
 
@@ -223,7 +236,7 @@ export default function ClientPicker() {
             <div
               style={
                 startingOwn
-                  ? { maxWidth: 460, margin: '0 auto' }
+                  ? { maxWidth: 720, margin: '0 auto' }
                   : { display: 'flex', gap: 10, justifyContent: 'center', flexWrap: 'wrap' }
               }
             >

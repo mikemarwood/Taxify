@@ -10,7 +10,13 @@ import Icon from './Icon.jsx';
 
 // Both plans in full, with the current one marked. Prices come from Stripe
 // rather than being written here, so what's quoted is what will be charged.
-export default function PlanComparison({ user, onChoose, chooseLabel, refreshKey = 0 }) {
+// fresh: nobody is on a plan yet, so no card is "the one you are on".
+//
+// currentPlanType resolves a missing plan_type to Individual, which is right
+// when the question is "which of these are you on" and wrong when the answer is
+// neither. An accountant taking their first plan would have found Individual
+// marked as theirs and inert — one pickable card, and no way to pick the other.
+export default function PlanComparison({ user, onChoose, chooseLabel, refreshKey = 0, fresh = false }) {
   const { changePlan, busy, pending, confirmChange, cancelChange } = usePlanChange();
   const [plans, setPlans] = useState(null);
   // A move already asked for. Offering the same card again produced a second
@@ -54,7 +60,7 @@ export default function PlanComparison({ user, onChoose, chooseLabel, refreshKey
       {plans.map((plan) => {
         // Through the shared resolver, not a raw ===. A NULL plan_type used to
         // match neither card while the heading above said Individual.
-        const current = currentPlanType(user) === plan.planType;
+        const current = !fresh && currentPlanType(user) === plan.planType;
         // Already asked for, and still being dealt with. The card says so and
         // goes inert, the same as the plan you are already on — the difference
         // is that this one points at the conversation.
@@ -70,6 +76,7 @@ export default function PlanComparison({ user, onChoose, chooseLabel, refreshKey
         // for. Once the plan lapses there is nothing left to take away and the
         // card offers itself normally.
         const tooEarly =
+          !fresh &&
           !current &&
           plan.planType === 'individual' &&
           currentPlanType(user) === 'business' &&
