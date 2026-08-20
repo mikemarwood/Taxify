@@ -12,6 +12,7 @@ import { useFinancialYears } from '../lib/useFinancialYears.js';
 import { currentFinancialYear } from '../lib/financialYear.js';
 import { playSuccess, playError, onDigitKeyDown } from '../lib/sounds.js';
 import { useConfirm } from '../lib/ConfirmContext.jsx';
+import HoursPicker from '../components/HoursPicker.jsx';
 import { onCasedInput } from '../lib/casedInput.js';
 import { sentenceCaseLive, titleCaseLive } from '../lib/textCase.js';
 import {
@@ -19,8 +20,6 @@ import {
   parseKm,
   toDecimalHours,
   formatHours,
-  HOUR_CHOICES,
-  MINUTE_CHOICES,
 } from '../lib/deductionInput.js';
 
 // The deductions that aren't receipts: kilometres driven for work and hours
@@ -527,44 +526,16 @@ export default function Deductions() {
                     onChange={(e) => setHours({ ...hours, date: e.target.value })}
                   />
                 </div>
-                {/* Chosen rather than typed.
-                    "Half an hour" is 0.5 as a decimal and 0.30 on a clock, and
-                    somebody entering the second meaning the first claims
-                    eighteen minutes. Two dropdowns have no such reading to get
-                    wrong, and on a phone they are quicker than a keyboard. */}
-                <div style={{ flex: '1 1 150px', minWidth: 140 }}>
-                  <label className="label">Time worked</label>
-                  <div style={{ display: 'flex', gap: 6 }}>
-                    <select
-                      className="input"
-                      required
-                      value={hours.h}
-                      onChange={(e) => setHours({ ...hours, h: e.target.value })}
-                      style={{ flex: 1, minWidth: 0 }}
-                      aria-label="Hours"
-                    >
-                      <option value="">Hrs</option>
-                      {HOUR_CHOICES.map((v) => (
-                        <option key={v} value={v}>
-                          {v} h
-                        </option>
-                      ))}
-                    </select>
-                    <select
-                      className="input"
-                      value={hours.m}
-                      onChange={(e) => setHours({ ...hours, m: e.target.value })}
-                      style={{ flex: 1, minWidth: 0 }}
-                      aria-label="Minutes"
-                    >
-                      <option value="">Min</option>
-                      {MINUTE_CHOICES.map((v) => (
-                        <option key={v} value={v}>
-                          {v} m
-                        </option>
-                      ))}
-                    </select>
-                  </div>
+                {/* Stepped and tapped, not chosen from a list.
+                    "Half an hour" is 0.5 as a decimal and 0.30 on a clock, so
+                    the field never asks for either — hours step, minutes are
+                    four buttons, and the decimal is worked out. */}
+                <div style={{ flex: '1 1 300px', minWidth: 260 }}>
+                  <HoursPicker
+                    hours={hours.h}
+                    minutes={hours.m}
+                    onChange={(h, m) => setHours({ ...hours, h: String(h), m: String(m) })}
+                  />
                 </div>
                 <div style={{ flex: '2 1 200px', minWidth: 150 }}>
                   <label className="label">Note</label>

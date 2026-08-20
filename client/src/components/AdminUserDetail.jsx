@@ -614,7 +614,7 @@ export default function AdminUserDetail({ userId, me, onClose, onChanged, action
                 <PlanAndBilling user={u} onSaved={refresh} />
               </Section>
 
-              <Section title="Actions" icon="wrench" sticky>
+              <Section title="Actions" icon="wrench">
                 {/* The support team is a separate thing from administration:
                     it grants the ticket queue and nothing else. Somebody
                     answering tickets has no need to change plans or read
@@ -799,6 +799,20 @@ function PlanAndBilling({ user, onSaved }) {
   const [busy, setBusy] = useState(false);
   const [confirming, setConfirming] = useState(false);
 
+  // Free access is for an account that is not paying for one.
+  //
+  // Somebody on a live subscription is already being charged by Stripe, and
+  // this setting does not touch Stripe — so ticking it there grants them the
+  // plan twice over and keeps taking their money, which reads as a billing
+  // fault and is one. Offered on a trial or a lapsed account, where there is
+  // nothing being charged to contradict.
+  //
+  // Always offered when it is already on, or turning it off again would be
+  // impossible.
+  const trialing = user.subscriptionStatus === 'trialing';
+  const paying = user.subscriptionStatus === 'active' || user.subscriptionStatus === 'past_due';
+  const canGrantFree = Boolean(user.accessBypass) || trialing || !paying;
+
   const label = planType === 'business' ? 'Small Business' : 'Individual';
   const dirty =
     planType !== (user.planType === 'business' ? 'business' : 'individual') ||
@@ -847,14 +861,16 @@ function PlanAndBilling({ user, onSaved }) {
         <input
           type="checkbox"
           checked={complimentary}
+          disabled={!canGrantFree}
           onChange={(e) => setComplimentary(e.target.checked)}
           style={{ marginTop: 3 }}
         />
         <span>
           <strong>Free — do not charge for this plan</strong>
           <span style={{ display: 'block', fontSize: 12, color: 'var(--text-muted)', lineHeight: 1.5 }}>
-            Free until you turn it off. Full use of the plan with no subscription — any Stripe subscription they
-            already have is untouched, so cancel that in Stripe if you mean to.
+            {canGrantFree
+              ? 'Free until you turn it off. Full use of the plan, with nothing to pay and no subscription.'
+              : 'Not available while they are paying. This does not touch Stripe, so switching it on now would give them the plan twice over and keep charging for it — cancel the subscription in Stripe first.'}
           </span>
         </span>
       </label>

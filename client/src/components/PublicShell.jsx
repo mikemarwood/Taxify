@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom';
 import SiteFooter from './SiteFooter.jsx';
+import { AuthSplitFrame, ProductPanel } from './AuthSplit.jsx';
 
 // The frame for a page somebody reaches without signing in, where there is no
 // navigation to give them but the page still has to look like Taxify.
@@ -8,8 +9,17 @@ import SiteFooter from './SiteFooter.jsx';
 // a different site — or a phishing page — which is the worst impression to give
 // somebody whose first thought was already "something is wrong here".
 export default function PublicShell({ children }) {
+  // The same branded rail the sign-in page has.
+  //
+  // Support, terms and the privacy policy were a bare header over a white
+  // page while /login had the product panel beside it — so the pages somebody
+  // lands on when they are already unsure looked the least like Taxify. The
+  // rail drops itself below 900px, which is why the content keeps its own
+  // header underneath: on a phone it is the only thing identifying the page.
   return (
-    <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', background: 'var(--bg)' }}>
+    <AuthSplitFrame>
+      <ProductPanel />
+    <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', background: 'var(--bg)', minWidth: 0 }}>
       <header
         style={{
           borderBottom: '1px solid var(--border)',
@@ -58,5 +68,6 @@ export default function PublicShell({ children }) {
         <SiteFooter />
       </footer>
     </div>
+    </AuthSplitFrame>
   );
 }

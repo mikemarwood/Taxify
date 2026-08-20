@@ -31,12 +31,6 @@ export function parseKm(value) {
 // readings to enforce, the field stops being typed at all: hours and minutes
 // are chosen, and the decimal is worked out. There is then nothing to get
 // wrong, and nothing to explain.
-export const HOUR_CHOICES = Array.from({ length: 25 }, (_, i) => i);
-
-// Five-minute steps. Finer than that is false precision on a home-office log,
-// and a sixty-item dropdown is worse to use than a twelve-item one.
-export const MINUTE_CHOICES = Array.from({ length: 12 }, (_, i) => i * 5);
-
 export function toDecimalHours(hours, minutes) {
   const h = Number(hours) || 0;
   const m = Number(minutes) || 0;

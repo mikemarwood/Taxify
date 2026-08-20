@@ -13,8 +13,6 @@ import { signViewAsToken, cookieOptions, COOKIE_NAME } from '../auth/jwt.js';
 import { toPublicUser } from '../auth/publicUser.js';
 import { computeAccessLocked } from '../auth/access.js';
 import { collectStats } from '../lib/adminStats.js';
-import { accountSummary, targetProblem, cloneAccount } from '../lib/cloneAccount.js';
-import { assignAccountNumber } from '../lib/accountNumber.js';
 import { getSignupPlans, getStripe, getStripeConfig, planTypeForPriceId, REQUIRED_WEBHOOK_EVENTS } from '../lib/stripe.js';
 import { canTransition } from '../lib/planRequests.js';
 import { publicOrigin } from '../lib/publicOrigin.js';
@@ -1628,8 +1626,6 @@ router.delete(
 // comes to delete them.
 // ---------------------------------------------------------------------------
 
-// Give an account the public number it never got. assignAccountNumber only runs
-// at registration, so anybody who signed up before that existed has none.
 // Put right every account whose payment landed but whose access did not.
 //
 // Subscription state reached us only by webhook, and a webhook is a promise
@@ -1711,70 +1707,5 @@ router.post(
   })
 );
 
-router.post(
-  '/tools/account-number',
-  asyncHandler(async (req, res) => {
-    const email = String(req.body?.email || '').trim().toLowerCase();
-    const [rows] = await pool.execute('SELECT id, email, name, account_number FROM users WHERE email = ?', [email]);
-    const user = rows[0];
-    if (!user) return res.status(404).json({ error: 'No account with that address' });
-
-    // Refused if they already have one. It is what somebody quotes back to
-    // support and what appears on their invoices, so two numbers meaning one
-    // account is worse than one account missing a number.
-    if (user.account_number && req.body?.force !== true) {
-      return res.status(409).json({ error: `They already have ${user.account_number}` });
-    }
-    if (req.body?.force === true) {
-      await pool.execute('UPDATE users SET account_number = NULL WHERE id = ?', [user.id]);
-    }
-
-    const assigned = await assignAccountNumber(pool, user.id);
-    res.json({ ok: true, email: user.email, before: user.account_number || null, accountNumber: assigned });
-  })
-);
-
-// What is in an account, and whether it can be copied into. Looks only.
-router.get(
-  '/tools/account-copy/check',
-  asyncHandler(async (req, res) => {
-    const from = String(req.query?.from || '').trim().toLowerCase();
-    const to = String(req.query?.to || '').trim().toLowerCase();
-
-    const [users] = await pool.query(
-      'SELECT id, email, name FROM users WHERE email IN (?, ?)',
-      [from, to]
-    );
-    const source = users.find((u) => u.email === from);
-    const target = users.find((u) => u.email === to);
-
-    if (!source) return res.status(404).json({ error: `No account for ${from}` });
-    if (!target) return res.status(404).json({ error: `No account for ${to}` });
-    if (source.id === target.id) return res.status(400).json({ error: 'Those are the same account' });
-
-    res.json({
-      source: { email: source.email, name: source.name, summary: await accountSummary(source.id) },
-      target: { email: target.email, name: target.name, summary: await accountSummary(target.id) },
-      problem: await targetProblem(target.id),
-    });
-  })
-);
-
-router.post(
-  '/tools/account-copy',
-  asyncHandler(async (req, res) => {
-    const from = String(req.body?.from || '').trim().toLowerCase();
-    const to = String(req.body?.to || '').trim().toLowerCase();
-
-    const [users] = await pool.query('SELECT id, email FROM users WHERE email IN (?, ?)', [from, to]);
-    const source = users.find((u) => u.email === from);
-    const target = users.find((u) => u.email === to);
-    if (!source || !target) return res.status(404).json({ error: 'One of those accounts does not exist' });
-
-    const result = await cloneAccount({ uploadsRoot: uploadsDir, fromUserId: source.id, toUserId: target.id });
-    if (!result.ok) return res.status(400).json({ error: result.error });
-    res.json(result);
-  })
-);
 
 export default router;

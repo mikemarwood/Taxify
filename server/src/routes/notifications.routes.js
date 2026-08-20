@@ -55,6 +55,19 @@ router.post(
   })
 );
 
+// Clearing the list.
+//
+// Marking everything read empties the badge but leaves the panel full, so a
+// list somebody has finished with keeps growing and stops being worth opening.
+// This removes them — their own, and only theirs.
+router.delete(
+  '/',
+  asyncHandler(async (req, res) => {
+    const [result] = await pool.execute('DELETE FROM notifications WHERE user_id = ?', [req.user.id]);
+    res.json({ ok: true, cleared: result.affectedRows || 0 });
+  })
+);
+
 // The Android app hands over its Firebase token so pushes can reach it. Keyed
 // on the token: the same person may have two devices, and Android reissues a
 // token whenever it feels like it.

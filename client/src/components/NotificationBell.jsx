@@ -74,6 +74,7 @@ export default function NotificationBell({ compact = false }) {
     };
   }, [open, place]);
 
+  const [clearing, setClearing] = useState(false);
   const unread = data?.unread || 0;
   const items = data?.notifications || [];
 
@@ -165,6 +166,55 @@ export default function NotificationBell({ compact = false }) {
                 zIndex: 1300,
               }}
             >
+            {/* A way to empty it.
+                Marking everything read clears the badge and leaves the list
+                full, so a panel somebody has finished with keeps growing until
+                it stops being worth opening. Only shown when there is
+                something to clear. */}
+            {items.length > 0 && (
+              <div
+                style={{
+                  display: 'flex',
+                  justifyContent: 'flex-end',
+                  padding: '8px 12px',
+                  borderBottom: '1px solid var(--border)',
+                  position: 'sticky',
+                  top: 0,
+                  background: 'var(--bg-card)',
+                  zIndex: 1,
+                }}
+              >
+                <button
+                  type="button"
+                  disabled={clearing}
+                  onClick={async () => {
+                    setClearing(true);
+                    try {
+                      await api.delete('/notifications');
+                      setData({ unread: 0, notifications: [] });
+                    } catch {
+                      // Nothing useful to say inside a dropdown that is about
+                      // to close. The list reloads on the next poll either way.
+                    } finally {
+                      setClearing(false);
+                    }
+                  }}
+                  style={{
+                    border: 0,
+                    background: 'transparent',
+                    padding: 0,
+                    cursor: 'pointer',
+                    font: 'inherit',
+                    fontSize: 11.5,
+                    fontWeight: 600,
+                    color: 'var(--text-muted)',
+                  }}
+                >
+                  {clearing ? 'Clearing…' : 'Clear all'}
+                </button>
+              </div>
+            )}
+
             {items.length === 0 ? (
               <div style={{ padding: 22, textAlign: 'center', fontSize: 12.5, color: 'var(--text-muted)' }}>
                 Nothing yet. Recurring expenses, accountant access and tax reminders will appear here.

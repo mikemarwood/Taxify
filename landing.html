@@ -547,17 +547,16 @@
     </a>
     <div class="nav-actions">
       <a href="https://taxify.mikesapphub.com/app/login" class="btn btn-ghost">Log in</a>
-      <a href="https://taxify.mikesapphub.com/app/login" class="btn btn-primary">Get started</a>
+      <a href="https://taxify.mikesapphub.com/app/login" class="btn btn-primary">Open Taxify</a>
     </div>
   </header>
 
   <main class="lp">
     <section class="hero">
-      <div class="badge">✨ Built for workers, tradies &amp; small business owners</div>
       <h1>Track every deduction, cleanly and simply.</h1>
       <p class="lede">Taxify logs your expenses, sorts them into categories, and builds year-over-year reports — so tax time takes minutes, not weekends.</p>
       <div class="hero-actions">
-        <a href="https://taxify.mikesapphub.com/app/login" class="btn btn-primary btn-lg">Get started — it's free</a>
+        <a href="https://taxify.mikesapphub.com/app/login" class="btn btn-primary btn-lg">Continue to Taxify</a>
       </div>
       <p class="hero-note">Fast, simple and effective · Works on any device</p>
       <p class="hero-note" style="margin-top: 6px;">14-day free trial · No credit card required</p>
@@ -575,6 +574,12 @@
             <span class="device-dot"></span>
           </div>
           <div class="device-screen">
+            <!-- REPLACE THIS IMAGE
+                 File:   client/public/media/shot-dashboard.svg
+                 Shows:  the dashboard — a year of totals with the category breakdown
+                 Size:   1880x1120
+                 Overwrite that file, keeping its name, and nothing else
+                 needs changing. -->
             <a class="shot-open" href="#shot-desktop" aria-label="See this larger"><img
               id="hero-desktop"
               src="/media/shot-dashboard.svg"
@@ -589,6 +594,12 @@
              a screenshot exists rather than framing nothing. -->
         <div class="device-phone">
           <div class="device-screen">
+            <!-- REPLACE THIS IMAGE
+                 File:   client/public/media/shot-phone.png
+                 Shows:  the app on a phone — photographing a receipt
+                 Size:   1080x2340 (any 9:19.5)
+                 Overwrite that file, keeping its name, and nothing else
+                 needs changing. -->
             <a class="shot-open" href="#shot-phone" aria-label="See this larger"><img
               id="hero-phone"
               src="/media/shot-phone.png"
@@ -697,12 +708,24 @@
           <div class="shot-text">One tap at the counter. Taxify reads the date and the total, and files it under the right category and year.</div>
         </div>
         <div class="shot-panel">
+          <!-- REPLACE THIS IMAGE
+               File:   client/public/media/shot-expenses.svg
+               Shows:  the expense list — categories, running total, a receipt thumbnail
+               Size:   1200-1400 wide
+               Overwrite that file, keeping its name, and nothing else
+               needs changing. -->
           <a class="shot-open" href="#shot-expenses" aria-label="See this larger"><img src="/media/shot-expenses.svg" alt="A list of expenses sorted into categories with a running total" width="480" height="360" loading="lazy"></a>
           <span class="shot-step">Taxify does this</span>
           <div class="shot-title">Everything in one place</div>
           <div class="shot-text">Sorted, searchable, with the receipt attached to the expense — so a question in two years takes a moment, not an afternoon.</div>
         </div>
         <div class="shot-panel">
+          <!-- REPLACE THIS IMAGE
+               File:   client/public/media/shot-reports.png
+               Shows:  the reports page — years side by side (already a real screenshot)
+               Size:   1200-1400 wide
+               Overwrite that file, keeping its name, and nothing else
+               needs changing. -->
           <a class="shot-open" href="#shot-reports" aria-label="See this larger"><img src="/media/shot-reports.png" alt="The reports page: three tax years side by side, each category totalled and its share of the whole" width="966" height="896" loading="lazy"></a>
           <span class="shot-step">Come tax time</span>
           <div class="shot-title">The numbers, already added up</div>
@@ -820,7 +843,7 @@
     <section class="card cta-card">
       <h2>Ready to stop losing receipts?</h2>
       <p>Start your 14-day free trial and have your first expense logged before your coffee's cold.</p>
-      <a href="https://taxify.mikesapphub.com/app/login" class="btn btn-primary btn-lg" id="cta">Start free trial</a>
+      <a href="https://taxify.mikesapphub.com/app/login" class="btn btn-primary btn-lg" id="cta">Continue to Taxify</a>
     </section>
   </main>
 
@@ -923,7 +946,7 @@
       if (!grid || !cta) return;
 
       var cards = grid.querySelectorAll('.plan-card');
-      var labels = { individual: 'Start free trial — Individual', business: 'Start free trial — Small Business' };
+      var labels = { individual: 'Continue to Taxify — Individual', business: 'Continue to Taxify — Small Business' };
 
       function choose(plan) {
         cards.forEach(function (card) {
@@ -943,7 +966,7 @@
           cta.href = signInUrl();
         } else {
           grid.removeAttribute('data-chosen');
-          cta.textContent = 'Start free trial';
+          cta.textContent = 'Continue to Taxify';
           cta.href = signInUrl();
         }
       }
