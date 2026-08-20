@@ -72,6 +72,19 @@ const navGroups = [
 // links they can't use are left out rather than shown and rejected.
 const ACCOUNTANT_PATHS = ['/', '/expenses', '/reports', '/account'];
 
+// An accountant with no plan of their own is a narrower case again.
+//
+// Those four are the right list while they are inside a client's books, where
+// the expenses and reports being read are the client's. Outside a client they
+// point at this account's own books, and an accountant who has not started a
+// plan has none — so All expenses was an empty list and Reports was a page of
+// zeroes, both offered as though they were somewhere to go.
+//
+// Their own account stays: name, password, email and two-factor are theirs
+// whether they keep books or not. The three that need books come back the
+// moment they start a plan.
+const ACCOUNTANT_NO_PLAN_PATHS = ['/account'];
+
 function NavItem({ item }) {
   return (
     <NavLink
@@ -402,7 +415,12 @@ export default function Layout({ children }) {
                 (i) =>
                   i.to === '/clients' ||
                   !(user?.actingAsClient || user?.role === 'accountant') ||
-                  ACCOUNTANT_PATHS.includes(i.to)
+                  // Inside a client, the client's pages. Outside one with no
+                  // plan, nothing that would open books this account does not
+                  // have.
+                  (!user?.actingAsClient && !hasOwnBooks
+                    ? ACCOUNTANT_NO_PLAN_PATHS.includes(i.to)
+                    : ACCOUNTANT_PATHS.includes(i.to))
               );
               return { ...group, items };
             })
