@@ -18,6 +18,11 @@ export const requireAuth = asyncHandler(async (req, res, next) => {
             otp_enabled, otp_last_prompted_at, role, account_holder_id, plan_type,
             fy_start_month, fy_start_day,
             currency, country, state, business_name, practice_name, activated_at, trial_ends_at,
+            -- Without this, toPublicUser reported actsForClients as false for
+            -- everybody. Turning it on wrote the row, re-signed the cookie and
+            -- sent the email, and the very next request read a user object that
+            -- had never been told: the card went straight back to Off.
+            acts_for_clients,
             access_bypass, access_bypass_until,
             subscription_status, stripe_customer_id, stripe_subscription_id, subscription_current_period_end
      FROM users WHERE id = ?`,
