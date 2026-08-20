@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { AnimatePresence, motion } from 'framer-motion';
 import { api } from '../lib/api.js';
 import { useToast } from '../components/Toast.jsx';
@@ -12,6 +12,16 @@ import { useEntities } from '../lib/EntityContext.jsx';
 import { onDigitKeyDown, playSuccess } from '../lib/sounds.js';
 import { formatMoney, amountWhileTyping, amountOnBlur, parseAmount, currencySymbol } from '../lib/money.js';
 import { useAuth } from '../lib/AuthContext.jsx';
+import { TripForm, HoursForm } from '../components/DeductionForms.jsx';
+
+// The three things this page can add. A receipt is the common one and stays
+// the default; the other two are the deductions that have no receipt to
+// attach, which is the only reason they were ever a separate page.
+const KINDS = [
+  { id: 'receipt', tab: 'Receipt', icon: 'receipt', heading: 'Add expense', blurb: 'Log a purchase and attach the receipt.' },
+  { id: 'trip', tab: 'Vehicle trip', icon: 'car', heading: 'Add a trip', blurb: 'Odometer at the start and the finish — the distance works itself out.' },
+  { id: 'hours', tab: 'Home office', icon: 'home', heading: 'Add hours worked', blurb: 'Hours worked from home, logged the day you work them.' },
+];
 
 const CURRENCIES = ['AUD', 'USD', 'NZD', 'GBP', 'EUR'];
 
@@ -26,6 +36,13 @@ export default function AddExpense() {
   const { user } = useAuth();
   const navigate = useNavigate();
   const toast = useToast();
+
+  // Which of the three is on screen. Receipt by default, because it is what
+  // most days produce.
+  const [kind, setKind] = useState('receipt');
+  // How many trips or hours this visit has added, so the page can say so
+  // without navigating away mid-run.
+  const [logged, setLogged] = useState(0);
 
   const [categories, setCategories] = useState([]);
   const [itemName, setItemName] = useState('');
@@ -253,12 +270,80 @@ export default function AddExpense() {
     return str.replace(/(^\s*|[.!?]\s+)([a-z])/g, (m, sep, ch) => sep + ch.toUpperCase());
   }
 
-  return (
-    <div style={{ maxWidth: 560 }}>
-      <h1 style={{ margin: '0 0 4px', fontSize: 26 }}>Add expense</h1>
-      <p style={{ color: 'var(--text-muted)', margin: '0 0 24px' }}>Log a purchase and attach the receipt.</p>
+  const chosen = KINDS.find((k) => k.id === kind);
 
-      <form onSubmit={onSubmit} className="card" style={{ padding: 24, display: 'flex', flexDirection: 'column', gap: 18 }}>
+  return (
+    <div style={{ maxWidth: kind === 'receipt' ? 560 : 940 }}>
+      <h1 style={{ margin: '0 0 4px', fontSize: 26 }}>{chosen.heading}</h1>
+      <p style={{ color: 'var(--text-muted)', margin: '0 0 20px' }}>{chosen.blurb}</p>
+
+      {/* Three things get claimed, and only one of them comes with a receipt.
+          Kilometres and hours used to live on a page of their own, so logging a
+          day's work meant knowing which of two screens each part of it belonged
+          on — a distinction about our tables, not about anybody's day. */}
+      <div className="add-kind" role="tablist" aria-label="What are you adding">
+        {KINDS.map((k) => (
+          <button
+            key={k.id}
+            type="button"
+            role="tab"
+            aria-selected={kind === k.id}
+            onClick={() => setKind(k.id)}
+            className={kind === k.id ? 'add-kind-btn is-on' : 'add-kind-btn'}
+          >
+            <Icon name={k.icon} size={15} />
+            {k.tab}
+          </button>
+        ))}
+      </div>
+
+      {kind !== 'receipt' && (
+        <div className="card" style={{ padding: 24 }}>
+          {showSwitcher && (
+            <div style={{ marginBottom: 18, maxWidth: 320 }}>
+              <label className="label">Which books</label>
+              <select className="input" value={entityId} onChange={(e) => setEntityId(e.target.value)}>
+                {entities.map((e) => (
+                  <option key={e.id} value={e.id}>
+                    {e.name}
+                    {e.kind === 'business' ? ' — Business' : ' — Individual'}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+
+          {/* No year is passed, so the date is bounded by today and nothing
+              else: the server files an entry into whatever year it falls in,
+              and this page — unlike Other deductions — is not showing one. */}
+          {kind === 'trip' ? (
+            <TripForm entityId={entityId} onAdded={() => setLogged((n) => n + 1)} />
+          ) : (
+            <HoursForm entityId={entityId} onAdded={() => setLogged((n) => n + 1)} />
+          )}
+
+          {/* It stays on the page after adding, because these come in runs —
+              a week of trips is entered in one sitting, not one visit each. */}
+          {logged > 0 && (
+            <div style={{ marginTop: 16, fontSize: 13, color: 'var(--emerald)', fontWeight: 600 }}>
+              <Icon name="check" size={14} style={{ verticalAlign: -2, marginRight: 6 }} />
+              {logged === 1 ? 'Logged.' : `${logged} logged.`}{' '}
+              <Link to="/deductions" style={{ color: 'var(--accent)', fontWeight: 600 }}>
+                See them all
+              </Link>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Kept mounted rather than unmounted, so switching away and back does
+          not throw away a half-filled receipt — including an upload that has
+          already been chosen. */}
+      <form
+        onSubmit={onSubmit}
+        className="card"
+        style={{ padding: 24, display: kind === 'receipt' ? 'flex' : 'none', flexDirection: 'column', gap: 18 }}
+      >
         {/* Shown only once there is more than one set of books to choose
             between. Asking is more honest than hiding the form: "Everything" is
             a way of looking at records, not a place to put one. */}

@@ -756,3 +756,46 @@ input[type="date"].input::-webkit-calendar-picker-indicator:hover { opacity: 1; 
   .support-layout[data-reading='true'] .support-list { display: none; }
   .support-back { display: inline-flex; }
 }
+
+/* The three-way chooser at the top of Add expense.
+   
+   A segmented control rather than a dropdown: there are only three, they are
+   the whole point of the page, and one of them is nearly always what was
+   wanted — none of which is worth a menu. It scrolls sideways rather than
+   wrapping on a narrow phone, so the three stay one row and the form below
+   them never moves down a line. */
+.add-kind {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 18px;
+  overflow-x: auto;
+  padding-bottom: 2px;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+.add-kind::-webkit-scrollbar { display: none; }
+
+.add-kind-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  flex-shrink: 0;
+  padding: 9px 15px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--bg-card);
+  color: var(--text-muted);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.15s var(--ease-standard), color 0.15s var(--ease-standard),
+    border-color 0.15s var(--ease-standard);
+}
+.add-kind-btn:hover:not(.is-on) { border-color: var(--border-strong); color: var(--text); }
+.add-kind-btn.is-on {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}

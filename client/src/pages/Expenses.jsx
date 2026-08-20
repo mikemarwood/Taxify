@@ -12,6 +12,8 @@ import Icon from '../components/Icon.jsx';
 import { formatMoney, claimable } from '../lib/money.js';
 import { useAuth } from '../lib/AuthContext.jsx';
 import { formatDayMonth } from '../lib/dates.js';
+import { formatHours } from '../lib/deductionInput.js';
+import { Link } from 'react-router-dom';
 import Amount from '../components/Amount.jsx';
 import UnconvertedNotice from '../components/UnconvertedNotice.jsx';
 
@@ -41,6 +43,49 @@ function matchesAmount(amount, rawQuery) {
   return amount.toFixed(2).startsWith(bare);
 }
 
+// One of the two no-receipt panels at the foot of the list.
+//
+// Shaped like a category group above it — icon, name, count on the left, the
+// total on the right — because it is the same kind of thing: a heap of entries
+// that add up to part of a claim. What it adds up to is kilometres or hours,
+// which is the only difference worth showing.
+function DeductionPanel({ title, icon, rows, summary, render }) {
+  if (rows.length === 0) return null;
+  return (
+    <div style={{ marginTop: 20 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+        <Icon name={icon} size={15} style={{ color: 'var(--accent)' }} />
+        <span style={{ fontWeight: 700 }}>{title}</span>
+        <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>no receipt</span>
+        <span style={{ marginLeft: 'auto', fontWeight: 700 }}>{summary}</span>
+      </div>
+      <div className="card" style={{ overflow: 'hidden' }}>
+        {rows.map((row, i) => (
+          <div
+            key={row.id}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 10,
+              padding: '8px 16px',
+              borderBottom: i < rows.length - 1 ? '1px solid var(--border)' : 'none',
+              fontSize: 13,
+            }}
+          >
+            <span style={{ width: 78, flexShrink: 0, color: 'var(--text-muted)' }}>{formatDayMonth(row.date)}</span>
+            {render(row)}
+          </div>
+        ))}
+      </div>
+      <div style={{ marginTop: 8, fontSize: 12 }}>
+        <Link to="/deductions" style={{ color: 'var(--accent)', fontWeight: 600 }}>
+          Add or remove entries
+        </Link>
+      </div>
+    </div>
+  );
+}
+
 export default function Expenses() {
   const { user } = useAuth();
   const { isAll, showSwitcher } = useEntities();
@@ -50,6 +95,18 @@ export default function Expenses() {
   const [categoryFilter, setCategoryFilter] = useState('all');
   const [selectedExpense, setSelectedExpense] = useState(null);
   const [lightboxUrl, setLightboxUrl] = useState(null);
+  // Kilometres and hours, alongside the receipts they are claimed with.
+  //
+  // They are fetched separately because they are stored separately — a trip
+  // has no amount, no category and no receipt, so it was never going to be a
+  // row in the expenses table. That is a fact about our schema, though, and
+  // not a reason for somebody to have to remember which page a Tuesday
+  // afternoon ended up on.
+  //
+  // One year at a time, because that is what the endpoint serves and what a
+  // claim is made in. Under "All years" the two panels stand down rather than
+  // show one year of kilometres beside every year of receipts.
+  const [deductions, setDeductions] = useState(null);
 
   function load() {
     api.get('/expenses').then((res) => {
@@ -59,6 +116,19 @@ export default function Expenses() {
   }
 
   useEffect(load, []);
+
+  useEffect(() => {
+    setDeductions(null);
+    if (!year || year === 'all') return;
+    let live = true;
+    api
+      .get(`/deductions/${encodeURIComponent(year)}`)
+      .then((res) => live && setDeductions(res.data))
+      .catch(() => live && setDeductions(null));
+    return () => {
+      live = false;
+    };
+  }, [year]);
 
   const years = useMemo(() => {
     if (!expenses) return [];
@@ -114,6 +184,15 @@ export default function Expenses() {
 
   const loading = expenses === null;
   const total = searched.reduce((sum, e) => sum + claimable(e), 0);
+
+  // The same search box reads these too, over the words they actually have:
+  // a vehicle and a purpose, or a note. Not the amount matcher — neither has
+  // an amount, and "over $500" has nothing to say about a Tuesday's driving.
+  const q = searchQuery.trim().toLowerCase();
+  const tripRows = (deductions?.vehicle?.trips || []).filter(
+    (t) => !q || t.vehicle.toLowerCase().includes(q) || t.purpose.toLowerCase().includes(q)
+  );
+  const hourRows = (deductions?.homeOffice?.entries || []).filter((h) => !q || h.note.toLowerCase().includes(q));
 
   return (
     <div>
@@ -196,7 +275,7 @@ export default function Expenses() {
 
       {loading ? (
         <SkeletonList rows={6} />
-      ) : groups.length === 0 ? (
+      ) : groups.length === 0 && tripRows.length === 0 && hourRows.length === 0 ? (
         <div className="card" style={{ padding: 40, textAlign: 'center', color: 'var(--text-muted)' }}>
           {searchQuery.trim() ? `No entries match "${searchQuery.trim()}".` : 'No expenses for this selection.'}
         </div>
@@ -291,6 +370,53 @@ export default function Expenses() {
             </div>
           ))}
         </div>
+      )}
+
+      {/* Kilometres and hours, in the same list as everything else.
+          Their own panels rather than rows among the receipts: they are
+          counted in km and hours, not money, and dropping a "—" into the amount
+          column of a table that adds up would be a subtraction waiting to
+          happen. Hidden while a category filter is on, since neither has one. */}
+      {categoryFilter === 'all' && (
+        <>
+          <DeductionPanel
+            title="Vehicle — kilometres driven"
+            icon="car"
+            rows={tripRows}
+            summary={
+              tripRows.length > 0
+                ? `${tripRows.reduce((sum, t) => sum + t.km, 0).toLocaleString()} km · ${tripRows.length} trip${
+                    tripRows.length === 1 ? '' : 's'
+                  }`
+                : null
+            }
+            render={(t) => (
+              <>
+                <span style={{ flex: 1, minWidth: 0, fontWeight: 600 }}>{t.vehicle}</span>
+                <span style={{ color: 'var(--text-muted)', flex: 2, minWidth: 0 }}>{t.purpose}</span>
+                <span style={{ fontWeight: 700, whiteSpace: 'nowrap' }}>{t.km.toLocaleString()} km</span>
+              </>
+            )}
+          />
+          <DeductionPanel
+            title="Home office — hours worked"
+            icon="home"
+            rows={hourRows}
+            summary={
+              hourRows.length > 0
+                ? `${formatHours(hourRows.reduce((sum, h) => sum + h.hours, 0))} · ${hourRows.length} day${
+                    hourRows.length === 1 ? '' : 's'
+                  }`
+                : null
+            }
+            render={(h) => (
+              <>
+                <span style={{ flex: 3, minWidth: 0, color: 'var(--text-muted)' }}>{h.note}</span>
+                <span style={{ fontWeight: 700, whiteSpace: 'nowrap' }}>{formatHours(h.hours)}</span>
+              </>
+            )}
+          />
+        </>
       )}
 
       {selectedExpense && (

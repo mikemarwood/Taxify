@@ -6,20 +6,12 @@ import { useEntities } from '../lib/EntityContext.jsx';
 import { useToast } from '../components/Toast.jsx';
 import Icon from '../components/Icon.jsx';
 import { SkeletonList } from '../components/Skeletons.jsx';
-import { formatDayMonth, todayIso } from '../lib/dates.js';
+import { formatDayMonth } from '../lib/dates.js';
 import { useFinancialYears } from '../lib/useFinancialYears.js';
-import { currentFinancialYear, financialYearRange } from '../lib/financialYear.js';
-import { playSuccess, playError, onDigitKeyDown } from '../lib/sounds.js';
+import { currentFinancialYear } from '../lib/financialYear.js';
 import { useConfirm } from '../lib/ConfirmContext.jsx';
-import HoursPicker from '../components/HoursPicker.jsx';
-import { onCasedInput } from '../lib/casedInput.js';
-import { sentenceCaseLive, titleCaseLive } from '../lib/textCase.js';
-import {
-  kmWhileTyping,
-  parseKm,
-  toDecimalHours,
-  formatHours,
-} from '../lib/deductionInput.js';
+import { TripForm, HoursForm } from '../components/DeductionForms.jsx';
+import { formatHours } from '../lib/deductionInput.js';
 
 // The deductions that aren't receipts: kilometres driven for work and hours
 // worked at home. Both are logged as they happen, because both are claimed at
@@ -91,41 +83,8 @@ export default function Deductions() {
   const [entityId, setEntityId] = useState('');
   const [year, setYear] = useState('');
   const [data, setData] = useState(null);
-  const [busy, setBusy] = useState(false);
 
   const readOnly = !!user?.actingAsClient;
-
-  // What a date field will accept.
-  //
-  // Two limits, and both belong on the picker rather than in a message
-  // afterwards. Nothing in the future, because a logbook is a record of what
-  // happened. And nothing outside the year the page is showing, because the
-  // server files an entry by its date: a trip dated outside this year would
-  // save successfully and then not be in the list it was just added to.
-  //
-  // The bounds come from the same rule the rest of the app uses, so a year
-  // that runs April to April is bounded April to April.
-  const fyRange = financialYearRange(year, user?.financialYearRule);
-  const today = todayIso();
-  const dateMin = fyRange ? fyRange.start : undefined;
-  const dateMax = fyRange && fyRange.end < today ? fyRange.end : today;
-
-  // The picker enforces this, but a date can still be typed into it, so the
-  // button reads the same bounds rather than trusting the widget.
-  const dateOk = (value) => Boolean(value) && (!dateMin || value >= dateMin) && value <= dateMax;
-
-  // Two ways to say the same thing: the distance, or the two odometer
-  // readings it came from. A logbook is kept in readings, and subtracting them
-  // by hand is both a chore and the easiest place to make a mistake nobody
-  // would ever catch.
-  // The two readings are the whole of the input. There is no kilometres field
-  // in here because there is no kilometres field on the form: the distance is
-  // worked out from these, every time it is needed.
-  const [trip, setTrip] = useState({ date: '', vehicle: '', purpose: '', from: '', to: '' });
-
-  // Hours and minutes are chosen, not typed — see deductionInput.js for why.
-  // The decimal the server wants is worked out on the way out.
-  const [hours, setHours] = useState({ date: '', h: '', m: '', note: '' });
 
   useEffect(() => {
     // The rule matters here: without it this asks for the Australian year and
@@ -162,53 +121,6 @@ export default function Deductions() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [year, entityId]);
 
-  async function addTrip(e) {
-    e.preventDefault();
-    setBusy(true);
-    try {
-      // The separators are display only. What goes to the server is a number.
-      // Only ever a distance on the wire. The readings are how somebody
-      // arrived at it, not something the claim is made of.
-      await api.post('/deductions/vehicle-trips', {
-        date: trip.date,
-        vehicle: trip.vehicle,
-        purpose: trip.purpose,
-        km: tripKm,
-        entityId,
-      });
-      playSuccess();
-      // The vehicle stays, because the next trip is usually the same car.
-      setTrip({ date: '', vehicle: trip.vehicle, purpose: '', from: '', to: '' });
-      load();
-    } catch (err) {
-      playError();
-      toast(err.message, 'error');
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  async function addHours(e) {
-    e.preventDefault();
-    setBusy(true);
-    try {
-      await api.post('/deductions/home-office', {
-        date: hours.date,
-        hours: toDecimalHours(hours.h, hours.m),
-        note: hours.note,
-        entityId,
-      });
-      playSuccess();
-      setHours({ date: '', h: '', m: '', note: '' });
-      load();
-    } catch (err) {
-      playError();
-      toast(err.message, 'error');
-    } finally {
-      setBusy(false);
-    }
-  }
-
   async function remove(kind, id) {
     if (!(await confirm({ tone: 'danger', title: 'Remove this entry?', confirmLabel: 'Remove' }))) return;
     try {
@@ -218,44 +130,6 @@ export default function Deductions() {
       toast(err.message, 'error');
     }
   }
-
-  // What each form needs before it can be sent.
-  //
-  // Stated here rather than left to the browser, because required alone lets
-  // somebody press a live button and be refused — and the two forms disagreed
-  // about what counted anyway: purpose and note were never required, but the
-  // button looked exactly as ready without them as with.
-  //
-  // A trip needs a date, something to call the vehicle, and a distance above
-  // zero. Purpose stays optional — it is the description of a trip, not the
-  // claim, and demanding one would have people typing "work" to get past it.
-  // What is being claimed, and the only place it is worked out. The total is
-  // read back from this same value rather than kept in its own field, so the
-  // figure shown, the figure checked and the figure sent cannot differ.
-  const odoFrom = parseKm(trip.from);
-  const odoTo = parseKm(trip.to);
-  const odoKm = odoFrom !== null && odoTo !== null ? odoTo - odoFrom : null;
-  const tripKm = odoKm !== null && odoKm > 0 ? odoKm : null;
-
-  // Said rather than left to be discovered by a disabled button. Readings the
-  // wrong way round is the ordinary mistake — the trip is still real, the two
-  // numbers are just in the wrong boxes.
-  const odoProblem =
-    odoFrom === null || odoTo === null
-      ? ''
-      : odoTo < odoFrom
-      ? 'The finishing reading is lower than the starting one.'
-      : odoTo === odoFrom
-      ? 'Both readings are the same, so there is no distance to claim.'
-      : '';
-
-  const tripReady =
-    dateOk(trip.date) && trip.vehicle.trim().length > 0 && (tripKm || 0) > 0 && !odoProblem;
-
-  // Hours needs a date and a time above zero. Either dropdown alone is enough
-  // — 45 minutes with no hours is a perfectly ordinary entry — so it is the
-  // total that has to be more than nothing.
-  const hoursReady = dateOk(hours.date) && toDecimalHours(hours.h, hours.m) > 0;
 
   const vehicle = data?.vehicle;
   const office = data?.homeOffice;
@@ -372,120 +246,7 @@ export default function Deductions() {
               </div>
             )}
 
-            {!readOnly && (
-              <form
-                onSubmit={addTrip}
-                className="deduction-form"
-                style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'flex-start' }}
-              >
-                <div style={{ flex: '1 1 165px', minWidth: 165 }}>
-                  <label className="label">Date</label>
-                  <input
-                    className="input"
-                    type="date"
-                    required
-                    min={dateMin}
-                    max={dateMax}
-                    value={trip.date}
-                    onChange={(e) => setTrip({ ...trip, date: e.target.value })}
-                  />
-                </div>
-                <div style={{ flex: '1 1 150px', minWidth: 130 }}>
-                  <label className="label">Vehicle</label>
-                  <input
-                    className="input"
-                    required
-                    maxLength={80}
-                    placeholder="e.g. Hilux"
-                    value={trip.vehicle}
-                    onChange={onCasedInput(titleCaseLive, (value) => setTrip({ ...trip, vehicle: value }))}
-                  />
-                </div>
-                {/* Start, finish, total. Two questions and one answer: the
-                    readings are what somebody knows, the distance is what
-                    follows from them, and nothing on the form asks for the
-                    same thing twice. */}
-                <div style={{ flex: '1 1 108px', minWidth: 100 }}>
-                  <label className="label">Odometer start</label>
-                  <input
-                    className="input"
-                    required
-                    inputMode="numeric"
-                    placeholder="e.g. 41,200"
-                    value={trip.from}
-                    onChange={onCasedInput(kmWhileTyping, (value) => setTrip({ ...trip, from: value }))}
-                  />
-                </div>
-                <div style={{ flex: '1 1 108px', minWidth: 100 }}>
-                  <label className="label">Odometer finish</label>
-                  <input
-                    className="input"
-                    required
-                    inputMode="numeric"
-                    placeholder="e.g. 41,538"
-                    value={trip.to}
-                    onChange={onCasedInput(kmWhileTyping, (value) => setTrip({ ...trip, to: value }))}
-                  />
-                </div>
-                <div style={{ flex: '1 1 130px', minWidth: 120 }}>
-                  <label className="label">Total kilometres</label>
-                  {/* An answer, not a question. It is disabled because there is
-                      nothing to decide here: subtracting one reading from the
-                      other has exactly one right result, and a field that can
-                      be typed over is a field that can disagree with the
-                      readings sitting next to it. */}
-                  <input
-                    className="input"
-                    disabled
-                    readOnly
-                    aria-live="polite"
-                    placeholder="—"
-                    value={tripKm > 0 ? tripKm.toLocaleString() : ''}
-                    style={
-                      tripKm > 0
-                        ? { fontWeight: 800, color: 'var(--emerald)', borderColor: 'var(--emerald)' }
-                        : undefined
-                    }
-                  />
-                  <div style={{ fontSize: 11.5, marginTop: 4, lineHeight: 1.5 }}>
-                    {odoProblem ? (
-                      <span style={{ color: 'var(--red)' }}>{odoProblem}</span>
-                    ) : tripKm > 0 ? (
-                      <span style={{ color: 'var(--emerald)', fontWeight: 600 }}>From the readings</span>
-                    ) : (
-                      <span style={{ color: 'var(--text-muted)' }}>Both readings, and this fills itself in.</span>
-                    )}
-                  </div>
-                </div>
-                <div style={{ flex: '2 1 200px', minWidth: 150 }}>
-                  <label className="label">Purpose</label>
-                  <input
-                    className="input"
-                    maxLength={255}
-                    placeholder="e.g. Site visit, Parramatta"
-                    value={trip.purpose}
-                    onChange={onCasedInput(sentenceCaseLive, (value) => setTrip({ ...trip, purpose: value }))}
-                  />
-                </div>
-                {/* Full width once it is on a line of its own, rather than a
-                    small button marooned beside a gap. The empty label is a
-                    spacer: without it the button sits level with the other
-                    labels instead of level with the fields. */}
-                <div style={{ flex: '1 1 auto', minWidth: 110 }}>
-                  <span className="label" aria-hidden="true">
-                    &nbsp;
-                  </span>
-                  <button
-                    className="btn btn-primary"
-                    type="submit"
-                    disabled={busy || !tripReady}
-                    style={{ fontSize: 13, width: '100%', justifyContent: 'center' }}
-                  >
-                    Add trip
-                  </button>
-                </div>
-              </form>
-            )}
+            {!readOnly && <TripForm entityId={entityId} year={year} onAdded={load} />}
 
             <EntryList
               rows={vehicle.trips}
@@ -529,61 +290,7 @@ export default function Deductions() {
                 : 'Nothing logged yet'
             }
           >
-            {!readOnly && (
-              <form
-                onSubmit={addHours}
-                className="deduction-form"
-                style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'flex-start' }}
-              >
-                <div style={{ flex: '1 1 165px', minWidth: 165 }}>
-                  <label className="label">Date</label>
-                  <input
-                    className="input"
-                    type="date"
-                    required
-                    min={dateMin}
-                    max={dateMax}
-                    value={hours.date}
-                    onChange={(e) => setHours({ ...hours, date: e.target.value })}
-                  />
-                </div>
-                {/* Stepped and tapped, not chosen from a list.
-                    "Half an hour" is 0.5 as a decimal and 0.30 on a clock, so
-                    the field never asks for either — hours step, minutes are
-                    four buttons, and the decimal is worked out. */}
-                <div style={{ flex: '1 1 330px', minWidth: 320 }}>
-                  <HoursPicker
-                    hours={hours.h}
-                    minutes={hours.m}
-                    onChange={(h, m) => setHours({ ...hours, h: String(h), m: String(m) })}
-                  />
-                </div>
-                <div style={{ flex: '2 1 200px', minWidth: 150 }}>
-                  <label className="label">Note</label>
-                  <input
-                    className="input"
-                    maxLength={255}
-                    placeholder="Optional"
-                    value={hours.note}
-                    onChange={onCasedInput(sentenceCaseLive, (value) => setHours({ ...hours, note: value }))}
-                  />
-                </div>
-                {/* The empty label is a spacer; see the trip form above. */}
-                <div style={{ flex: '1 1 auto', minWidth: 110 }}>
-                  <span className="label" aria-hidden="true">
-                    &nbsp;
-                  </span>
-                  <button
-                    className="btn btn-primary"
-                    type="submit"
-                    disabled={busy || !hoursReady}
-                    style={{ fontSize: 13, width: '100%', justifyContent: 'center' }}
-                  >
-                    Add hours
-                  </button>
-                </div>
-              </form>
-            )}
+            {!readOnly && <HoursForm entityId={entityId} year={year} onAdded={load} />}
 
             <EntryList
               rows={office.entries}
