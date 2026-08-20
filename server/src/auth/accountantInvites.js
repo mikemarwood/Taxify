@@ -47,8 +47,12 @@ export function shapeInvite(row) {
 // looking at a row that stopped working at some point they cannot determine.
 export async function pendingInvites(ownerId) {
   const [rows] = await pool.execute(
+    // Declined ones are gone from here too, not only expired ones. An
+    // accountant saying no clears it from the pending area on the spot —
+    // there is nothing left to wait for, and a row still reading
+    // "waiting for them to accept" would be a lie the client acts on.
     `SELECT * FROM accountant_invites
-     WHERE owner_user_id = ? AND accepted_at IS NULL AND expires_at > NOW()
+     WHERE owner_user_id = ? AND accepted_at IS NULL AND declined_at IS NULL AND expires_at > NOW()
      ORDER BY created_at DESC`,
     [ownerId]
   );

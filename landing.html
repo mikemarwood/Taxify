@@ -442,9 +442,14 @@
      jump when it does. */
   /* What fills the frame before anybody presses play.
 
-     A poster is optional, and without one a <video> shows whatever is behind
-     it — which was #000, so an advertisement with no poster was a black
-     rectangle that read as broken rather than as a film waiting to be played.
+     With no poster, the opening frame of the film itself: preload="metadata"
+     fetches enough to decode it and browsers paint it, without downloading the
+     film. So an advertisement uploaded without a poster shows the advertisement
+     rather than a black rectangle.
+
+     This ground is what shows for the moment before that frame arrives, and on
+     any browser that declines to decode one. It was #000, which read as broken
+     rather than as a film about to play.
 
      So the ground is the brand instead: the mark, centred, over the same blue
      the rest of the page uses. Drawn in CSS rather than shipped as an image so
@@ -657,15 +662,15 @@
       <div class="ads-grid">
         <!--SLOT:ad-1-->
         <div class="ad-frame">
-          <video class="ad-video" controls playsinline preload="none" poster="/media/ads/ad-1-poster">
-            <source src="/media/ads/ad-1" type="video/mp4">
+          <video class="ad-video" controls playsinline preload="metadata" poster="/media/ads/ad-1-poster">
+            <source src="/media/ads/ad-1#t=0.1" type="video/mp4">
           </video>
         </div>
         <!--/SLOT:ad-1-->
         <!--SLOT:ad-2-->
         <div class="ad-frame">
-          <video class="ad-video" controls playsinline preload="none" poster="/media/ads/ad-2-poster">
-            <source src="/media/ads/ad-2" type="video/mp4">
+          <video class="ad-video" controls playsinline preload="metadata" poster="/media/ads/ad-2-poster">
+            <source src="/media/ads/ad-2#t=0.1" type="video/mp4">
           </video>
         </div>
         <!--/SLOT:ad-2-->

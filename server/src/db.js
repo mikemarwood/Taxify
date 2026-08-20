@@ -90,6 +90,21 @@ export async function ensureSchema() {
   await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS country VARCHAR(80) NULL`);
   await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS business_name VARCHAR(255) NULL`);
 
+  // An invitation now has three endings, not one.
+  //
+  // It used to be accepted or nothing — a link that went unopened simply sat
+  // there until it expired, and the person who sent it was never told either
+  // way. Declining is now a thing an accountant can do, and running out of time
+  // is something the client hears about, so both need somewhere to be recorded.
+  //
+  // declined_at is the accountant saying no. expired_notified_at is our own
+  // bookkeeping: the moment we told the client nobody answered, so the nightly
+  // sweep cannot tell them twice.
+  await pool.query(`ALTER TABLE accountant_invites ADD COLUMN IF NOT EXISTS declined_at DATETIME NULL`);
+  await pool.query(
+    `ALTER TABLE accountant_invites ADD COLUMN IF NOT EXISTS expired_notified_at DATETIME NULL`
+  );
+
   // The firm somebody does other people's returns under, which is a different
   // fact from business_name — that is the business whose expenses they track.
   // One login can legitimately have both: an accountant who also keeps their

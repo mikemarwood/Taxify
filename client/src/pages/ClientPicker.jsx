@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { describeHours } from '../lib/accessWindow.js';
+import InviteCountdown from '../components/InviteCountdown.jsx';
 import { onCasedInput } from '../lib/casedInput.js';
 import StartOwnAccount from '../components/StartOwnAccount.jsx';
 import { titleCaseLive } from '../lib/textCase.js';
@@ -8,6 +9,7 @@ import { motion } from 'framer-motion';
 import { api } from '../lib/api.js';
 import { useAuth } from '../lib/AuthContext.jsx';
 import { useToast } from '../components/Toast.jsx';
+import { useConfirm } from '../lib/ConfirmContext.jsx';
 import Icon from '../components/Icon.jsx';
 import { SkeletonList } from '../components/Skeletons.jsx';
 import { formatMoney } from '../lib/money.js';
@@ -36,6 +38,7 @@ function remaining(expiresAt) {
 // a switch they have never heard of is a wall, not a prompt.
 function SetupRequired({ missing, onDone }) {
   const toast = useToast();
+  const confirm = useConfirm();
   const { setOtpEnabled, refresh } = useAuth();
   const [practice, setPractice] = useState('');
   const [busy, setBusy] = useState(false);
@@ -69,9 +72,12 @@ function SetupRequired({ missing, onDone }) {
   }
 
   return (
-    <div className="card" style={{ padding: 22, marginBottom: 22, borderLeft: '4px solid var(--amber)' }}>
+    // Blue, not --amber. That token is #9a5b06, a brown, and this is an
+    // instruction rather than a warning — nothing has gone wrong, there is
+    // simply a step left.
+    <div className="card" style={{ padding: 22, marginBottom: 22, borderLeft: '4px solid var(--accent)' }}>
       <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
-        <Icon name="lock" size={19} style={{ color: 'var(--amber)', flexShrink: 0, marginTop: 2 }} />
+        <Icon name="lock" size={19} style={{ color: 'var(--accent)', flexShrink: 0, marginTop: 2 }} />
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 4 }}>
             One step before you can open a client's books
@@ -139,8 +145,11 @@ export default function ClientPicker() {
   const [startingOwn, setStartingOwn] = useState(false);
   // Invitations sent to this address that nobody has accepted yet.
   const [invitations, setInvitations] = useState([]);
+  // Which invitation is mid-answer, so both its buttons go quiet rather than
+  // only the one that was pressed.
+  const [answering, setAnswering] = useState(null);
 
-  useEffect(() => {
+  function load() {
     api
       .get('/auth/clients')
       .then((res) => {
@@ -152,11 +161,60 @@ export default function ClientPicker() {
         toast(err.message, 'error');
         setClients([]);
       });
-  }, [toast]);
+  }
+
+  useEffect(() => {
+    load();
+
+    // An invitation runs out while somebody is looking at it, and the countdown
+    // on the card reaching zero is not the same as the server having swept it.
+    // Reading again on return to the tab keeps the two honest without a poll
+    // that would run all day for an event that happens once.
+    function onVisible() {
+      if (document.visibilityState === 'visible') load();
+    }
+    document.addEventListener('visibilitychange', onVisible);
+    return () => document.removeEventListener('visibilitychange', onVisible);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Being invited to read someone else's books says nothing about whether you
   // keep your own. This turns the same login into an ordinary account holder —
   // trial, plans and all — without losing a single client.
+  // Answering an invitation.
+  //
+  // Declining asks first. Accepting does not: it is the thing they came here to
+  // do, it is reversible from the other side at any moment, and a dialog in
+  // front of the expected answer is a dialog people learn to click through.
+  // Declining is the one that cannot be undone from here — the invitation is
+  // closed and only the client can send another.
+  async function answer(invite, accept) {
+    if (!accept) {
+      const ok = await confirm({
+        tone: 'danger',
+        title: `Decline ${invite.from}?`,
+        body: 'They will be told, and the invitation is closed. Only they can send another one.',
+        confirmLabel: 'Decline it',
+        cancelLabel: 'Keep it',
+      });
+      if (!ok) return;
+    }
+    setAnswering(invite.id);
+    try {
+      await api.post(`/auth/accountant-invites/${invite.id}/${accept ? 'accept' : 'decline'}`);
+      if (accept) playClick();
+      toast(accept ? `${invite.from} is on your client list` : 'Invitation declined', 'success');
+      // Refetched rather than spliced out: accepting turns an invitation into a
+      // client, and the card that replaces it is built from figures only the
+      // server has.
+      load();
+    } catch (err) {
+      toast(err.message, 'error');
+    } finally {
+      setAnswering(null);
+    }
+  }
+
   async function open(client) {
     playClick();
     setOpening(client.ownerId);
@@ -285,8 +343,11 @@ export default function ClientPicker() {
                   overflow: 'hidden',
                   display: 'flex',
                   flexDirection: 'column',
+                  // Dashed to read as not-yet, in the page's own blue. It was
+                  // --amber, which is #9a5b06 — a brown, and a muddy one beside
+                  // everything else on the page.
                   borderStyle: 'dashed',
-                  borderColor: 'var(--amber)',
+                  borderColor: 'var(--accent-ring)',
                 }}
               >
                 <div
@@ -297,13 +358,20 @@ export default function ClientPicker() {
                     display: 'flex',
                     alignItems: 'center',
                     gap: 7,
-                    color: 'var(--amber)',
-                    background: 'var(--bg-inset)',
+                    color: 'var(--accent)',
+                    background: 'var(--accent-soft)',
                     borderBottom: '1px solid var(--border)',
+                    justifyContent: 'space-between',
                   }}
                 >
-                  <Icon name="clock" size={12} />
-                  Waiting for you to accept
+                  <span style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
+                    <Icon name="clock" size={12} />
+                    Waiting for you to answer
+                  </span>
+                  {/* The clock, not a date. "Expires 3 September" does not tell
+                      somebody whether they have a fortnight or an afternoon, and
+                      this is exactly the sort of decision people put off. */}
+                  <InviteCountdown expiresAt={invite.expiresAt} onExpired={load} />
                 </div>
 
                 <div style={{ padding: 18, display: 'flex', flexDirection: 'column', gap: 12, flex: 1 }}>
@@ -313,9 +381,9 @@ export default function ClientPicker() {
                         width: 44,
                         height: 44,
                         borderRadius: 12,
-                        background: 'var(--bg-inset)',
-                        border: '1px dashed var(--amber)',
-                        color: 'var(--amber)',
+                        background: 'var(--accent-soft)',
+                        border: '1px dashed var(--accent-ring)',
+                        color: 'var(--accent)',
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
@@ -352,14 +420,16 @@ export default function ClientPicker() {
                     </span>
                   </div>
 
-                  {/* No Accept button, deliberately. The link in their email is
-                      the only thing that proves the invitation reached the
-                      person it was addressed to, and a button here would accept
-                      on behalf of whoever happens to be signed in — which is
-                      the check the link exists to make. */}
+                  {/* Answered here, not in the email.
+                      The link used to be the whole of it: opening it granted
+                      access. A link in an inbox is forwardable, and all it
+                      proved was that the mail had reached a mailbox — not that
+                      the right person was reading it. Being signed in as the
+                      account holding that address proves the same thing and
+                      more, because the address was confirmed at activation. */}
                   <p style={{ margin: 0, fontSize: 12.5, color: 'var(--text-muted)', lineHeight: 1.6 }}>
-                    Open the link in the invitation we emailed you to accept it. Their books stay shut to everybody
-                    until you do.
+                    Their books stay shut to everybody until you accept. If you do nothing, the invitation runs out
+                    on its own and they are told nobody answered.
                   </p>
 
                   <div
@@ -375,7 +445,32 @@ export default function ClientPicker() {
                   >
                     <span>{invite.canWrite ? 'Read and write' : 'Read-only'}</span>
                     <span>{describeHours(invite.windowHours)} once opened</span>
-                    <span style={{ color: 'var(--amber)' }}>Expires {formatDateLong(invite.expiresAt)}</span>
+                    <span>Expires {formatDateLong(invite.expiresAt)}</span>
+                  </div>
+
+                  {/* Both go quiet while either is working, so a slow network
+                      cannot have somebody accept and decline the same
+                      invitation. */}
+                  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                    <button
+                      type="button"
+                      className="btn btn-primary"
+                      style={{ fontSize: 12.5, flex: '1 1 auto', justifyContent: 'center' }}
+                      disabled={answering === invite.id}
+                      onClick={() => answer(invite, true)}
+                    >
+                      {answering === invite.id && <span className="spinner" />}
+                      Accept
+                    </button>
+                    <button
+                      type="button"
+                      className="btn btn-ghost"
+                      style={{ fontSize: 12.5 }}
+                      disabled={answering === invite.id}
+                      onClick={() => answer(invite, false)}
+                    >
+                      Decline
+                    </button>
                   </div>
                 </div>
               </motion.div>

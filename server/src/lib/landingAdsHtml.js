@@ -31,9 +31,11 @@ export function cutEmptyAdSlots(html, present, withPoster) {
       continue;
     }
     // No poster uploaded: the attribute goes rather than pointing at a URL
-    // that would 404. A poster that fails to load and no poster at all look
-    // the same to the eye, but one of them is a wasted request and a red line
-    // in the console for anybody who opens it.
+    // that would 404. Two reasons. A poster that fails to load and no poster at
+    // all look the same to the eye, but one is a wasted request and a red line
+    // in the console for anybody who opens it. And a poster attribute that
+    // fails is not the same as no poster attribute: without one the browser
+    // paints the film's own opening frame, which is what we want to see.
     if (!posters.includes(slot)) {
       out = out.replace(` poster="/media/ads/${slot}-poster"`, '');
     }

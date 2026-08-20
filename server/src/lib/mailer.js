@@ -630,6 +630,17 @@ function termsPanel(rows) {
     </table>`;
 }
 
+// Accepting happens in the app, not in this email.
+//
+// The link used to be the whole thing: open it and access was granted. A link
+// in an inbox is forwardable, and a forwarded one granted a stranger sight of
+// somebody's tax records — the only proof it carried was that the mail had
+// reached *a* mailbox, not that the right person was reading it.
+//
+// Signing in is a stronger proof of the same thing. The address on the account
+// was confirmed at activation, so matching it to the invitation says the person
+// accepting holds that mailbox *and* the password. So this points at the client
+// list, where Accept and Decline live, and grants nothing by being opened.
 export async function sendAccountantInviteEmail(to, name, clientName, acceptUrl, yearScope, windowLabel, expiryLabel) {
   await sendMail({
     to,
@@ -639,9 +650,10 @@ export async function sendAccountantInviteEmail(to, name, clientName, acceptUrl,
     bodyHtml: `
       <p style="font-size:14px;color:#1f2937;margin:0 0 16px;line-height:1.55;">
         Taxify is where they keep their expenses and receipts. You already have a Taxify account, so there is nothing
-        to set up — opening the link below adds them to your client list. ${scopeSentence(yearScope)}
+        to set up — sign in and you will find them waiting on your client list, with Accept and Decline beside them.
+        ${scopeSentence(yearScope)}
       </p>
-      ${button(acceptUrl, 'Accept and open their books')}
+      ${button(acceptUrl, 'Open my client list')}
       ${linkFallback(acceptUrl)}
       ${termsPanel([
         termRow('Client', escapeHtml(clientName)),
@@ -650,8 +662,8 @@ export async function sendAccountantInviteEmail(to, name, clientName, acceptUrl,
         termRow('Ends', 'Automatically when the time is up, or whenever they choose', true),
       ])}
       <p style="font-size:13px;color:#4b5563;margin:0 0 16px;line-height:1.55;">
-        Sign in with the account this email was sent to. Nothing is granted until you open the link — not even to
-        somebody who already has an account.
+        Sign in with the account this email was sent to. Nothing is granted by opening this email or the link in it —
+        accepting is a button in the app, and only the account holding this address can press it.
       </p>
       <p style="font-size:13px;color:#4b5563;margin:0;line-height:1.55;">
         This invitation expires ${expiryLabel}. If you were not expecting it, ignore this email \u2014 nobody has been
@@ -681,6 +693,64 @@ export async function sendAccountantAccessGrantedEmail(to, name, clientName, log
         their account, after which it is removed automatically. Ask them to share it again whenever you need another
         look.
       </p>
+    `,
+  });
+}
+
+// They said no.
+//
+// Worth an email rather than only a badge: the client asked somebody to look at
+// their tax records and has been waiting for an answer, and "no" is an answer.
+// Told plainly and without editorialising — an accountant declining is ordinary,
+// usually because they are not that person's accountant.
+export async function sendAccountantInviteDeclinedEmail(to, ownerName, accountantName, accountantEmail) {
+  const who = accountantName
+    ? `${escapeHtml(accountantName)} (${escapeHtml(accountantEmail)})`
+    : escapeHtml(accountantEmail);
+  const accountUrl = `${appOrigin()}/account`;
+  await sendMail({
+    to,
+    subject: 'Your accountant invitation was declined',
+    title: 'Invitation declined',
+    heading: `Hi${ownerName ? ` ${escapeHtml(ownerName)}` : ''}, ${who} has declined your invitation.`,
+    bodyHtml: `
+      <p style="font-size:14px;color:#1f2937;margin:0 0 16px;line-height:1.55;">
+        Nothing was shared and nothing was opened. The invitation has been cleared, so you can invite somebody else
+        whenever you are ready.
+      </p>
+      <p style="font-size:14px;color:#1f2937;margin:0 0 16px;line-height:1.55;">
+        If you expected them to accept, it is worth checking the address — an invitation goes to exactly the address
+        it was typed with.
+      </p>
+      ${button(accountUrl, 'Invite somebody else')}
+      ${linkFallback(accountUrl)}
+    `,
+  });
+}
+
+// Nobody answered, and the invitation has run out.
+//
+// The one thing a client could previously never find out. They invited an
+// accountant, heard nothing, and the invitation quietly stopped working with no
+// sign of it anywhere — so the books were not shared and nobody knew why.
+export async function sendAccountantInviteExpiredEmail(to, ownerName, accountantEmail) {
+  const accountUrl = `${appOrigin()}/account`;
+  await sendMail({
+    to,
+    subject: 'Your accountant invitation has expired',
+    title: 'Invitation expired',
+    heading: `Hi${ownerName ? ` ${escapeHtml(ownerName)}` : ''}, ${escapeHtml(accountantEmail)} did not answer your invitation.`,
+    bodyHtml: `
+      <p style="font-size:14px;color:#1f2937;margin:0 0 16px;line-height:1.55;">
+        It has expired without being accepted or declined, so nothing was shared and nothing was opened. The
+        invitation has been cleared from your account.
+      </p>
+      <p style="font-size:14px;color:#1f2937;margin:0 0 16px;line-height:1.55;">
+        Sending another one takes a moment. It is worth checking the address first, and worth telling them to expect
+        it — an invitation that lands in a spam folder looks exactly like this one.
+      </p>
+      ${button(accountUrl, 'Send another invitation')}
+      ${linkFallback(accountUrl)}
     `,
   });
 }

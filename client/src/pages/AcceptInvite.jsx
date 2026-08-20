@@ -153,14 +153,24 @@ export default function AcceptInvite() {
     }
   }
 
-  // One press. Nothing is created, nothing is typed — the account already
-  // exists and the invitation carries everything else.
+  // The link does not accept anything any more; it takes you to where the
+  // answer is given.
+  //
+  // Accepting used to happen here, on one press, off the strength of the token
+  // in the URL. That token proved the email had reached a mailbox and nothing
+  // else — forward it and a stranger could take sight of somebody's tax
+  // records. It is Accept and Decline on the client list now, which needs a
+  // sign-in as the account holding the invited address: the same proof, plus a
+  // password.
+  //
+  // The call stays because it also confirms the invitation is still good and
+  // says so if it is not, which is worth knowing before being sent onward.
   async function accept() {
     setBusy(true);
     try {
       await api.post('/auth/accountant-invite/accept', { token });
       await refresh();
-      toast(`You can now open ${invite.inviterName}'s books`, 'success');
+      toast(`Accept ${invite.inviterName}'s invitation from your client list`, 'info');
       navigate('/clients');
     } catch (err) {
       toast(err.message, 'error');

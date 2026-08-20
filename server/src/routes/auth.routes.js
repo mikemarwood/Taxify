@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { EMAIL_PATTERN } from '../lib/emailAddress.js';
 import { PLANS } from '../lib/planLimits.js';
+import { acceptInvite, declineInvite } from '../lib/accountantInviteFlow.js';
 import multer from 'multer';
 import path from 'path';
 import fs from 'fs';
@@ -737,7 +738,9 @@ router.post(
           ]
         );
 
-        const acceptUrl = `${appOrigin()}/accept-invite?token=${token}`;
+        // The client list, not an accept link. Opening this grants nothing;
+        // the buttons are on the card, behind a sign-in.
+        const acceptUrl = `${appOrigin()}/clients`;
         let emailed = true;
         try {
           await sendAccountantInviteEmail(
@@ -891,7 +894,7 @@ router.get(
               u.name AS owner_name, u.email AS owner_email, u.business_name AS owner_business
          FROM accountant_invites i
          JOIN users u ON u.id = i.owner_user_id
-        WHERE i.email = ? AND i.accepted_at IS NULL AND i.expires_at > NOW()
+        WHERE i.email = ? AND i.accepted_at IS NULL AND i.declined_at IS NULL AND i.expires_at > NOW()
         ORDER BY i.created_at DESC`,
       [String(req.user.email || '').toLowerCase()]
     );
@@ -1210,78 +1213,10 @@ router.post(
       return res.status(400).json({ error: 'That invitation is for your own account.' });
     }
 
-    async function grantAccess(accountantUserId) {
-      await pool.execute(
-        // entity_ids carried across from the invitation. Without it, a client
-        // who invited somebody to one set of books would find on acceptance
-        // that they had handed over all of them.
-        // access_level carried across too. It was not, so every invitation
-        // accepted became read-only whatever the client had chosen — the
-        // write option existed on the form and was silently discarded here.
-        `INSERT INTO accountant_assignments
-           (accountant_user_id, owner_user_id, financial_years, entity_ids, access_level, window_hours)
-         VALUES (?, ?, ?, ?, ?, ?)
-         ON DUPLICATE KEY UPDATE financial_years = VALUES(financial_years),
-           entity_ids = VALUES(entity_ids), access_level = VALUES(access_level),
-           window_hours = VALUES(window_hours)`,
-        [
-          accountantUserId,
-          invite.owner_user_id,
-          invite.financial_years,
-          invite.entity_ids,
-          // Anything that is not exactly write is read, the same rule the
-          // invitation route applies. A stray value must not hand over edit
-          // rights.
-          invite.access_level === 'write' ? 'write' : 'read',
-          invite.window_hours,
-        ]
-      );
-      await pool.execute(
-        `UPDATE accountant_invites
-            SET accepted_at = NOW(), accepted_user_id = ?,
-                -- Moved rather than thrown away. It stops being a credential
-                -- either way; keeping it as a lookup key is what lets a second
-                -- click on the same link be recognised and answered properly.
-                spent_token_hash = COALESCE(spent_token_hash, token_hash),
-                token_hash = NULL
-          WHERE id = ?`,
-        [accountantUserId, invite.id]
-      );
-      // The owner asked for this and has heard nothing since. This is the
-      // notification they most obviously lacked.
-      await notify(invite.owner_user_id, {
-        title: 'Your accountant accepted',
-        body: `They can now open your books. You will be told the first time they do.`,
-        url: '/account',
-        kind: 'accountant',
-      });
-
-      // And by email, because the in-app notice assumes somebody who has just
-      // handed over sight of their tax records comes back and checks. Never
-      // allowed to fail the acceptance: the access has already been granted,
-      // and throwing here would leave the accountant staring at an error for
-      // something that worked.
-      try {
-        const [owner] = await pool.execute('SELECT name, email FROM users WHERE id = ?', [
-          invite.owner_user_id,
-        ]);
-        const [who] = await pool.execute('SELECT name, email FROM users WHERE id = ?', [accountantUserId]);
-        if (owner[0]?.email) {
-          const years = invite.financial_years
-            ? `FY ${String(invite.financial_years).split(',').join(', ')}`
-            : 'every year';
-          await sendAccountantInviteAcceptedEmail(
-            owner[0].email,
-            owner[0].name,
-            who[0]?.name || invite.name,
-            who[0]?.email || invite.email,
-            years
-          );
-        }
-      } catch (err) {
-        console.error('Could not tell the client their invitation was accepted', err);
-      }
-    }
+    // The three endings live in lib/accountantInviteFlow.js, because the
+    // buttons in the app need exactly this and writing it twice is how the
+    // two would come to disagree about what an acceptance does.
+    const grantAccess = (accountantUserId) => acceptInvite(invite, accountantUserId);
 
     // An invitation token proves control of a mailbox and nothing more. It may
     // create a login; it may never write to one. Letting mailbox-proof set a
@@ -1307,8 +1242,70 @@ router.post(
       });
     }
 
-    await grantAccess(existingUser.id);
-    return res.json({ existingAccount: true });
+    // A link no longer accepts anything.
+    //
+    // It used to grant access on being opened, and a link in an inbox is
+    // forwardable — the only thing it proved was that the mail had reached a
+    // mailbox, not that the right person was reading it. Accepting is a button
+    // on the client list now, behind a sign-in as the account holding this
+    // address, which proves the same fact and more.
+    //
+    // The route stays rather than 404ing, because these links are sitting in
+    // inboxes right now. It sends them where the buttons are.
+    void grantAccess;
+    return res.json({ existingAccount: true, answerInApp: true });
+  })
+);
+
+// Accepting and declining, by somebody signed in as the account the invitation
+// was addressed to.
+//
+// This is the whole of it now — the link in the email opens the client list and
+// grants nothing. A link in an inbox is forwardable, and the only thing it
+// proved was that the mail had reached a mailbox, not that the right person was
+// reading it. Signing in proves the same fact and more: the address on an
+// account was confirmed at activation, so matching it says the person pressing
+// the button holds that mailbox and the password for it.
+//
+// The address is matched, not a user id, because the invitation was written to
+// an address and may predate the account.
+async function inviteForCaller(req) {
+  const [rows] = await pool.execute(
+    `SELECT * FROM accountant_invites
+      WHERE id = ? AND email = ? AND accepted_at IS NULL AND declined_at IS NULL`,
+    [req.params.id, String(req.user.email || '').toLowerCase()]
+  );
+  return rows[0] || null;
+}
+
+router.post(
+  '/accountant-invites/:id/accept',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const invite = await inviteForCaller(req);
+    if (!invite) return res.status(404).json({ error: 'That invitation is no longer waiting for you.' });
+    if (new Date(invite.expires_at) <= new Date()) {
+      return res.status(410).json({ error: 'That invitation has expired. Ask them to send another.' });
+    }
+    if (invite.owner_user_id === req.user.id) {
+      return res.status(400).json({ error: 'That invitation is for your own account.' });
+    }
+    await acceptInvite(invite, req.user.id);
+    res.json({ ok: true });
+  })
+);
+
+router.post(
+  '/accountant-invites/:id/decline',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const invite = await inviteForCaller(req);
+    // Declining an expired one is allowed on purpose. It is the same outcome
+    // either way — nothing shared — and refusing the press would leave a card
+    // on screen that cannot be got rid of.
+    if (!invite) return res.status(404).json({ error: 'That invitation is no longer waiting for you.' });
+    await declineInvite(invite, req.user.id);
+    res.json({ ok: true });
   })
 );
 
@@ -1501,7 +1498,8 @@ router.post(
       [tokenHash, expiresAt, invite.id]
     );
 
-    const acceptUrl = `${appOrigin()}/accept-invite?token=${token}`;
+    // The client list, not an accept link — see the note on the other one.
+    const acceptUrl = `${appOrigin()}/clients`;
     let emailed = true;
     try {
       await sendAccountantInviteEmail(

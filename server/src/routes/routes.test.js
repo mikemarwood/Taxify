@@ -83,6 +83,10 @@ const REQUIRED = {
     // Sharing access.
     ['post', '/invite'],
     ['post', '/accept-invite'],
+    // Answering an invitation. Only these two grant or close one now —
+    // the link in the email opens the client list and grants nothing.
+    ['post', '/accountant-invites/:id/accept'],
+    ['post', '/accountant-invites/:id/decline'],
   ],
   'expenses.routes.js': [['get', '/'], ['post', '/']],
   'entities.routes.js': [['get', '/'], ['post', '/']],

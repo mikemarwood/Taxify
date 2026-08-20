@@ -21,6 +21,7 @@ import notificationRoutes from './routes/notifications.routes.js';
 import entityRoutes from './routes/entities.routes.js';
 import { AD_SLOTS, adFile, posterFile, adsPresent } from './lib/landingAds.js';
 import { cutEmptyAdSlots } from './lib/landingAdsHtml.js';
+import { sweepExpiredInvites } from './lib/accountantInviteFlow.js';
 import { purgeUnactivatedAccounts, runBillingReminders } from './jobs/billingJobs.js';
 import { runRecurringExpenses } from './jobs/expenseJobs.js';
 import { runTaxReminders } from './jobs/taxReminders.js';
@@ -432,6 +433,21 @@ runBillingReminders(pool).catch((err) => console.error('Failed to run billing re
 setInterval(() => {
   runBillingReminders(pool).catch((err) => console.error('Failed to run billing reminders', err));
 }, 6 * 60 * 60 * 1000);
+
+// Invitations nobody answered.
+//
+// Every fifteen minutes rather than hourly, because the client is watching a
+// countdown on their side and an invitation that reads "expired" for
+// three-quarters of an hour before the email arrives is worse than not showing
+// the countdown at all.
+//
+// The sweep asks what is already true rather than setting a timer per
+// invitation, so a restart costs nothing — a timer would have to survive one,
+// and this does not have to.
+sweepExpiredInvites().catch((err) => console.error('Failed to sweep expired invitations', err));
+setInterval(() => {
+  sweepExpiredInvites().catch((err) => console.error('Failed to sweep expired invitations', err));
+}, 15 * 60 * 1000);
 
 runRecurringExpenses(pool).catch((err) => console.error('Failed to run recurring expenses', err));
 setInterval(() => {
