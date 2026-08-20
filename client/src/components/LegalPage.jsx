@@ -1,54 +1,22 @@
-import { Link, useNavigate } from 'react-router-dom';
-import Icon from './Icon.jsx';
+import { Link } from 'react-router-dom';
 import SiteFooter from './SiteFooter.jsx';
 
 // The shell both legal pages share, so they cannot drift apart in tone or
 // layout. Readable at a phone width, with a contents list — nobody reads these
 // top to bottom, they arrive looking for one clause.
 
+// The back button and the logo that used to head this page are both gone.
+// Signed out, the shell around it draws the brand and the one Back button the
+// whole signed-out side shares — this page was adding a second of each a few
+// pixels away. Signed in, the sidebar is here, which is a better way back than
+// any button.
 export function LegalPage({ title, summary, updated, sections, children }) {
-  const navigate = useNavigate();
-
-  // Back to whatever opened this. These are read halfway through signing up —
-  // the form keeps its draft, so going back lands on the same step with the
-  // same answers. Somebody who arrived from a link in an email has nothing to
-  // go back to, and sign-in is the useful place to put them.
-  function goBack() {
-    if (window.history.length > 1) navigate(-1);
-    else navigate('/login');
-  }
-
   return (
-    <div style={{ minHeight: '100vh', display: 'flex', justifyContent: 'center', padding: '48px 20px 64px' }}>
+    /* No padding or min-height of its own any more: it is always inside
+       something now — the signed-out shell or the app layout — and both bring
+       their own, which showed as a band of empty page above the card. */
+    <div style={{ display: 'flex', justifyContent: 'center' }}>
       <div style={{ width: '100%', maxWidth: 760 }}>
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: 14,
-            marginBottom: 28,
-            flexWrap: 'wrap',
-            position: 'sticky',
-            top: 0,
-            zIndex: 5,
-            background: 'var(--bg)',
-            paddingTop: 12,
-            paddingBottom: 12,
-          }}
-        >
-          <button type="button" className="btn btn-ghost" onClick={goBack} style={{ fontSize: 13, gap: 7 }}>
-            <Icon name="arrow-left" size={15} />
-            Back
-          </button>
-          <Link
-            to="/landing"
-            style={{ display: 'inline-flex', alignItems: 'center', gap: 10, textDecoration: 'none', color: 'var(--text)' }}
-          >
-            <img src="/logo.svg" alt="" width="32" height="32" />
-            <span style={{ fontWeight: 800, fontSize: 20 }}>Taxify</span>
-          </Link>
-        </div>
-
         <div className="card" style={{ padding: 'clamp(20px, 4vw, 36px)' }}>
           <h1 style={{ fontSize: 'clamp(22px, 4vw, 27px)', margin: '0 0 6px', letterSpacing: -0.4 }}>{title}</h1>
           <p style={{ fontSize: 12.5, color: 'var(--text-muted)', margin: '0 0 18px' }}>Last updated {updated}</p>

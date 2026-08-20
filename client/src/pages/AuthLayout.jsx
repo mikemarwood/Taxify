@@ -2,11 +2,14 @@ import { motion } from 'framer-motion';
 import { Link } from 'react-router-dom';
 import AuthSplit from '../components/AuthSplit.jsx';
 import SiteFooter from '../components/SiteFooter.jsx';
+import BackButton from '../components/BackButton.jsx';
 
 // Every signed-out page other than sign-up: log in, activate, accept an
 // invite. Sign-up has its own aside because it shows step progress there;
 // everything else gets the product panel.
-export default function AuthLayout({ title, subtitle, children }) {
+// back={false} on sign-in, which is where Back goes: a button that returns
+// you to the page you are already on is worse than no button.
+export default function AuthLayout({ title, subtitle, back = true, children }) {
   return (
     <AuthSplit>
       <motion.div
@@ -15,6 +18,8 @@ export default function AuthLayout({ title, subtitle, children }) {
         transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
         style={{ width: '100%', maxWidth: 420, margin: '0 auto' }}
       >
+        {back && <BackButton />}
+
         {/* The gap below the heading belongs to whichever of the two is last.
             An empty <p> still claimed its margin, so a page with no subtitle —
             the ones that draw their own message instead — got the spacing and

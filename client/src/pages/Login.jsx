@@ -260,7 +260,7 @@ export default function Login() {
   }
 
   return (
-    <AuthLayout title="Welcome back" subtitle="Log in to keep tracking your deductions.">
+    <AuthLayout back={false} title="Welcome back" subtitle="Log in to keep tracking your deductions.">
       <form onSubmit={onSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
         {signInError && (
           <div

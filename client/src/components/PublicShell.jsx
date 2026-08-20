@@ -1,6 +1,5 @@
-import { Link } from 'react-router-dom';
 import SiteFooter from './SiteFooter.jsx';
-import Icon from './Icon.jsx';
+import BackButton from './BackButton.jsx';
 import { AuthSplitFrame, AuthMobileBrand, ProductPanel } from './AuthSplit.jsx';
 
 // The frame for a page somebody reaches without signing in, where there is no
@@ -33,22 +32,7 @@ export default function PublicShell({ children }) {
         <div style={{ maxWidth: 840, margin: '0 auto' }}>
           <AuthMobileBrand />
 
-          <Link
-            to="/login"
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: 6,
-              marginBottom: 18,
-              fontSize: 13,
-              fontWeight: 600,
-              color: 'var(--accent)',
-              textDecoration: 'none',
-            }}
-          >
-            <Icon name="arrow-left" size={15} />
-            Back to sign in
-          </Link>
+          <BackButton />
 
           {children}
         </div>
