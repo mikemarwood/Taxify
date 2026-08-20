@@ -598,7 +598,9 @@ export default function Layout({ children }) {
           </div>
 
           <div className="nav-footer">
-            <SiteFooter tone="nav" align="left" style={{ padding: '4px 8px 0' }} />
+            {/* Centred. Left-aligned it sat under the account card and read
+                as another line of it rather than as the foot of the rail. */}
+            <SiteFooter tone="nav" align="center" style={{ padding: '4px 8px 0' }} />
           </div>
         </div>
       </aside>

@@ -799,3 +799,17 @@ input[type="date"].input::-webkit-calendar-picker-indicator:hover { opacity: 1; 
   border-color: var(--accent);
   color: #fff;
 }
+
+/* Banners that sit above the content, not across the rail.
+
+   The rail is fixed at the top-left from 901px up, and these are sticky at the
+   top of the page with a much higher z-index — so a full-width banner drew
+   straight over the logo and the first navigation items. Signing in as an
+   accountant, which always shows one, meant the menu opened half-covered.
+
+   Moved over by the width of the rail, the same way .app-shell-main is. Below
+   the breakpoint the rail is a drawer and there is nothing to avoid, so the
+   banner goes back to the full width. */
+@media (min-width: 901px) {
+  .app-banner { margin-left: 232px; }
+}

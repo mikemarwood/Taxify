@@ -35,6 +35,11 @@ export default function ReceiptLightbox({ url, filename, onClose }) {
           zIndex: 1300,
           padding: 20,
         }}
+        // Clicking the dark outside closes it, which the card below has
+        // always assumed — it stops propagation so a press on the receipt
+        // does not count as a press outside it. That guard was there and
+        // the thing it was guarding against was not.
+        onClick={onClose}
       >
         <motion.div
           initial={{ opacity: 0, y: 16, scale: 0.97 }}
@@ -57,6 +62,11 @@ export default function ReceiptLightbox({ url, filename, onClose }) {
             type="button"
             aria-label="Close preview"
             title="Close (Esc)"
+            // It had no onClick at all — a cross in the corner of a
+            // dialog that did nothing when pressed. Escape worked, and so
+            // did the Close button at the foot, so the one thing everybody
+            // reaches for first was the one thing that was dead.
+            onClick={onClose}
             style={{
               position: 'absolute',
               top: 10,
