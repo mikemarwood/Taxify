@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import { EMAIL_PATTERN } from '../lib/emailAddress.js';
 import { PLANS } from '../lib/planLimits.js';
 import multer from 'multer';
 import path from 'path';
@@ -184,7 +185,6 @@ router.post(
   })
 );
 
-const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 
 export const REFERRAL_SOURCES = [
   'Search engine',
@@ -832,7 +832,13 @@ router.get(
     }
 
     const email = String(req.query?.email || '').trim().toLowerCase();
-    if (!/^[^s@]+@[^s@]+.[^s@]{2,}$/.test(email)) return res.json({ known: false, self: false });
+    // EMAIL_PATTERN, not a copy of it. The copy that stood here had lost its
+    // backslashes — [^s@] instead of [^\s@] — so it excluded the letter s
+    // rather than whitespace, and every address with an s before the @ was
+    // reported as having no account. sam@, chris@, james@, anything at a firm
+    // with an s in the name: the form said they were not registered and offered
+    // the wrong button. There is one pattern in this file and this is now it.
+    if (!EMAIL_PATTERN.test(email)) return res.json({ known: false, self: false });
     if (email === String(req.user.email).toLowerCase()) return res.json({ known: false, self: true });
 
     // Activated only. An address that has never been confirmed cannot read

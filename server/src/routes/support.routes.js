@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import { EMAIL_PATTERN } from '../lib/emailAddress.js';
 import pool from '../db.js';
 import { requireAuth, optionalAuth } from '../auth/middleware.js';
 import { asyncHandler } from '../lib/asyncHandler.js';
@@ -514,7 +515,7 @@ router.post(
       guestName = titleCase(String(req.body?.name || '').trim()).slice(0, 120);
       guestEmail = lowerEmail(req.body?.email);
       if (!guestName) return res.status(400).json({ error: 'Tell us your name' });
-      if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(guestEmail)) {
+      if (!EMAIL_PATTERN.test(guestEmail)) {
         return res.status(400).json({ error: 'Enter an email address we can reply to' });
       }
       // Checked before anything is written. An unauthenticated endpoint that

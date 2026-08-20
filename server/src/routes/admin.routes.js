@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import { EMAIL_PATTERN } from '../lib/emailAddress.js';
 import crypto from 'crypto';
 import fs from 'fs';
 import path from 'path';
@@ -896,7 +897,7 @@ router.patch(
     if (from !== undefined && from.trim()) {
       const match = /<([^>]+)>/.exec(from);
       const address = (match ? match[1] : from).trim();
-      if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(address)) {
+      if (!EMAIL_PATTERN.test(address)) {
         return res.status(400).json({
           error:
             'The From address needs a real email address — either "you@example.com" or "Your Name <you@example.com>"',

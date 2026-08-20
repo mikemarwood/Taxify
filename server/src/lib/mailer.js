@@ -1,4 +1,5 @@
 import nodemailer from 'nodemailer';
+import { EMAIL_PATTERN } from './emailAddress.js';
 import crypto from 'crypto';
 import { getSetting, setSetting } from '../db.js';
 import { publicOrigin, appOrigin } from './publicOrigin.js';
@@ -1008,7 +1009,7 @@ export async function diagnoseSmtp(to) {
 
   // A From of "Taxify" with no address slips through the settings form but
   // gives an envelope sender no relay will accept.
-  const fromValid = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(envelopeFrom);
+  const fromValid = EMAIL_PATTERN.test(envelopeFrom);
   record(
     'From address is a real address',
     fromValid,

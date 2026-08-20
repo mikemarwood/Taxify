@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import { EMAIL_PATTERN } from '../lib/emailAddress.js';
 import pool from '../db.js';
 import { requireAuth, requireAdmin, requireSupportStaff } from '../auth/middleware.js';
 import { asyncHandler } from '../lib/asyncHandler.js';
@@ -493,7 +494,7 @@ router.post(
     const category = isCategory(req.body?.category) ? req.body.category : 'other';
     const priority = isPriorityValue(req.body?.priority) ? req.body.priority : 'normal';
 
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email)) {
+    if (!EMAIL_PATTERN.test(email)) {
       return res.status(400).json({ error: 'Enter the email address this is for' });
     }
     // The same rules a customer's own ticket is held to, from the same
