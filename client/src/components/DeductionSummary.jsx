@@ -1,12 +1,27 @@
 import { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
 import { api } from '../lib/api.js';
 import Icon from './Icon.jsx';
 import { formatMoney } from '../lib/money.js';
+import { formatHours } from '../lib/deductionInput.js';
 
 // Reports answers "what did I spend". With apportionment, the vehicle log and
 // the home-office log, it can answer the question people actually have: what am
 // I claiming this year, and where does it come from.
+//
+// Two of those three are not money, and this used to pretend otherwise.
+//
+// It multiplied kilometres by a cents-per-kilometre rate and hours by an hourly
+// one, and there is nowhere to set either — the screen that did was already
+// unreferenced before it was deleted. So both rows read "no rate set" in amber,
+// a paragraph underneath told everybody to ask an administrator about something
+// no administrator could do, and the total quietly left both out while calling
+// itself "Total deductions".
+//
+// They are reported as what they are instead: kilometres and hours, counted.
+// The rates differ across every country this is sold in and change every year,
+// so the totals are ours to get right and the multiplying belongs to whoever
+// prepares the return. Same decision as the panels on Expenses, for the same
+// reason, and now the two pages say the same thing.
 export default function DeductionSummary({ financialYear, expenseClaim }) {
   const [data, setData] = useState(null);
 
@@ -24,38 +39,49 @@ export default function DeductionSummary({ financialYear, expenseClaim }) {
 
   if (!financialYear) return null;
 
-  const vehicle = data?.vehicle?.amount ?? null;
-  const office = data?.homeOffice?.amount ?? null;
-  const hasOther = (data?.vehicle?.totalKm || 0) > 0 || (data?.homeOffice?.hours || 0) > 0;
+  const km = data?.vehicle?.totalKm || 0;
+  const trips = data?.vehicle?.trips?.length || 0;
+  const hours = data?.homeOffice?.hours || 0;
+  const days = data?.homeOffice?.entries?.length || 0;
 
   // Nothing beyond expenses to add up — the category table already says it all.
-  if (!hasOther) return null;
-
-  const total = (expenseClaim || 0) + (vehicle || 0) + (office || 0);
-  const anyMissingRate = (data?.vehicle?.totalKm > 0 && vehicle === null) || (data?.homeOffice?.hours > 0 && office === null);
+  if (km <= 0 && hours <= 0) return null;
 
   const rows = [
-    { label: 'Expenses', detail: 'receipts, apportioned by business use', amount: expenseClaim || 0 },
-    (data?.vehicle?.totalKm || 0) > 0 && {
-      label: 'Vehicle',
-      detail: `${data.vehicle.totalKm} km${data.rates.centsPerKm ? ` at ${data.rates.centsPerKm}c` : ''}`,
-      amount: vehicle,
+    {
+      label: 'Expenses',
+      detail: 'receipts, apportioned by business use',
+      value: formatMoney(expenseClaim || 0),
+      strong: true,
     },
-    (data?.homeOffice?.hours || 0) > 0 && {
+    km > 0 && {
+      label: 'Vehicle',
+      detail: `${trips} ${trips === 1 ? 'trip' : 'trips'} logged`,
+      value: `${km.toLocaleString()} km`,
+    },
+    hours > 0 && {
       label: 'Home office',
-      detail: `${data.homeOffice.hours} hours${data.rates.perHour ? ` at ${data.rates.perHour}` : ''}`,
-      amount: office,
+      detail: `${days} ${days === 1 ? 'day' : 'days'} logged`,
+      value: formatHours(hours),
     },
   ].filter(Boolean);
 
   return (
     <div className="card" style={{ padding: 0, overflow: 'hidden', marginBottom: 24 }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '14px 18px', borderBottom: '1px solid var(--border)' }}>
+      {/* The link to kilometres and hours has gone. It pointed at All expenses,
+          which is where somebody already is one click away, and the two rows
+          below name the same thing more usefully than a link to it does. */}
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 10,
+          padding: '14px 18px',
+          borderBottom: '1px solid var(--border)',
+        }}
+      >
         <Icon name="cash" size={18} style={{ color: 'var(--emerald)' }} />
         <span style={{ fontWeight: 700, fontSize: 14 }}>What you're claiming for FY {financialYear}</span>
-        <Link to="/expenses" style={{ marginLeft: 'auto', fontSize: 12.5, color: 'var(--accent)', fontWeight: 600 }}>
-          Kilometres &amp; hours →
-        </Link>
       </div>
 
       <div style={{ padding: '6px 18px 14px' }}>
@@ -77,35 +103,22 @@ export default function DeductionSummary({ financialYear, expenseClaim }) {
               style={{
                 fontWeight: 700,
                 fontVariantNumeric: 'tabular-nums',
-                color: row.amount === null ? 'var(--amber)' : undefined,
+                color: row.strong ? 'var(--emerald)' : undefined,
               }}
             >
-              {row.amount === null ? 'no rate set' : formatMoney(row.amount)}
+              {row.value}
             </span>
           </div>
         ))}
 
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'baseline',
-            gap: 12,
-            padding: '12px 0 2px',
-            borderTop: '2px solid var(--border)',
-          }}
-        >
-          <span style={{ fontWeight: 800, fontSize: 14, flex: 1 }}>Total deductions</span>
-          <span style={{ fontWeight: 800, fontSize: 17, color: 'var(--emerald)', fontVariantNumeric: 'tabular-nums' }}>
-            {formatMoney(total)}
-          </span>
-        </div>
-
-        {anyMissingRate && (
-          <p style={{ fontSize: 11.5, color: 'var(--amber)', margin: '10px 0 0', lineHeight: 1.5 }}>
-            One of these has no rate set for FY {financialYear}, so it isn't in the total yet. Your entries are
-            recorded either way — ask your administrator to set the rate.
-          </p>
-        )}
+        {/* No grand total across the three, because there is no honest one to
+            give. Adding dollars to kilometres needs a rate, and the rate is the
+            thing we do not have — a figure that silently left two of the three
+            rows out was worse than not printing one. */}
+        <p style={{ fontSize: 11.5, color: 'var(--text-muted)', margin: '12px 0 0', lineHeight: 1.55 }}>
+          Kilometres and hours are counted, not costed. Apply your own tax office's rate for the year to those two
+          totals — or hand them to your accountant, who will.
+        </p>
       </div>
     </div>
   );
