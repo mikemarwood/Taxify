@@ -725,19 +725,58 @@ router.delete(
   requireAuth,
   requireAccountOwner,
   asyncHandler(async (req, res) => {
-    const [result] = await pool.execute(
-      `UPDATE plan_change_requests SET status = 'cancelled', cancelled_at = NOW(), updated_at = NOW()
+    const [rows] = await pool.execute(
+      `SELECT * FROM plan_change_requests
         WHERE id = ? AND user_id = ? AND status IN ('pending', 'invoiced')`,
       [req.params.id, req.user.id]
     );
-    if (result.affectedRows === 0) return res.status(404).json({ error: 'Not found' });
+    const request = rows[0];
+    if (!request) return res.status(404).json({ error: 'Not found' });
+
+    // The bill goes with the request.
+    //
+    // This used to cancel the row and tell an administrator to "void the
+    // invoice in Stripe if one was already sent" — a note asking a person to
+    // remember something, which is the same as leaving a live, payable invoice
+    // against a request nobody is going to honour. The customer withdrew it and
+    // could still be charged for it.
+    //
+    // Stripe goes first. If it refuses, nothing here changes: a request marked
+    // cancelled while its invoice is still open in Stripe is the precise state
+    // this exists to prevent.
+    if (request.stripe_invoice_id) {
+      const stripe = await getStripe();
+      try {
+        await stripe.invoices.voidInvoice(request.stripe_invoice_id);
+      } catch (err) {
+        if (err?.code === 'invoice_not_open' || /paid/i.test(err?.message || '')) {
+          return res.status(409).json({
+            error:
+              'That invoice has already been paid, so it cannot be withdrawn here. Reply on your support ticket and we will sort it out.',
+          });
+        }
+        return res.status(502).json({ error: 'We could not withdraw the invoice just now. Please try again shortly.' });
+      }
+    }
+
+    await pool.execute(
+      `UPDATE plan_change_requests
+          SET status = 'cancelled', cancelled_at = NOW(),
+              voided_at = CASE WHEN stripe_invoice_id IS NULL THEN voided_at ELSE NOW() END,
+              updated_at = NOW()
+        WHERE id = ?`,
+      [request.id]
+    );
 
     await notifyAdmins({
-      title: `${req.user.name || req.user.email} cancelled their plan change`,
-      body: 'Nothing to invoice. Void the invoice in Stripe if one was already sent.',
+      title: `${req.user.name || req.user.email} withdrew their plan change`,
+      body: request.stripe_invoice_id
+        ? 'The invoice has been voided in Stripe. Nothing is owed.'
+        : 'Nothing had been invoiced.',
       url: '/admin?tab=support',
       kind: 'billing',
-    });
+    }).catch(() => {});
+
     res.json({ ok: true });
   })
 );

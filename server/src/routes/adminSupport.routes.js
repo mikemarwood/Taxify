@@ -809,8 +809,31 @@ router.delete(
   // the same authority as erasing the record of one.
   requireAdmin,
   asyncHandler(async (req, res) => {
-    const [rows] = await pool.execute('SELECT id FROM support_tickets WHERE id = ?', [req.params.id]);
+    const [rows] = await pool.execute('SELECT id, plan_change_request_id FROM support_tickets WHERE id = ?', [
+      req.params.id,
+    ]);
     if (!rows[0]) return res.status(404).json({ error: 'Not found' });
+
+    // A plan change dies with its conversation.
+    //
+    // Deleting the ticket left the request sitting at 'pending' with nothing
+    // pointing at it, and the outstanding rule reads a missing ticket as "no
+    // ticket yet" rather than "ticket gone" — so it counted as live for ever.
+    // The customer's account went on saying a request was with us, and it
+    // blocked them asking for anything else, with no way out from either side.
+    //
+    // Closing a ticket already does this. Deleting one is closing it and then
+    // some, so it has to as well.
+    if (rows[0].plan_change_request_id) {
+      await pool
+        .execute(
+          `UPDATE plan_change_requests
+              SET status = 'cancelled', cancelled_at = NOW(), updated_at = NOW()
+            WHERE id = ? AND status = 'pending'`,
+          [rows[0].plan_change_request_id]
+        )
+        .catch((err) => console.error('Could not close the plan request with its ticket', err.message));
+    }
 
     try {
       removeTicketFiles(uploadsDir, rows[0].id);

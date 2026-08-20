@@ -287,6 +287,38 @@ function BillingSection({ user }) {
   //
   // Only once the plan has actually ended, matching the rule on every other
   // downgrade: stepping down mid-year would give up time already paid for.
+  // Changing their mind, without needing us.
+  //
+  // The panel announced a request and offered nothing to do about it, so
+  // anybody who asked by accident — or simply changed their mind — was stuck
+  // waiting for somebody at our end to notice. It also blocked them asking for
+  // anything else, which made a stray click into a dead end.
+  async function withdrawPlanRequest() {
+    if (!openRequest) return;
+
+    const ok = await confirm({
+      title: 'Withdraw this request?',
+      body:
+        openRequest.status === 'invoiced'
+          ? 'The invoice we sent will be withdrawn and there will be nothing to pay. Your plan stays exactly as it is, and you can ask again whenever you like.'
+          : 'Nothing has been charged and your plan stays exactly as it is. You can ask again whenever you like.',
+      confirmLabel: 'Yes, withdraw it',
+      cancelLabel: 'Keep it',
+    });
+    if (!ok) return;
+
+    setBusy(true);
+    try {
+      await api.delete(`/billing/plan-change-request/${openRequest.id}`);
+      setOpenRequest(null);
+      toast('Withdrawn — nothing has changed on your account', 'success');
+    } catch (err) {
+      toast(err.message, 'error');
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function stepDownToAccountant() {
     const ok = await confirm({
       title: 'Use Taxify only to act for clients?',
@@ -455,6 +487,32 @@ function BillingSection({ user }) {
               invoice. It is on your support tickets if you want to add anything.
             </>
           )}
+
+          {/* A way out, from their side.
+              This panel announced a request and offered nothing to do about
+              it, so a stray click became a dead end: it blocked asking for
+              anything else, and clearing it needed somebody at our end to
+              notice. */}
+          <button
+            type="button"
+            disabled={busy}
+            onClick={withdrawPlanRequest}
+            style={{
+              display: 'block',
+              marginTop: 8,
+              border: 0,
+              background: 'transparent',
+              padding: 0,
+              cursor: 'pointer',
+              font: 'inherit',
+              fontSize: 12,
+              fontWeight: 600,
+              color: 'var(--text-muted)',
+              textDecoration: 'underline',
+            }}
+          >
+            Changed your mind? Withdraw this request
+          </button>
         </div>
       )}
 
