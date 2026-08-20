@@ -134,6 +134,8 @@ export default function ClientPicker() {
   const [clients, setClients] = useState(null);
   const [windowHours, setWindowHours] = useState(24);
   const [opening, setOpening] = useState(null);
+  // Whether the plan question has taken over the empty-state card.
+  const [startingOwn, setStartingOwn] = useState(false);
 
   useEffect(() => {
     api
@@ -165,41 +167,22 @@ export default function ClientPicker() {
   }
 
   return (
-    <div style={{ minHeight: '100vh', background: 'var(--bg)', padding: '40px 20px' }}>
-      <div style={{ maxWidth: 900, margin: '0 auto' }}>
-        <div style={{ display: 'flex', alignItems: 'flex-start', gap: 16, flexWrap: 'wrap', marginBottom: 26 }}>
-          <img src="/logo.svg" alt="Taxify" width="40" height="40" />
-          <div style={{ flex: 1, minWidth: 220 }}>
-            <h1 style={{ margin: '0 0 4px', fontSize: 25 }}>Your clients</h1>
-            <p style={{ color: 'var(--text-muted)', margin: 0, fontSize: 14 }}>
-              Signed in as {user?.name}. Choose whose books to open — access is read-only and lasts {windowHours} hours
-              from the first time you open each one.
-            </p>
-          </div>
-          {/* This page draws its own header — it renders outside Layout, so
-              there is no navigation anywhere on it. These two used to sit only
-              inside the "no clients yet" state below, which meant an accountant
-              who *had* clients saw a logo and Sign out and nothing else: no way
-              to reach their own account, and no sign that having one was even
-              possible. The best-signposted person was the one with nothing to
-              do. */}
-          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
-            {user?.role === 'accountant' && <StartOwnAccount label="Start my own account" />}
-            <Link to="/account" className="btn btn-ghost" style={{ fontSize: 13, textDecoration: 'none' }}>
-              My details
-            </Link>
-            <button
-              type="button"
-              className="btn btn-ghost"
-              style={{ fontSize: 13 }}
-              onClick={async () => {
-                await logout();
-                navigate('/login');
-              }}
-            >
-              Sign out
-            </button>
-          </div>
+    /* Layout brings its own background and padding, so this no longer
+       builds a second full-height page inside it. */
+    <div>
+      <div style={{ maxWidth: 900 }}>
+        {/* A page heading like every other page has now.
+            The logo, "Signed in as …", and a row of buttons — Start my own
+            account, My details, Sign out — were all here because this page
+            rendered outside Layout with no navigation of any kind. With the
+            sidebar beside it, every one of them was a second copy of something
+            already on screen a few inches to the left. */}
+        <div style={{ marginBottom: 26 }}>
+          <h1 style={{ margin: '0 0 4px', fontSize: 25 }}>Your clients</h1>
+          <p style={{ color: 'var(--text-muted)', margin: 0, fontSize: 14 }}>
+            Choose whose books to open — access is read-only and lasts {windowHours} hours from the first time you
+            open each one.
+          </p>
         </div>
 
         {blocked && <SetupRequired missing={setup.missing} onDone={refresh} />}
@@ -207,27 +190,42 @@ export default function ClientPicker() {
         {clients === null ? (
           <SkeletonList rows={3} />
         ) : clients.length === 0 ? (
-          <div className="card" style={{ padding: 40, textAlign: 'center' }}>
-            <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 12, color: 'var(--text-muted)' }}>
-              <Icon name="briefcase" size={30} />
-            </div>
-            <div style={{ fontWeight: 700, marginBottom: 6 }}>No clients have shared their books with you</div>
-            <p style={{ color: 'var(--text-muted)', fontSize: 13.5, margin: '0 0 6px', lineHeight: 1.6 }}>
-              Access is granted from the client's own account, under Accountant access. It also ends on its own{' '}
-              {windowHours} hours after you first open it, so an old client may simply need to share it again.
-            </p>
-            <p style={{ color: 'var(--text-muted)', fontSize: 13.5, margin: '0 0 18px', lineHeight: 1.6 }}>
-              Until then there is nothing here to open. You can still change your own name, password, email address
-              and sign-in settings.
-            </p>
-            <div style={{ display: 'flex', gap: 10, justifyContent: 'center', flexWrap: 'wrap' }}>
-              <Link to="/account" className="btn btn-ghost" style={{ fontSize: 13 }}>
-                My details &amp; password
-              </Link>
-              {/* An accountant invited to look at other people's books may want
-                  Taxify for their own tax too — same login, ordinary account. */}
-              {user?.role === 'accountant' && <StartOwnAccount />}
-            </div>
+          /* Choosing a plan takes the card over rather than opening inside it.
+             It was appearing underneath "No clients have shared their books
+             with you", centred, beside a link about passwords — so the page
+             went on explaining an empty client list while asking which plan to
+             start on. Two subjects at once, and the question did not read as
+             the thing being answered. */
+          <div className="card" style={{ padding: 40, textAlign: startingOwn ? 'left' : 'center' }}>
+            {startingOwn ? (
+              <div style={{ maxWidth: 460, margin: '0 auto' }}>
+                <StartOwnAccount onOpenChange={setStartingOwn} />
+              </div>
+            ) : (
+              <>
+                <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 12, color: 'var(--text-muted)' }}>
+                  <Icon name="briefcase" size={30} />
+                </div>
+                <div style={{ fontWeight: 700, marginBottom: 6 }}>No clients have shared their books with you</div>
+                <p style={{ color: 'var(--text-muted)', fontSize: 13.5, margin: '0 0 6px', lineHeight: 1.6 }}>
+                  Access is granted from the client's own account, under Accountant access. It also ends on its own{' '}
+                  {windowHours} hours after you first open it, so an old client may simply need to share it again.
+                </p>
+                <p style={{ color: 'var(--text-muted)', fontSize: 13.5, margin: '0 0 18px', lineHeight: 1.6 }}>
+                  Until then there is nothing here to open. You can still change your own name, password, email
+                  address and sign-in settings.
+                </p>
+                <div style={{ display: 'flex', gap: 10, justifyContent: 'center', flexWrap: 'wrap' }}>
+                  <Link to="/account" className="btn btn-ghost" style={{ fontSize: 13 }}>
+                    My details &amp; password
+                  </Link>
+                  {/* An accountant invited to look at other people's books may
+                      want Taxify for their own tax too — same login, ordinary
+                      account. */}
+                  {user?.role === 'accountant' && <StartOwnAccount onOpenChange={setStartingOwn} />}
+                </div>
+              </>
+            )}
           </div>
         ) : (
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: 16 }}>

@@ -30,7 +30,10 @@ const PLANS = [
   },
 ];
 
-export default function StartOwnAccount({ label = 'Start tracking my own expenses' }) {
+// onOpenChange lets the page around it know it has opened, so a page whose
+// other content is about something else can stand down while the question is
+// being asked.
+export default function StartOwnAccount({ label = 'Start tracking my own expenses', onOpenChange }) {
   const { refresh } = useAuth();
   const confirm = useConfirm();
   const toast = useToast();
@@ -81,7 +84,10 @@ export default function StartOwnAccount({ label = 'Start tracking my own expense
         type="button"
         className="btn btn-primary"
         style={{ fontSize: 13, alignSelf: 'flex-start' }}
-        onClick={() => setChoosing(true)}
+        onClick={() => {
+          setChoosing(true);
+          onOpenChange?.(true);
+        }}
       >
         {label}
       </button>
@@ -164,6 +170,7 @@ export default function StartOwnAccount({ label = 'Start tracking my own expense
           onClick={() => {
             setChoosing(false);
             setPlanType('');
+            onOpenChange?.(false);
           }}
         >
           <Icon name="arrow-left" size={15} />

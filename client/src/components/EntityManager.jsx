@@ -483,7 +483,12 @@ export default function EntityManager() {
 }
 
 function EditRow({ entity, busy, canBecomeBusiness, siblings = [], onSave, onArchive }) {
-  const { fileWord } = useTaxWords();
+  // filingWord as well as fileWord: the archiving note at the foot of this row
+  // uses it, and only fileWord was taken — so opening a book to edit it threw
+  // "filingWord is not defined" and the page went to the error screen.
+  // JavaScript has nothing to say about a name that is never read until the
+  // line runs, which is why the build passed and the page loaded fine.
+  const { fileWord, filingWord } = useTaxWords();
   const [name, setName] = useState(entity.name);
   // Held here until Save. Pressing "Every quarter" used to change how the
   // books lodge the instant it was pressed, with nothing to confirm and

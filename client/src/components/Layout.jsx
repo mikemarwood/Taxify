@@ -48,6 +48,13 @@ const navGroups = [
     ],
   },
   {
+    // Its own group, above Settings, because for an accountant this is the
+    // page they work from — not a preference filed under configuration.
+    title: null,
+    items: [],
+    accountantItems: [{ to: '/clients', label: 'Your clients', icon: 'briefcase' }],
+  },
+  {
     title: 'Settings',
     items: [
       // Structural rather than a preference: which sets of books exist decides
@@ -58,10 +65,6 @@ const navGroups = [
       { to: '/account', label: 'My account', icon: 'user', divider: true },
     ],
     adminItems: [{ to: '/admin', label: 'Administration', icon: 'wrench', divider: true }],
-    // Only for someone who actually acts for clients — a way back to the
-    // picker that sits with the rest of the navigation rather than only
-    // appearing in the banner once a client is already open.
-    accountantItems: [{ to: '/clients', label: 'Your clients', icon: 'briefcase' }],
   },
 ];
 
@@ -194,6 +197,12 @@ export default function Layout({ children }) {
   // accountant has no plan of their own to owe anything on.
   const owing = useBillingAttention({ enabled: Boolean(user) && user?.role !== 'accountant' });
 
+  // An accountant who has not taken a plan has no books of their own, so the
+  // books switcher had nothing real to offer — it showed "My tax" and a
+  // Manage your books link for an account with neither. Both come back the
+  // moment they start their own account, which is when they mean something.
+  const hasOwnBooks = !(user?.role === 'accountant' && !user?.planType);
+
   // The plan changed underneath us — an invoice was paid, or an administrator
   // moved them. The poll notices before anything else does, and refreshing the
   // signed-in user is what makes every page agree rather than the app showing
@@ -295,9 +304,11 @@ export default function Layout({ children }) {
             <span style={{ fontWeight: 700, fontSize: 16.5, letterSpacing: -0.3 }}>Taxify</span>
           </>
         )}
-        <div style={{ marginLeft: 'auto', maxWidth: 190, minWidth: 0 }}>
-          <EntitySwitcher compact />
-        </div>
+        {hasOwnBooks && (
+          <div style={{ marginLeft: 'auto', maxWidth: 190, minWidth: 0 }}>
+            <EntitySwitcher compact />
+          </div>
+        )}
       </div>
 
       <div style={{ flex: 1, display: 'flex', minHeight: 0 }}>
@@ -352,9 +363,11 @@ export default function Layout({ children }) {
             rather than in the account card at the foot. Hidden on a phone,
             where the bar across the top already carries one — two of the same
             control on one screen is most of what made the drawer feel busy. */}
-        <div className="nav-scope">
-          <EntitySwitcher />
-        </div>
+        {hasOwnBooks && (
+          <div className="nav-scope">
+            <EntitySwitcher />
+          </div>
+        )}
 
         <nav style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
           {navGroups

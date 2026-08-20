@@ -584,10 +584,10 @@ function formatWhen(value) {
 function AccountantOwnAccountCard() {
   return (
     <div className="card" style={{ padding: 20, display: 'flex', flexDirection: 'column', gap: 12 }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
-        <Icon name="briefcase" size={18} style={{ color: 'var(--accent)' }} />
-        <span style={{ fontWeight: 700 }}>You're signed in as an accountant</span>
-      </div>
+      {/* No "You’re signed in as an accountant" heading. The sidebar says
+          so, the page they came from says so, and a card that opens by
+          telling somebody what they already know reads as filler. What is
+          left is the offer, which is the only part they did not know. */}
       <p style={{ fontSize: 13.5, color: 'var(--text-muted)', margin: 0, lineHeight: 1.6 }}>
         Right now this login only opens the books your clients have shared with you. If you want to track your own
         expenses and receipts as well, you can start an ordinary Taxify account on this same login — a 14-day trial,
