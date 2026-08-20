@@ -526,7 +526,7 @@ export default function Layout({ children }) {
                     ? `Acting as accountant · ${user.actingAsClient.businessName || user.actingAsClient.name}`
                     : user?.role === 'owner'
                     ? `${labelForPlan(currentPlanType(user))} plan${
-                        user.isAccountant ? ' · accountant' : ''
+                        user.isAccountant ? ' · Accountant' : ''
                       }`
                     : user?.role === 'accountant'
                     ? // An accountant who has taken a plan is on that plan, and the
@@ -534,7 +534,7 @@ export default function Layout({ children }) {
                       // to somebody who has one is simply wrong, and saying it to
                       // somebody who has not is a reminder they did not ask for.
                       user?.planType
-                      ? `${labelForPlan(currentPlanType(user))} plan · accountant`
+                      ? `${labelForPlan(currentPlanType(user))} plan · Accountant`
                       : 'Accountant'
                     : 'Family member'}
                 </span>

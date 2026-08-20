@@ -111,7 +111,7 @@ export async function purgeExpiredAssignments() {
 export async function listAssignments(accountantUserId) {
   const [rows] = await pool.execute(
     `SELECT a.id, a.owner_user_id, a.financial_years, a.entity_ids, a.access_level, a.window_hours, a.first_login_at, a.expires_at, a.created_at,
-            o.name, o.email, o.business_name, o.currency
+            o.name, o.email, o.business_name, o.currency, o.avatar_path
      FROM accountant_assignments a
      JOIN users o ON o.id = a.owner_user_id
      WHERE a.accountant_user_id = ? AND ${LIVE_ASSIGNMENT}
@@ -124,6 +124,10 @@ export async function listAssignments(accountantUserId) {
     name: r.name,
     email: r.email,
     businessName: r.business_name || null,
+    // The same URL the rest of the app uses for a face. The route serves any
+    // user by id behind a sign-in, so nothing new had to be opened up — the
+    // list simply never said there was one.
+    avatarUrl: r.avatar_path ? `/api/auth/avatar/${r.owner_user_id}` : null,
     currency: r.currency || 'AUD',
     financialYears: parseYears(r.financial_years),
     entityIds: parseBooks(r.entity_ids),

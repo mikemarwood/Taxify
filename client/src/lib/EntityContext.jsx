@@ -83,7 +83,17 @@ export function EntityProvider({ children }) {
     } finally {
       setLoading(false);
     }
-  }, [user?.id, user?.activeClient?.id, key]);
+    // role and planType as well as the id.
+    //
+    // An accountant starting their own account keeps the same login, so the
+    // id never changes and this never re-ran: their books were created on the
+    // server, the session said owner, and the app went on holding the empty
+    // list it had fetched as an accountant. It took a page reload to see the
+    // account they had just paid for.
+    //
+    // These two are exactly what changes at that moment, and nothing else
+    // changes them often enough to make this a chatty dependency.
+  }, [user?.id, user?.role, user?.planType, user?.activeClient?.id, key]);
 
   useEffect(() => {
     load();

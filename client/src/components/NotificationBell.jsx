@@ -21,6 +21,53 @@ import { formatDateTime } from '../lib/dates.js';
 // actually matters is the one below — coming back to the tab.
 const POLL_MS = 45 * 1000;
 
+// What each kind of notice is about, at a glance.
+//
+// A panel of five identical paragraphs is read line by line; the same five with
+// a mark against each are scanned. The kinds are the ones the server already
+// sends — this only gives them a face, so an unknown kind still lands on a bell
+// rather than on nothing.
+//
+// Colour carries the same information as the icon rather than replacing it,
+// because a third of a percent of men cannot separate the red from the green.
+const KINDS = {
+  accountant: { icon: 'briefcase', tone: 'var(--accent)' },
+  appointment: { icon: 'clock', tone: 'var(--violet)' },
+  billing: { icon: 'credit-card', tone: 'var(--emerald)' },
+  business: { icon: 'briefcase', tone: 'var(--accent)' },
+  individual: { icon: 'user', tone: 'var(--accent)' },
+  recurring: { icon: 'repeat', tone: 'var(--accent)' },
+  support: { icon: 'mail', tone: 'var(--violet)' },
+  trial: { icon: 'clock', tone: 'var(--amber)' },
+  test: { icon: 'bell', tone: 'var(--text-muted)' },
+};
+
+function KindIcon({ kind, read }) {
+  const meta = KINDS[kind] || { icon: 'bell', tone: 'var(--text-muted)' };
+  return (
+    <span
+      aria-hidden="true"
+      style={{
+        width: 30,
+        height: 30,
+        flexShrink: 0,
+        borderRadius: 9,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        color: meta.tone,
+        // Read ones sit back rather than disappear: the tile is still there, so
+        // the rows stay aligned and the list does not look ragged once
+        // everything has been seen.
+        background: read ? 'var(--bg-inset)' : 'var(--bg-card)',
+        border: '1px solid var(--border)',
+      }}
+    >
+      <Icon name={meta.icon} size={15} />
+    </span>
+  );
+}
+
 // `compact` is the sidebar footer: an icon-only square beside Log out, rather
 // than two equal slabs of text competing for a row that is already narrow.
 export default function NotificationBell({ compact = false }) {
@@ -245,17 +292,22 @@ export default function NotificationBell({ compact = false }) {
               items.map((n, i) => {
                 const inner = (
                   <>
-                    <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 2 }}>{n.title}</div>
-                    {n.body && (
-                      <div style={{ fontSize: 12, color: 'var(--text-muted)', lineHeight: 1.45 }}>{n.body}</div>
-                    )}
-                    <div style={{ fontSize: 10.5, color: 'var(--text-subtle)', marginTop: 4 }}>
-                      {formatDateTime(n.createdAt)}
-                    </div>
+                    <KindIcon kind={n.kind} read={n.read} />
+                    <span style={{ minWidth: 0, flex: 1 }}>
+                      <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 2 }}>{n.title}</div>
+                      {n.body && (
+                        <div style={{ fontSize: 12, color: 'var(--text-muted)', lineHeight: 1.45 }}>{n.body}</div>
+                      )}
+                      <div style={{ fontSize: 10.5, color: 'var(--text-subtle)', marginTop: 4 }}>
+                        {formatDateTime(n.createdAt)}
+                      </div>
+                    </span>
                   </>
                 );
                 const style = {
-                  display: 'block',
+                  display: 'flex',
+                  alignItems: 'flex-start',
+                  gap: 11,
                   padding: '11px 14px',
                   borderBottom: i < items.length - 1 ? '1px solid var(--border)' : 'none',
                   textDecoration: 'none',

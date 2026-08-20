@@ -73,7 +73,24 @@ router.get(
     // could not see, still gets somewhere to file rather than an empty list.
     await ensureDefaultEntity(ownerId);
 
-    const rows = await listEntities(ownerId);
+    // Only the books this session may actually read.
+    //
+    // listEntities returns everything the account holder has, and for an
+    // accountant given one of three sets of books that was three in the
+    // switcher. Choosing one of the other two did nothing useful — every read
+    // behind it is scoped by allowedEntityIds and answers with the granted
+    // books regardless — so the picker offered choices that were not choices,
+    // and named two businesses the client had not shared.
+    //
+    // The grant is the same list the scope functions use, so the picker and the
+    // pages behind it cannot disagree about what was shared.
+    const visible = await listEntities(ownerId);
+    const grant = req.user.allowedEntityIds;
+    const rows =
+      grant && grant.length > 0
+        ? visible.filter((row) => grant.some((id) => String(id) === String(row.id)))
+        : visible;
+
     const entities = [];
     for (const row of rows) {
       entities.push({ ...shapeEntity(row), counts: await countsFor(ownerId, row.id) });
@@ -81,6 +98,10 @@ router.get(
     // Sent so the page can say what the plan allows before somebody types a
     // name and is refused. Archived books count against it, so this reads the
     // full list rather than the visible one.
+    // The allowance is the account holder's, counted across everything they
+    // have — an accountant is not the person it constrains, and narrowing this
+    // to their grant would tell them the client had fewer businesses than they
+    // are paying for.
     const all = await listEntities(ownerId, { includeArchived: true });
     const usedBusinesses = all.filter((e) => e.kind === 'business').length;
     const allowedBusinesses = entityAllowance(req.user.planType).businesses;
@@ -92,8 +113,12 @@ router.get(
     // Listed at all because they still count against the cap above. Without
     // them, archiving a business and then being refused another reads as the
     // app contradicting itself: "you have all 2" with one on the screen.
+    // Archived books, narrowed the same way the visible ones are. An
+    // accountant has no business reading the names of books that were never
+    // shared with them, archived or not.
     const archived = all
       .filter((e) => e.archived_at)
+      .filter((e) => !(grant && grant.length > 0) || grant.some((id) => String(id) === String(e.id)))
       .map((row) => shapeEntity(row));
 
     res.json({

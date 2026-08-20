@@ -11,6 +11,7 @@ import { useAuth } from '../lib/AuthContext.jsx';
 import { useToast } from '../components/Toast.jsx';
 import { useConfirm } from '../lib/ConfirmContext.jsx';
 import Icon from '../components/Icon.jsx';
+import Avatar from '../components/Avatar.jsx';
 import { SkeletonList } from '../components/Skeletons.jsx';
 import { formatMoney } from '../lib/money.js';
 import { playClick } from '../lib/sounds.js';
@@ -576,22 +577,11 @@ export default function ClientPicker() {
                   )}
                   <div style={{ padding: 18, display: 'flex', flexDirection: 'column', gap: 12, flex: 1 }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                      <span
-                        style={{
-                          width: 44,
-                          height: 44,
-                          borderRadius: 12,
-                          background: 'var(--accent-soft)',
-                          border: '1px solid var(--accent-ring)',
-                          color: 'var(--accent)',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          flexShrink: 0,
-                        }}
-                      >
-                        <Icon name="briefcase" size={22} />
-                      </span>
+                      {/* Their own face where they have one. A client list
+                          of identical briefcases is a list you read rather
+                          than recognise; Avatar falls back to initials, so
+                          the card is never empty. */}
+                      <Avatar name={c.businessName || c.name} avatarUrl={c.avatarUrl} size={44} />
                       <span style={{ minWidth: 0 }}>
                         <span
                           style={{
