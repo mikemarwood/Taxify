@@ -5,8 +5,8 @@ import { useToast } from './Toast.jsx';
 import { playSuccess, playError } from '../lib/sounds.js';
 import { onCasedInput } from '../lib/casedInput.js';
 import { sentenceCaseLive, titleCaseLive } from '../lib/textCase.js';
-import { kmWhileTyping, parseKm, toDecimalHours } from '../lib/deductionInput.js';
-import { financialYearRange } from '../lib/financialYear.js';
+import { kmWhileTyping, parseKm, toDecimalHours, formatHours } from '../lib/deductionInput.js';
+import { financialYearRange, financialYearOf } from '../lib/financialYear.js';
 import { todayIso } from '../lib/dates.js';
 import HoursPicker from './HoursPicker.jsx';
 
@@ -38,6 +38,21 @@ function dateBounds(year, rule) {
     ok: (value) =>
       Boolean(value) && (!range || value >= range.start) && value <= (range && range.end < today ? range.end : today),
   };
+}
+
+// Which year this entry lands in, said before it is saved.
+//
+// A date can be any past date — last April is an ordinary thing to log in
+// September — and the year it belongs to follows from the date rather than
+// from anything else on the form. Somebody entering an old trip should see
+// it going to the right place instead of finding out on the reports page.
+function FiledInto({ date, rule }) {
+  const year = date ? financialYearOf(date, rule) : null;
+  return (
+    <div style={{ fontSize: 11.5, color: 'var(--text-muted)', marginTop: 5, lineHeight: 1.5, minHeight: 17 }}>
+      {year ? `Filed into FY ${year}` : ''}
+    </div>
+  );
 }
 
 const ROW = { display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'flex-start' };
@@ -100,7 +115,7 @@ export function TripForm({ entityId, year, onAdded }) {
     try {
       // Only ever a distance on the wire. The readings are how somebody
       // arrived at it, not something the claim is made of.
-      await api.post('/deductions/vehicle-trips', {
+      const res = await api.post('/deductions/vehicle-trips', {
         date: trip.date,
         vehicle: trip.vehicle,
         purpose: trip.purpose,
@@ -110,7 +125,16 @@ export function TripForm({ entityId, year, onAdded }) {
       playSuccess();
       // The vehicle stays, because the next trip is usually the same car.
       setTrip({ date: '', vehicle: trip.vehicle, purpose: '', from: '', to: '' });
-      onAdded?.();
+      // What was lodged, said in the words of the thing rather than as a
+      // count. "2 logged" tells somebody how many times they pressed a
+      // button, not what is now on their return.
+      onAdded?.({
+        id: res.data?.id,
+        detail: `${tripKm.toLocaleString()} km in the ${trip.vehicle.trim()}${
+          trip.purpose.trim() ? ` — ${trip.purpose.trim()}` : ''
+        }.`,
+        againLabel: 'Add another trip',
+      });
     } catch (err) {
       playError();
       toast(err.message, 'error');
@@ -132,6 +156,7 @@ export function TripForm({ entityId, year, onAdded }) {
           value={trip.date}
           onChange={(e) => setTrip({ ...trip, date: e.target.value })}
         />
+        <FiledInto date={trip.date} rule={user?.financialYearRule} />
       </div>
       <div style={{ flex: '1 1 150px', minWidth: 130 }}>
         <label className="label">Vehicle</label>
@@ -227,15 +252,22 @@ export function HoursForm({ entityId, year, onAdded }) {
     e.preventDefault();
     setBusy(true);
     try {
-      await api.post('/deductions/home-office', {
+      const res = await api.post('/deductions/home-office', {
         date: hours.date,
         hours: toDecimalHours(hours.h, hours.m),
         note: hours.note,
         entityId,
       });
       playSuccess();
+      const logged = toDecimalHours(hours.h, hours.m);
       setHours({ date: '', h: '', m: '', note: '' });
-      onAdded?.();
+      onAdded?.({
+        id: res.data?.id,
+        detail: `${formatHours(logged)} worked from home${
+          hours.note.trim() ? ` — ${hours.note.trim()}` : ''
+        }.`,
+        againLabel: 'Add more hours',
+      });
     } catch (err) {
       playError();
       toast(err.message, 'error');
@@ -257,6 +289,7 @@ export function HoursForm({ entityId, year, onAdded }) {
           value={hours.date}
           onChange={(e) => setHours({ ...hours, date: e.target.value })}
         />
+        <FiledInto date={hours.date} rule={user?.financialYearRule} />
       </div>
       <div style={{ flex: '1 1 330px', minWidth: 320 }}>
         <HoursPicker

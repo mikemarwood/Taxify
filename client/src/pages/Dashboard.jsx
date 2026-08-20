@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import AvatarPrompt from '../components/AvatarPrompt.jsx';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Link } from 'react-router-dom';
 import { api } from '../lib/api.js';
@@ -134,6 +135,10 @@ export default function Dashboard() {
 
   return (
     <div>
+      {/* Asked here rather than in settings, because settings is where
+          somebody goes once and this is where they are. */}
+      <AvatarPrompt />
+
       <div
         style={{
           display: 'flex',

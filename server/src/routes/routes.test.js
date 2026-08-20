@@ -89,7 +89,7 @@ const REQUIRED = {
     ['post', '/accountant-invites/:id/accept'],
     ['post', '/accountant-invites/:id/decline'],
   ],
-  'expenses.routes.js': [['get', '/'], ['post', '/']],
+  'expenses.routes.js': [['get', '/'], ['post', '/'], ['post', '/:id/stop-recurring']],
   'entities.routes.js': [['get', '/'], ['post', '/']],
   'deductions.routes.js': [['post', '/vehicle-trips'], ['post', '/home-office']],
   'billing.routes.js': [

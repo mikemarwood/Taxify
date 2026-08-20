@@ -8,11 +8,13 @@ import CategoryBadge from '../components/CategoryBadge.jsx';
 import Toggle from '../components/Toggle.jsx';
 import Icon from '../components/Icon.jsx';
 import { financialYearOf } from '../lib/financialYear.js';
+import { todayIso } from '../lib/dates.js';
 import { useEntities } from '../lib/EntityContext.jsx';
 import { onDigitKeyDown, playSuccess } from '../lib/sounds.js';
 import { formatMoney, amountWhileTyping, amountOnBlur, parseAmount, currencySymbol } from '../lib/money.js';
 import { useAuth } from '../lib/AuthContext.jsx';
 import { TripForm, HoursForm } from '../components/DeductionForms.jsx';
+import LodgedConfirmation from '../components/LodgedConfirmation.jsx';
 
 // The three things this page can add. A receipt is the common one and stays
 // the default; the other two are the deductions that have no receipt to
@@ -40,9 +42,6 @@ export default function AddExpense() {
   // Which of the three is on screen. Receipt by default, because it is what
   // most days produce.
   const [kind, setKind] = useState('receipt');
-  // How many trips or hours this visit has added, so the page can say so
-  // without navigating away mid-run.
-  const [logged, setLogged] = useState(0);
 
   const [categories, setCategories] = useState([]);
   const [itemName, setItemName] = useState('');
@@ -243,13 +242,13 @@ export default function AddExpense() {
       // this is where you find out it actually landed.
       setSaved({
         id: res.data?.id,
-        itemName: itemName.trim(),
-        amount: amountValue,
-        hadReceipt: !!file,
+        detail: `${itemName.trim()} — ${formatMoney(amountValue)}. ${
+          file ? 'Receipt attached and filed.' : 'No receipt attached.'
+        }`,
+        againLabel: 'Add another expense',
       });
       setSubmitted(true);
       playSuccess();
-      setTimeout(() => navigate('/'), 2600);
     } catch (err) {
       if (file) {
         setReceiptStatus('error');
@@ -297,7 +296,10 @@ export default function AddExpense() {
         ))}
       </div>
 
-      {kind !== 'receipt' && (
+      {/* The form stands down while the confirmation is up, the same way the
+          receipt form does. Two things on screen — one saying it is done and
+          one still asking — is how somebody ends up entering it twice. */}
+      {kind !== 'receipt' && !saved && (
         <div className="card" style={{ padding: 24 }}>
           {showSwitcher && (
             <div style={{ marginBottom: 18, maxWidth: 320 }}>
@@ -317,22 +319,11 @@ export default function AddExpense() {
               else: the server files an entry into whatever year it falls in,
               and this page is not showing one. */}
           {kind === 'trip' ? (
-            <TripForm entityId={entityId} onAdded={() => setLogged((n) => n + 1)} />
+            <TripForm entityId={entityId} onAdded={(what) => setSaved(what)} />
           ) : (
-            <HoursForm entityId={entityId} onAdded={() => setLogged((n) => n + 1)} />
+            <HoursForm entityId={entityId} onAdded={(what) => setSaved(what)} />
           )}
 
-          {/* It stays on the page after adding, because these come in runs —
-              a week of trips is entered in one sitting, not one visit each. */}
-          {logged > 0 && (
-            <div style={{ marginTop: 16, fontSize: 13, color: 'var(--emerald)', fontWeight: 600 }}>
-              <Icon name="check" size={14} style={{ verticalAlign: -2, marginRight: 6 }} />
-              {logged === 1 ? 'Logged.' : `${logged} logged.`}{' '}
-              <Link to="/expenses" style={{ color: 'var(--accent)', fontWeight: 600 }}>
-                See them all
-              </Link>
-            </div>
-          )}
         </div>
       )}
 
@@ -342,7 +333,7 @@ export default function AddExpense() {
       <form
         onSubmit={onSubmit}
         className="card"
-        style={{ padding: 24, display: kind === 'receipt' ? 'flex' : 'none', flexDirection: 'column', gap: 18 }}
+        style={{ padding: 24, display: kind === 'receipt' && !saved ? 'flex' : 'none', flexDirection: 'column', gap: 18 }}
       >
         {/* Shown only once there is more than one set of books to choose
             between. Asking is more honest than hiding the form: "Everything" is
@@ -543,7 +534,26 @@ export default function AddExpense() {
           </div>
           <div>
             <label className="label">Date</label>
-            <input className="input" required type="date" value={purchaseDate} onChange={(e) => setPurchaseDate(e.target.value)} />
+            {/* Nothing in the future. A receipt for something that has not been
+                bought yet is a typo, and it files itself into a year that has
+                not started. */}
+            <input
+              className="input"
+              required
+              type="date"
+              max={todayIso()}
+              value={purchaseDate}
+              onChange={(e) => setPurchaseDate(e.target.value)}
+            />
+            {/* Which year it lands in, said before it is saved.
+                A date can be any date — last July is an ordinary thing to enter
+                in September — and the year it belongs to follows from it rather
+                than from anything on this form. Somebody entering an old
+                receipt should be able to see it going to the right place
+                instead of finding out on the reports page. */}
+            <div style={{ fontSize: 11.5, color: 'var(--text-muted)', marginTop: 5, lineHeight: 1.5 }}>
+              {categoryYear ? `Filed into FY ${categoryYear}` : 'Choose a date to file this against a year'}
+            </div>
           </div>
         </div>
 
@@ -646,83 +656,23 @@ export default function AddExpense() {
         </button>
       </form>
 
-      {/* The confirmation, with the reference to quote if it ever has to be
-          found again. */}
+      {/* One confirmation for all three things this page can add.
+
+          A receipt used to get a card with a tick and a silent two-second jump
+          to the dashboard; a trip got a line of green text and left you on the
+          form wondering whether to press it again. Same act, three answers. */}
       <AnimatePresence>
         {saved && (
-          <motion.div
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0 }}
-            className="card"
-            style={{
-              marginTop: 18,
-              padding: 18,
-              display: 'flex',
-              alignItems: 'center',
-              gap: 14,
-              borderLeft: '4px solid var(--emerald)',
-            }}
-          >
-            <motion.span
-              initial={{ scale: 0.5, rotate: -12 }}
-              animate={{ scale: 1, rotate: 0 }}
-              transition={{ type: 'spring', stiffness: 420, damping: 16 }}
-              style={{
-                width: 46,
-                height: 46,
-                borderRadius: '50%',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                background: 'rgba(12, 115, 67, 0.12)',
-                color: 'var(--emerald)',
-                flexShrink: 0,
-              }}
-            >
-              <Icon name="check-circle" size={26} />
-            </motion.span>
-
-            <div style={{ minWidth: 0, flex: 1 }}>
-              <div style={{ fontWeight: 700, fontSize: 15 }}>
-                {saved.itemName} saved — {formatMoney(saved.amount)}
-              </div>
-              <div
-                style={{
-                  display: 'flex',
-                  flexWrap: 'wrap',
-                  gap: 10,
-                  alignItems: 'center',
-                  marginTop: 5,
-                  fontSize: 12.5,
-                  color: 'var(--text-muted)',
-                }}
-              >
-                {saved.id && (
-                  <span
-                    title="The reference for this expense"
-                    style={{
-                      fontFamily: 'ui-monospace, monospace',
-                      fontWeight: 700,
-                      padding: '2px 8px',
-                      borderRadius: 6,
-                      background: 'var(--bg-inset)',
-                      border: '1px solid var(--border)',
-                      color: 'var(--text)',
-                    }}
-                  >
-                    #{String(saved.id).padStart(5, '0')}
-                  </span>
-                )}
-                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
-                  <Icon name={saved.hadReceipt ? 'receipt' : 'info'} size={13} />
-                  {saved.hadReceipt ? 'Receipt attached and filed' : 'No receipt attached'}
-                </span>
-              </div>
-            </div>
-
-            <span className="spinner" title="Returning to your dashboard" />
-          </motion.div>
+          <div style={{ marginTop: 18 }}>
+            <LodgedConfirmation
+              title="Expense lodged"
+              detail={saved.detail}
+              reference={saved.id ? String(saved.id).padStart(5, '0') : null}
+              onDone={() => navigate('/')}
+              onAgain={() => setSaved(null)}
+              againLabel={saved.againLabel || 'Add another'}
+            />
+          </div>
         )}
       </AnimatePresence>
     </div>

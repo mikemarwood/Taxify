@@ -13,7 +13,6 @@ import { formatMoney, claimable } from '../lib/money.js';
 import { useAuth } from '../lib/AuthContext.jsx';
 import { formatDayMonth } from '../lib/dates.js';
 import { formatHours } from '../lib/deductionInput.js';
-import { Link } from 'react-router-dom';
 import { useConfirm } from '../lib/ConfirmContext.jsx';
 import { useToast } from '../components/Toast.jsx';
 import Amount from '../components/Amount.jsx';
@@ -55,10 +54,22 @@ function DeductionPanel({ title, icon, rows, summary, render, onRemove, chips })
   if (rows.length === 0) return null;
   return (
     <div style={{ marginTop: 20 }}>
+      {/* Read as a category, because that is what somebody is looking for
+          when they scan this page. The groups above are Fuel, Tools, Software;
+          these are Vehicle and Home Office, and calling one "Vehicle —
+          kilometres driven" while its neighbour says "Fuel" made it look like
+          a different kind of thing rather than the same thing without a
+          receipt. What it is measured in belongs on the right with the total,
+          where the money is on every other row. */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
         <Icon name={icon} size={15} style={{ color: 'var(--accent)' }} />
+        <span
+          style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--accent)', flexShrink: 0 }}
+        />
         <span style={{ fontWeight: 700 }}>{title}</span>
-        <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>no receipt</span>
+        <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>
+          {rows.length} {rows.length === 1 ? 'entry' : 'entries'} · no receipt
+        </span>
         <span style={{ marginLeft: 'auto', fontWeight: 700 }}>{summary}</span>
       </div>
       {chips}
@@ -98,11 +109,6 @@ function DeductionPanel({ title, icon, rows, summary, render, onRemove, chips })
             )}
           </div>
         ))}
-      </div>
-      <div style={{ marginTop: 8, fontSize: 12 }}>
-        <Link to="/add" style={{ color: 'var(--accent)', fontWeight: 600 }}>
-          Add another
-        </Link>
       </div>
     </div>
   );
@@ -415,14 +421,12 @@ export default function Expenses() {
       {categoryFilter === 'all' && (
         <>
           <DeductionPanel
-            title="Vehicle — kilometres driven"
+            title="Vehicle"
             icon="car"
             rows={tripRows}
             summary={
               tripRows.length > 0
-                ? `${tripRows.reduce((sum, t) => sum + t.km, 0).toLocaleString()} km · ${tripRows.length} trip${
-                    tripRows.length === 1 ? '' : 's'
-                  }`
+                ? `${tripRows.reduce((sum, t) => sum + t.km, 0).toLocaleString()} km`
                 : null
             }
             onRemove={(id) => removeDeduction('vehicle-trips', id)}
@@ -459,14 +463,12 @@ export default function Expenses() {
             )}
           />
           <DeductionPanel
-            title="Home office — hours worked"
+            title="Home Office"
             icon="home"
             rows={hourRows}
             summary={
               hourRows.length > 0
-                ? `${formatHours(hourRows.reduce((sum, h) => sum + h.hours, 0))} · ${hourRows.length} day${
-                    hourRows.length === 1 ? '' : 's'
-                  }`
+                ? formatHours(hourRows.reduce((sum, h) => sum + h.hours, 0))
                 : null
             }
             onRemove={(id) => removeDeduction('home-office', id)}

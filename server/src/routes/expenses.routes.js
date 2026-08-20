@@ -742,6 +742,46 @@ router.patch(
   })
 );
 
+// Stopping a repeat.
+//
+// It could already be done — open the expense, press Edit, find the Recurring
+// toggle among a dozen other fields, turn it off, Save. Four steps and a form
+// full of things somebody did not come to change, for an answer they already
+// had when they opened it.
+//
+// Only the template ever repeats: the copies the job writes are is_recurring 0,
+// so this is the one row that has to change and there is no chain to unpick.
+// next_due_date goes with it, because that is what the job actually reads —
+// leaving a date on a row that no longer recurs is a trap for whoever next
+// reads either column.
+//
+// Nothing is deleted. Every expense it has already generated is a real expense
+// that was really incurred, and they stay exactly where they are.
+router.post(
+  '/:id/stop-recurring',
+  asyncHandler(async (req, res) => {
+    const [rows] = await pool.execute(
+      'SELECT id, is_recurring, entity_id, purchase_date FROM expenses WHERE id = ? AND user_id = ? AND deleted_at IS NULL',
+      [req.params.id, req.user.id]
+    );
+    const expense = rows[0];
+    if (!expense) return res.status(404).json({ error: 'Expense not found' });
+    if (!expense.is_recurring) return res.json({ ok: true, alreadyStopped: true });
+
+    const closed = await blockIfFinalised(req.user, {
+      entityId: expense.entity_id,
+      dates: [expense.purchase_date],
+    });
+    if (closed) return res.status(409).json({ error: closed });
+
+    await pool.execute(
+      'UPDATE expenses SET is_recurring = 0, frequency = NULL, next_due_date = NULL, updated_by = ?, updated_at = NOW() WHERE id = ? AND user_id = ?',
+      [req.user.id, req.params.id, req.user.id]
+    );
+    res.json({ ok: true });
+  })
+);
+
 router.get(
   '/:id/receipt',
   asyncHandler(async (req, res) => {
