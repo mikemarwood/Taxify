@@ -198,12 +198,7 @@ export default function Login() {
 
   if (otpState) {
     return (
-      // back={false}: this step has its own Back, and it is the right one.
-      // The shell's goes to history, which from here means leaving the
-      // sign-in altogether halfway through it — while the one below returns
-      // to the password step, which is what "back" means when you are
-      // looking at a code box.
-      <AuthLayout back={false} title="Check your email" subtitle={`We sent a 4-digit code to ${email}.`}>
+      <AuthLayout title="Check your email" subtitle={`We sent a 4-digit code to ${email}.`}>
         <form onSubmit={onVerify} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
           <div>
             <label className="label">Login code</label>
@@ -265,7 +260,7 @@ export default function Login() {
   }
 
   return (
-    <AuthLayout back={false} title="Welcome back" subtitle="Log in to keep tracking your deductions.">
+    <AuthLayout title="Welcome back" subtitle="Log in to keep tracking your deductions.">
       <form onSubmit={onSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
         {signInError && (
           <div

@@ -3,7 +3,6 @@ import { Link, useNavigate } from 'react-router-dom';
 import { AnimatePresence, motion } from 'framer-motion';
 import Icon from '../components/Icon.jsx';
 import { AuthSplitFrame, AuthMobileBrand } from '../components/AuthSplit.jsx';
-import BackButton from '../components/BackButton.jsx';
 import SignupArtwork from '../components/SignupArtwork.jsx';
 import { api } from '../lib/api.js';
 import { useAuth } from '../lib/AuthContext.jsx';
@@ -544,10 +543,12 @@ export default function Register() {
         >
           <div style={{ width: '100%', maxWidth: 560, margin: '0 auto', display: 'flex', flexDirection: 'column', flex: 1, justifyContent: 'center' }}>
           <AuthMobileBrand />
-          {/* Only on the first step. From step two onwards the form has its
-              own Back, which steps through the questions, and two buttons
-              saying Back that do different things is worse than one. */}
-          {step === 0 && <BackButton />}
+          {/* No Back here at all.
+              The form has its own control at the foot of every step: Cancel on
+              the first, Back on the rest. Adding a second one at the top of
+              step one meant two ways off the same page, side by side, doing
+              slightly different things — and the one at the foot is the one
+              somebody is already looking at when they decide to leave. */}
           {/* No AnimatePresence here, deliberately.
               
               This was `mode="wait"`, which holds the incoming step back until
