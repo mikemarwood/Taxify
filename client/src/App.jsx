@@ -152,7 +152,16 @@ function AccountantOnly({ children }) {
   // Anyone who acts for a client can be here, including account holders who
   // keep their own books as well.
   if (!user.isAccountant && user.role !== 'accountant') return <Navigate to="/" replace />;
-  return children;
+  // With the app layout around it, so the client list has the sidebar every
+  // other signed-in page has. It was rendering bare, which left an accountant
+  // on their main page with no navigation at all.
+  return (
+    <ErrorBoundary key="shell|accountant">
+      <Layout>
+        <ErrorBoundary key="page|content">{children}</ErrorBoundary>
+      </Layout>
+    </ErrorBoundary>
+  );
 }
 
 export default function App() {

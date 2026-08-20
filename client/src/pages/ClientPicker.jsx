@@ -1,4 +1,6 @@
 import { useEffect, useState } from 'react';
+import { onCasedInput } from '../lib/casedInput.js';
+import { titleCaseLive } from '../lib/textCase.js';
 import { Link, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { api } from '../lib/api.js';
@@ -103,7 +105,7 @@ function SetupRequired({ missing, onDone }) {
                   required
                   value={practice}
                   placeholder="e.g. Chen & Co"
-                  onChange={(e) => setPractice(e.target.value)}
+                  onChange={onCasedInput(titleCaseLive, setPractice)}
                   style={{ maxWidth: 280 }}
                 />
                 <button className="btn btn-primary" style={{ fontSize: 13 }} disabled={busy || !practice.trim()}>

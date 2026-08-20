@@ -852,7 +852,16 @@ router.get(
   '/clients',
   requireAuth,
   asyncHandler(async (req, res) => {
-    if (!(await hasAssignments(req.user.id))) return res.status(403).json({ error: 'You do not act for any clients' });
+    // No clients is not an error.
+    //
+    // This refused with "You do not act for any clients", which the page showed
+    // in red — so a new accountant's first sight of Taxify was a failure notice
+    // for having done nothing wrong yet. An empty list is the truth of it, and
+    // the page already has something better to say about that.
+    //
+    // The two routes below keep their refusal: acting for nobody is a real
+    // reason not to open a client or leave one.
+    if (!(await hasAssignments(req.user.id))) return res.json({ clients: [] });
 
     const clients = await listAssignments(req.user.id);
 

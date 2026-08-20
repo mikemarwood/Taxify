@@ -61,7 +61,7 @@ const navGroups = [
     // Only for someone who actually acts for clients — a way back to the
     // picker that sits with the rest of the navigation rather than only
     // appearing in the banner once a client is already open.
-    accountantItems: [{ to: '/clients', label: 'My clients', icon: 'briefcase' }],
+    accountantItems: [{ to: '/clients', label: 'Your clients', icon: 'briefcase' }],
   },
 ];
 
@@ -379,7 +379,10 @@ export default function Layout({ children }) {
               const items = [
                 ...withBadges(group.items),
                 ...withBadges(user?.isAdmin || user?.isSupport ? group.adminItems || [] : []),
-                ...(user?.isAccountant ? group.accountantItems || [] : []),
+                // role 'accountant' as well as the flag: somebody invited only
+                // to act for others is the person who most needs this link, and
+                // they were the one account it was hidden from.
+                ...(user?.isAccountant || user?.role === 'accountant' ? group.accountantItems || [] : []),
               ].filter(
                 // Inside a client, or invited only as an accountant, the pages
                 // that write to books are simply not offered.
@@ -495,7 +498,13 @@ export default function Layout({ children }) {
                         user.isAccountant ? ' · accountant' : ''
                       }`
                     : user?.role === 'accountant'
-                    ? 'Accountant — no account of your own yet'
+                    ? // An accountant who has taken a plan is on that plan, and the
+                      // sidebar should say so. Saying "no account of your own yet"
+                      // to somebody who has one is simply wrong, and saying it to
+                      // somebody who has not is a reminder they did not ask for.
+                      user?.planType
+                      ? `${labelForPlan(currentPlanType(user))} plan · accountant`
+                      : 'Accountant'
                     : 'Family member'}
                 </span>
               </span>

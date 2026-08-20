@@ -18,6 +18,7 @@ import AccountantBooksPicker from '../components/AccountantBooksPicker.jsx';
 // accountant's own name is theirs to spell, and rewriting the row would make
 // this page the thing that changed it.
 import { titleCase, titleCaseLive, lowerEmail } from '../lib/textCase.js';
+import { onCasedInput } from '../lib/casedInput.js';
 import { currentPlanType, planLabel as labelForPlan, hasLiveSubscription } from '../lib/plans.js';
 
 // The window a date of birth may fall in — matches the sign-up form, so an
@@ -1867,12 +1868,14 @@ export default function Account() {
           {(user.isAccountant || user.role === 'accountant') && (
             <div>
               <label className="label">Practice or firm name</label>
+              {/* Capitalised as it is typed, like every other name on the site.
+                  This is the one clients see. */}
               <input
                 className="input"
                 maxLength={160}
                 value={practiceName}
                 placeholder="e.g. Chen & Co"
-                onChange={(e) => setPracticeName(e.target.value)}
+                onChange={onCasedInput(titleCaseLive, setPracticeName)}
               />
               <div style={{ fontSize: 11.5, color: 'var(--text-muted)', marginTop: 5 }}>
                 Shown to clients who share their books with you.
