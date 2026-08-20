@@ -99,19 +99,10 @@ export default function Deductions() {
   // readings it came from. A logbook is kept in readings, and subtracting them
   // by hand is both a chore and the easiest place to make a mistake nobody
   // would ever catch.
-  const [trip, setTrip] = useState({ date: '', vehicle: '', km: '', purpose: '', from: '', to: '' });
-
-  // Typing a reading works out the distance and writes it into the total,
-  // where it stays editable — derived, not locked. Readings that do not make a
-  // distance yet leave the total alone rather than wiping a number somebody
-  // typed by hand.
-  function setReading(which, value) {
-    const next = { ...trip, [which]: value };
-    const from = parseKm(next.from);
-    const to = parseKm(next.to);
-    if (from !== null && to !== null && to > from) next.km = (to - from).toLocaleString();
-    setTrip(next);
-  }
+  // The two readings are the whole of the input. There is no kilometres field
+  // in here because there is no kilometres field on the form: the distance is
+  // worked out from these, every time it is needed.
+  const [trip, setTrip] = useState({ date: '', vehicle: '', purpose: '', from: '', to: '' });
 
   // Hours and minutes are chosen, not typed — see deductionInput.js for why.
   // The decimal the server wants is worked out on the way out.
@@ -162,7 +153,7 @@ export default function Deductions() {
       });
       playSuccess();
       // The vehicle stays, because the next trip is usually the same car.
-      setTrip({ date: '', vehicle: trip.vehicle, km: '', purpose: '', from: '', to: '' });
+      setTrip({ date: '', vehicle: trip.vehicle, purpose: '', from: '', to: '' });
       load();
     } catch (err) {
       playError();
@@ -213,14 +204,13 @@ export default function Deductions() {
   // A trip needs a date, something to call the vehicle, and a distance above
   // zero. Purpose stays optional — it is the description of a trip, not the
   // claim, and demanding one would have people typing "work" to get past it.
-  // What is being claimed. Always the total field, whether it was typed or
-  // worked out from the readings — one number submitted either way, so the
+  // What is being claimed, and the only place it is worked out. The total is
+  // read back from this same value rather than kept in its own field, so the
   // figure shown, the figure checked and the figure sent cannot differ.
   const odoFrom = parseKm(trip.from);
   const odoTo = parseKm(trip.to);
   const odoKm = odoFrom !== null && odoTo !== null ? odoTo - odoFrom : null;
-  const tripKm = parseKm(trip.km);
-  const fromReadings = odoKm !== null && odoKm > 0 && odoKm === tripKm;
+  const tripKm = odoKm !== null && odoKm > 0 ? odoKm : null;
 
   // Said rather than left to be discovered by a disabled button. Readings the
   // wrong way round is the ordinary mistake — the trip is still real, the two
@@ -384,51 +374,59 @@ export default function Deductions() {
                     onChange={onCasedInput(titleCaseLive, (value) => setTrip({ ...trip, vehicle: value }))}
                   />
                 </div>
-                {/* Start, finish, total — all three on the form at once.
-                    Readings used to be behind a link, which meant a feature
-                    nobody found. Type two readings and the total fills itself
-                    in; or ignore them and type the total. */}
+                {/* Start, finish, total. Two questions and one answer: the
+                    readings are what somebody knows, the distance is what
+                    follows from them, and nothing on the form asks for the
+                    same thing twice. */}
                 <div style={{ flex: '1 1 108px', minWidth: 100 }}>
                   <label className="label">Odometer start</label>
                   <input
                     className="input"
+                    required
                     inputMode="numeric"
                     placeholder="e.g. 41,200"
                     value={trip.from}
-                    onChange={onCasedInput(kmWhileTyping, (value) => setReading('from', value))}
+                    onChange={onCasedInput(kmWhileTyping, (value) => setTrip({ ...trip, from: value }))}
                   />
                 </div>
                 <div style={{ flex: '1 1 108px', minWidth: 100 }}>
                   <label className="label">Odometer finish</label>
                   <input
                     className="input"
+                    required
                     inputMode="numeric"
                     placeholder="e.g. 41,538"
                     value={trip.to}
-                    onChange={onCasedInput(kmWhileTyping, (value) => setReading('to', value))}
+                    onChange={onCasedInput(kmWhileTyping, (value) => setTrip({ ...trip, to: value }))}
                   />
                 </div>
                 <div style={{ flex: '1 1 130px', minWidth: 120 }}>
                   <label className="label">Total kilometres</label>
+                  {/* An answer, not a question. It is disabled because there is
+                      nothing to decide here: subtracting one reading from the
+                      other has exactly one right result, and a field that can
+                      be typed over is a field that can disagree with the
+                      readings sitting next to it. */}
                   <input
                     className="input"
-                    required
-                    inputMode="numeric"
-                    placeholder="e.g. 338"
-                    value={trip.km}
-                    onChange={onCasedInput(kmWhileTyping, (value) => setTrip({ ...trip, km: value }))}
-                    style={fromReadings ? { borderColor: 'var(--emerald)', fontWeight: 700 } : undefined}
+                    disabled
+                    readOnly
+                    aria-live="polite"
+                    placeholder="—"
+                    value={tripKm > 0 ? tripKm.toLocaleString() : ''}
+                    style={
+                      tripKm > 0
+                        ? { fontWeight: 800, color: 'var(--emerald)', borderColor: 'var(--emerald)' }
+                        : undefined
+                    }
                   />
-                  {/* Where the number came from, or what is wrong with it.
-                      The total stays typeable even once the readings have
-                      filled it in — worked out, not locked. */}
                   <div style={{ fontSize: 11.5, marginTop: 4, lineHeight: 1.5 }}>
                     {odoProblem ? (
                       <span style={{ color: 'var(--red)' }}>{odoProblem}</span>
-                    ) : fromReadings ? (
+                    ) : tripKm > 0 ? (
                       <span style={{ color: 'var(--emerald)', fontWeight: 600 }}>From the readings</span>
                     ) : (
-                      <span style={{ color: 'var(--text-muted)' }}>Or type it in</span>
+                      <span style={{ color: 'var(--text-muted)' }}>Both readings, and this fills itself in.</span>
                     )}
                   </div>
                 </div>
