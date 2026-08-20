@@ -89,6 +89,33 @@
         </provider>
     </application>
 
+    <!--
+      Why "Take photo" opened a file picker instead of the camera.
+
+      Tapping it puts a capture request to the webview, and Capacitor answers it
+      by building an ACTION_IMAGE_CAPTURE intent and asking
+      resolveActivity() which app would handle it. From Android 11 onwards an
+      app cannot see another app it has not declared an interest in, so that
+      call came back null, Capacitor decided no camera existed, and quietly fell
+      back to the ordinary file picker. Nothing failed and nothing was logged
+      where anybody would see it — it just was not the camera.
+
+      Declaring the intent here is what makes the camera visible to us. It is a
+      visibility declaration and not a permission: it grants nothing, and only
+      lets us ask who handles taking a photo.
+
+      Note what is deliberately absent — android.permission.CAMERA. Capacitor
+      treats a declared CAMERA permission as one it must hold before it will
+      open the camera at all, so adding it would put a permission prompt in
+      front of every first photo. We never touch the camera ourselves; the
+      camera app does, under its own permission, and hands back a file.
+    -->
+    <queries>
+        <intent>
+            <action android:name="android.media.action.IMAGE_CAPTURE" />
+        </intent>
+    </queries>
+
     <!-- Permissions -->
 
     <uses-permission android:name="android.permission.INTERNET" />
