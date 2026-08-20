@@ -441,6 +441,30 @@
     margin-top: 14px;
   }
 
+  /* The two advertisement films.
+     Same frame as the demo above, side by side on a wide screen and stacked on
+     a narrow one. They are uploaded from the admin panel rather than deployed,
+     and the server removes whichever slot has no file — so this never renders
+     an empty player. */
+  .ads { padding: 0 0 clamp(32px, 6vw, 64px); }
+  .ads-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+    gap: clamp(16px, 3vw, 28px);
+    max-width: 980px;
+    margin: 0 auto;
+  }
+  .ad-frame {
+    border-radius: 18px;
+    overflow: hidden;
+    border: 1px solid var(--border);
+    background: var(--bg-card);
+    box-shadow: 0 24px 60px -20px rgba(37, 99, 235, 0.45), 0 0 0 1px rgba(59, 130, 246, 0.12);
+  }
+  /* The box is reserved before the file arrives, so the page below does not
+     jump when it does. */
+  .ad-video { display: block; width: 100%; aspect-ratio: 16 / 9; background: #000; }
+
 
   section { margin-bottom: clamp(48px, 8vw, 88px); }
   .section-head { text-align: center; margin-bottom: 40px; }
@@ -629,6 +653,41 @@
       </div>
       <p class="demo-caption">Buy a tool, photograph the receipt, done — about twenty seconds.</p>
     </section>
+
+    <!--ADS-START-->
+    <!-- The advertisement films.
+
+         Uploaded from Administration → Landing page, not deployed. An
+         advertisement is the thing most likely to need replacing at short
+         notice, and needing a deploy to swap one means it does not get swapped.
+
+         Everything between ADS-START and ADS-END is removed by the server when
+         neither slot has a file, and each SLOT block is removed on its own when
+         that one is empty — so this is never a broken player, and one film on
+         its own is a single centred frame rather than a gap. -->
+    <section class="ads" aria-label="Watch Taxify">
+      <div class="section-head">
+        <h2>See it in action</h2>
+        <p>A couple of minutes, and you will know whether this is for you.</p>
+      </div>
+      <div class="ads-grid">
+        <!--SLOT:ad-1-->
+        <div class="ad-frame">
+          <video class="ad-video" controls playsinline preload="none" poster="/media/ads/ad-1-poster">
+            <source src="/media/ads/ad-1" type="video/mp4">
+          </video>
+        </div>
+        <!--/SLOT:ad-1-->
+        <!--SLOT:ad-2-->
+        <div class="ad-frame">
+          <video class="ad-video" controls playsinline preload="none" poster="/media/ads/ad-2-poster">
+            <source src="/media/ads/ad-2" type="video/mp4">
+          </video>
+        </div>
+        <!--/SLOT:ad-2-->
+      </div>
+    </section>
+    <!--ADS-END-->
 
     <!-- It runs in a browser, so it runs on whatever somebody already owns.
          Said plainly, because "web app" means nothing to most people. -->

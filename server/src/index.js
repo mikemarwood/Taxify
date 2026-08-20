@@ -19,6 +19,8 @@ import taxYearRoutes from './routes/taxYears.routes.js';
 import deductionRoutes from './routes/deductions.routes.js';
 import notificationRoutes from './routes/notifications.routes.js';
 import entityRoutes from './routes/entities.routes.js';
+import { adFile, posterFile, adsPresent } from './lib/landingAds.js';
+import { cutEmptyAdSlots } from './lib/landingAdsHtml.js';
 import { purgeUnactivatedAccounts, runBillingReminders } from './jobs/billingJobs.js';
 import { runRecurringExpenses } from './jobs/expenseJobs.js';
 import { runTaxReminders } from './jobs/taxReminders.js';
@@ -80,6 +82,19 @@ const HUB_ORIGIN = process.env.APPHUB_ORIGIN || 'https://mikesapphub.com';
 const APPHUB_PRODUCT_SLUG = process.env.APPHUB_PRODUCT_SLUG || 'taxify';
 const LANDING_HTML_PATH = path.join(__dirname, '..', '..', 'landing.html');
 
+// The advertisement slots, cut out of the page when they are empty.
+//
+// The landing page has no JavaScript it can depend on: the hub proxy strips
+// scripts, so a slot cannot hide itself. A <video> whose file is missing is a
+// black box with a dead control bar, which is worse than no section at all —
+// so the decision is made here, on the way out, where the disk can be checked.
+//
+// Comments survive the proxy, which is what makes them usable as cut marks.
+// Verified against the live hub copy rather than assumed.
+function withLandingAds(html) {
+  return cutEmptyAdSlots(html, adsPresent());
+}
+
 async function serveLandingPage(req, res) {
   // Only a real top-level browser navigation gets the hub-proxy treatment
   // below. Everything else — the hub's own scraper (x-central-api-key),
@@ -90,7 +105,18 @@ async function serveLandingPage(req, res) {
   // serves the static file instead of proxying again — independent of
   // whether the hub's x-central-api-key is even configured.
   const isBrowserNavigation = req.headers['sec-fetch-mode'] === 'navigate' && !req.headers['x-central-api-key'];
-  if (!isBrowserNavigation) return res.sendFile(LANDING_HTML_PATH);
+  if (!isBrowserNavigation) {
+    // Read and sent rather than sendFile, so the same slot-cutting applies
+    // to the static copy. The hub's scraper takes this path, so an empty
+    // slot never reaches the hub to be cached in the first place.
+    try {
+      const file = await fs.promises.readFile(LANDING_HTML_PATH, 'utf8');
+      res.set('Content-Type', 'text/html; charset=utf-8');
+      return res.send(withLandingAds(file));
+    } catch {
+      return res.sendFile(LANDING_HTML_PATH);
+    }
+  }
 
   try {
     const ac = new AbortController();
@@ -104,10 +130,16 @@ async function serveLandingPage(req, res) {
       clearTimeout(timer);
     }
     res.set('Content-Type', 'text/html; charset=utf-8');
-    res.send(html);
+    res.send(withLandingAds(html));
   } catch (err) {
     console.error('[landing] hub proxy failed, falling back to static page:', err.message);
-    res.sendFile(LANDING_HTML_PATH);
+    try {
+      const file = await fs.promises.readFile(LANDING_HTML_PATH, 'utf8');
+      res.set('Content-Type', 'text/html; charset=utf-8');
+      res.send(withLandingAds(file));
+    } catch {
+      res.sendFile(LANDING_HTML_PATH);
+    }
   }
 }
 
@@ -120,6 +152,32 @@ async function serveLandingPage(req, res) {
 //
 // Shown to everybody, signed in or not. That is what keeps it cacheable: no
 // session is read here, so it is the same bytes for every visitor.
+// The advertisement files themselves.
+//
+// Public and unauthenticated, because the page they are on is. No extension in
+// the URL: the slot is the name, and what is on disk decides the type — so
+// replacing an mp4 with a webm changes nothing about the page.
+//
+// Range requests are what let somebody scrub a video without downloading all
+// of it, and res.sendFile handles them. immutable is deliberately not set:
+// these are replaced in place and a week-long cache would show the old film.
+// One route for both, because two would shadow each other: a route for
+// /media/ads/:slot matches ad-1-poster as readily as ad-1, and whichever was
+// registered first would answer for both. The suffix decides which it is.
+app.get('/media/ads/:name', (req, res) => {
+  const name = String(req.params.name || '');
+  const wantsPoster = name.endsWith('-poster');
+  const slot = wantsPoster ? name.slice(0, -'-poster'.length) : name;
+  const found = wantsPoster ? posterFile(slot) : adFile(slot);
+  if (!found) return res.status(404).end();
+  res.type(found.type);
+  // Five minutes, not a year. These are replaced in place, and a long cache
+  // would go on showing last month's advertisement to everybody who had
+  // already seen it.
+  res.set('Cache-Control', 'public, max-age=300');
+  res.sendFile(found.file);
+});
+
 app.get('/', serveLandingPage);
 
 // The old address for it, kept working.

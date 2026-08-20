@@ -18,6 +18,18 @@ import { getSignupPlans, getStripe, getStripeConfig, planTypeForPriceId, REQUIRE
 import { canTransition } from '../lib/planRequests.js';
 import { publicOrigin } from '../lib/publicOrigin.js';
 import { asyncHandler } from '../lib/asyncHandler.js';
+import multer from 'multer';
+import {
+  AD_SLOTS,
+  AD_TYPES,
+  POSTER_TYPES,
+  adsDir,
+  ensureAdsDir,
+  isAdSlot,
+  adFile,
+  posterFile,
+  clearSlot,
+} from '../lib/landingAds.js';
 import { toTitleCase } from '../lib/text.js';
 import {
   getSmtpConfig,
@@ -1626,6 +1638,108 @@ router.delete(
 // ---------------------------------------------------------------------------
 // One-off tools.
 //
+// --- Landing page advertisements ----------------------------------------
+
+// Two films on the public landing page, uploaded rather than deployed.
+//
+// The whole point is that they can be swapped without a release: a new cut, a
+// price that changed, a campaign that ended. They are written into uploads/,
+// which survives a deploy — client/public is rebuilt by one, so a file put
+// there would disappear the next time the site went out.
+const adUpload = multer({
+  storage: multer.diskStorage({
+    destination: (req, file, cb) => {
+      ensureAdsDir();
+      cb(null, adsDir);
+    },
+    // Named for the slot it fills, keeping the extension it arrived with, so
+    // the file on disk is the whole record — there is no database row to fall
+    // out of step with it.
+    filename: (req, file, cb) => {
+      const ext = path.extname(file.originalname).toLowerCase();
+      cb(null, `${req.params.slot}${ext}`);
+    },
+  }),
+  // Big enough for a two-minute film at a sensible bitrate, small enough that
+  // a mistaken upload of the master cut is refused rather than filling a disk.
+  limits: { fileSize: 200 * 1024 * 1024 },
+  fileFilter: (req, file, cb) => {
+    if (!isAdSlot(req.params.slot)) return cb(new Error('There are two advertisement slots: ad-1 and ad-2'));
+    const ext = path.extname(file.originalname).toLowerCase();
+    const wantsPoster = req.query.poster === '1';
+    const allowed = wantsPoster ? POSTER_TYPES : AD_TYPES;
+    if (!allowed[ext]) {
+      return cb(
+        new Error(
+          wantsPoster
+            ? 'A poster must be a JPG, PNG or WebP image'
+            : 'A video must be an MP4 or WebM file'
+        )
+      );
+    }
+    cb(null, true);
+  },
+});
+
+// What is on the landing page right now.
+router.get(
+  '/landing-ads',
+  asyncHandler(async (req, res) => {
+    res.json({
+      slots: AD_SLOTS.map((slot) => {
+        const video = adFile(slot);
+        const poster = posterFile(slot);
+        return {
+          slot,
+          // A stat rather than just a name, so the panel can say how big it is
+          // and when it went up — the two things somebody checks when they are
+          // not sure whether their upload actually worked.
+          video: video
+            ? { type: video.type, bytes: fs.statSync(video.file).size, uploadedAt: fs.statSync(video.file).mtime }
+            : null,
+          poster: poster ? { type: poster.type, bytes: fs.statSync(poster.file).size } : null,
+        };
+      }),
+    });
+  })
+);
+
+// Replace one slot's film, or its poster.
+//
+// The old file is removed first and by every extension it might have had.
+// Uploading a .webm over a .mp4 without that leaves both on disk, and the
+// lookup answers with whichever extension it checks first — which would be the
+// film that was just replaced.
+router.post(
+  '/landing-ads/:slot',
+  (req, res, next) => {
+    if (!isAdSlot(req.params.slot)) {
+      return res.status(400).json({ error: 'There are two advertisement slots: ad-1 and ad-2' });
+    }
+    clearSlot(req.params.slot, req.query.poster === '1' ? POSTER_TYPES : AD_TYPES);
+    next();
+  },
+  adUpload.single('file'),
+  asyncHandler(async (req, res) => {
+    if (!req.file) return res.status(400).json({ error: 'Choose a file to upload' });
+    res.json({ ok: true, slot: req.params.slot, bytes: req.file.size });
+  })
+);
+
+// Take one down. The landing page loses that frame entirely rather than
+// showing an empty player — the server cuts the slot out of the HTML.
+router.delete(
+  '/landing-ads/:slot',
+  asyncHandler(async (req, res) => {
+    if (!isAdSlot(req.params.slot)) {
+      return res.status(400).json({ error: 'There are two advertisement slots: ad-1 and ad-2' });
+    }
+    clearSlot(req.params.slot, AD_TYPES);
+    clearSlot(req.params.slot, POSTER_TYPES);
+    res.json({ ok: true });
+  })
+);
+
 // Blunt instruments, kept together and behind requireAdmin like everything else
 // in this file, so it is obvious what they are and where they live when the day
 // comes to delete them.

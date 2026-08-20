@@ -197,11 +197,7 @@ export default function ClientPicker() {
              start on. Two subjects at once, and the question did not read as
              the thing being answered. */
           <div className="card" style={{ padding: 40, textAlign: startingOwn ? 'left' : 'center' }}>
-            {startingOwn ? (
-              <div style={{ maxWidth: 460, margin: '0 auto' }}>
-                <StartOwnAccount onOpenChange={setStartingOwn} />
-              </div>
-            ) : (
+            {!startingOwn && (
               <>
                 <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 12, color: 'var(--text-muted)' }}>
                   <Icon name="briefcase" size={30} />
@@ -215,17 +211,29 @@ export default function ClientPicker() {
                   Until then there is nothing here to open. You can still change your own name, password, email
                   address and sign-in settings.
                 </p>
-                <div style={{ display: 'flex', gap: 10, justifyContent: 'center', flexWrap: 'wrap' }}>
-                  <Link to="/account" className="btn btn-ghost" style={{ fontSize: 13 }}>
-                    My details &amp; password
-                  </Link>
-                  {/* An accountant invited to look at other people's books may
-                      want Taxify for their own tax too — same login, ordinary
-                      account. */}
-                  {user?.role === 'accountant' && <StartOwnAccount onOpenChange={setStartingOwn} />}
-                </div>
               </>
             )}
+
+            {/* One element, mounted whether the plan question is open or
+                shut. It used to appear in both halves of a ternary on the
+                very state it sets, so pressing it unmounted the instance
+                that knew it was open and mounted a fresh, closed one — the
+                press swapped which copy was on screen and did nothing else.
+                What changes with the state is the layout around it. */}
+            <div
+              style={
+                startingOwn
+                  ? { maxWidth: 460, margin: '0 auto' }
+                  : { display: 'flex', gap: 10, justifyContent: 'center', flexWrap: 'wrap' }
+              }
+            >
+              {!startingOwn && (
+                <Link to="/account" className="btn btn-ghost" style={{ fontSize: 13 }}>
+                  My details &amp; password
+                </Link>
+              )}
+              {user?.role === 'accountant' && <StartOwnAccount onOpenChange={setStartingOwn} />}
+            </div>
           </div>
         ) : (
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: 16 }}>

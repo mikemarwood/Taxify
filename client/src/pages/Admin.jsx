@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import LandingAdsTab from '../components/LandingAdsTab.jsx';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { api } from '../lib/api.js';
@@ -66,6 +67,7 @@ const TAB_GROUPS = [
       { key: 'stripe', label: 'Stripe', icon: 'cash' },
       { key: 'promos', label: 'Promo codes', icon: 'gift' },
       { key: 'push', label: 'Firebase', icon: 'bell' },
+      { key: 'landing', label: 'Landing page', icon: 'image' },
     ],
   },
 ];
@@ -291,6 +293,7 @@ export default function Admin() {
       )}
       {tab === 'stripe' && <StripeSettingsTab />}
       {tab === 'promos' && <PromoCodesTab />}
+      {tab === 'landing' && <LandingAdsTab />}
       {tab === 'push' && (
         <LockedPanel title="Firebase" hint="This is what carries notifications to people's phones. Replacing the key is how they stop arriving.">
           <PushSettingsTab />
