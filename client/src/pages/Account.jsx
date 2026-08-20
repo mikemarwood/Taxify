@@ -196,6 +196,9 @@ function AvatarSection({ user, setUser }) {
             style={OFF_SCREEN_INPUT}
             tabIndex={-1}
             aria-hidden="true"
+            /* Nothing above it re-opens the picker today, but this is the trap
+               that broke Take photo, so it does not get to be set here. */
+            onClick={(e) => e.stopPropagation()}
             onChange={onSelectFile}
           />
           <span style={{ fontSize: 11.5, color: 'var(--text-muted)' }}>Any image, up to 10MB.</span>

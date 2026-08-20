@@ -115,7 +115,16 @@ export default function ReceiptDropzone({ file, onFileChange, uploadProgress, st
         position: 'relative',
       }}
     >
-      {/* Off-screen rather than hidden — see fileInput.js for why. */}
+      {/* Off-screen rather than hidden — see fileInput.js for why.
+
+          onClick stops the input's *own* click from going any further, and
+          that is the reason Take photo opened the file browser instead of the
+          camera. Both inputs sit inside a box whose job is to open the browser
+          when it is clicked, and .click() dispatches a real event that bubbles
+          like any other. So the button called click() on the camera input,
+          that click rose to this box, the box called click() on the browse
+          input, and the browse input is what came up. Two pickers were asked
+          for and the wrong one answered — in every browser, not just Safari. */}
       <input
         ref={inputRef}
         type="file"
@@ -123,6 +132,7 @@ export default function ReceiptDropzone({ file, onFileChange, uploadProgress, st
         style={OFF_SCREEN_INPUT}
         tabIndex={-1}
         aria-hidden="true"
+        onClick={(e) => e.stopPropagation()}
         onChange={onPicked}
       />
       <input
@@ -133,6 +143,7 @@ export default function ReceiptDropzone({ file, onFileChange, uploadProgress, st
         style={OFF_SCREEN_INPUT}
         tabIndex={-1}
         aria-hidden="true"
+        onClick={(e) => e.stopPropagation()}
         onChange={onPicked}
       />
 
