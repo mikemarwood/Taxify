@@ -281,7 +281,10 @@ export default function Admin() {
       {tab === 'how' && <HowItWorksTab />}
       {tab === 'users' && <UsersTab />}
       {tab === 'categories' && (
-        <LockedPanel title="Default categories" hint="Every new account is built from this list. Editing it does not touch anybody who has already signed up.">
+        <LockedPanel
+          title="Default categories"
+          hint="Two lists: one for personal books, one for business books. Every new set of books is built from the matching one. Editing them does not touch books that already exist."
+        >
           <DefaultCategoriesTab />
         </LockedPanel>
       )}
@@ -1320,9 +1323,20 @@ function DefaultCategoriesTab() {
   const [editColor, setEditColor] = useState(SWATCHES[0]);
   const [editIcon, setEditIcon] = useState('tag');
 
-  // The template every new account is seeded from, so a duplicate here becomes
-  // a duplicate on every account created afterwards.
-  const existingNames = (categories || []).map((c) => c.name);
+  // Which list is being added to and looked at.
+  //
+  // Both existed before and only one of them was reachable: this table fed an
+  // account's first set of books, while a hard-coded pair fed every book made
+  // afterwards. Editing here changed nothing about the rest, and there was
+  // nothing on screen to say so.
+  const [kind, setKind] = useState('individual');
+  const [editKind, setEditKind] = useState('individual');
+
+  // A name only clashes with the list it is on, plus the shared one — the same
+  // rule the unique key enforces, asked here so the answer arrives before the
+  // press rather than as a refusal after it.
+  const onThisList = (categories || []).filter((c) => c.kind === kind || c.kind === 'both');
+  const existingNames = onThisList.map((c) => c.name);
   const nameError = categoryNameError(name, existingNames);
   const nameReady = isCategoryNameReady(name, existingNames);
   const editNameError = categoryNameError(editName, existingNames, categories?.find((c) => c.id === editingId)?.name);
@@ -1337,7 +1351,7 @@ function DefaultCategoriesTab() {
     if (!name.trim()) return;
     setBusy(true);
     try {
-      await api.post('/admin/default-categories', { name, color, icon });
+      await api.post('/admin/default-categories', { name, color, icon, kind });
       setName('');
       setIcon('tag');
       toast('Default category added — new signups will get it', 'success');
@@ -1352,7 +1366,12 @@ function DefaultCategoriesTab() {
   async function onSaveEdit(id) {
     setBusy(true);
     try {
-      await api.patch(`/admin/default-categories/${id}`, { name: editName, color: editColor, icon: editIcon });
+      await api.patch(`/admin/default-categories/${id}`, {
+        name: editName,
+        color: editColor,
+        icon: editIcon,
+        kind: editKind,
+      });
       setEditingId(null);
       toast('Default category updated', 'success');
       load();
@@ -1375,9 +1394,10 @@ function DefaultCategoriesTab() {
   return (
     <div>
       <p style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: -12, marginBottom: 20, lineHeight: 1.6 }}>
-        The starter set every <strong>new account</strong> is created with, filed against the financial year they sign
-        up in. Changes here only affect future signups — an existing user's categories are their own, and carry forward
-        into each new year on their own.
+        The starter set every <strong>new set of books</strong> is created with, filed against the financial year it is
+        made in. Personal and business books start from different lists; a category marked as being for both appears
+        on either. Changes here only affect books made afterwards — an existing set is its own, and carries forward
+        into each new year on its own.
       </p>
 
       <form onSubmit={onAdd} className="card" style={{ padding: 20, display: 'flex', flexDirection: 'column', gap: 16, marginBottom: 24 }}>
@@ -1416,12 +1436,45 @@ function DefaultCategoriesTab() {
         </button>
       </form>
 
+      {/* Which list is on screen. Individual and business start different sets
+          of books off, and "both" is for the handful — General, Other — that
+          belong on either. */}
+      <div style={{ display: 'flex', gap: 8, marginBottom: 16, flexWrap: 'wrap' }}>
+        {[
+          { id: 'individual', label: 'Personal books' },
+          { id: 'business', label: 'Business books' },
+        ].map((tab) => {
+          const on = kind === tab.id;
+          const count = (categories || []).filter((c) => c.kind === tab.id || c.kind === 'both').length;
+          return (
+            <button
+              key={tab.id}
+              type="button"
+              onClick={() => setKind(tab.id)}
+              style={{
+                fontSize: 13,
+                fontWeight: 600,
+                padding: '8px 14px',
+                borderRadius: 999,
+                cursor: 'pointer',
+                color: on ? '#fff' : 'var(--text-muted)',
+                background: on ? 'var(--accent)' : 'var(--bg-card)',
+                border: `1px solid ${on ? 'var(--accent)' : 'var(--border)'}`,
+              }}
+            >
+              {tab.label}
+              <span style={{ opacity: 0.75, marginLeft: 7, fontWeight: 500 }}>{count}</span>
+            </button>
+          );
+        })}
+      </div>
+
       {categories === null ? (
         <SkeletonList rows={4} />
       ) : (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 14 }}>
           <AnimatePresence initial={false}>
-            {categories.map((c) => {
+            {onThisList.map((c) => {
               const editing = editingId === c.id;
               return (
                 <motion.div
@@ -1459,6 +1512,9 @@ function DefaultCategoriesTab() {
                             setEditName(c.name);
                             setEditColor(c.color);
                             setEditIcon(c.icon || 'tag');
+                            // Carried in, so saving an edit does not move a
+                            // shared default onto one list by omission.
+                            setEditKind(c.kind || 'both');
                           }}
                         >
                           <Icon name="pencil" size={14} />

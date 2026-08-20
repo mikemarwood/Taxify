@@ -807,7 +807,12 @@ router.delete(
 router.get(
   '/default-categories',
   asyncHandler(async (req, res) => {
-    const [categories] = await pool.execute('SELECT id, name, color, icon FROM default_categories ORDER BY name');
+    // Ordered by kind first so the two lists arrive already grouped, and the
+    // page does not have to decide what order its own sections come in.
+    const [categories] = await pool.execute(
+      `SELECT id, name, color, icon, kind FROM default_categories
+        ORDER BY FIELD(kind, 'both', 'individual', 'business'), name`
+    );
     res.json({ categories });
   })
 );
@@ -818,17 +823,25 @@ router.post(
     const { name, color, icon } = req.body || {};
     if (!name || !String(name).trim()) return res.status(400).json({ error: 'Category name is required' });
 
+    // Anything unrecognised is 'both', which is the widest and the least
+    // surprising: a default that turns up on every new book is a tidy-up, and
+    // one that turns up on none is a bug report.
+    const kind = ['individual', 'business', 'both'].includes(req.body?.kind) ? req.body.kind : 'both';
     const finalColor = color || PALETTE[Math.floor(Math.random() * PALETTE.length)];
     try {
       const [result] = await pool.execute(
-        'INSERT INTO default_categories (name, color, icon) VALUES (?, ?, ?)',
-        [toTitleCase(String(name).trim()), finalColor, icon || 'tag']
+        'INSERT INTO default_categories (name, color, icon, kind) VALUES (?, ?, ?, ?)',
+        [toTitleCase(String(name).trim()), finalColor, icon || 'tag', kind]
       );
-      const [rows] = await pool.execute('SELECT id, name, color, icon FROM default_categories WHERE id = ?', [result.insertId]);
+      const [rows] = await pool.execute('SELECT id, name, color, icon, kind FROM default_categories WHERE id = ?', [
+        result.insertId,
+      ]);
       res.status(201).json({ category: rows[0] });
     } catch (err) {
       if (err.code === 'ER_DUP_ENTRY') {
-        return res.status(409).json({ error: 'A default category with that name already exists' });
+        // Named for the list it is on, because the same name on the other list
+        // is now perfectly legal and somebody may be looking straight at it.
+        return res.status(409).json({ error: 'That list already has a default category with that name' });
       }
       throw err;
     }
@@ -1161,7 +1174,7 @@ router.patch(
   asyncHandler(async (req, res) => {
     const { name, color, icon } = req.body || {};
 
-    const [rows] = await pool.execute('SELECT id, name, color, icon FROM default_categories WHERE id = ?', [
+    const [rows] = await pool.execute('SELECT id, name, color, icon, kind FROM default_categories WHERE id = ?', [
       req.params.id,
     ]);
     const existing = rows[0];
@@ -1172,21 +1185,33 @@ router.patch(
     }
 
     const finalName = name === undefined ? existing.name : toTitleCase(String(name).trim());
+    // Absent leaves it where it is; anything unrecognised is refused rather
+    // than quietly widened to 'both', because moving a business default onto
+    // every new book is not a thing to do by accident.
+    const finalKind =
+      req.body?.kind === undefined
+        ? existing.kind
+        : ['individual', 'business', 'both'].includes(req.body.kind)
+        ? req.body.kind
+        : null;
+    if (finalKind === null) return res.status(400).json({ error: 'Choose which books this default is for' });
+
     try {
-      await pool.execute('UPDATE default_categories SET name = ?, color = ?, icon = ? WHERE id = ?', [
+      await pool.execute('UPDATE default_categories SET name = ?, color = ?, icon = ?, kind = ? WHERE id = ?', [
         finalName,
         color || existing.color,
         icon || existing.icon,
+        finalKind,
         existing.id,
       ]);
     } catch (err) {
       if (err.code === 'ER_DUP_ENTRY') {
-        return res.status(409).json({ error: 'A default category with that name already exists' });
+        return res.status(409).json({ error: 'That list already has a default category with that name' });
       }
       throw err;
     }
 
-    const [updated] = await pool.execute('SELECT id, name, color, icon FROM default_categories WHERE id = ?', [
+    const [updated] = await pool.execute('SELECT id, name, color, icon, kind FROM default_categories WHERE id = ?', [
       existing.id,
     ]);
     res.json({ category: updated[0] });

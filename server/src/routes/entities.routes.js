@@ -217,32 +217,30 @@ router.post(
   })
 );
 
-// A handful of categories to start with, rather than an empty page or the
-// personal defaults. Deliberately short: people add their own, and a long list
-// of guesses is worse than a few obvious ones.
-const STARTER_CATEGORIES = {
-  business: [
-    ['General', '#8b5cf6', 'receipt'],
-    ['Tools & Equipment', '#f59e0b', 'wrench'],
-    ['Vehicle & Travel', '#3b82f6', 'car'],
-    ['Software & Subscriptions', '#06b6d4', 'cpu'],
-    ['Materials', '#10b981', 'box'],
-  ],
-  individual: [
-    ['General', '#8b5cf6', 'receipt'],
-    ['Work Related', '#3b82f6', 'briefcase'],
-    ['Education', '#06b6d4', 'graduation-cap'],
-    ['Other', '#a1a1aa', 'tag'],
-  ],
-};
-
+// A handful of categories to start with, rather than an empty page.
+//
+// Read from default_categories, not from a list written here. There used to be
+// one in this file — a business set and a personal set — and it was invisible
+// to the admin panel, so the list an administrator could edit reached only the
+// very first set of books on an account and every book made afterwards got
+// these instead. Two lists, one of them unreachable, and no way to tell from
+// the outside which one you had just changed.
+//
+// 'both' comes with either, which is what a name like General is for.
 async function seedStarterCategories(ownerId, entityId, financialYear, kind) {
-  for (const [name, color, icon] of STARTER_CATEGORIES[kind] || STARTER_CATEGORIES.individual) {
+  const wanted = kind === 'business' ? 'business' : 'individual';
+  const [rows] = await pool.execute(
+    `SELECT name, color, icon FROM default_categories WHERE kind IN (?, 'both') ORDER BY name`,
+    [wanted]
+  );
+  for (const row of rows) {
     await pool
       .execute(
         `INSERT INTO categories (user_id, entity_id, name, color, icon, financial_year) VALUES (?, ?, ?, ?, ?, ?)`,
-        [ownerId, entityId, name, color, icon, financialYear]
+        [ownerId, entityId, row.name, row.color, row.icon, financialYear]
       )
+      // A duplicate name is the only thing this can hit, and it means the
+      // category is already there — which is the outcome anyway.
       .catch(() => {});
   }
 }

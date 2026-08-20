@@ -22,8 +22,21 @@ export const INITIAL_DEFAULT_CATEGORIES = [
 // `entity_id = ?` — so seeding without one produced an account whose Categories
 // page was empty *and* unrepairable: recreating the defaults hit the unique key
 // against the rows nobody could see, and INSERT IGNORE dropped them silently.
-export async function seedDefaultCategories(pool, userId, entityId, financialYear = defaultFinancialYear()) {
-  const [templates] = await pool.execute('SELECT name, color, icon FROM default_categories');
+// kind narrows it, the same way a new set of books does. An account's first
+// books are personal unless they say otherwise, so 'individual' is the default
+// — and 'both' comes with either, which is what a name like General is for.
+export async function seedDefaultCategories(
+  pool,
+  userId,
+  entityId,
+  financialYear = defaultFinancialYear(),
+  kind = 'individual'
+) {
+  const wanted = kind === 'business' ? 'business' : 'individual';
+  const [templates] = await pool.execute(
+    `SELECT name, color, icon FROM default_categories WHERE kind IN (?, 'both') ORDER BY name`,
+    [wanted]
+  );
 
   const connection = await pool.getConnection();
   try {

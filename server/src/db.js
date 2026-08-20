@@ -828,6 +828,38 @@ export async function ensureSchema() {
 
   await pool.query(`ALTER TABLE default_categories ADD COLUMN IF NOT EXISTS icon VARCHAR(50) NOT NULL DEFAULT 'tag'`);
 
+  // Which kind of books a default belongs to.
+  //
+  // There were three starter lists and only one of them was editable. This
+  // table fed an account's very first set of books; a hard-coded pair in
+  // entities.routes.js fed every book created afterwards, one list for a
+  // business and one for personal — and an administrator could see none of it.
+  // Editing the list here changed nothing about any book made later, which is
+  // most of them.
+  //
+  // 'both' is the honest default for rows that predate the column: they were
+  // written when there was no distinction, and guessing one for somebody else's
+  // list would be worse than saying it applies to either.
+  await pool.query(
+    `ALTER TABLE default_categories ADD COLUMN IF NOT EXISTS kind VARCHAR(12) NOT NULL DEFAULT 'both'`
+  );
+
+  // The name alone can no longer be unique: "General" is wanted on both lists,
+  // and with one key across the table only one of the two could exist.
+  const [defaultIdx] = await pool.query(
+    `SELECT INDEX_NAME FROM INFORMATION_SCHEMA.STATISTICS
+      WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'default_categories'`
+  );
+  const defaultIdxNames = defaultIdx.map((r) => r.INDEX_NAME);
+  if (!defaultIdxNames.includes('uniq_default_categories_kind_name')) {
+    await pool.query(
+      `ALTER TABLE default_categories ADD UNIQUE KEY uniq_default_categories_kind_name (kind, name)`
+    );
+  }
+  if (defaultIdxNames.includes('uniq_default_categories_name')) {
+    await pool.query(`ALTER TABLE default_categories DROP INDEX uniq_default_categories_name`);
+  }
+
   const [existing] = await pool.query('SELECT COUNT(*) AS count FROM default_categories');
   if (existing[0].count === 0) {
     for (const c of INITIAL_DEFAULT_CATEGORIES) {
