@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom';
 import SiteFooter from './SiteFooter.jsx';
-import { AuthSplitFrame, ProductPanel } from './AuthSplit.jsx';
+import Icon from './Icon.jsx';
+import { AuthSplitFrame, AuthMobileBrand, ProductPanel } from './AuthSplit.jsx';
 
 // The frame for a page somebody reaches without signing in, where there is no
 // navigation to give them but the page still has to look like Taxify.
@@ -11,57 +12,46 @@ import { AuthSplitFrame, ProductPanel } from './AuthSplit.jsx';
 export default function PublicShell({ children }) {
   // The same branded rail the sign-in page has.
   //
-  // Support, terms and the privacy policy were a bare header over a white
-  // page while /login had the product panel beside it — so the pages somebody
-  // lands on when they are already unsure looked the least like Taxify. The
-  // rail drops itself below 900px, which is why the content keeps its own
-  // header underneath: on a phone it is the only thing identifying the page.
+  // Support, terms and the privacy policy were a bare header over a white page
+  // while /login had the product panel beside it — so the pages somebody lands
+  // on when they are already unsure looked the least like Taxify.
+  //
+  // With the rail there, the logo bar this used to carry was the same mark and
+  // the same words repeated a few inches to the right. AuthMobileBrand is the
+  // logo that knows to appear only below 900px, where the rail is gone and
+  // something has to say whose page this is.
+  //
+  // What replaces it is the way back. There wasn't one: the header offered
+  // "Sign in", which reads as an invitation to start something rather than a
+  // way out of a page you opened by accident — and on a phone, where the whole
+  // header was the logo, there was nothing at all.
   return (
     <AuthSplitFrame>
       <ProductPanel />
     <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', background: 'var(--bg)', minWidth: 0 }}>
-      <header
-        style={{
-          borderBottom: '1px solid var(--border)',
-          background: 'var(--bg-card)',
-          padding: '12px 18px',
-        }}
-      >
-        <div
-          style={{
-            maxWidth: 840,
-            margin: '0 auto',
-            display: 'flex',
-            alignItems: 'center',
-            gap: 11,
-            flexWrap: 'wrap',
-          }}
-        >
-          <Link
-            to="/login"
-            style={{ display: 'flex', alignItems: 'center', gap: 11, textDecoration: 'none', color: 'inherit' }}
-          >
-            <img src="/logo.svg" alt="" width="34" height="34" style={{ borderRadius: 8 }} />
-            <span style={{ display: 'flex', flexDirection: 'column', lineHeight: 1.2 }}>
-              <span style={{ fontSize: 17, fontWeight: 800, letterSpacing: -0.3 }}>Taxify</span>
-              <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>Powered by Mikes App Hub</span>
-            </span>
-          </Link>
-
-          <span style={{ flex: 1 }} />
-
-          <Link
-            to="/login"
-            className="btn btn-ghost"
-            style={{ fontSize: 12.5, textDecoration: 'none' }}
-          >
-            Sign in
-          </Link>
-        </div>
-      </header>
-
       <main style={{ flex: 1, padding: '26px 18px' }}>
-        <div style={{ maxWidth: 840, margin: '0 auto' }}>{children}</div>
+        <div style={{ maxWidth: 840, margin: '0 auto' }}>
+          <AuthMobileBrand />
+
+          <Link
+            to="/login"
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 6,
+              marginBottom: 18,
+              fontSize: 13,
+              fontWeight: 600,
+              color: 'var(--accent)',
+              textDecoration: 'none',
+            }}
+          >
+            <Icon name="arrow-left" size={15} />
+            Back to sign in
+          </Link>
+
+          {children}
+        </div>
       </main>
 
       <footer style={{ padding: '18px', borderTop: '1px solid var(--border)' }}>
