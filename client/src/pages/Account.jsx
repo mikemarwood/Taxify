@@ -19,6 +19,7 @@ import AccountantBooksPicker from '../components/AccountantBooksPicker.jsx';
 // this page the thing that changed it.
 import { titleCase, titleCaseLive, lowerEmail } from '../lib/textCase.js';
 import { onCasedInput } from '../lib/casedInput.js';
+import StartOwnAccount from '../components/StartOwnAccount.jsx';
 import { currentPlanType, planLabel as labelForPlan, hasLiveSubscription } from '../lib/plans.js';
 
 // The window a date of birth may fall in — matches the sign-up form, so an
@@ -577,33 +578,10 @@ function formatWhen(value) {
 // Someone invited only to read other people's books, who wants Taxify for
 // their own tax as well. Same login, ordinary account — being an accountant
 // was never meant to be an alternative to being a customer.
-function StartOwnAccount() {
-  const toast = useToast();
-  const { refresh } = useAuth();
-  const navigate = useNavigate();
-  const [busy, setBusy] = useState(false);
-
-  async function start() {
-    setBusy(true);
-    try {
-      const { data } = await api.post('/auth/start-own-account');
-      await refresh();
-      // A trial is granted once per account. Somebody who has had theirs is
-      // told what actually happened rather than promised fourteen days they
-      // are not getting.
-      toast(
-        data?.trialGranted
-          ? 'Your own account is ready — your 14-day trial has started'
-          : 'Your own account is back. Choose a plan to open your books again.',
-        'success'
-      );
-      navigate('/');
-    } catch (err) {
-      toast(err.message, 'error');
-      setBusy(false);
-    }
-  }
-
+// The card around it. The choosing and the confirming live in
+// components/StartOwnAccount.jsx, because the client list offers this too and
+// the two were drifting.
+function AccountantOwnAccountCard() {
   return (
     <div className="card" style={{ padding: 20, display: 'flex', flexDirection: 'column', gap: 12 }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
@@ -615,10 +593,7 @@ function StartOwnAccount() {
         expenses and receipts as well, you can start an ordinary Taxify account on this same login — a 14-day trial,
         the same plans as anyone else, and every client you already have stays exactly as it is.
       </p>
-      <button className="btn btn-primary" style={{ alignSelf: 'flex-start', fontSize: 13 }} disabled={busy} onClick={start}>
-        {busy && <span className="spinner" />}
-        Start tracking my own expenses
-      </button>
+      <StartOwnAccount />
     </div>
   );
 }
@@ -1725,7 +1700,7 @@ export default function Account() {
         transition={{ duration: 0.18 }}
         style={{ display: 'flex', flexDirection: 'column', gap: 20 }}
       >
-        {tab === 'profile' && user.role === 'accountant' && <StartOwnAccount />}
+        {tab === 'profile' && user.role === 'accountant' && <AccountantOwnAccountCard />}
         {tab === 'profile' && <AvatarSection user={user} setUser={setUser} />}
 
         {tab === 'billing' && <BillingSection user={user} />}
@@ -1890,7 +1865,13 @@ export default function Account() {
         </button>
       </form>
 
-        {tab === 'security' && user.role === 'owner' && <ChangeEmailSection user={user} />}
+        {/* Anyone but a family member, which is the same line the server draws.
+            This said role === 'owner', so an accountant opened Email & password
+            and found only the password half — even though the endpoint has
+            accepted them for a while. A family member's address is the
+            invitation that was sent to them, and moving it is a matter for that
+            invitation rather than this form. */}
+        {tab === 'security' && user.role !== 'sub_user' && <ChangeEmailSection user={user} />}
 
       <form
         onSubmit={onSavePassword}

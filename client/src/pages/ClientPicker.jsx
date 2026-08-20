@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { onCasedInput } from '../lib/casedInput.js';
+import StartOwnAccount from '../components/StartOwnAccount.jsx';
 import { titleCaseLive } from '../lib/textCase.js';
 import { Link, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
@@ -133,7 +134,6 @@ export default function ClientPicker() {
   const [clients, setClients] = useState(null);
   const [windowHours, setWindowHours] = useState(24);
   const [opening, setOpening] = useState(null);
-  const [starting, setStarting] = useState(false);
 
   useEffect(() => {
     api
@@ -151,19 +151,6 @@ export default function ClientPicker() {
   // Being invited to read someone else's books says nothing about whether you
   // keep your own. This turns the same login into an ordinary account holder —
   // trial, plans and all — without losing a single client.
-  async function startOwnAccount() {
-    setStarting(true);
-    try {
-      await api.post('/auth/start-own-account');
-      await refresh();
-      toast('Your own account is ready — your 14-day trial has started', 'success');
-      navigate('/');
-    } catch (err) {
-      toast(err.message, 'error');
-      setStarting(false);
-    }
-  }
-
   async function open(client) {
     playClick();
     setOpening(client.ownerId);
@@ -197,18 +184,7 @@ export default function ClientPicker() {
               possible. The best-signposted person was the one with nothing to
               do. */}
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
-            {user?.role === 'accountant' && (
-              <button
-                type="button"
-                className="btn btn-primary"
-                style={{ fontSize: 13 }}
-                onClick={startOwnAccount}
-                title="Keep your own expenses in Taxify, on this same login"
-              >
-                {starting && <span className="spinner" />}
-                Start my own account
-              </button>
-            )}
+            {user?.role === 'accountant' && <StartOwnAccount label="Start my own account" />}
             <Link to="/account" className="btn btn-ghost" style={{ fontSize: 13, textDecoration: 'none' }}>
               My details
             </Link>
@@ -250,12 +226,7 @@ export default function ClientPicker() {
               </Link>
               {/* An accountant invited to look at other people's books may want
                   Taxify for their own tax too — same login, ordinary account. */}
-              {user?.role === 'accountant' && (
-                <button type="button" className="btn btn-primary" style={{ fontSize: 13 }} onClick={startOwnAccount}>
-                  {starting && <span className="spinner" />}
-                  Start tracking my own expenses
-                </button>
-              )}
+              {user?.role === 'accountant' && <StartOwnAccount />}
             </div>
           </div>
         ) : (

@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import { PLANS } from '../lib/planLimits.js';
 import multer from 'multer';
 import path from 'path';
 import fs from 'fs';
@@ -1056,15 +1057,25 @@ router.post(
     const firstTime = trial.grant;
     const trialEndsAt = trial.endsAt;
 
+    // Which plan they are starting on, chosen by them.
+    //
+    // It used to be whatever plan_type happened to hold, or Individual — so an
+    // accountant who wanted the Small Business plan had to start on the wrong
+    // one and then change it. Validated against the list rather than trusted:
+    // plan_type is a free VARCHAR, and anything unrecognised must not become a
+    // way to ask for an allowance nobody sells.
+    const chosen = PLANS.includes(String(req.body?.planType)) ? String(req.body.planType) : null;
+    if (!chosen) return res.status(400).json({ error: 'Choose a plan to start on' });
+
     await pool.execute(
       // account_holder_id is cleared, not just left behind. It pointed at the
       // client who first invited them, and an account holder who "belongs to"
       // somebody else is a contradiction — one that would put their private
       // expenses inside that client's books.
       `UPDATE users SET role = 'owner', account_holder_id = NULL,
-       plan_type = COALESCE(plan_type, 'individual'),
+       plan_type = ?,
        subscription_status = ?, trial_ends_at = COALESCE(?, trial_ends_at) WHERE id = ?`,
-      [trial.status, trialEndsAt, req.user.id]
+      [chosen, trial.status, trialEndsAt, req.user.id]
     );
 
     // Their own books start with the same defaults as anybody else's.
