@@ -105,7 +105,7 @@ export default function HoursPicker({ hours, minutes, onChange, disabled = false
                 aria-label={`${value} minutes`}
                 onClick={() => onChange(h, value)}
                 style={{
-                  minWidth: 38,
+                  minWidth: 36,
                   height: 32,
                   borderRadius: 8,
                   cursor: disabled ? 'default' : 'pointer',

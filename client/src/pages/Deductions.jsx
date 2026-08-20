@@ -100,7 +100,19 @@ export default function Deductions() {
   // by hand is both a chore and the easiest place to make a mistake nobody
   // would ever catch.
   const [trip, setTrip] = useState({ date: '', vehicle: '', km: '', purpose: '', from: '', to: '' });
-  const [byOdometer, setByOdometer] = useState(false);
+
+  // Typing a reading works out the distance and writes it into the total,
+  // where it stays editable — derived, not locked. Readings that do not make a
+  // distance yet leave the total alone rather than wiping a number somebody
+  // typed by hand.
+  function setReading(which, value) {
+    const next = { ...trip, [which]: value };
+    const from = parseKm(next.from);
+    const to = parseKm(next.to);
+    if (from !== null && to !== null && to > from) next.km = (to - from).toLocaleString();
+    setTrip(next);
+  }
+
   // Hours and minutes are chosen, not typed — see deductionInput.js for why.
   // The decimal the server wants is worked out on the way out.
   const [hours, setHours] = useState({ date: '', h: '', m: '', note: '' });
@@ -201,18 +213,20 @@ export default function Deductions() {
   // A trip needs a date, something to call the vehicle, and a distance above
   // zero. Purpose stays optional — it is the description of a trip, not the
   // claim, and demanding one would have people typing "work" to get past it.
-  // What is being claimed, whichever way it was entered. One reading, so the
+  // What is being claimed. Always the total field, whether it was typed or
+  // worked out from the readings — one number submitted either way, so the
   // figure shown, the figure checked and the figure sent cannot differ.
   const odoFrom = parseKm(trip.from);
   const odoTo = parseKm(trip.to);
   const odoKm = odoFrom !== null && odoTo !== null ? odoTo - odoFrom : null;
-  const tripKm = byOdometer ? odoKm : parseKm(trip.km);
+  const tripKm = parseKm(trip.km);
+  const fromReadings = odoKm !== null && odoKm > 0 && odoKm === tripKm;
 
   // Said rather than left to be discovered by a disabled button. Readings the
   // wrong way round is the ordinary mistake — the trip is still real, the two
   // numbers are just in the wrong boxes.
   const odoProblem =
-    !byOdometer || odoFrom === null || odoTo === null
+    odoFrom === null || odoTo === null
       ? ''
       : odoTo < odoFrom
       ? 'The finishing reading is lower than the starting one.'
@@ -220,7 +234,8 @@ export default function Deductions() {
       ? 'Both readings are the same, so there is no distance to claim.'
       : '';
 
-  const tripReady = Boolean(trip.date) && trip.vehicle.trim().length > 0 && (tripKm || 0) > 0;
+  const tripReady =
+    Boolean(trip.date) && trip.vehicle.trim().length > 0 && (tripKm || 0) > 0 && !odoProblem;
 
   // Hours needs a date and a time above zero. Either dropdown alone is enough
   // — 45 minutes with no hours is a perfectly ordinary entry — so it is the
@@ -369,81 +384,53 @@ export default function Deductions() {
                     onChange={onCasedInput(titleCaseLive, (value) => setTrip({ ...trip, vehicle: value }))}
                   />
                 </div>
-                <div style={{ flex: byOdometer ? '2 1 260px' : '1 1 140px', minWidth: byOdometer ? 240 : 130 }}>
-                  <label className="label">{byOdometer ? 'Odometer' : 'Kilometres'}</label>
-
-                  {byOdometer ? (
-                    <>
-                      <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-                        <input
-                          className="input"
-                          required
-                          inputMode="numeric"
-                          placeholder="Start"
-                          aria-label="Odometer at the start"
-                          value={trip.from}
-                          onChange={onCasedInput(kmWhileTyping, (value) => setTrip({ ...trip, from: value }))}
-                          style={{ flex: 1, minWidth: 0 }}
-                        />
-                        <span style={{ color: 'var(--text-muted)', fontSize: 13 }}>→</span>
-                        <input
-                          className="input"
-                          required
-                          inputMode="numeric"
-                          placeholder="End"
-                          aria-label="Odometer at the end"
-                          value={trip.to}
-                          onChange={onCasedInput(kmWhileTyping, (value) => setTrip({ ...trip, to: value }))}
-                          style={{ flex: 1, minWidth: 0 }}
-                        />
-                      </div>
-                      {/* The answer, as it is typed. The whole point of
-                          entering readings is not having to do this bit. */}
-                      <div style={{ fontSize: 11.5, marginTop: 4, lineHeight: 1.5 }}>
-                        {odoProblem ? (
-                          <span style={{ color: 'var(--red)' }}>{odoProblem}</span>
-                        ) : odoKm > 0 ? (
-                          <span style={{ color: 'var(--emerald)', fontWeight: 600 }}>
-                            {odoKm.toLocaleString()} km
-                          </span>
-                        ) : (
-                          <span style={{ color: 'var(--text-muted)' }}>Both readings, and the distance works itself out.</span>
-                        )}
-                      </div>
-                    </>
-                  ) : (
-                    <input
-                      className="input"
-                      required
-                      inputMode="numeric"
-                      placeholder="e.g. 3,000"
-                      value={trip.km}
-                      onChange={onCasedInput(kmWhileTyping, (value) => setTrip({ ...trip, km: value }))}
-                    />
-                  )}
-
-                  {/* Switching keeps whatever has been typed: somebody who
-                      starts one way and changes their mind should not have to
-                      start again. */}
-                  <button
-                    type="button"
-                    onClick={() => setByOdometer((v) => !v)}
-                    style={{
-                      display: 'block',
-                      marginTop: 4,
-                      border: 0,
-                      background: 'transparent',
-                      padding: 0,
-                      cursor: 'pointer',
-                      font: 'inherit',
-                      fontSize: 11.5,
-                      fontWeight: 600,
-                      color: 'var(--accent)',
-                      textAlign: 'left',
-                    }}
-                  >
-                    {byOdometer ? 'or just enter the distance' : 'or use odometer readings'}
-                  </button>
+                {/* Start, finish, total — all three on the form at once.
+                    Readings used to be behind a link, which meant a feature
+                    nobody found. Type two readings and the total fills itself
+                    in; or ignore them and type the total. */}
+                <div style={{ flex: '1 1 108px', minWidth: 100 }}>
+                  <label className="label">Odometer start</label>
+                  <input
+                    className="input"
+                    inputMode="numeric"
+                    placeholder="e.g. 41,200"
+                    value={trip.from}
+                    onChange={onCasedInput(kmWhileTyping, (value) => setReading('from', value))}
+                  />
+                </div>
+                <div style={{ flex: '1 1 108px', minWidth: 100 }}>
+                  <label className="label">Odometer finish</label>
+                  <input
+                    className="input"
+                    inputMode="numeric"
+                    placeholder="e.g. 41,538"
+                    value={trip.to}
+                    onChange={onCasedInput(kmWhileTyping, (value) => setReading('to', value))}
+                  />
+                </div>
+                <div style={{ flex: '1 1 130px', minWidth: 120 }}>
+                  <label className="label">Total kilometres</label>
+                  <input
+                    className="input"
+                    required
+                    inputMode="numeric"
+                    placeholder="e.g. 338"
+                    value={trip.km}
+                    onChange={onCasedInput(kmWhileTyping, (value) => setTrip({ ...trip, km: value }))}
+                    style={fromReadings ? { borderColor: 'var(--emerald)', fontWeight: 700 } : undefined}
+                  />
+                  {/* Where the number came from, or what is wrong with it.
+                      The total stays typeable even once the readings have
+                      filled it in — worked out, not locked. */}
+                  <div style={{ fontSize: 11.5, marginTop: 4, lineHeight: 1.5 }}>
+                    {odoProblem ? (
+                      <span style={{ color: 'var(--red)' }}>{odoProblem}</span>
+                    ) : fromReadings ? (
+                      <span style={{ color: 'var(--emerald)', fontWeight: 600 }}>From the readings</span>
+                    ) : (
+                      <span style={{ color: 'var(--text-muted)' }}>Or type it in</span>
+                    )}
+                  </div>
                 </div>
                 <div style={{ flex: '2 1 200px', minWidth: 150 }}>
                   <label className="label">Purpose</label>
@@ -537,7 +524,7 @@ export default function Deductions() {
                     "Half an hour" is 0.5 as a decimal and 0.30 on a clock, so
                     the field never asks for either — hours step, minutes are
                     four buttons, and the decimal is worked out. */}
-                <div style={{ flex: '1 1 290px', minWidth: 270 }}>
+                <div style={{ flex: '1 1 330px', minWidth: 320 }}>
                   <HoursPicker
                     hours={hours.h}
                     minutes={hours.m}
