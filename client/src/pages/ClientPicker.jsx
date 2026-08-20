@@ -204,56 +204,9 @@ export default function ClientPicker() {
 
         {blocked && <SetupRequired missing={setup.missing} onDone={refresh} />}
 
-        {/* Somebody has asked this account to act for them and the invitation
-            has not been accepted yet.
-
-            It appeared nowhere at all before: the email went out, and until the
-            link in it was opened this page said "No clients have shared their
-            books with you" — which was not true, and this is the page an
-            accountant comes to when they are expecting one. An email that went
-            to spam left no trace in the product.
-
-            It says who and until when, and points at the email rather than
-            offering a button. The link is what proves the invitation reached
-            the person it was addressed to, so accepting has to happen there —
-            a button here would accept on behalf of whoever is signed in, which
-            is exactly the check the link exists to make. */}
-        {!startingOwn && invitations.length > 0 && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 22 }}>
-            {invitations.map((invite) => (
-              <div
-                key={invite.id}
-                className="card"
-                style={{
-                  padding: '14px 16px',
-                  display: 'flex',
-                  alignItems: 'flex-start',
-                  gap: 12,
-                  borderLeft: '3px solid var(--accent)',
-                }}
-              >
-                <Icon name="mail" size={17} style={{ color: 'var(--accent)', marginTop: 2, flexShrink: 0 }} />
-                <div style={{ minWidth: 0, flex: 1 }}>
-                  <div style={{ fontWeight: 700, fontSize: 14 }}>
-                    {invite.from} would like you to act for them
-                  </div>
-                  <div style={{ fontSize: 12.5, color: 'var(--text-muted)', marginTop: 3, lineHeight: 1.55 }}>
-                    Open the link in the invitation we emailed you to accept it. It expires{' '}
-                    {formatDateLong(invite.expiresAt)}, and until then their books are not open to anybody.
-                  </div>
-                  <div style={{ fontSize: 11.5, color: 'var(--text-subtle)', marginTop: 5 }}>
-                    Sent to your address · {invite.canWrite ? 'Read and write' : 'Read-only'} ·{' '}
-                    {describeHours(invite.windowHours)} once opened
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-
         {clients === null ? (
           <SkeletonList rows={3} />
-        ) : clients.length === 0 ? (
+        ) : clients.length === 0 && invitations.length === 0 ? (
           /* Choosing a plan takes the card over rather than opening inside it.
              It was appearing underneath "No clients have shared their books
              with you", centred, beside a link about passwords — so the page
@@ -300,7 +253,134 @@ export default function ClientPicker() {
             </div>
           </div>
         ) : (
+          <>
+            {/* One area for everybody who has asked, whether or not it has been
+                accepted yet. They were two lists: a strip of invitations above
+                and the clients below, which is our filing rather than anything
+                about them — the question on this page is "whose books can I
+                get to", and an invitation is the same question with a step
+                still to go. The card says which it is. */}
+            <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, marginBottom: 12, flexWrap: 'wrap' }}>
+              <span style={{ fontWeight: 700, fontSize: 14 }}>Clients who share their books with you</span>
+              <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>
+                {clients.length} open
+                {invitations.length > 0 &&
+                  ` · ${invitations.length} waiting on you`}
+              </span>
+            </div>
+
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: 16 }}>
+            {/* Waiting ones first: they are the only thing on this page with
+                something left to do. Dashed and amber, so it reads as not-yet
+                rather than as a client that will not open. */}
+            {invitations.map((invite, i) => (
+              <motion.div
+                key={`invite-${invite.id}`}
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: Math.min(i, 8) * 0.04 }}
+                className="card"
+                style={{
+                  padding: 0,
+                  overflow: 'hidden',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  borderStyle: 'dashed',
+                  borderColor: 'var(--amber)',
+                }}
+              >
+                <div
+                  style={{
+                    padding: '7px 14px',
+                    fontSize: 11.5,
+                    fontWeight: 700,
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 7,
+                    color: 'var(--amber)',
+                    background: 'var(--bg-inset)',
+                    borderBottom: '1px solid var(--border)',
+                  }}
+                >
+                  <Icon name="clock" size={12} />
+                  Waiting for you to accept
+                </div>
+
+                <div style={{ padding: 18, display: 'flex', flexDirection: 'column', gap: 12, flex: 1 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                    <span
+                      style={{
+                        width: 44,
+                        height: 44,
+                        borderRadius: 12,
+                        background: 'var(--bg-inset)',
+                        border: '1px dashed var(--amber)',
+                        color: 'var(--amber)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        flexShrink: 0,
+                      }}
+                    >
+                      <Icon name="mail" size={20} />
+                    </span>
+                    <span style={{ minWidth: 0 }}>
+                      <span
+                        style={{
+                          display: 'block',
+                          fontWeight: 700,
+                          fontSize: 15.5,
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                          whiteSpace: 'nowrap',
+                        }}
+                      >
+                        {invite.from}
+                      </span>
+                      <span
+                        style={{
+                          display: 'block',
+                          fontSize: 12.5,
+                          color: 'var(--text-muted)',
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                          whiteSpace: 'nowrap',
+                        }}
+                      >
+                        {invite.email}
+                      </span>
+                    </span>
+                  </div>
+
+                  {/* No Accept button, deliberately. The link in their email is
+                      the only thing that proves the invitation reached the
+                      person it was addressed to, and a button here would accept
+                      on behalf of whoever happens to be signed in — which is
+                      the check the link exists to make. */}
+                  <p style={{ margin: 0, fontSize: 12.5, color: 'var(--text-muted)', lineHeight: 1.6 }}>
+                    Open the link in the invitation we emailed you to accept it. Their books stay shut to everybody
+                    until you do.
+                  </p>
+
+                  <div
+                    style={{
+                      marginTop: 'auto',
+                      paddingTop: 4,
+                      display: 'flex',
+                      flexWrap: 'wrap',
+                      gap: 10,
+                      fontSize: 11.5,
+                      color: 'var(--text-subtle)',
+                    }}
+                  >
+                    <span>{invite.canWrite ? 'Read and write' : 'Read-only'}</span>
+                    <span>{describeHours(invite.windowHours)} once opened</span>
+                    <span style={{ color: 'var(--amber)' }}>Expires {formatDateLong(invite.expiresAt)}</span>
+                  </div>
+                </div>
+              </motion.div>
+            ))}
+
             {clients.map((c, i) => {
               const left = remaining(c.expiresAt);
               const busy = opening === c.ownerId;
@@ -471,6 +551,7 @@ export default function ClientPicker() {
               );
             })}
           </div>
+          </>
         )}
       </div>
     </div>

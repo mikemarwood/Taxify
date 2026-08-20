@@ -13,7 +13,13 @@ import { formatDateTime } from '../lib/dates.js';
 // keeps them, and the Android app pushes the same messages to the notification
 // tray so they arrive even when the app is closed.
 
-const POLL_MS = 2 * 60 * 1000;
+// Two minutes was too long for anything somebody is actually waiting on.
+//
+// An accountant accepting an invitation is the case that showed it up: the
+// client asks, the accountant says yes, and the badge took up to two minutes to
+// admit it. Forty-five seconds is the background rate, and the refresh that
+// actually matters is the one below — coming back to the tab.
+const POLL_MS = 45 * 1000;
 
 // `compact` is the sidebar footer: an icon-only square beside Log out, rather
 // than two equal slabs of text competing for a row that is already narrow.
@@ -35,7 +41,23 @@ export default function NotificationBell({ compact = false }) {
   useEffect(() => {
     load();
     const id = setInterval(load, POLL_MS);
-    return () => clearInterval(id);
+
+    // And the moment somebody looks at the page again.
+    //
+    // Waiting for the next tick is what makes a notification feel late: you
+    // switch to the tab precisely because you are expecting something, and that
+    // is the one moment the badge was guaranteed to be stale. Reading it on
+    // focus costs one request per return and removes the wait entirely.
+    function onVisible() {
+      if (document.visibilityState === 'visible') load();
+    }
+    document.addEventListener('visibilitychange', onVisible);
+    window.addEventListener('focus', onVisible);
+    return () => {
+      clearInterval(id);
+      document.removeEventListener('visibilitychange', onVisible);
+      window.removeEventListener('focus', onVisible);
+    };
   }, []);
 
   useEffect(() => {
