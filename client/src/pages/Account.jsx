@@ -1055,7 +1055,20 @@ function AccountantSection({ user }) {
         .then((res) => {
           if (!alive) return;
           if (res.data.self) return setLookup({ state: 'self', name: null });
-          setLookup({ state: res.data.known ? 'known' : 'unknown', name: res.data.name || null });
+          // Three answers rather than two. "No account" and "an account, but
+          // not an accountant" are different problems with different things to
+          // do about them, and telling somebody the wrong one sends them off to
+          // do the wrong thing.
+          setLookup({
+            state:
+              res.data.state === 'accountant'
+                ? 'known'
+                : res.data.state === 'not_accountant'
+                ? 'not_accountant'
+                : 'unknown',
+            name: res.data.name || null,
+            practiceName: res.data.practiceName || null,
+          });
         })
         // Rate limited, or offline. Treated as unknown rather than blocking the
         // form — the server checks again on submit and is the authority either
@@ -1089,24 +1102,65 @@ function AccountantSection({ user }) {
   // somebody came looking for is a page they will keep looking on. The server
   // refuses it too — this is the half that explains rather than the half that
   // enforces.
-  if (user?.actsForClients) {
+  // isAccountant, not the stored flag — the same test the switch on the plan
+  // page uses, so the two cannot disagree about what this account is. Reading
+  // the flag alone let somebody who became an accountant by accepting an
+  // invitation see the invite form here and be refused by the server after
+  // filling it in.
+  if (user?.isAccountant) {
     return (
-      <div className="card" style={{ padding: 20, display: 'flex', flexDirection: 'column', gap: 12 }}>
+      <div className="card" style={{ padding: 20, display: 'flex', flexDirection: 'column', gap: 14 }}>
+        {/* Written as what this account is, not as what it is not allowed to do.
+
+            It read "Your account acts for clients. So it cannot also share its
+            books with an accountant" — a refusal, in wording that no longer
+            matches the switch it points at, for somebody who has done nothing
+            wrong and is on the wrong page by an honest mistake. What they
+            actually want from here is either their own client list or a way to
+            change their mind, so it offers both and explains the rule once, in
+            a sentence about how the two roles differ rather than about a
+            restriction. */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
           <Icon name="briefcase" size={18} style={{ color: 'var(--accent)' }} />
-          <span style={{ fontWeight: 700 }}>Your account acts for clients</span>
+          <span style={{ fontWeight: 700 }}>You are an accountant</span>
         </div>
+
         <p style={{ fontSize: 13.5, color: 'var(--text-muted)', margin: 0, lineHeight: 1.6 }}>
-          So it cannot also share its books with an accountant — one login does one or the other. If you want to give
-          somebody access to your own books, turn off acting for clients under your plan first.
+          This page is for giving somebody read-only access to <em>your</em> books. Your account is set up the other
+          way round — people share theirs with you, and those invitations arrive on your client list rather than here.
         </p>
-        <Link
-          to="/account?tab=billing"
-          className="btn btn-ghost"
-          style={{ alignSelf: 'flex-start', fontSize: 13, textDecoration: 'none' }}
+
+        <div
+          style={{
+            display: 'flex',
+            gap: 10,
+            alignItems: 'flex-start',
+            padding: '12px 14px',
+            borderRadius: 'var(--radius-sm)',
+            background: 'var(--bg-inset)',
+            border: '1px solid var(--border)',
+          }}
         >
-          Go to my plan
-        </Link>
+          <Icon name="info" size={15} style={{ color: 'var(--text-muted)', marginTop: 1, flexShrink: 0 }} />
+          <span style={{ fontSize: 12.5, color: 'var(--text-muted)', lineHeight: 1.55 }}>
+            One login does one or the other. If you want an accountant of your own, stop being one first — under your
+            plan, and only once you have no clients and nothing waiting either way.
+          </span>
+        </div>
+
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          <Link to="/clients" className="btn btn-primary" style={{ fontSize: 13, textDecoration: 'none' }}>
+            <Icon name="briefcase" size={15} />
+            Go to my clients
+          </Link>
+          <Link
+            to="/account?tab=billing"
+            className="btn btn-ghost"
+            style={{ fontSize: 13, textDecoration: 'none' }}
+          >
+            Stop being an accountant
+          </Link>
+        </div>
       </div>
     );
   }
@@ -1295,12 +1349,28 @@ function AccountantSection({ user }) {
             {lookup.state === 'known' && (
               <span style={{ color: 'var(--emerald)', fontWeight: 600 }}>
                 <Icon name="check-circle" size={13} style={{ verticalAlign: -2, marginRight: 5 }} />
-                Account found{lookup.name ? ` — ${lookup.name}` : ''}. Choose what they can see below.
+                Accountant found
+                {lookup.practiceName ? ` — ${lookup.practiceName}` : lookup.name ? ` — ${lookup.name}` : ''}. Choose
+                what they can see below.
+              </span>
+            )}
+
+            {/* The account exists — it is just not set up to act for anybody, so
+                an invitation would arrive somewhere with no client list to show
+                it on and no button to accept it. Told apart from "no account"
+                because the thing to do about it is different: they turn a switch
+                on, rather than sign up. */}
+            {lookup.state === 'not_accountant' && (
+              <span style={{ color: 'var(--amber-text, var(--text-muted))' }}>
+                <Icon name="info" size={13} style={{ verticalAlign: -2, marginRight: 5 }} />
+                There is a Taxify account at that address, but it is not an accountant — so it cannot be given access
+                to your books yet.
               </span>
             )}
 
             {lookup.state === 'unknown' && (
               <span style={{ color: 'var(--text-muted)' }}>
+                <Icon name="info" size={13} style={{ verticalAlign: -2, marginRight: 5 }} />
                 No Taxify account at that address, so there is nobody to give access to yet.
               </span>
             )}
@@ -1338,6 +1408,37 @@ function AccountantSection({ user }) {
               {busy && <span className="spinner" />}
               Email them about creating an account
             </button>
+          </div>
+        )}
+
+        {/* An account that exists but is not an accountant. Telling them
+            to sign up would be wrong advice — they already have. What has
+            to happen is on their side and takes them a minute, so this
+            says exactly what to tell them rather than offering a button
+            that cannot do it for them. */}
+        {lookup.state === 'not_accountant' && (
+          <div
+            style={{
+              padding: 14,
+              borderRadius: 'var(--radius-sm)',
+              border: '1px solid var(--border)',
+              borderLeft: '3px solid var(--accent)',
+              background: 'var(--bg-subtle)',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 8,
+            }}
+          >
+            <div style={{ fontWeight: 700, fontSize: 13 }}>They need to turn on being an accountant</div>
+            <div style={{ fontSize: 12.5, lineHeight: 1.6, color: 'var(--text-muted)' }}>
+              They have a Taxify account, so there is nothing to sign up for. Ask them to open{' '}
+              <strong style={{ color: 'var(--text)' }}>My account → Plan &amp; billing</strong> and press{' '}
+              <strong style={{ color: 'var(--text)' }}>Become an accountant</strong>. It takes a moment, and
+              their own books are unaffected by it.
+            </div>
+            <div style={{ fontSize: 12, color: 'var(--text-subtle)', lineHeight: 1.55 }}>
+              Once they have, enter their address here again and the invitation will go out.
+            </div>
           </div>
         )}
 

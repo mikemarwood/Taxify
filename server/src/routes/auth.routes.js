@@ -604,11 +604,15 @@ router.post(
     // other people's books, the other hands out sight of its own. Somebody who
     // acts for clients can turn that off and invite one, which is the same
     // decision made explicitly rather than both at once.
-    if (req.user.actsForClients) {
+    // isAccountant, not the stored flag — the same test the page uses, so
+    // the explanation and the refusal cannot disagree about what this
+    // account is. The flag alone let somebody who became an accountant by
+    // accepting an invitation fill in the form and be refused afterwards.
+    if (req.user.isAccountant) {
       return res.status(409).json({
         error:
-          'Your account acts for clients, so it cannot also share its books with an accountant. Turn off acting for clients first.',
-        code: 'acts_for_clients',
+          'You are an accountant, so people share their books with you rather than the other way round. To have an accountant of your own, stop being one under your plan first.',
+        code: 'is_accountant',
       });
     }
 
@@ -902,19 +906,30 @@ router.get(
     // Three ways to qualify, the same three the session uses, so the form and
     // the door agree: the switch on their plan page, a live assignment for
     // somebody else, or the role itself.
+    // Three answers, not two.
+    //
+    // "No account" and "an account, but not an accountant" are different
+    // problems with different things to do about them — go and sign up,
+    // versus go and turn the switch on — and telling somebody the wrong
+    // one sends them to do the wrong thing. It used to answer both as
+    // "not registered".
+    //
+    // This does say whether an address has a Taxify account, which is a
+    // knowing trade: it is thirty guesses per ten minutes, behind a paying
+    // account, and the alternative is a form that sends people to sign up
+    // for an account they already have.
     const [rows] = await pool.execute(
-      `SELECT u.id, u.name, u.practice_name
+      `SELECT u.id, u.name, u.practice_name,
+              (
+                u.acts_for_clients = 1
+                OR u.role = 'accountant'
+                OR EXISTS (
+                  SELECT 1 FROM accountant_assignments a
+                   WHERE a.accountant_user_id = u.id AND (a.expires_at IS NULL OR a.expires_at > NOW())
+                )
+              ) AS acts
          FROM users u
-        WHERE u.email = ?
-          AND u.activated_at IS NOT NULL
-          AND (
-            u.acts_for_clients = 1
-            OR u.role = 'accountant'
-            OR EXISTS (
-              SELECT 1 FROM accountant_assignments a
-               WHERE a.accountant_user_id = u.id AND (a.expires_at IS NULL OR a.expires_at > NOW())
-            )
-          )`,
+        WHERE u.email = ? AND u.activated_at IS NOT NULL`,
       [email]
     );
 
@@ -922,11 +937,16 @@ router.get(
     // which is the point: it is how they check they have the right person. The
     // firm goes with it where there is one, because "Chen & Co" is what somebody
     // recognises about their accountant more readily than a personal name.
+    const found = rows[0] || null;
+    const acts = found ? Number(found.acts) === 1 : false;
     res.json({
-      known: Boolean(rows[0]),
+      // known stays "can be invited", which is what the button turns on.
+      known: acts,
+      // And the reason, for the two ways of not being invitable.
+      state: !found ? 'no_account' : acts ? 'accountant' : 'not_accountant',
       self: false,
-      name: rows[0]?.name || null,
-      practiceName: rows[0]?.practice_name || null,
+      name: acts ? found.name || null : null,
+      practiceName: acts ? found.practice_name || null : null,
     });
   })
 );

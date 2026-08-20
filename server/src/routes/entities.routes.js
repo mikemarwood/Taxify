@@ -230,7 +230,7 @@ router.post(
 async function seedStarterCategories(ownerId, entityId, financialYear, kind) {
   const wanted = kind === 'business' ? 'business' : 'individual';
   const [rows] = await pool.execute(
-    `SELECT name, color, icon FROM default_categories WHERE kind IN (?, 'both') ORDER BY name`,
+    `SELECT name, color, icon FROM default_categories WHERE kind = ? ORDER BY name`,
     [wanted]
   );
   for (const row of rows) {

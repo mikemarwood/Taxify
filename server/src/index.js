@@ -35,6 +35,7 @@ import { migrateCategoryEntities } from './migrations/categoryEntities.js';
 import { migrateCategoriesEveryBook } from './migrations/categoriesEveryBook.js';
 import { migrateDefaultCategoryKinds } from './migrations/defaultCategoryKinds.js';
 import { migrateAccountantFlag } from './migrations/accountantFlag.js';
+import { migrateSplitBothCategories } from './migrations/splitBothCategories.js';
 import { migrateRemoveSecondLogins } from './migrations/removeSecondLogins.js';
 import { migrateAccountNumbers } from './migrations/accountNumbers.js';
 import { closeExpiredAssignments } from './auth/accountants.js';
@@ -422,6 +423,8 @@ try {
   await migrateCategoriesEveryBook(pool);
   await migrateDefaultCategoryKinds(pool);
   await migrateAccountantFlag(pool);
+  // After the per-kind seed, which is what creates the rows this splits.
+  await migrateSplitBothCategories(pool);
 } catch (err) {
   console.error('Failed to place categories into their set of books');
   console.error(err);

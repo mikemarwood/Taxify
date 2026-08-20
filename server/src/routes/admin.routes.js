@@ -811,7 +811,7 @@ router.get(
     // page does not have to decide what order its own sections come in.
     const [categories] = await pool.execute(
       `SELECT id, name, color, icon, kind FROM default_categories
-        ORDER BY FIELD(kind, 'both', 'individual', 'business'), name`
+        ORDER BY FIELD(kind, 'individual', 'business', 'both'), name`
     );
     res.json({ categories });
   })

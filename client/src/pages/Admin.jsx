@@ -1311,12 +1311,17 @@ function StripeSettingsTab() {
   );
 }
 
-// The three lists, in the order they matter: what everybody gets, then what
-// each kind of books gets on top of it.
+// Two lists, each saying exactly what a new set of books starts with.
+//
+// There was a third — "every set of books" — for the handful that belong on
+// either. Tidy as a data model and poor as a screen: it meant the answer to
+// "what does a new business start with" was the union of two sections rather
+// than one of them, and an administrator had to do the addition themselves.
+// The shared rows were split across both lists once, so there is nothing left
+// to add up.
 const GROUPS = [
-  { id: 'both', label: 'Every set of books', hint: 'personal and business alike' },
-  { id: 'individual', label: 'Personal books only', hint: 'not added to a business' },
-  { id: 'business', label: 'Business books only', hint: 'not added to personal books' },
+  { id: 'individual', label: 'Personal books', hint: 'what a personal set of books starts with' },
+  { id: 'business', label: 'Business books', hint: 'what a new business starts with' },
 ];
 
 function DefaultCategoriesTab() {
@@ -1337,15 +1342,15 @@ function DefaultCategoriesTab() {
   // account's first set of books, while a hard-coded pair fed every book made
   // afterwards. Editing here changed nothing about the rest, and there was
   // nothing on screen to say so.
-  const [kind, setKind] = useState('both');
+  const [kind, setKind] = useState('individual');
   const [editKind, setEditKind] = useState('individual');
 
   // A name clashes with the list being added to, plus the shared one — the
   // same rule the unique key enforces, asked here so the answer arrives before
   // the press rather than as a refusal after it.
-  const existingNames = (categories || [])
-    .filter((c) => (kind === 'both' ? true : c.kind === kind || c.kind === 'both'))
-    .map((c) => c.name);
+  // One list, so one question: does this name already exist on the list being
+  // added to.
+  const existingNames = (categories || []).filter((c) => c.kind === kind).map((c) => c.name);
   const nameError = categoryNameError(name, existingNames);
   const nameReady = isCategoryNameReady(name, existingNames);
   const editNameError = categoryNameError(editName, existingNames, categories?.find((c) => c.id === editingId)?.name);

@@ -34,7 +34,7 @@ export async function seedDefaultCategories(
 ) {
   const wanted = kind === 'business' ? 'business' : 'individual';
   const [templates] = await pool.execute(
-    `SELECT name, color, icon FROM default_categories WHERE kind IN (?, 'both') ORDER BY name`,
+    `SELECT name, color, icon FROM default_categories WHERE kind = ? ORDER BY name`,
     [wanted]
   );
 
