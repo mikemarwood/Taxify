@@ -346,7 +346,7 @@ export default function Deductions() {
               <form
                 onSubmit={addTrip}
                 className="deduction-form"
-                style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'flex-end' }}
+                style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'flex-start' }}
               >
                 <div style={{ flex: '1 1 165px', minWidth: 165 }}>
                   <label className="label">Date</label>
@@ -456,15 +456,22 @@ export default function Deductions() {
                   />
                 </div>
                 {/* Full width once it is on a line of its own, rather than a
-                    small button marooned beside a gap. */}
-                <button
-                  className="btn btn-primary"
-                  type="submit"
-                  disabled={busy || !tripReady}
-                  style={{ fontSize: 13, flex: '1 1 auto', minWidth: 110, justifyContent: 'center' }}
-                >
-                  Add trip
-                </button>
+                    small button marooned beside a gap. The empty label is a
+                    spacer: without it the button sits level with the other
+                    labels instead of level with the fields. */}
+                <div style={{ flex: '1 1 auto', minWidth: 110 }}>
+                  <span className="label" aria-hidden="true">
+                    &nbsp;
+                  </span>
+                  <button
+                    className="btn btn-primary"
+                    type="submit"
+                    disabled={busy || !tripReady}
+                    style={{ fontSize: 13, width: '100%', justifyContent: 'center' }}
+                  >
+                    Add trip
+                  </button>
+                </div>
               </form>
             )}
 
@@ -514,7 +521,7 @@ export default function Deductions() {
               <form
                 onSubmit={addHours}
                 className="deduction-form"
-                style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'flex-end' }}
+                style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'flex-start' }}
               >
                 <div style={{ flex: '1 1 165px', minWidth: 165 }}>
                   <label className="label">Date</label>
@@ -530,7 +537,7 @@ export default function Deductions() {
                     "Half an hour" is 0.5 as a decimal and 0.30 on a clock, so
                     the field never asks for either — hours step, minutes are
                     four buttons, and the decimal is worked out. */}
-                <div style={{ flex: '1 1 300px', minWidth: 260 }}>
+                <div style={{ flex: '1 1 290px', minWidth: 270 }}>
                   <HoursPicker
                     hours={hours.h}
                     minutes={hours.m}
@@ -547,14 +554,20 @@ export default function Deductions() {
                     onChange={onCasedInput(sentenceCaseLive, (value) => setHours({ ...hours, note: value }))}
                   />
                 </div>
-                <button
-                  className="btn btn-primary"
-                  type="submit"
-                  disabled={busy || !hoursReady}
-                  style={{ fontSize: 13, flex: '1 1 auto', minWidth: 110, justifyContent: 'center' }}
-                >
-                  Add hours
-                </button>
+                {/* The empty label is a spacer; see the trip form above. */}
+                <div style={{ flex: '1 1 auto', minWidth: 110 }}>
+                  <span className="label" aria-hidden="true">
+                    &nbsp;
+                  </span>
+                  <button
+                    className="btn btn-primary"
+                    type="submit"
+                    disabled={busy || !hoursReady}
+                    style={{ fontSize: 13, width: '100%', justifyContent: 'center' }}
+                  >
+                    Add hours
+                  </button>
+                </div>
               </form>
             )}
 

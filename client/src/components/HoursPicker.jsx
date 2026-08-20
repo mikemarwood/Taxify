@@ -9,8 +9,25 @@ import Icon from './Icon.jsx';
 // Hours get a stepper, because the number is almost always small and one press
 // away from the last one. Minutes get four buttons, because home-office time is
 // logged to the quarter hour and nobody has ever needed to claim seven minutes.
+//
+// It sits in a row of ordinary fields, so it is shaped like one: a single
+// label on the same line as its neighbours', one control block the same height
+// as an input, and the running total underneath. Two inner labels of its own
+// used to make this cell taller than the fields either side of it, which
+// bumped the whole column half a line up out of the row.
 const QUARTERS = [0, 15, 30, 45];
 const MAX_HOURS = 24;
+
+// The height of a .input: 14px of text, 9px of padding either side, a border.
+const CONTROL_HEIGHT = 38;
+
+function Unit({ children }) {
+  return (
+    <span style={{ fontSize: 11.5, fontWeight: 700, color: 'var(--text-subtle)', letterSpacing: 0.3 }}>
+      {children}
+    </span>
+  );
+}
 
 function Step({ label, onClick, disabled }) {
   return (
@@ -20,8 +37,8 @@ function Step({ label, onClick, disabled }) {
       onClick={onClick}
       disabled={disabled}
       style={{
-        width: 30,
-        height: 30,
+        width: 32,
+        height: 32,
         flexShrink: 0,
         borderRadius: 8,
         border: '1px solid var(--border)',
@@ -47,17 +64,24 @@ export default function HoursPicker({ hours, minutes, onChange, disabled = false
   const m = Number(minutes) || 0;
 
   return (
-    <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap', alignItems: 'flex-end' }}>
-      <div>
-        <label className="label" style={{ fontSize: 11.5 }}>
-          Hours
-        </label>
+    <div>
+      <label className="label">Time worked</label>
+
+      <div
+        style={{
+          minHeight: CONTROL_HEIGHT,
+          display: 'flex',
+          alignItems: 'center',
+          gap: 14,
+          flexWrap: 'wrap',
+        }}
+      >
         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
           <Step label="One hour less" disabled={disabled || h <= 0} onClick={() => onChange(h - 1, m)} />
           <span
             aria-live="polite"
             style={{
-              minWidth: 34,
+              minWidth: 26,
               textAlign: 'center',
               fontSize: 16,
               fontWeight: 700,
@@ -67,14 +91,10 @@ export default function HoursPicker({ hours, minutes, onChange, disabled = false
             {h}
           </span>
           <Step label="Add an hour" disabled={disabled || h >= MAX_HOURS} onClick={() => onChange(h + 1, m)} />
+          <Unit>hr</Unit>
         </div>
-      </div>
 
-      <div>
-        <label className="label" style={{ fontSize: 11.5 }}>
-          Minutes
-        </label>
-        <div style={{ display: 'flex', gap: 4 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
           {QUARTERS.map((value) => {
             const on = m === value;
             return (
@@ -82,10 +102,11 @@ export default function HoursPicker({ hours, minutes, onChange, disabled = false
                 key={value}
                 type="button"
                 disabled={disabled}
+                aria-label={`${value} minutes`}
                 onClick={() => onChange(h, value)}
                 style={{
-                  minWidth: 40,
-                  padding: '7px 0',
+                  minWidth: 38,
+                  height: 32,
                   borderRadius: 8,
                   cursor: disabled ? 'default' : 'pointer',
                   font: 'inherit',
@@ -101,14 +122,16 @@ export default function HoursPicker({ hours, minutes, onChange, disabled = false
               </button>
             );
           })}
+          <Unit>min</Unit>
         </div>
       </div>
 
-      {/* What is about to be logged, in the form it will be read back in.
-          The decimal the database keeps is nobody's business but ours. */}
-      <div style={{ fontSize: 12.5, color: 'var(--text-muted)', paddingBottom: 8 }}>
+      {/* What is about to be logged, in the form it will be read back in, and
+          in the same place the odometer puts its running distance. The decimal
+          the database keeps is nobody's business but ours. */}
+      <div style={{ fontSize: 11.5, marginTop: 4, lineHeight: 1.5 }}>
         {h === 0 && m === 0 ? (
-          'Nothing yet'
+          <span style={{ color: 'var(--text-muted)' }}>Nothing yet</span>
         ) : (
           <span style={{ color: 'var(--emerald)', fontWeight: 700 }}>
             <Icon name="clock" size={13} style={{ verticalAlign: -2, marginRight: 4 }} />
