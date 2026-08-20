@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { EMAIL_PATTERN } from '../lib/emailAddress.js';
 import { PLANS } from '../lib/planLimits.js';
 import { acceptInvite, declineInvite } from '../lib/accountantInviteFlow.js';
+import { wasSent, mergedName, buildProfileUpdate } from '../lib/profilePatch.js';
 import multer from 'multer';
 import path from 'path';
 import fs from 'fs';
@@ -1869,13 +1870,28 @@ router.patch(
     // Everything captured at sign-up can be corrected here except how they
     // heard about us — that's a one-time answer about a moment that's passed,
     // and letting it be edited later would only corrupt what it exists for.
-    const { firstName, lastName, dateOfBirth, phone, email, currency, country, state, businessName, practiceName } =
-      req.body || {};
+    //
+    // A PATCH that means patch.
+    //
+    // This read every field whether or not it was sent, so a caller updating
+    // one thing had to send the whole profile or be refused for the rest. The
+    // accountant setup panel sends { practiceName } and nothing else, and was
+    // answered with "First name must be at least 1 character" — about a field
+    // it had never mentioned and had no way to know.
+    //
+    // Absent and empty are different, and the difference is the whole rule. Not
+    // sending firstName leaves it alone; sending firstName: '' is somebody
+    // clearing their name, and that is still refused. hasOwnProperty is what
+    // tells the two apart — a falsy check cannot.
+    const body = req.body || {};
+    const sent = (field) => wasSent(body, field);
+    const { firstName, lastName, dateOfBirth, phone, currency, businessName, practiceName } = body;
 
-    for (const [value, label, limits] of [
-      [firstName, 'First name', LIMITS.firstName],
-      [lastName, 'Last name', LIMITS.lastName],
+    for (const [field, value, label, limits] of [
+      ['firstName', firstName, 'First name', LIMITS.firstName],
+      ['lastName', lastName, 'Last name', LIMITS.lastName],
     ]) {
+      if (!sent(field)) continue;
       const error = lengthError(label, value, limits);
       if (error) return res.status(400).json({ error });
     }
@@ -1885,8 +1901,10 @@ router.patch(
     // routes below — so this leaves it alone even if a client sends one.
     const normalizedEmail = req.user.email;
 
-    const dob = String(dateOfBirth || '').slice(0, 10);
-    if (dob && !/^\d{4}-\d{2}-\d{2}$/.test(dob)) return res.status(400).json({ error: 'Enter a valid date of birth' });
+    const dob = sent('dateOfBirth') ? String(dateOfBirth || '').slice(0, 10) : undefined;
+    if (dob && !/^\d{4}-\d{2}-\d{2}$/.test(dob)) {
+      return res.status(400).json({ error: 'Enter a valid date of birth' });
+    }
 
     // Country and state are fixed after sign-up. The country decides which
     // twelve months count as a financial year, and every expense, receipt
@@ -1896,42 +1914,61 @@ router.patch(
     const matchedCountry = countryByName(req.user.country);
     const fixedState = req.user.state;
 
-    const finalCurrency = String(currency || '').toUpperCase();
-    if (!isKnownCurrency(finalCurrency)) return res.status(400).json({ error: 'Choose your preferred currency' });
-
-    const cleanedPhone = normalisePhone(phone);
-    if (cleanedPhone && (cleanedPhone.match(/\d/g) || []).length < 6) {
-      return res.status(400).json({ error: 'Enter a valid phone number' });
+    let finalCurrency;
+    if (sent('currency')) {
+      finalCurrency = String(currency || '').toUpperCase();
+      if (!isKnownCurrency(finalCurrency)) return res.status(400).json({ error: 'Choose your preferred currency' });
     }
 
-    const first = toPersonName(firstName);
-    const last = toPersonName(lastName);
-    const fullName = `${first} ${last}`.trim();
-    const trimmedBusinessName = businessName ? String(businessName).trim().slice(0, 120) : null;
+    let cleanedPhone;
+    if (sent('phone')) {
+      cleanedPhone = normalisePhone(phone);
+      if (cleanedPhone && (cleanedPhone.match(/\d/g) || []).length < 6) {
+        return res.status(400).json({ error: 'Enter a valid phone number' });
+      }
+    }
+
+    // Three ways of storing one name, rebuilt from whichever halves were sent
+    // plus whichever were not — see profilePatch.js, where it is tested.
+    const { first, last, full: fullName } = mergedName(body, req.user, toPersonName);
+
+    const trimmedBusinessName = sent('businessName')
+      ? businessName
+        ? String(businessName).trim().slice(0, 120)
+        : null
+      : undefined;
+
     // Only meaningful for someone who acts for clients, but stored for anyone
     // who fills it in — an accountant who later starts their own account keeps
     // both, and losing the firm name at that moment would be the wrong answer.
-    const trimmedPracticeName =
-      practiceName === undefined ? undefined : practiceName ? String(practiceName).trim().slice(0, 160) : null;
+    const trimmedPracticeName = !sent('practiceName')
+      ? undefined
+      : practiceName
+      ? String(practiceName).trim().slice(0, 160)
+      : null;
+
+    // Built from what was actually sent. A field nobody mentioned is not in the
+    // statement at all, so it cannot be overwritten with a guess at its current
+    // value. undefined skips a column; null writes one, which is how a firm
+    // name gets cleared.
+    const touchesName = sent('firstName') || sent('lastName');
+    const { sets, values } = buildProfileUpdate([
+      ['name', touchesName ? fullName : undefined],
+      ['first_name', touchesName ? first : undefined],
+      ['last_name', touchesName ? last : undefined],
+      ['date_of_birth', dob === undefined ? undefined : dob || null],
+      ['phone', cleanedPhone === undefined ? undefined : cleanedPhone || null],
+      ['currency', finalCurrency],
+      ['business_name', trimmedBusinessName],
+      ['practice_name', trimmedPracticeName],
+    ]);
 
     try {
-      await pool.execute(
-        `UPDATE users SET name = ?, first_name = ?, last_name = ?, date_of_birth = ?, phone = ?, email = ?,
-         currency = ?, business_name = ?${trimmedPracticeName === undefined ? '' : ', practice_name = ?'}
-         WHERE id = ?`,
-        [
-          fullName,
-          first,
-          last,
-          dob || null,
-          cleanedPhone || null,
-          normalizedEmail,
-          finalCurrency,
-          trimmedBusinessName,
-          ...(trimmedPracticeName === undefined ? [] : [trimmedPracticeName]),
-          req.user.id,
-        ]
-      );
+      // Nothing to change is not an error — it is a save with nothing in it,
+      // and answering with the current user is the honest response.
+      if (sets.length > 0) {
+        await pool.execute(`UPDATE users SET ${sets.join(', ')} WHERE id = ?`, [...values, req.user.id]);
+      }
     } catch (err) {
       if (err.code === 'ER_DUP_ENTRY') {
         return res.status(409).json({ error: 'An account with that email already exists' });
@@ -1945,14 +1982,14 @@ router.patch(
         name: fullName,
         firstName: first,
         lastName: last,
-        dateOfBirth: dob || null,
-        phone: cleanedPhone || null,
+        ...(dob !== undefined ? { dateOfBirth: dob || null } : {}),
+        ...(cleanedPhone !== undefined ? { phone: cleanedPhone || null } : {}),
         email: normalizedEmail,
-        currency: finalCurrency,
+        ...(finalCurrency !== undefined ? { currency: finalCurrency } : {}),
         country: matchedCountry?.name || req.user.country,
         state: fixedState,
-        businessName: trimmedBusinessName,
-        ...(trimmedPracticeName === undefined ? {} : { practiceName: trimmedPracticeName }),
+        ...(trimmedBusinessName !== undefined ? { businessName: trimmedBusinessName } : {}),
+        ...(trimmedPracticeName !== undefined ? { practiceName: trimmedPracticeName } : {}),
       },
     });
   })
