@@ -9,6 +9,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import { financialYearOf, isFinancialYearLabel } from '../lib/financialYear.js';
 import { addBrandHeader, addFooter, BRAND } from '../lib/pdfBranding.js';
+import { addSheetBranding, styleSheetTable, ARGB } from '../lib/sheetBranding.js';
 import { streamYearArchive } from '../lib/yearArchive.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -71,21 +72,45 @@ router.get(
     const sheet = workbook.addWorksheet('Expenses', { pageSetup: { fitToPage: true, fitToWidth: 1 } });
     sheet.headerFooter.oddHeader = '&R&14&BTaxify';
 
-    sheet.mergeCells('A1:C1');
-    sheet.getCell('A1').value = 'Expense report';
-    sheet.getCell('A1').font = { bold: true, size: 16, color: { argb: 'FF0A0F18' } };
-    sheet.getCell('A1').alignment = { vertical: 'middle' };
-    sheet.mergeCells('D1:G1');
-    sheet.getCell('D1').value = 'TAXIFY';
-    sheet.getCell('D1').font = { bold: true, size: 14, color: { argb: 'FF2563EB' } };
-    sheet.getCell('D1').alignment = { horizontal: 'right', vertical: 'middle' };
-    sheet.getRow(1).height = 26;
+    // Date, Item, Category, Amount, Currency, Converted, Business use %,
+    // Claimed, Recurring, Notes. Set before the letterhead, because the mark is
+    // anchored relative to a column and moves if the columns are resized after.
+    sheet.columns = [
+      { width: 13 },
+      { width: 30 },
+      { width: 18 },
+      { width: 13 },
+      { width: 9 },
+      { width: 13 },
+      { width: 14 },
+      { width: 13 },
+      { width: 12 },
+      { width: 30 },
+    ];
 
-    sheet.addRow([]);
-    const headerRow = sheet.addRow(['Date', 'Item', 'Category', 'Amount', 'Currency', 'Converted', 'Business use %', 'Claimed', 'Recurring', 'Notes']);
+    const headerRowNumber = addSheetBranding(workbook, sheet, {
+      title: 'Expense report',
+      subtitle: `${expenses.length} entr${expenses.length === 1 ? 'y' : 'ies'}`,
+      columns: 10,
+    });
+
+    while (sheet.rowCount < headerRowNumber - 1) sheet.addRow([]);
+    const headerRow = sheet.addRow([
+      'Date',
+      'Item',
+      'Category',
+      'Amount',
+      'Currency',
+      'Converted',
+      'Business use %',
+      'Claimed',
+      'Recurring',
+      'Notes',
+    ]);
+    headerRow.height = 20;
     headerRow.eachCell((cell) => {
-      cell.font = { bold: true, color: { argb: 'FFFFFFFF' } };
-      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1E3A8A' } };
+      cell.font = { bold: true, size: 11, color: { argb: ARGB.white } };
+      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: ARGB.blue } };
       cell.alignment = { vertical: 'middle' };
     });
 
@@ -104,37 +129,28 @@ router.get(
         e.recurring,
         e.notes,
       ]);
+      // Only the three money columns; 5, 9 and 10 are words, and 7 is a
+      // percentage that reads worse with two decimal places on it.
       row.getCell(4).numFmt = '#,##0.00';
       if (e.baseAmount !== null) row.getCell(6).numFmt = '#,##0.00';
       if (e.claimable !== null) row.getCell(8).numFmt = '#,##0.00';
       if (i % 2 === 1) {
         row.eachCell((cell) => {
-          cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF3F4F6' } };
+          cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: ARGB.zebra } };
         });
       }
     });
 
-    // The total sums the converted column, so it is placed under it.
     // The total is of what is being claimed, so it sits under that column.
     const totalRow = sheet.addRow(['', '', 'Total', '', '', '', '', total]);
-    totalRow.font = { bold: true };
+    totalRow.font = { bold: true, color: { argb: ARGB.ink } };
     totalRow.getCell(8).numFmt = '#,##0.00';
+    for (let col = 1; col <= 10; col++) {
+      totalRow.getCell(col).border = { top: { style: 'thin', color: { argb: ARGB.rule } } };
+    }
 
-    // Date, Item, Category, Amount, Currency, Converted, Recurring, Notes.
-    // Date, Item, Category, Amount, Currency, Converted, Business use %,
-    // Claimed, Recurring, Notes.
-    sheet.columns = [
-      { width: 13 },
-      { width: 30 },
-      { width: 18 },
-      { width: 13 },
-      { width: 9 },
-      { width: 13 },
-      { width: 14 },
-      { width: 13 },
-      { width: 12 },
-      { width: 30 },
-    ];
+    // Ten columns of expenses scroll a long way past their own headings.
+    sheet.views = [{ state: 'frozen', ySplit: headerRowNumber }];
 
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
     res.setHeader('Content-Disposition', 'attachment; filename="taxify-expenses.xlsx"');
@@ -233,45 +249,44 @@ router.get(
     const sheet = workbook.addWorksheet('Category summary');
     const totalCols = years.length + 2; // Category + one per year + Total
 
-    sheet.getCell(1, 1).value = 'Category summary';
-    sheet.getCell(1, 1).font = { bold: true, size: 16, color: { argb: 'FF0A0F18' } };
-    const brandCell = sheet.getCell(1, totalCols);
-    brandCell.value = 'TAXIFY';
-    brandCell.font = { bold: true, size: 14, color: { argb: 'FF2563EB' } };
-    brandCell.alignment = { horizontal: 'right' };
-    sheet.getRow(1).height = 26;
-    sheet.addRow([]);
+    // Widths first: the logo is anchored relative to a column, so it lands in
+    // the wrong place if the columns are resized after it is placed.
+    sheet.columns = [{ width: 26 }, ...years.map(() => ({ width: 15 })), { width: 15 }];
 
-    const headerRow = sheet.addRow(['Category', ...years.map((y) => `FY ${y}`), 'Total']);
-    headerRow.eachCell((cell) => {
-      cell.font = { bold: true, color: { argb: 'FFFFFFFF' } };
-      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1E3A8A' } };
+    const headerRowNumber = addSheetBranding(workbook, sheet, {
+      title: 'Category summary',
+      subtitle: `${categories.length} categor${categories.length === 1 ? 'y' : 'ies'} across ${
+        years.length
+      } tax year${years.length === 1 ? '' : 's'}`,
+      columns: totalCols,
     });
 
-    categories.forEach((cat, i) => {
-      const row = sheet.addRow([
-        cat,
-        ...years.map((y) => cells.get(`${cat}|${y}`) || 0),
-        totals.get(cat) || 0,
-      ]);
-      row.eachCell((cell, colNumber) => {
-        if (colNumber > 1) cell.numFmt = '#,##0.00';
-        if (i % 2 === 1) cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF3F4F6' } };
-      });
+    while (sheet.rowCount < headerRowNumber - 1) sheet.addRow([]);
+    sheet.addRow(['Category', ...years.map((y) => `FY ${y}`), 'Total']);
+
+    const firstDataRow = headerRowNumber + 1;
+    categories.forEach((cat) => {
+      sheet.addRow([cat, ...years.map((y) => cells.get(`${cat}|${y}`) || 0), totals.get(cat) || 0]);
     });
+    const lastDataRow = firstDataRow + categories.length - 1;
 
     const grandTotal = Array.from(totals.values()).reduce((s, v) => s + v, 0);
-    const totalRow = sheet.addRow(['Total', ...years.map((y) => {
-      let sum = 0;
-      for (const cat of categories) sum += cells.get(`${cat}|${y}`) || 0;
-      return sum;
-    }), grandTotal]);
-    totalRow.font = { bold: true };
-    totalRow.eachCell((cell, colNumber) => {
-      if (colNumber > 1) cell.numFmt = '#,##0.00';
-    });
+    sheet.addRow([
+      'Total',
+      ...years.map((y) => {
+        let sum = 0;
+        for (const cat of categories) sum += cells.get(`${cat}|${y}`) || 0;
+        return sum;
+      }),
+      grandTotal,
+    ]);
 
-    sheet.columns = [{ width: 24 }, ...years.map(() => ({ width: 14 })), { width: 14 }];
+    styleSheetTable(sheet, {
+      headerRow: headerRowNumber,
+      firstDataRow,
+      lastDataRow,
+      totalRow: lastDataRow + 1,
+    });
 
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
     res.setHeader('Content-Disposition', 'attachment; filename="taxify-category-summary.xlsx"');
