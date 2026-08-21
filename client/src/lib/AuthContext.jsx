@@ -100,8 +100,19 @@ export function AuthProvider({ children }) {
     setUser(null);
   }, []);
 
+  // The fields, and nothing added to them.
+  //
+  // This used to append `email: fields.email.trim().toLowerCase()`, and the one
+  // caller does not send an email — so every save from the account page threw
+  // "Cannot read properties of undefined (reading 'trim')" before the request
+  // was ever made, and the toast showed that to the account holder.
+  //
+  // Nor should it send one. PATCH /auth/profile refuses to change the sign-in
+  // address on purpose: that has to be proved at the new address first, which
+  // is what the email-change routes are for. So the line was doing nothing the
+  // server would have honoured even when it worked.
   const updateProfile = useCallback(async (fields) => {
-    const res = await api.patch('/auth/profile', { ...fields, email: fields.email.trim().toLowerCase() });
+    const res = await api.patch('/auth/profile', fields);
     setUser(res.data.user);
   }, []);
 

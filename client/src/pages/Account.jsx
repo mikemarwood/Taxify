@@ -1710,12 +1710,21 @@ export default function Account() {
     }
   }
 
+  // Save is offered only once something is actually different, so the button
+  // is a statement about the form rather than decoration.
+  //
+  // Each comparison has to fall back to exactly what the matching useState
+  // above falls back to, or the field reads as changed the moment the page
+  // opens. currency did not: it starts at 'AUD' when the account has none, and
+  // was compared against '', so Save sat enabled from the start for anyone who
+  // had never chosen one — and pressing it saved nothing, because nothing had
+  // been edited.
   const profileChanged =
     firstName.trim() !== (user.firstName || '') ||
     lastName.trim() !== (user.lastName || '') ||
     dateOfBirth !== (user.dateOfBirth || '') ||
     joinPhone(dialCode, phone) !== (user.phone || '') ||
-    currency !== (user.currency || '') ||
+    currency !== (user.currency || 'AUD') ||
     practiceName.trim() !== (user.practiceName || '');
 
   async function onSaveProfile(e) {
