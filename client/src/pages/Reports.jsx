@@ -172,14 +172,17 @@ export default function Reports() {
               the year selected for the archive. */}
           <DeductionSummary financialYear={archiveYear} expenseClaim={yearTotals.get(archiveYear) || 0} />
 
-          <TaxYears years={years} spendByYear={yearTotals} expenses={expenses} />
-
-          {/* Filed paperwork belongs with the year it covers, not buried under
-              the category it happened to be uploaded to — one collapsed panel
-              per year that has any, newest first. */}
-          {[...years].reverse().map((y) => (
-            <YearDocuments key={y} financialYear={y} title={`Documents filed for FY ${y}`} manage />
-          ))}
+          {/* Filed paperwork belongs with the year it covers, and the year is
+              right here. It used to be a stack of collapsed panels underneath
+              this one, each repeating a heading the table above had already
+              said — two lists about the same three years, read one after the
+              other. */}
+          <TaxYears
+            years={years}
+            spendByYear={yearTotals}
+            expenses={expenses}
+            renderDocuments={(y) => <YearDocuments financialYear={y} title="Documents filed" manage />}
+          />
 
           <motion.div
             className="card scrollbar-slim report-scroll"

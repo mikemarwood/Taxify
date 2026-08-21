@@ -813,3 +813,60 @@ input[type="date"].input::-webkit-calendar-picker-indicator:hover { opacity: 1; 
 @media (min-width: 901px) {
   .app-banner { margin-left: 232px; }
 }
+
+/* The category name stays put while the years scroll past it.
+
+   The comparison table scrolls sideways on anything narrower than the number
+   of years in it, and the first thing to leave the screen is the column that
+   says which row you are reading. Three columns of figures with no names
+   against them is a table you have to scroll back and forth to use.
+
+   Sticky on the cell rather than the column, because a <col> cannot be made
+   sticky. The header cell needs both offsets: it is already sticky vertically
+   as a header in some browsers, and sticky left as the first column. */
+.report-scroll th:first-child,
+.report-scroll td:first-child {
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  /* Opaque, or the figures slide underneath and both are unreadable. The
+     header takes the elevated ground so it stays distinct from the rows when
+     they pass under it. */
+  background: var(--bg-card);
+}
+.report-scroll thead th:first-child {
+  z-index: 2;
+  background: var(--bg-elevated);
+}
+/* A hairline to show that something is behind it, rather than the column
+   appearing to float free of the table. */
+.report-scroll th:first-child::after,
+.report-scroll td:first-child::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 1px;
+  background: var(--border);
+}
+
+/* The floating button, made possible to see past.
+
+   It is fixed in the corner, so anything the page ends with sits underneath it
+   and cannot be scrolled clear. The content now reserves room at the foot for
+   it (see app-shell-main), and the button itself steps back while the pointer
+   is elsewhere — solid enough to find, faint enough to read through.
+
+   Not on touch, where there is no hover to come back from: a control that is
+   permanently half-faded is worse than one that is simply there. */
+@media (hover: hover) and (pointer: fine) {
+  .app-fab {
+    opacity: 0.72;
+    transition: opacity 0.18s var(--ease-standard);
+  }
+  .app-fab:hover,
+  .app-fab:focus-within {
+    opacity: 1;
+  }
+}

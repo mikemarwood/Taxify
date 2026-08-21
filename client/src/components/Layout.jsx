@@ -615,7 +615,14 @@ export default function Layout({ children }) {
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
         className="app-shell-main"
-        style={{ flex: 1, padding: '32px 40px', maxWidth: 1180, minWidth: 0 }}
+        // Room at the foot for the floating Add expense button.
+        //
+        // It is fixed to the bottom-right corner, so at the end of any page
+        // it sat on top of whatever the last thing was — a total, a row, a
+        // button — and there was no amount of scrolling that would move it.
+        // Padding the content means the page can always be scrolled far
+        // enough that nothing ends underneath it.
+        style={{ flex: 1, padding: '32px 40px 108px', maxWidth: 1180, minWidth: 0 }}
       >
         {children}
       </motion.main>

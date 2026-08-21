@@ -75,13 +75,32 @@ function todayIso(d = new Date()) {
   return [d.getFullYear(), String(d.getMonth() + 1).padStart(2, '0'), String(d.getDate()).padStart(2, '0')].join('-');
 }
 
-export default function TaxYears({ years, spendByYear, expenses, onFinalisedChange }) {
+// renderDocuments puts each year's filed paperwork inside the row for that
+// year, rather than in a stack of collapsed panels underneath the table. They
+// are about the same thing — what happened in FY 2025-2026 — and reading them
+// meant scrolling past one list to reach another that repeated its headings.
+export default function TaxYears({ years, spendByYear, expenses, onFinalisedChange, renderDocuments }) {
   const confirm = useConfirm();
   const toast = useToast();
   const { user } = useAuth();
   const [data, setData] = useState(null);
   const [canEdit, setCanEdit] = useState(false);
   const [canReopen, setCanReopen] = useState(false);
+  // Which settled rows have been opened up.
+  //
+  // A finalised year with its refund recorded is finished business: the label,
+  // the claim and the money back are the whole of it, and the buttons and
+  // paperwork underneath are for the years still being worked on. Three closed
+  // years each showing five lines is a page that looks busy while saying
+  // nothing new.
+  const [opened, setOpened] = useState(() => new Set());
+  const toggleRow = (key) =>
+    setOpened((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
   const [refundYear, setRefundYear] = useState(null);
   const [amount, setAmount] = useState('');
   const [notes, setNotes] = useState('');
@@ -360,6 +379,13 @@ export default function TaxYears({ years, spendByYear, expenses, onFinalisedChan
           // mistake, has to stay correctable.
           const running = Boolean(row.end) && todayIso() <= row.end;
           const canRefund = canEdit && (!running || entry?.amount != null);
+          // Settled: finalised, and the money back is on record. Nothing about
+          // it is waiting on anybody.
+          const settled = finalised && entry?.amount != null;
+          const expanded = !settled || opened.has(row.key);
+          // The paperwork belongs to the year, not to each quarter of it, so it
+          // hangs off the first row that year has.
+          const firstOfYear = rows.findIndex((r) => r.financialYear === row.financialYear) === i;
 
           return (
             <div
@@ -411,7 +437,7 @@ export default function TaxYears({ years, spendByYear, expenses, onFinalisedChan
                     >
                       {entry?.amount != null ? formatMoney(entry.amount) : '—'}
                     </span>
-                    {canRefund && (
+                    {expanded && canRefund && (
                       <button
                         className="btn btn-ghost"
                         style={{ fontSize: 12, padding: '6px 11px', gap: 6 }}
@@ -452,7 +478,7 @@ export default function TaxYears({ years, spendByYear, expenses, onFinalisedChan
                         Still running
                       </span>
                     )}
-                    {finalised && canReopen && (
+                    {expanded && finalised && canReopen && (
                       <button
                         className="btn btn-ghost"
                         style={{ fontSize: 12, padding: '6px 11px' }}
@@ -462,11 +488,37 @@ export default function TaxYears({ years, spendByYear, expenses, onFinalisedChan
                         Reopen
                       </button>
                     )}
+                    {/* Only on a settled row, because it is the only kind that
+                        has anything hidden. */}
+                    {settled && (
+                      <button
+                        type="button"
+                        aria-expanded={expanded}
+                        title={expanded ? 'Hide the detail' : 'Show the detail'}
+                        onClick={() => toggleRow(row.key)}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          width: 28,
+                          height: 28,
+                          borderRadius: 8,
+                          border: '1px solid var(--border)',
+                          background: 'var(--bg-card)',
+                          color: 'var(--text-muted)',
+                          cursor: 'pointer',
+                          transform: expanded ? 'rotate(180deg)' : 'none',
+                          transition: 'transform 0.15s var(--ease-standard)',
+                        }}
+                      >
+                        <Icon name="chevron-down" size={15} />
+                      </button>
+                    )}
                   </>
                 )}
               </div>
 
-              {entry?.amount != null && refundYear !== year && (entry.recordedBy || entry.notes) && (
+              {expanded && entry?.amount != null && refundYear !== year && (entry.recordedBy || entry.notes) && (
                 <div style={{ fontSize: 11.5, color: 'var(--text-muted)', marginTop: 5, paddingLeft: 104 }}>
                   {entry.recordedBy && `Recorded by ${entry.recordedBy}`}
                   {entry.recordedBy && entry.updatedAt && ` · ${formatWhen(entry.updatedAt)}`}
@@ -476,7 +528,7 @@ export default function TaxYears({ years, spendByYear, expenses, onFinalisedChan
 
               {/* An appointment only makes sense while the year is still open —
                   once it's finalised, the return has been done. */}
-              {!finalised && bookingYear !== year && (
+              {expanded && !finalised && bookingYear !== year && (
                 <div style={{ marginTop: 8, paddingLeft: 104 }}>
                   {appointment ? (
                     <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
@@ -689,6 +741,14 @@ export default function TaxYears({ years, spendByYear, expenses, onFinalisedChan
                   </motion.div>
                 )}
               </AnimatePresence>
+
+              {/* The paperwork for this year, inside the year rather than in
+                  a stack of panels below the table repeating its headings.
+                  Once per year, on the first row of it, because documents
+                  belong to the year and not to each quarter of it. */}
+              {expanded && firstOfYear && renderDocuments && (
+                <div style={{ marginTop: 10 }}>{renderDocuments(row.financialYear)}</div>
+              )}
             </div>
           );
         })}
