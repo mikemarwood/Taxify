@@ -718,7 +718,15 @@
       </div>
       <div class="shots">
         <div class="shot-panel">
-          <a class="shot-open" href="#shot-capture" aria-label="See this larger"><img src="/media/shot-capture.svg" alt="A receipt being photographed on a phone, then confirmed as filed" width="480" height="360" loading="lazy"></a>
+          <!-- REPLACE THIS IMAGE
+               File:   client/public/media/shot-capture.jpg
+               Shows:  a receipt being photographed at the table
+               Size:   1083x693 today; any wide picture works, but change the
+                       width and height below to match it
+               JPEG, not PNG: this one is a photograph, and the same picture
+               as a PNG is eight times the bytes for no visible gain.
+               Overwrite that file, keeping its name. -->
+          <a class="shot-open" href="#shot-capture" aria-label="See this larger"><img src="/media/shot-capture.jpg" alt="A café receipt on a wooden table being photographed with a phone, the shot already framed on screen" width="1083" height="693" loading="lazy"></a>
           <span class="shot-step">You do this</span>
           <div class="shot-title">Photograph it and move on</div>
           <div class="shot-text">One tap at the counter. Taxify reads the date and the total, and files it under the right category and year.</div>
@@ -1007,8 +1015,8 @@
   <div class="lightbox" id="shot-capture" role="dialog" aria-label="Screenshot">
     <a class="shotbox-close" href="#" aria-label="Close the image" title="Close">&times;</a>
     <figure>
-      <img src="/media/shot-capture.svg" alt="A receipt being photographed on a phone, then confirmed as filed" loading="lazy">
-      <figcaption>A receipt being photographed on a phone, then confirmed as filed</figcaption>
+      <img src="/media/shot-capture.jpg" alt="A café receipt on a wooden table being photographed with a phone, the shot already framed on screen" loading="lazy">
+      <figcaption>One tap at the table — the receipt is photographed and filed</figcaption>
     </figure>
   </div>
   <div class="lightbox" id="shot-expenses" role="dialog" aria-label="Screenshot">
