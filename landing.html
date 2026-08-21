@@ -228,115 +228,17 @@
      It replaces a single drawing that had to be redrawn whenever the interface
      moved, and never quite matched it. */
   .shot { max-width: 940px; margin: 0 auto clamp(36px, 6vw, 64px); }
-  .device-scene { position: relative; padding-bottom: 6%; }
+  /* The laptop-and-phone scene that stood here is gone, and its styles with
+     it. It was a mock frame around one picture, taking a full screen of
+     height to say what the picture says on its own — and with the films
+     directly beneath it the top of the page was two large silent blocks
+     before a word of explanation. The dashboard itself moved down to the
+     "Come tax time" panel, where it illustrates the thing that panel is about.
 
-  .device-laptop {
-    /* The browser it actually runs in. The dots are what makes a rectangle
-       read as a window rather than as a picture with a border. */
-    border-radius: 14px;
-    overflow: hidden;
-    border: 1px solid var(--border);
-    background: var(--bg-card);
-    box-shadow: 0 30px 70px -34px rgba(0,0,0,.6);
-    /* Room on the right so the phone overlaps the screenshot's margin rather
-       than anything worth reading. */
-    width: 88%;
-  }
-  .device-bar {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    padding: 9px 12px;
-    background: rgba(255,255,255,.03);
-    border-bottom: 1px solid var(--border);
-  }
-  .device-dot { width: 9px; height: 9px; border-radius: 50%; background: rgba(255,255,255,.18); }
-
-  .device-phone {
-    position: absolute;
-    right: 0;
-    bottom: 0;
-    width: 25%;
-    min-width: 130px;
-    padding: 6px;
-    border-radius: 22px;
-    background: #10151d;
-    box-shadow: 0 24px 50px -22px rgba(0,0,0,.8), inset 0 0 0 1px rgba(255,255,255,.07);
-  }
-  .device-phone::after {
-    content: "";
-    position: absolute;
-    top: 13px;
-    left: 50%;
-    transform: translateX(-50%);
-    width: 34px;
-    height: 4px;
-    border-radius: 999px;
-    background: rgba(255,255,255,.18);
-  }
-  .device-phone .device-screen { border-radius: 17px; aspect-ratio: 9 / 19.5; }
-
-  .device-screen { overflow: hidden; background: var(--bg-inset); position: relative; }
-
-  /* A shine passing over the screenshot, every few seconds.
-
-     A still picture of a screen reads as a picture. A highlight travelling
-     across it reads as a screen — the same trick a glass surface plays in
-     daylight, and enough to make the eye treat the thing as real without
-     anything moving inside it.
-
-     Slow and far apart on purpose: the hero has one job, which is being
-     looked at, and a page that flashes at somebody while they read the
-     sentence beside it is a page they scroll past. Six seconds of nothing,
-     then a second and a half of travel.
-
-     A pseudo-element on the frame rather than a filter on the image, so it
-     costs one compositor layer and never touches the picture itself. */
-  .device-laptop .device-screen::after {
-    content: '';
-    position: absolute;
-    inset: 0;
-    pointer-events: none;
-    background: linear-gradient(
-      105deg,
-      rgba(255, 255, 255, 0) 42%,
-      rgba(255, 255, 255, 0.38) 50%,
-      rgba(255, 255, 255, 0) 58%
-    );
-    transform: translateX(-120%);
-    animation: shot-sheen 7.5s ease-in-out 1.2s infinite;
-  }
-
-  @keyframes shot-sheen {
-    0%   { transform: translateX(-120%); }
-    20%  { transform: translateX(120%); }
-    100% { transform: translateX(120%); }
-  }
-
-  /* Somebody who has asked for less movement gets none. A decorative sheen is
-     exactly the sort of thing that setting exists for. */
-  @media (prefers-reduced-motion: reduce) {
-    .device-laptop .device-screen::after { animation: none; display: none; }
-  }
-  .device-screen img {
-    display: block;
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-    object-position: top;
-    cursor: zoom-in;
-  }
-  .device-screen img:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
-
-  /* Nothing to show yet. The frames would otherwise stand there empty with a
-     broken-image glyph in them, which looks like a fault rather than like
-     something not done. */
-  .device-scene[data-ready="false"] .device-phone { display: none; }
-  /* Zoomable like the three panels below it, so it has to say so. A picture
-     that opens on click and looks like a picture that does not is the same
-     confusion either way round. */
-  .shot img { display: block; width: 100%; height: auto; cursor: zoom-in; }
-  .shot img:focus-visible,
+     .shot img:focus-visible went with it, and it had been dangling: a
+     selector ending in a comma with nothing after it, which quietly swallowed
+     the .shots rule below into its own selector list. That worked by
+     accident. */
 
   .shots {
     display: grid;
@@ -448,7 +350,18 @@
      the page link colour and underline, and draws a box round the image. */
   .shot-open { display: block; text-decoration: none; color: inherit; border: 0; }
   .shot-open:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
-  .lightbox figure, .lightbox .shotbox-close { position: relative; z-index: 1; }
+  /* No position on the close button here.
+
+     This rule used to name it alongside the figure and set position:
+     relative, which quietly overrode the absolute positioning declared
+     for it thirty lines above — later rule, same specificity — so the
+     cross was never in the corner at all. It became an ordinary flex item
+     of a centred flex container and sat over the middle of the picture,
+     which is exactly the thing that looked wrong.
+
+     The rule was there to lift both above the backdrop, and the backdrop
+     no longer exists. */
+  .lightbox figure { position: relative; }
   @media (max-width: 640px) {
     .lightbox { padding: 14px; }
     .lightbox img { max-height: calc(100dvh - 150px); }
@@ -699,59 +612,6 @@
     </section>
 
 
-    <!-- What you are buying, before anything is claimed about it. Both halves
-         of the product in one picture: capture on the phone, totals on the
-         desktop. The films go underneath it: this is the thing, they are the
-         proof of it. -->
-    <section class="shot" aria-label="Taxify on a laptop and a phone">
-      <div class="device-scene" id="device-scene" data-ready="false">
-        <div class="device-laptop">
-          <div class="device-bar" aria-hidden="true">
-            <span class="device-dot"></span>
-            <span class="device-dot"></span>
-            <span class="device-dot"></span>
-          </div>
-          <div class="device-screen">
-            <!-- REPLACE THIS IMAGE
-                 File:   client/public/media/shot-dashboard.png
-                 Shows:  the dashboard — a year of totals with the category breakdown
-                 Size:   1719x885 today; any wide screenshot works
-                 Overwrite that file, keeping its name. If the new one is a
-                 different shape, change the width and height below to match
-                 it — they are what stops the page jumping as it loads. -->
-            <a class="shot-open" href="#shot-desktop" aria-label="See this larger"><img
-              id="hero-desktop"
-              src="/media/shot-dashboard.png"
-              alt="The Taxify dashboard: a year's totals with spending broken down by category"
-              width="1719"
-              height="885"
-            ></a>
-          </div>
-        </div>
-
-        <!-- The same account on a phone, standing in front of it. Hidden until
-             a screenshot exists rather than framing nothing. -->
-        <div class="device-phone">
-          <div class="device-screen">
-            <!-- REPLACE THIS IMAGE
-                 File:   client/public/media/shot-phone.png
-                 Shows:  the app on a phone — photographing a receipt
-                 Size:   1080x2340 (any 9:19.5)
-                 Overwrite that file, keeping its name, and nothing else
-                 needs changing. -->
-            <a class="shot-open" href="#shot-phone" aria-label="See this larger"><img
-              id="hero-phone"
-              src="/media/shot-phone.png"
-              alt="Taxify on a phone, photographing a receipt at the counter"
-              width="1080"
-              height="2340"
-            ></a>
-          </div>
-        </div>
-      </div>
-    </section>
-
-
     <!--ADS-START-->
     <!-- The advertisement films.
 
@@ -877,15 +737,15 @@
         </div>
         <div class="shot-panel">
           <!-- REPLACE THIS IMAGE
-               File:   client/public/media/shot-reports.png
-               Shows:  the reports page — years side by side (already a real screenshot)
-               Size:   1200-1400 wide
-               Overwrite that file, keeping its name, and nothing else
-               needs changing. -->
-          <a class="shot-open" href="#shot-reports" aria-label="See this larger"><img src="/media/shot-reports.png" alt="The reports page: three tax years side by side, each category totalled and its share of the whole" width="966" height="896" loading="lazy"></a>
+               File:   client/public/media/shot-dashboard.png
+               Shows:  a year already added up — totals, top category, where it went
+               Size:   1719x885 today; any wide screenshot works, but change
+                       the width and height below to match it
+               Overwrite that file, keeping its name. -->
+          <a class="shot-open" href="#shot-reports" aria-label="See this larger"><img src="/media/shot-dashboard.png" alt="A year of deductions already added up: the total claimed, the top category, and where the money went" width="1719" height="885" loading="lazy"></a>
           <span class="shot-step">Come tax time</span>
           <div class="shot-title">The numbers, already added up</div>
-          <div class="shot-text">Every category, every year side by side. Hand it to your accountant, or copy it straight into your return.</div>
+          <div class="shot-text">Your year totalled, sorted by category, with every receipt behind it. Hand it to your accountant, or copy it straight into your return.</div>
         </div>
       </div>
     </section>
@@ -1142,39 +1002,8 @@
     })();
   </script>
 
-  <script>
-    // The phone only appears once there is a screenshot for it.
-    //
-    // A drawn frame standing empty, with a broken-image glyph inside it, reads
-    // as a fault. Absent reads as something not done yet, which is the truth.
-    (function () {
-      var scene = document.getElementById('device-scene');
-      var phone = document.getElementById('hero-phone');
-      if (!scene || !phone) return;
 
-      function ready() { scene.setAttribute('data-ready', 'true'); }
-
-      // Already in cache and decoded before this ran, which is the usual case
-      // on a second visit.
-      if (phone.complete && phone.naturalWidth > 0) ready();
-      phone.addEventListener('load', ready);
-    })();
-  </script>
-
-<div class="lightbox" id="shot-desktop" role="dialog" aria-label="Screenshot">
-    <a class="shotbox-close" href="#" aria-label="Close the image" title="Close">&times;</a>
-    <figure>
-      <img src="/media/shot-dashboard.png" alt="The Taxify dashboard: a year's totals with spending broken down by category" loading="lazy">
-      <figcaption>The Taxify dashboard: a year's totals with spending broken down by category</figcaption>
-    </figure>
-  </div>
-  <div class="lightbox" id="shot-phone" role="dialog" aria-label="Screenshot">
-    <a class="shotbox-close" href="#" aria-label="Close the image" title="Close">&times;</a>
-    <figure>
-      <img src="/media/shot-phone.png" alt="Taxify on a phone, photographing a receipt at the counter" loading="lazy">
-      <figcaption>Taxify on a phone, photographing a receipt at the counter</figcaption>
-    </figure>
-  </div>
+  
   <div class="lightbox" id="shot-capture" role="dialog" aria-label="Screenshot">
     <a class="shotbox-close" href="#" aria-label="Close the image" title="Close">&times;</a>
     <figure>
@@ -1192,7 +1021,7 @@
   <div class="lightbox" id="shot-reports" role="dialog" aria-label="Screenshot">
     <a class="shotbox-close" href="#" aria-label="Close the image" title="Close">&times;</a>
     <figure>
-      <img src="/media/shot-reports.png" alt="The reports page: three tax years side by side, each category totalled and its share of the whole" loading="lazy">
+      <img src="/media/shot-dashboard.png" alt="A year of deductions already added up: the total claimed, the top category, and where the money went" loading="lazy">
       <figcaption>The reports page: three tax years side by side, each category totalled and its share of the whole</figcaption>
     </figure>
   </div>
