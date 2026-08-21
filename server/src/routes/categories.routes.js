@@ -19,7 +19,8 @@ import {
 import { financialYearRange, defaultFinancialYear } from '../lib/financialYear.js';
 import { ensureCategoriesForYear } from '../lib/categoryYears.js';
 import { dataOwnerId } from '../auth/access.js';
-import { writeEntityId } from '../lib/entities.js';
+import { isPeriodFinalised } from '../lib/finalisedYears.js';
+import { writeEntityId, entityFor } from '../lib/entities.js';
 import { viewableCopy } from '../lib/heicPreview.js';
 import { serveAttachment } from '../lib/serveAttachment.js';
 import { MAX_UPLOAD_BYTES, isAllowedUpload, UPLOAD_REJECTED_MESSAGE } from '../lib/uploadRules.js';
@@ -145,8 +146,15 @@ router.get(
       [req.user.id, entityId]
     );
 
+    // Whether this year has been signed off, sent with the list rather than
+    // fetched separately — the page needs it to decide whether adding is
+    // offered at all, and a second request to answer a question the first
+    // one already knew is a race waiting to happen.
+    const finalised = await isPeriodFinalised(req.user, entityId, financialYear, 'FY');
+
     res.json({
       financialYear,
+      finalised,
       years: years.map((y) => y.financial_year),
       categories: categories.map((c) => ({
         id: c.id,
@@ -171,6 +179,23 @@ router.post(
     if (nameError) return res.status(400).json({ error: nameError });
 
     const financialYear = requestedYear(req);
+
+    // Not into a year that has been finalised.
+    //
+    // Finalising says "this is what I lodged". A category added afterwards is a
+    // heading that was not on the return, and the first thing anybody does with
+    // a new category is move expenses into it — which is a change to the very
+    // figures that were signed off. Everything else that writes to a closed
+    // year is refused; this was the way in that was left open.
+    const bookId = writeEntityId(req.user);
+    const closed = await isPeriodFinalised(req.user, bookId, financialYear, 'FY');
+    if (closed) {
+      return res.status(409).json({
+        error: `FY ${financialYear} has been finalised — reopen it from Reports before adding categories to it.`,
+        code: 'year_finalised',
+      });
+    }
+
     const finalColor = color || PALETTE[Math.floor(Math.random() * PALETTE.length)];
     try {
       const [result] = await pool.execute(
@@ -220,7 +245,27 @@ router.patch(
     }
     const finalColor = color || existing.color;
     const finalIcon = icon || existing.icon;
-    const finalRental = isPropertyRental === undefined ? existing.is_property_rental : isPropertyRental ? 1 : 0;
+    // A rental property is a personal thing, not a business one.
+    //
+    // The flag turns a category into a document store for statements,
+    // depreciation schedules and end-of-year summaries — which is how somebody
+    // keeps an investment property, filed against their own return. A business
+    // that owns property does that in the business's own books and its own
+    // accounts, and offering the same tick there invites a category that looks
+    // like a rental and is not one.
+    //
+    // Turning it *off* is allowed on any books, so a flag set before this rule
+    // existed can be cleared rather than being stuck.
+    let finalRental = isPropertyRental === undefined ? existing.is_property_rental : isPropertyRental ? 1 : 0;
+    if (finalRental && !existing.is_property_rental) {
+      const book = await entityFor(dataOwnerId(req.user), existing.entity_id);
+      if (book && book.kind === 'business') {
+        return res.status(409).json({
+          error: 'Rental properties belong to personal books, not to a business.',
+          code: 'rental_business',
+        });
+      }
+    }
 
     try {
       await pool.execute(

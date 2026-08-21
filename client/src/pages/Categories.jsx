@@ -53,10 +53,18 @@ export default function Categories() {
   // books block has one of its own.
   const { entity: filingInto, showSwitcher } = useEntities();
 
+  // Whether the year on screen has been signed off. Sent with the list, so
+  // the page can decline to offer adding rather than offering it and being
+  // refused.
+  const [finalised, setFinalised] = useState(false);
+
   function load(forYear = year) {
     setCategories(null);
     api.get(`/categories?financialYear=${encodeURIComponent(forYear)}`).then((res) => {
       setCategories(res.data.categories);
+      setFinalised(Boolean(res.data.finalised));
+      // A year that closes while the form is open takes the form with it.
+      if (res.data.finalised) setAdding(false);
       // The server includes the year being viewed even when it had none of its
       // own a moment ago, so the picker never loses the year you're on.
       setYears(Array.from(new Set([...(res.data.years || []), forYear])).sort().reverse());
@@ -162,16 +170,47 @@ export default function Categories() {
             </option>
           ))}
         </select>
+        {/* Not into a year that has been finalised.
+
+            Finalising says "this is what I lodged". A category added afterwards
+            is a heading that was not on the return, and the first thing anybody
+            does with a new one is move expenses into it — which is a change to
+            the figures that were signed off. The server refuses it; this is the
+            half that says so before the press. */}
         <button
           type="button"
           className="btn btn-primary"
+          disabled={finalised}
+          title={finalised ? `FY ${year} has been finalised` : undefined}
           onClick={() => setAdding((v) => !v)}
           style={{ display: 'inline-flex', alignItems: 'center', gap: 7 }}
         >
-          <Icon name={adding ? 'x' : 'plus'} size={15} />
+          <Icon name={adding ? 'x' : finalised ? 'lock' : 'plus'} size={15} />
           {adding ? 'Cancel' : 'New category'}
         </button>
       </div>
+
+      {finalised && (
+        <div
+          style={{
+            display: 'flex',
+            gap: 10,
+            alignItems: 'flex-start',
+            padding: '12px 14px',
+            marginBottom: 18,
+            borderRadius: 'var(--radius-sm)',
+            border: '1px solid var(--border)',
+            borderLeft: '3px solid var(--accent)',
+            background: 'var(--bg-subtle)',
+          }}
+        >
+          <Icon name="lock" size={15} style={{ color: 'var(--accent)', marginTop: 1, flexShrink: 0 }} />
+          <span style={{ fontSize: 12.5, color: 'var(--text-muted)', lineHeight: 1.55 }}>
+            FY {year} has been finalised, so its categories are fixed — they are the headings you lodged under.
+            Reopen the year from Reports if you need to change them.
+          </span>
+        </div>
+      )}
 
       <AnimatePresence initial={false}>
         {adding && (
@@ -435,7 +474,22 @@ export default function Categories() {
                     <>
                       <ColourPicker value={editColor} onChange={setEditColor} />
                       <IconPicker value={editIcon} onChange={setEditIcon} />
+                      {/* Personal books only.
+
+                          The flag turns a category into a document store for
+                          statements, depreciation schedules and end-of-year
+                          summaries — which is how somebody keeps an investment
+                          property, filed against their own return. A business
+                          that owns property does that in the business's own
+                          books and its own accounts, so offering the same tick
+                          there invites a category that looks like a rental and
+                          is not one.
+
+                          Still shown on a business book if the flag is already
+                          set, so one from before this rule can be cleared
+                          rather than being stuck on. */}
                       <label
+                        hidden={filingInto?.kind === 'business' && !editRental}
                         title="Property rentals collect paperwork of their own — statements, schedules, end-of-year summaries."
                         style={{
                           display: 'flex',
@@ -455,6 +509,7 @@ export default function Categories() {
                           watch what changed — and the difference matters at tax
                           time, which is months later. */}
                       <div
+                        hidden={filingInto?.kind === 'business' && !editRental}
                         style={{
                           display: 'flex',
                           gap: 9,
