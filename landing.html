@@ -276,7 +276,48 @@
   }
   .device-phone .device-screen { border-radius: 17px; aspect-ratio: 9 / 19.5; }
 
-  .device-screen { overflow: hidden; background: var(--bg-inset); }
+  .device-screen { overflow: hidden; background: var(--bg-inset); position: relative; }
+
+  /* A shine passing over the screenshot, every few seconds.
+
+     A still picture of a screen reads as a picture. A highlight travelling
+     across it reads as a screen — the same trick a glass surface plays in
+     daylight, and enough to make the eye treat the thing as real without
+     anything moving inside it.
+
+     Slow and far apart on purpose: the hero has one job, which is being
+     looked at, and a page that flashes at somebody while they read the
+     sentence beside it is a page they scroll past. Six seconds of nothing,
+     then a second and a half of travel.
+
+     A pseudo-element on the frame rather than a filter on the image, so it
+     costs one compositor layer and never touches the picture itself. */
+  .device-laptop .device-screen::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background: linear-gradient(
+      105deg,
+      rgba(255, 255, 255, 0) 42%,
+      rgba(255, 255, 255, 0.38) 50%,
+      rgba(255, 255, 255, 0) 58%
+    );
+    transform: translateX(-120%);
+    animation: shot-sheen 7.5s ease-in-out 1.2s infinite;
+  }
+
+  @keyframes shot-sheen {
+    0%   { transform: translateX(-120%); }
+    20%  { transform: translateX(120%); }
+    100% { transform: translateX(120%); }
+  }
+
+  /* Somebody who has asked for less movement gets none. A decorative sheen is
+     exactly the sort of thing that setting exists for. */
+  @media (prefers-reduced-motion: reduce) {
+    .device-laptop .device-screen::after { animation: none; display: none; }
+  }
   .device-screen img {
     display: block;
     width: 100%;
@@ -370,29 +411,39 @@
     max-width: 62ch;
     line-height: 1.5;
   }
+  /* A cross in the corner, and nothing else.
+
+     It was a pill reading "× Close", which is a lot of furniture sitting on top
+     of a picture somebody opened in order to look at. The circle keeps the
+     target size that pill had — the point of the padding was never the word. */
   .lightbox .shotbox-close {
     position: absolute;
     top: 18px;
     right: 18px;
     display: inline-flex;
     align-items: center;
-    gap: 7px;
-    /* Padding on the element rather than a bare glyph: a 12-pixel cross is not
-       a target anybody can hit on a phone. */
-    padding: 9px 15px;
-    border-radius: 999px;
+    justify-content: center;
+    width: 42px;
+    height: 42px;
+    border-radius: 50%;
     border: 1px solid rgba(255,255,255,.22);
     background: rgba(255,255,255,.1);
     color: #fff;
     font: inherit;
-    font-size: 13px;
-    font-weight: 700;
+    font-size: 22px;
+    line-height: 1;
     cursor: pointer;
+    text-decoration: none;
   }
-  .lightbox .shotbox-close:hover { background: rgba(255,255,255,.18); }
-  /* Clicking anywhere off the picture closes it, which is what most people try
-     first. A link rather than a handler, for the same reason as the rest. */
-  .lightbox-backdrop { position: absolute; inset: 0; cursor: zoom-out; }
+  .lightbox .shotbox-close:hover { background: rgba(255,255,255,.24); }
+
+  /* No backdrop link any more.
+
+     Clicking off the picture used to close it, and a screenshot is something
+     people drag and pinch — any of which can end with the pointer past the edge
+     of the image, throwing away what they were reading with no way back but
+     finding the thumbnail again. The cross is deliberate; a click that lands
+     beside the picture usually is not. */
   /* The wrapper around each picture is a link now. Without this it inherits
      the page link colour and underline, and draws a box round the image. */
   .shot-open { display: block; text-decoration: none; color: inherit; border: 0; }
@@ -586,9 +637,11 @@
     <section class="hero">
       <h1>Track every deduction, cleanly and simply.</h1>
       <p class="lede">Taxify logs your expenses, sorts them into categories, and builds year-over-year reports — so tax time takes minutes, not weekends.</p>
-      <div class="hero-actions">
-        <a href="https://taxify.mikesapphub.com/app/login" class="btn btn-primary btn-lg">Continue to Taxify</a>
-      </div>
+      <!-- No button here. Open Taxify is in the header, on screen at the same
+           moment and never scrolls away — two primary buttons a few inches
+           apart, both going to the same place, is one of them asking to be
+           read twice. The one at the foot of the page stays: by then the
+           header is long gone. -->
       <p class="hero-note">Fast, simple and effective · Works on any device</p>
       <p class="hero-note" style="margin-top: 6px;">14-day free trial · No credit card required</p>
     </section>
@@ -1055,40 +1108,35 @@
   </script>
 
 <div class="lightbox" id="shot-desktop" role="dialog" aria-label="Screenshot">
-    <a class="lightbox-backdrop" href="#" aria-label="Close"></a>
-    <a class="shotbox-close" href="#" aria-label="Close the image">&times; Close</a>
+    <a class="shotbox-close" href="#" aria-label="Close the image" title="Close">&times;</a>
     <figure>
       <img src="/media/shot-dashboard.png" alt="The Taxify dashboard: a year's totals with spending broken down by category" loading="lazy">
       <figcaption>The Taxify dashboard: a year's totals with spending broken down by category</figcaption>
     </figure>
   </div>
   <div class="lightbox" id="shot-phone" role="dialog" aria-label="Screenshot">
-    <a class="lightbox-backdrop" href="#" aria-label="Close"></a>
-    <a class="shotbox-close" href="#" aria-label="Close the image">&times; Close</a>
+    <a class="shotbox-close" href="#" aria-label="Close the image" title="Close">&times;</a>
     <figure>
       <img src="/media/shot-phone.png" alt="Taxify on a phone, photographing a receipt at the counter" loading="lazy">
       <figcaption>Taxify on a phone, photographing a receipt at the counter</figcaption>
     </figure>
   </div>
   <div class="lightbox" id="shot-capture" role="dialog" aria-label="Screenshot">
-    <a class="lightbox-backdrop" href="#" aria-label="Close"></a>
-    <a class="shotbox-close" href="#" aria-label="Close the image">&times; Close</a>
+    <a class="shotbox-close" href="#" aria-label="Close the image" title="Close">&times;</a>
     <figure>
       <img src="/media/shot-capture.svg" alt="A receipt being photographed on a phone, then confirmed as filed" loading="lazy">
       <figcaption>A receipt being photographed on a phone, then confirmed as filed</figcaption>
     </figure>
   </div>
   <div class="lightbox" id="shot-expenses" role="dialog" aria-label="Screenshot">
-    <a class="lightbox-backdrop" href="#" aria-label="Close"></a>
-    <a class="shotbox-close" href="#" aria-label="Close the image">&times; Close</a>
+    <a class="shotbox-close" href="#" aria-label="Close the image" title="Close">&times;</a>
     <figure>
       <img src="/media/shot-expenses.svg" alt="A list of expenses sorted into categories with a running total" loading="lazy">
       <figcaption>A list of expenses sorted into categories with a running total</figcaption>
     </figure>
   </div>
   <div class="lightbox" id="shot-reports" role="dialog" aria-label="Screenshot">
-    <a class="lightbox-backdrop" href="#" aria-label="Close"></a>
-    <a class="shotbox-close" href="#" aria-label="Close the image">&times; Close</a>
+    <a class="shotbox-close" href="#" aria-label="Close the image" title="Close">&times;</a>
     <figure>
       <img src="/media/shot-reports.png" alt="The reports page: three tax years side by side, each category totalled and its share of the whole" loading="lazy">
       <figcaption>The reports page: three tax years side by side, each category totalled and its share of the whole</figcaption>
