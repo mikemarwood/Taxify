@@ -662,82 +662,112 @@ export default function TaxYears({ years, spendByYear, expenses, onFinalisedChan
                     exit={{ opacity: 0, height: 0 }}
                     style={{ overflow: 'hidden' }}
                   >
-                    <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'flex-end', paddingTop: 12 }}>
-                      <div style={{ width: 150 }}>
-                        <label className="label">Date</label>
-                        <input
-                          className="input"
-                          type="date"
-                          autoFocus
-                          min={todayIso()}
-                          value={booking.date}
-                          onChange={(e) => setBooking((b) => ({ ...b, date: e.target.value }))}
-                        />
-                      </div>
-                      <div style={{ width: 110 }}>
-                        <label className="label">Time</label>
-                        <input
-                          className="input"
-                          type="time"
-                          value={booking.time}
-                          onChange={(e) => setBooking((b) => ({ ...b, time: e.target.value }))}
-                        />
-                      </div>
-                      <div style={{ flex: 1, minWidth: 160 }}>
-                        <label className="label">Company</label>
-                        <input
-                          className="input"
-                          maxLength={NAME_MAX}
-                          placeholder="e.g. H&R Block Parramatta"
-                          value={booking.company}
-                          // titleCaseLive while typing — titleCase trims, so a
-                          // space would be eaten before the second word.
-                          onChange={onCasedInput(titleCaseLive, (value) => setBooking((b) => ({ ...b, company: value })))}
-                          onBlur={() => setBooking((b) => ({ ...b, company: titleCase(b.company) }))}
-                        />
-                        <div style={{ fontSize: 11.5, minHeight: 15, marginTop: 4, color: 'var(--red)' }}>
-                          {booking.company.trim() && booking.company.trim().length < NAME_MIN
-                            ? `At least ${NAME_MIN} characters`
-                            : ''}
+                    {/* One validation line under the whole row, not one under
+                        each field.
+
+                        Only Company and Accountant carried an error slot, and
+                        the row aligns on flex-end — so those two columns were
+                        19px taller than Date and Time, and the short ones were
+                        pushed down until their labels sat below the other two.
+                        The row also grew and shrank as you typed. A single
+                        line below fixes both: every column is now the same
+                        height, so they line up whatever is being said. The
+                        message names its field, since it is no longer beside
+                        it. */}
+                    {(() => {
+                      const company = booking.company.trim();
+                      const accountant = booking.accountant.trim();
+                      const problem =
+                        company && company.length < NAME_MIN
+                          ? `Company needs at least ${NAME_MIN} characters`
+                          : accountant.length > 0 && accountant.length < NAME_MIN
+                          ? `Accountant needs at least ${NAME_MIN} characters`
+                          : '';
+                      return (
+                        <div style={{ paddingTop: 12 }}>
+                          <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'flex-end' }}>
+                            <div style={{ width: 150 }}>
+                              <label className="label">Date</label>
+                              <input
+                                className="input"
+                                type="date"
+                                autoFocus
+                                min={todayIso()}
+                                value={booking.date}
+                                onChange={(e) => setBooking((b) => ({ ...b, date: e.target.value }))}
+                              />
+                            </div>
+                            {/* Wide enough for "09:00 AM" and the clock button
+                                beside it. At 110 the meridiem was clipped to
+                                "09:00 AN". */}
+                            <div style={{ width: 140 }}>
+                              <label className="label">Time</label>
+                              <input
+                                className="input"
+                                type="time"
+                                value={booking.time}
+                                onChange={(e) => setBooking((b) => ({ ...b, time: e.target.value }))}
+                              />
+                            </div>
+                            <div style={{ flex: 1, minWidth: 160 }}>
+                              <label className="label">Company</label>
+                              <input
+                                className="input"
+                                maxLength={NAME_MAX}
+                                placeholder="e.g. H&R Block Parramatta"
+                                value={booking.company}
+                                // titleCaseLive while typing — titleCase trims, so a
+                                // space would be eaten before the second word.
+                                onChange={onCasedInput(titleCaseLive, (value) =>
+                                  setBooking((b) => ({ ...b, company: value }))
+                                )}
+                                onBlur={() => setBooking((b) => ({ ...b, company: titleCase(b.company) }))}
+                              />
+                            </div>
+                            <div style={{ flex: 1, minWidth: 160 }}>
+                              <label className="label">Accountant (optional)</label>
+                              <input
+                                className="input"
+                                maxLength={NAME_MAX}
+                                placeholder="Who you're seeing"
+                                value={booking.accountant}
+                                onChange={onCasedInput(titleCaseLive, (value) =>
+                                  setBooking((b) => ({ ...b, accountant: value }))
+                                )}
+                                onBlur={() => setBooking((b) => ({ ...b, accountant: titleCase(b.accountant) }))}
+                              />
+                            </div>
+                            <button
+                              className="btn btn-primary"
+                              style={{ fontSize: 13 }}
+                              disabled={
+                                busy ||
+                                !booking.date ||
+                                booking.date < todayIso() ||
+                                !booking.time ||
+                                company.length < NAME_MIN ||
+                                company.length > NAME_MAX ||
+                                (accountant.length > 0 && accountant.length < NAME_MIN)
+                              }
+                              onClick={() => saveAppointment(year)}
+                            >
+                              {busy && <span className="spinner" />}
+                              Save appointment
+                            </button>
+                            <button
+                              className="btn btn-ghost"
+                              style={{ fontSize: 13 }}
+                              onClick={() => setBookingYear(null)}
+                            >
+                              Cancel
+                            </button>
+                          </div>
+                          <div style={{ fontSize: 11.5, minHeight: 15, marginTop: 6, color: 'var(--red)' }}>
+                            {problem}
+                          </div>
                         </div>
-                      </div>
-                      <div style={{ flex: 1, minWidth: 160 }}>
-                        <label className="label">Accountant (optional)</label>
-                        <input
-                          className="input"
-                          maxLength={NAME_MAX}
-                          placeholder="Who you're seeing"
-                          value={booking.accountant}
-                          onChange={onCasedInput(titleCaseLive, (value) => setBooking((b) => ({ ...b, accountant: value })))}
-                          onBlur={() => setBooking((b) => ({ ...b, accountant: titleCase(b.accountant) }))}
-                        />
-                        <div style={{ fontSize: 11.5, minHeight: 15, marginTop: 4, color: 'var(--red)' }}>
-                          {booking.accountant.trim() && booking.accountant.trim().length < NAME_MIN
-                            ? `At least ${NAME_MIN} characters`
-                            : ''}
-                        </div>
-                      </div>
-                      <button
-                        className="btn btn-primary"
-                        style={{ fontSize: 13 }}
-                        disabled={
-                          busy ||
-                          !booking.date ||
-                          booking.date < todayIso() ||
-                          !booking.time ||
-                          booking.company.trim().length < NAME_MIN ||
-                          booking.company.trim().length > NAME_MAX ||
-                          (booking.accountant.trim().length > 0 && booking.accountant.trim().length < NAME_MIN)
-                        }
-                        onClick={() => saveAppointment(year)}
-                      >
-                        {busy && <span className="spinner" />}
-                        Save appointment
-                      </button>
-                      <button className="btn btn-ghost" style={{ fontSize: 13 }} onClick={() => setBookingYear(null)}>
-                        Cancel
-                      </button>
-                    </div>
+                      );
+                    })()}
                   </motion.div>
                 )}
               </AnimatePresence>

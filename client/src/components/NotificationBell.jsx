@@ -181,7 +181,9 @@ export default function NotificationBell({ compact = false }) {
           padding: compact ? 0 : undefined,
         }}
       >
-        <Icon name="bell" size={15} />
+        {/* Matches the log-out icon beside it, which in the compact rail is
+            sized to the plan badge above rather than to the nav links. */}
+        <Icon name="bell" size={compact ? 13 : 15} />
         {!compact && <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>Notifications</span>}
         {unread > 0 && (
           <span

@@ -584,14 +584,14 @@ export default function Layout({ children }) {
 
               <button
                 className="btn nav-btn"
-                style={{ fontSize: 13, gap: 7 }}
+                style={{ gap: 7 }}
                 onClick={async () => {
                   playClick();
                   await logout();
                   navigate('/login');
                 }}
               >
-                <Icon name="log-out" size={15} />
+                <Icon name="log-out" size={13} />
                 Log out
               </button>
             </div>

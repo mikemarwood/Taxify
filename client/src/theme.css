@@ -415,10 +415,29 @@ input[type="date"].input::-webkit-calendar-picker-indicator:hover { opacity: 1; 
 /* The bell is a fixed square, Log out takes what's left. Two equal halves put
    two labels in a rail narrower than either wanted, and the bell's own label
    overflowed its box. */
+/* Sized to the plan badge directly above them, not to the nav links.
+   At 40px these two were the largest controls in the rail — bigger than the
+   pages somebody actually opens the menu to reach, and half again the height
+   of the badge they sit under. They are pressed rarely; they should read as
+   the foot of the card, which means matching it: same height, same corner,
+   same 11.5px label. The drawer keeps its own larger sizes further down,
+   where the target is a finger rather than a pointer. */
 .nav-foot-actions { display: flex; gap: 8px; align-items: stretch; }
-.nav-foot-actions > div { flex: 0 0 40px; min-width: 0; }
-.nav-foot-actions > .nav-btn { flex: 1 1 auto; min-width: 0; height: 40px; justify-content: center; }
-.nav-foot-actions > div > .nav-btn { width: 40px !important; height: 40px; padding: 0 !important; }
+.nav-foot-actions > div { flex: 0 0 28px; min-width: 0; }
+.nav-foot-actions > .nav-btn {
+  flex: 1 1 auto;
+  min-width: 0;
+  height: 28px;
+  border-radius: 6px;
+  font-size: 11.5px;
+  justify-content: center;
+}
+.nav-foot-actions > div > .nav-btn {
+  width: 28px !important;
+  height: 28px;
+  border-radius: 6px;
+  padding: 0 !important;
+}
 
 .nav-item { transition: background 0.12s var(--ease-standard), color 0.12s var(--ease-standard); }
 .nav-item:hover { background: var(--nav-hover) !important; color: var(--nav-text-active) !important; }
