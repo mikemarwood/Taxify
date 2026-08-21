@@ -222,6 +222,36 @@ export default function AddExpense() {
 
   const formComplete = missing.length === 0;
 
+  // Back to an empty form, properly.
+  //
+  // "Add another" only cleared the confirmation. submitted stayed true from the
+  // save before it, and the button reads disabled={submitting || submitted ||
+  // …} — so the form came back with Save expense dead, for ever, and pressing
+  // it did nothing at all. Which is exactly what a disabled button does.
+  //
+  // The fields are cleared with it. Leaving the last expense in the boxes
+  // invites somebody to change one figure and save what looks like a new entry
+  // but carries the old date, the old category and the old receipt.
+  function startAnother() {
+    setSaved(null);
+    setSubmitted(false);
+    setSubmitting(false);
+    setItemName('');
+    setAmount('');
+    setNotes('');
+    setFile(null);
+    setReceiptStatus('idle');
+    setReceiptError('');
+    setProgress(0);
+    setIsRecurring(false);
+    setConfirmedBase(null);
+    setCategoryTouched(false);
+    // The date, the books, the currency and the business-use split are left
+    // alone: somebody entering a run of receipts is almost always entering them
+    // for the same day, the same books and the same business, and retyping that
+    // each time is the actual work.
+  }
+
   async function onSubmit(e) {
     e.preventDefault();
     if (!formComplete) return;
@@ -758,7 +788,7 @@ export default function AddExpense() {
               detail={saved.detail}
               reference={saved.id ? String(saved.id).padStart(5, '0') : null}
               onDone={() => navigate('/')}
-              onAgain={() => setSaved(null)}
+              onAgain={startAnother}
               againLabel={saved.againLabel || 'Add another'}
             />
           </div>
