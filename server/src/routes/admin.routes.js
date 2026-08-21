@@ -18,6 +18,7 @@ import { getSignupPlans, getStripe, getStripeConfig, planTypeForPriceId, REQUIRE
 import { canTransition } from '../lib/planRequests.js';
 import { publicOrigin } from '../lib/publicOrigin.js';
 import { asyncHandler } from '../lib/asyncHandler.js';
+import { accountTeardownStatements, describeTeardownFailure } from '../lib/accountTeardown.js';
 import multer from 'multer';
 import {
   AD_SLOTS,
@@ -235,9 +236,11 @@ router.patch(
   })
 );
 
-// Removes an account and everything belonging to it — expenses, categories and
-// documents cascade from the foreign keys, and the uploaded files are deleted
-// here since nothing in the database owns them.
+// Removes an account and everything belonging to it. Most of it cascades from
+// the foreign keys; the tables that hang off a set of books have to be named
+// and cleared in order, because they reference entities(id) with RESTRICT —
+// see accountTeardown.js for why that is worth keeping. The uploaded files are
+// deleted here since nothing in the database owns them.
 //
 // Admins are refused outright rather than guarded by a confirmation: an admin
 // account is the one that can undo mistakes, and losing the last one locks
@@ -270,7 +273,26 @@ router.delete(
       [targetId]
     );
 
-    await pool.execute('DELETE FROM users WHERE id = ?', [targetId]);
+    // In one transaction, so a failure half way through leaves the account
+    // whole rather than stripped of its expenses and still logging in.
+    const conn = await pool.getConnection();
+    try {
+      await conn.beginTransaction();
+      for (const statement of accountTeardownStatements([targetId, ...dependents.map((d) => d.id)])) {
+        await conn.query(statement);
+      }
+      await conn.commit();
+    } catch (err) {
+      await conn.rollback();
+      const explained = describeTeardownFailure(err);
+      if (explained) {
+        console.error(`[admin] teardown of ${target.email} blocked — ${err.sqlMessage || err.message}`);
+        return res.status(409).json({ error: explained });
+      }
+      throw err;
+    } finally {
+      conn.release();
+    }
 
     for (const who of accountants) {
       try {
