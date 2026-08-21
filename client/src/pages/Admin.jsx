@@ -564,9 +564,19 @@ function UsersTab() {
                         two people most likely to be looked up — whoever runs
                         the place and whoever answers the tickets — were the
                         only two whose plan the list would not say. They pay
-                        like anybody else. An accountant is the exception that
-                        stays: they genuinely have no plan. */}
-                    {(u.isAdmin || u.isSupport) && u.role !== 'accountant' && (
+                        like anybody else.
+
+                        Accountants used to be the exception, on the grounds
+                        that they genuinely had no plan. That stopped being
+                        true when any account could become an accountant while
+                        keeping its own books: the sidebar says "Small Business
+                        plan · Accountant" and this list said "Accountant",
+                        so the same person's plan read differently depending on
+                        which screen you were looking at. The rule here is now
+                        the sidebar's rule — an accountant who holds a plan is
+                        shown on it, and one who holds none still shows only
+                        the role. */}
+                    {(u.isAdmin || u.isSupport || (u.role === 'accountant' && u.planType)) && (
                       <Badge tone="accent">{planLabel(u.planType)}</Badge>
                     )}
                     {/* What state the account is actually in, in words.

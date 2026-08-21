@@ -385,9 +385,12 @@ export default function AdminUserDetail({ userId, me, onClose, onChanged, action
                   <Field label="Country">{u.country}</Field>
                   <Field label="State">{u.state}</Field>
                   <Field label="Currency">{u.currency}</Field>
-                  <Field label="Business name">{u.businessName}</Field>
+                  {/* Business name and promo code are not shown here.
+                      A set of books carries its own name now, so the one on
+                      the user row is a leftover that contradicts what the
+                      account actually shows, and the promo code belongs to the
+                      billing history rather than to who somebody is. */}
                   <Field label="Heard about us">{u.referralSource}</Field>
-                  <Field label="Promo code">{u.promoCode}</Field>
                   {u.pendingEmail && <Field label="Pending email change">{u.pendingEmail}</Field>}
                 </div>
               </Section>
@@ -496,22 +499,11 @@ export default function AdminUserDetail({ userId, me, onClose, onChanged, action
                 </Section>
               )}
 
-              {data.taxYears.length > 0 && (
-                <Section title="Tax years" icon="cash">
-                  {data.taxYears.map((t) => (
-                    <div key={t.financialYear} style={{ display: 'flex', gap: 10, fontSize: 13, flexWrap: 'wrap' }}>
-                      <span style={{ fontWeight: 600, minWidth: 80 }}>FY {t.financialYear}</span>
-                      <span style={{ flex: 1, minWidth: 100, color: 'var(--text-muted)' }}>
-                        {t.amount === null ? 'No refund recorded' : `${formatMoney(t.amount)} refunded`}
-                      </span>
-                      {t.appointmentAt && (
-                        <span style={{ color: 'var(--text-muted)' }}>appt {dateTime(t.appointmentAt)}</span>
-                      )}
-                      {t.finalisedAt && <span style={{ color: 'var(--emerald)' }}>finalised</span>}
-                    </div>
-                  ))}
-                </Section>
-              )}
+              {/* Tax years are not listed here.
+                  Refunds, appointments and which years are finalised are the
+                  account holder's own record, and reading them is not part of
+                  administering the account. The server still sends them; this
+                  panel simply does not put them on screen. */}
 
               {data.planChanges?.length > 0 && (
                 <Section title="Plan changes" icon="credit-card">
