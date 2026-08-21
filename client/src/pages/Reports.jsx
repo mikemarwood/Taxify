@@ -102,16 +102,21 @@ export default function Reports() {
         {/* Export and download on one line. They were stacked, which read as
             two unrelated features rather than the two ways of getting your
             records out — and put a summary export a full row away from the
-            archive it belongs beside. */}
-        <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
-          <ExportMenu baseUrl="/api/export/categories" label="Export summary" />
-          <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+            archive it belongs beside.
+
+            On a phone that line becomes three things stacked in a column, each
+            a different width, right-aligned under a left-aligned heading — the
+            ragged edge is what makes it look like a mistake rather than a
+            group. So below 560px they go full width and left-aligned, in the
+            order they are used: pick a year, take that year, take everything. */}
+        <div className="reports-actions">
+          <div className="reports-year">
             <select
               className="input"
               aria-label="Financial year to archive"
               value={archiveYear}
               onChange={(e) => setArchiveYear(e.target.value)}
-              style={{ flex: '1 1 128px', minWidth: 110, maxWidth: 160, fontSize: 12.5, padding: '7px 9px' }}
+              style={{ flex: '1 1 128px', minWidth: 110, fontSize: 12.5, padding: '7px 9px' }}
             >
               {years.map((y) => (
                 <option key={y} value={y}>
@@ -121,6 +126,7 @@ export default function Reports() {
             </select>
             <YearArchiveButton financialYear={archiveYear} disabled={years.length === 0} />
           </div>
+          <ExportMenu baseUrl="/api/export/categories" label="Export summary" />
         </div>
       </div>
 

@@ -85,6 +85,14 @@ function DeductionPanel({ title, icon, rows, summary, render, onRemove, chips })
             style={{
               display: 'flex',
               alignItems: 'center',
+              // Wraps, because it could not before and the card it sits in
+              // clips. A vehicle row is a date, a name, two odometer readings, a
+              // purpose and a distance, most of them a fixed width — and once
+              // those add up to more than the card is wide, everything after
+              // them is pushed past the right edge and cut off. The last thing
+              // in the row is the delete button, so on a narrow window the
+              // vehicle rows simply had no way to remove them.
+              flexWrap: 'wrap',
               gap: 10,
               padding: '8px 16px',
               borderBottom: i < rows.length - 1 ? '1px solid var(--border)' : 'none',
@@ -103,7 +111,10 @@ function DeductionPanel({ title, icon, rows, summary, render, onRemove, chips })
                   lineHeight: 0,
                   background: 'none',
                   border: 'none',
-                  padding: 0,
+                  // Pinned to the right of whatever line it lands on, and a
+                  // real target rather than a bare 15px glyph.
+                  marginLeft: 'auto',
+                  padding: 4,
                   cursor: 'pointer',
                   color: 'var(--text-muted)',
                   flexShrink: 0,
@@ -470,8 +481,11 @@ export default function Expenses() {
                     fits in holds the same shape on every row. */}
                 <span
                   style={{
-                    width: 130,
-                    flexShrink: 0,
+                    // A minimum rather than a fixed width: it holds the column
+                    // straight on a wide screen and gives way on a narrow one,
+                    // instead of forcing the row past the edge of its card.
+                    minWidth: 110,
+                    flex: '0 1 130px',
                     fontWeight: 600,
                     overflow: 'hidden',
                     textOverflow: 'ellipsis',
@@ -488,8 +502,8 @@ export default function Expenses() {
                 <span
                   className="deduction-note"
                   style={{
-                    width: 150,
-                    flexShrink: 0,
+                    minWidth: 120,
+                    flex: '0 1 150px',
                     fontSize: 12,
                     color: 'var(--text-subtle)',
                     fontVariantNumeric: 'tabular-nums',

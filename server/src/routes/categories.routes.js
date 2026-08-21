@@ -484,17 +484,27 @@ router.get(
       return res.status(400).json({ error: 'Invalid financial year' });
     }
 
+    // The selected set of books, where one is selected.
+    //
+    // A document belongs to a category, and a category belongs to a set of
+    // books — but this asked only for the year, so a business owner looking
+    // at one business saw the paperwork from all of them under a heading
+    // naming the year and nothing else. The combined view still shows every
+    // book, because that is what it is for.
+    const book = req.user.entityId || null;
+    const bookScope = book ? ' AND c.entity_id = ?' : '';
+
     const [rows] = await pool.execute(
       `SELECT d.id, d.filename, d.original_name, d.document_name, d.financial_year, d.size_bytes, d.uploaded_at,
               c.id AS category_id, c.name AS category_name, c.color AS category_color, c.icon AS category_icon
        FROM category_documents d
        JOIN categories c ON c.id = d.category_id
-       WHERE d.user_id = ? AND d.financial_year = ?
+       WHERE d.user_id = ? AND d.financial_year = ?${bookScope}
        ORDER BY c.name, d.uploaded_at DESC, d.id DESC`,
       // Whose books, not who is reading them. This listed the reader's own
       // documents, so an accountant inside a client saw an empty year and
       // concluded there was no paperwork.
-      [dataOwnerId(req.user), financialYear]
+      book ? [dataOwnerId(req.user), financialYear, book] : [dataOwnerId(req.user), financialYear]
     );
 
     res.json({

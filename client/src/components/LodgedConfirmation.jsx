@@ -101,20 +101,25 @@ export default function LodgedConfirmation({ title, detail, reference, onDone, o
           {holding ? 'Go to dashboard' : `Go to dashboard (${left})`}
         </button>
         {onAgain && (
-          <button type="button" className="btn btn-ghost" style={{ fontSize: 13 }} onClick={onAgain}>
-            {againLabel}
-          </button>
-        )}
-        {!holding && (
           <button
             type="button"
             className="btn btn-ghost"
             style={{ fontSize: 13 }}
-            onClick={() => setHolding(true)}
+            onClick={() => {
+              // Stops the clock as well as clearing the form. Without this the
+              // countdown carried on underneath and took somebody to the
+              // dashboard mid-way through typing the next expense.
+              setHolding(true);
+              onAgain();
+            }}
           >
-            Stay here
+            {againLabel}
           </button>
         )}
+        {/* No "Stay here".
+            Add another already holds the page — it is the reason somebody
+            would want to stay, and it says what happens next instead of only
+            what does not. Three buttons for two decisions is one too many. */}
       </div>
     </motion.div>
   );

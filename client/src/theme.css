@@ -885,3 +885,33 @@ input[type="date"].input::-webkit-calendar-picker-indicator:hover { opacity: 1; 
 @media (max-width: 560px) {
   .add-pair { grid-template-columns: 1fr; gap: 14px; }
 }
+
+/* The Reports header, on a phone.
+
+   Export summary, a year picker and a download button sat on one right-aligned
+   row that wrapped into three stacked items of three different widths, under a
+   left-aligned heading. The ragged right edge is what made it read as a
+   mistake rather than as a group of related controls.
+
+   Full width and left-aligned below 560px, in the order they are used: pick a
+   year, take that year, take everything. */
+.reports-actions {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+.reports-year { display: flex; align-items: flex-start; gap: 8px; }
+@media (max-width: 560px) {
+  .reports-actions {
+    width: 100%;
+    justify-content: stretch;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+  }
+  .reports-year { width: 100%; }
+  .reports-year > * { flex: 1 1 auto; }
+  .reports-actions .btn { width: 100%; justify-content: center; }
+}

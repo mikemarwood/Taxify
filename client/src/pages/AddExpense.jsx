@@ -346,7 +346,13 @@ export default function AddExpense() {
       {/* Three things get claimed, and only one of them comes with a receipt.
           Kilometres and hours used to live on a page of their own, so logging a
           day's work meant knowing which of two screens each part of it belonged
-          on — a distinction about our tables, not about anybody's day. */}
+          on — a distinction about our tables, not about anybody's day.
+
+          Gone while the confirmation is up. That screen is about the thing
+          just lodged and what to do next; a row of tabs above it offers a
+          fourth answer to a question nobody asked, and switching tab there
+          would clear the confirmation without saying so. */}
+      {!saved && (
       <div className="add-kind" role="tablist" aria-label="What are you adding">
         {KINDS.map((k) => (
           <button
@@ -362,6 +368,7 @@ export default function AddExpense() {
           </button>
         ))}
       </div>
+      )}
 
       {/* The form stands down while the confirmation is up, the same way the
           receipt form does. Two things on screen — one saying it is done and
