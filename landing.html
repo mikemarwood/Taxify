@@ -495,13 +495,27 @@
      Side by side on a wide screen, stacked on a narrow one. They are uploaded from the admin panel rather than deployed,
      and the server removes whichever slot has no file — so this never renders
      an empty player. */
-  .ads { padding: 0 0 clamp(32px, 6vw, 64px); }
+  /* The films sit under the screenshot as one block, not adrift below it.
+
+     They were a section with its own 88px margin plus 64px of padding, holding
+     two 16:9 boxes 980px wide between them — two small dark rectangles with a
+     field of dark ground on every side. The gap above is closed to nothing,
+     because they belong to the picture above them, and the pair is as wide as
+     that picture so the two read as one column rather than two objects that
+     happen to be stacked. */
+  .ads { padding: 0; margin-top: calc(clamp(48px, 8vw, 88px) * -0.55); }
   .ads-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
-    gap: clamp(16px, 3vw, 28px);
-    max-width: 980px;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: clamp(14px, 2vw, 22px);
+    max-width: 940px;
     margin: 0 auto;
+  }
+  .ads-title {
+    text-align: center;
+    font-size: clamp(17px, 2.2vw, 21px);
+    letter-spacing: -0.3px;
+    margin: 0 0 clamp(14px, 2vw, 20px);
   }
   .ad-frame {
     border-radius: 18px;
@@ -530,6 +544,23 @@
 
      The server strips the poster attribute when there is no file, so the
      browser never requests one that would 404. */
+  /* Play or pause, and nothing to drag.
+
+     A scrub bar on an advertisement invites somebody to skip to the end of it,
+     and what they land on is a frozen last frame rather than the point of the
+     thing. There is no attribute for this — controlsList can drop download,
+     playback rate and fullscreen, but not the timeline — so it is the shadow
+     part, which Chrome, Edge and Safari all expose and Firefox does not. There
+     it degrades to an ordinary control bar, which is where we were.
+
+     Deliberately not removing controls altogether: this page has no JavaScript
+     it can rely on, so a video without controls is a video nobody can start. */
+  .ad-video::-webkit-media-controls-timeline,
+  .ad-video::-webkit-media-controls-current-time-display,
+  .ad-video::-webkit-media-controls-time-remaining-display {
+    display: none;
+  }
+
   .ad-video {
     display: block;
     width: 100%;
@@ -667,43 +698,11 @@
       <p class="hero-note" style="margin-top: 6px;">14-day free trial · No credit card required</p>
     </section>
 
-    <!--ADS-START-->
-    <!-- The advertisement films.
 
-         Uploaded from Administration → Landing page, not deployed. An
-         advertisement is the thing most likely to need replacing at short
-         notice, and needing a deploy to swap one means it does not get swapped.
-
-         Everything between ADS-START and ADS-END is removed by the server when
-         neither slot has a file, and each SLOT block is removed on its own when
-         that one is empty — so this is never a broken player, and one film on
-         its own is a single centred frame rather than a gap. -->
-    <section class="ads" aria-label="Watch Taxify">
-      <div class="section-head">
-        <h2>See it in action</h2>
-        <p>A couple of minutes, and you will know whether this is for you.</p>
-      </div>
-      <div class="ads-grid">
-        <!--SLOT:ad-1-->
-        <div class="ad-frame">
-          <video class="ad-video" controls playsinline preload="metadata" poster="/media/ads/ad-1-poster">
-            <source src="/media/ads/ad-1" type="video/mp4">
-          </video>
-        </div>
-        <!--/SLOT:ad-1-->
-        <!--SLOT:ad-2-->
-        <div class="ad-frame">
-          <video class="ad-video" controls playsinline preload="metadata" poster="/media/ads/ad-2-poster">
-            <source src="/media/ads/ad-2" type="video/mp4">
-          </video>
-        </div>
-        <!--/SLOT:ad-2-->
-      </div>
-    </section>
-    <!--ADS-END-->
-
-    <!-- The product itself, after the films have said what it is for. Both
-         halves in one picture: capture on the phone, totals on the desktop. -->
+    <!-- What you are buying, before anything is claimed about it. Both halves
+         of the product in one picture: capture on the phone, totals on the
+         desktop. The films go underneath it: this is the thing, they are the
+         proof of it. -->
     <section class="shot" aria-label="Taxify on a laptop and a phone">
       <div class="device-scene" id="device-scene" data-ready="false">
         <div class="device-laptop">
@@ -752,6 +751,40 @@
       </div>
     </section>
 
+
+    <!--ADS-START-->
+    <!-- The advertisement films.
+
+         Uploaded from Administration → Landing page, not deployed. An
+         advertisement is the thing most likely to need replacing at short
+         notice, and needing a deploy to swap one means it does not get swapped.
+
+         Everything between ADS-START and ADS-END is removed by the server when
+         neither slot has a file, and each SLOT block is removed on its own when
+         that one is empty — so this is never a broken player, and one film on
+         its own is a single centred frame rather than a gap. -->
+    <section class="ads" aria-label="Watch Taxify">
+      <!-- A label on the pair rather than a chapter heading. The screenshot
+           above is the thing being introduced; these show it working. -->
+      <h2 class="ads-title">See it in action</h2>
+      <div class="ads-grid">
+        <!--SLOT:ad-1-->
+        <div class="ad-frame">
+          <video class="ad-video" controls playsinline preload="metadata" controlslist="nodownload noplaybackrate" disablepictureinpicture poster="/media/ads/ad-1-poster">
+            <source src="/media/ads/ad-1" type="video/mp4">
+          </video>
+        </div>
+        <!--/SLOT:ad-1-->
+        <!--SLOT:ad-2-->
+        <div class="ad-frame">
+          <video class="ad-video" controls playsinline preload="metadata" controlslist="nodownload noplaybackrate" disablepictureinpicture poster="/media/ads/ad-2-poster">
+            <source src="/media/ads/ad-2" type="video/mp4">
+          </video>
+        </div>
+        <!--/SLOT:ad-2-->
+      </div>
+    </section>
+    <!--ADS-END-->
 
     <!-- It runs in a browser, so it runs on whatever somebody already owns.
          Said plainly, because "web app" means nothing to most people. -->
