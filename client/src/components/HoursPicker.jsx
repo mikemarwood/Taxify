@@ -67,16 +67,26 @@ export default function HoursPicker({ hours, minutes, onChange, disabled = false
     <div>
       <label className="label">Time worked</label>
 
+      {/* One line, and it stays one line.
+
+          It wrapped, so on anything short of a wide column the hours sat above
+          the minutes and the control read as two separate questions — which is
+          exactly what the picker exists not to be. The row scrolls sideways
+          instead on the rare width where it genuinely will not fit, which is
+          better than folding: a stepper and four buttons side by side are one
+          thing, and stacked they are two. */}
       <div
         style={{
           minHeight: CONTROL_HEIGHT,
           display: 'flex',
           alignItems: 'center',
           gap: 14,
-          flexWrap: 'wrap',
+          flexWrap: 'nowrap',
+          overflowX: 'auto',
+          scrollbarWidth: 'none',
         }}
       >
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
           <Step label="One hour less" disabled={disabled || h <= 0} onClick={() => onChange(h - 1, m)} />
           <span
             aria-live="polite"
@@ -94,7 +104,7 @@ export default function HoursPicker({ hours, minutes, onChange, disabled = false
           <Unit>hr</Unit>
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0 }}>
           {QUARTERS.map((value) => {
             const on = m === value;
             return (

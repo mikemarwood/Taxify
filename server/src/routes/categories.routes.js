@@ -19,7 +19,7 @@ import {
 import { financialYearRange, defaultFinancialYear } from '../lib/financialYear.js';
 import { ensureCategoriesForYear } from '../lib/categoryYears.js';
 import { dataOwnerId } from '../auth/access.js';
-import { isPeriodFinalised } from '../lib/finalisedYears.js';
+import { isPeriodFinalised, finalisedYearsFor } from '../lib/finalisedYears.js';
 import { writeEntityId, entityFor } from '../lib/entities.js';
 import { viewableCopy } from '../lib/heicPreview.js';
 import { serveAttachment } from '../lib/serveAttachment.js';
@@ -96,8 +96,22 @@ function validateName(name) {
 // The set of books a category request is about. Categories belong to one, so
 // every path and every query here needs it — including the folder scans,
 // which would otherwise reach another business’s receipts.
-function requestedEntity(req) {
-  return writeEntityId(req.user);
+// Which books the question is about.
+//
+// It was always whichever the sidebar had selected, which is right for the
+// Categories page and wrong for a form that names its own — Add expense lets
+// somebody file into a different set of books than they are looking at, and the
+// category list stayed on the one they were looking at. So the expense went one
+// way and the categories offered came from the other.
+//
+// Named ids are validated against the account rather than trusted: unvalidated,
+// a number in a query string reads somebody else's category names.
+async function requestedEntity(req) {
+  const asked = Number(req.query?.entityId) || null;
+  if (!asked) return writeEntityId(req.user);
+  const owned = await entityFor(dataOwnerId(req.user), asked);
+  if (!owned) throw Object.assign(new Error('That set of books is not on this account'), { status: 400 });
+  return owned.id;
 }
 
 async function entitySegmentFor(entityId) {
@@ -115,7 +129,7 @@ router.get(
   '/',
   asyncHandler(async (req, res) => {
     const financialYear = requestedYear(req);
-    const entityId = requestedEntity(req);
+    const entityId = await requestedEntity(req);
 
     // Opening a year you haven't used yet carries last year's set forward, so
     // July doesn't start with an empty page. An accountant only ever reads, so
@@ -152,9 +166,15 @@ router.get(
     // one already knew is a race waiting to happen.
     const finalised = await isPeriodFinalised(req.user, entityId, financialYear, 'FY');
 
+    // Every year of these books that is closed, not only the one being looked
+    // at. The add forms need it to keep their date pickers out of a signed-off
+    // year, and it is one line of the answer they were already asking for.
+    const finalisedYears = await finalisedYearsFor(req.user, entityId);
+
     res.json({
       financialYear,
       finalised,
+      finalisedYears,
       years: years.map((y) => y.financial_year),
       categories: categories.map((c) => ({
         id: c.id,

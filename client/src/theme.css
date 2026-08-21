@@ -870,3 +870,18 @@ input[type="date"].input::-webkit-calendar-picker-indicator:hover { opacity: 1; 
     opacity: 1;
   }
 }
+
+/* Add expense, on a phone.
+
+   The form was built at desktop width: a hard two-column grid for amount and
+   date, a row of business-use buttons beside a percentage box, and a dropzone
+   sized for a mouse. On a 360px screen each half of that grid is about 150
+   pixels, which the currency symbol, the figure and a date control all have to
+   share — so the numbers were clipped and the date picker was unusable.
+
+   One column below 560px, and the page itself gives back the padding it takes
+   at desktop width so the card is not a narrow strip down the middle. */
+.add-pair { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+@media (max-width: 560px) {
+  .add-pair { grid-template-columns: 1fr; gap: 14px; }
+}

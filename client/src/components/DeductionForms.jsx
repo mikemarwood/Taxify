@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { api } from '../lib/api.js';
 import { useAuth } from '../lib/AuthContext.jsx';
 import { useToast } from './Toast.jsx';
@@ -8,6 +8,7 @@ import { sentenceCaseLive, titleCaseLive } from '../lib/textCase.js';
 import { kmWhileTyping, parseKm, toDecimalHours, formatHours } from '../lib/deductionInput.js';
 import { financialYearRange, financialYearOf } from '../lib/financialYear.js';
 import { todayIso } from '../lib/dates.js';
+import { earliestOpenDate, dateIsClosed } from '../lib/openDates.js';
 import HoursPicker from './HoursPicker.jsx';
 
 // The two things you can claim without a receipt, as forms that go anywhere.
@@ -27,16 +28,25 @@ import HoursPicker from './HoursPicker.jsx';
 // outside the year being filed into, because the server files an entry by its
 // date — an entry dated outside it would save and then not be in the list it
 // was just added to.
-function dateBounds(year, rule) {
+function dateBounds(year, rule, closedYears) {
   const range = financialYearRange(year, rule);
   const today = todayIso();
+  // The later of the two floors: the start of the year being filed into, and
+  // the day after the last finalised year ended. A trip cannot be logged into
+  // a year somebody has already lodged.
+  const openFrom = earliestOpenDate(closedYears, rule);
+  const start = range ? range.start : undefined;
+  const floor = !start ? openFrom : !openFrom ? start : openFrom > start ? openFrom : start;
   return {
-    min: range ? range.start : undefined,
+    min: floor,
     max: range && range.end < today ? range.end : today,
     // The picker enforces this, but a date can still be typed into it, so the
     // button reads the same bounds rather than trusting the widget.
     ok: (value) =>
-      Boolean(value) && (!range || value >= range.start) && value <= (range && range.end < today ? range.end : today),
+      Boolean(value) &&
+      (!floor || value >= floor) &&
+      value <= (range && range.end < today ? range.end : today) &&
+      !dateIsClosed(value, closedYears, rule),
   };
 }
 
@@ -53,6 +63,28 @@ function FiledInto({ date, rule }) {
       {year ? `Filed into FY ${year}` : ''}
     </div>
   );
+}
+
+// Which years of these books have been signed off.
+//
+// Asked of the categories endpoint, which is the one that already knows and is
+// already scoped to a set of books. A trip cannot be logged into a year
+// somebody has lodged, and finding that out on the press is worse than the
+// picker simply not offering the day.
+function useClosedYears(entityId) {
+  const [years, setYears] = useState([]);
+  useEffect(() => {
+    let live = true;
+    const scope = entityId ? `?entityId=${encodeURIComponent(entityId)}` : '';
+    api
+      .get(`/categories${scope}`)
+      .then((res) => live && setYears(res.data.finalisedYears || []))
+      .catch(() => live && setYears([]));
+    return () => {
+      live = false;
+    };
+  }, [entityId]);
+  return years;
 }
 
 const ROW = { display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'flex-start' };
@@ -87,9 +119,10 @@ export function TripForm({ entityId, year, onAdded }) {
   // in the state because there is none on the form: the distance is worked out
   // from these every time it is needed, so the figure shown, the figure
   // checked and the figure sent cannot differ.
-  const [trip, setTrip] = useState({ date: '', vehicle: '', purpose: '', from: '', to: '' });
+  const [trip, setTrip] = useState({ date: todayIso(), vehicle: '', purpose: '', from: '', to: '' });
 
-  const bounds = dateBounds(year, user?.financialYearRule);
+  const closedYears = useClosedYears(entityId);
+  const bounds = dateBounds(year, user?.financialYearRule, closedYears);
   const odoFrom = parseKm(trip.from);
   const odoTo = parseKm(trip.to);
   const odoKm = odoFrom !== null && odoTo !== null ? odoTo - odoFrom : null;
@@ -129,7 +162,10 @@ export function TripForm({ entityId, year, onAdded }) {
       });
       playSuccess();
       // The vehicle stays, because the next trip is usually the same car.
-      setTrip({ date: '', vehicle: trip.vehicle, purpose: '', from: '', to: '' });
+      // The date stays too. A run of trips is entered for the same day far
+      // more often than not, and clearing it makes somebody answer the same
+      // question every time.
+      setTrip({ date: trip.date, vehicle: trip.vehicle, purpose: '', from: '', to: '' });
       // What was lodged, said in the words of the thing rather than as a
       // count. "2 logged" tells somebody how many times they pressed a
       // button, not what is now on their return.
@@ -246,9 +282,10 @@ export function HoursForm({ entityId, year, onAdded }) {
 
   // Hours and minutes are chosen, not typed — see deductionInput.js for why.
   // The decimal the server wants is worked out on the way out.
-  const [hours, setHours] = useState({ date: '', h: '', m: '', note: '' });
+  const [hours, setHours] = useState({ date: todayIso(), h: '', m: '', note: '' });
 
-  const bounds = dateBounds(year, user?.financialYearRule);
+  const closedYears = useClosedYears(entityId);
+  const bounds = dateBounds(year, user?.financialYearRule, closedYears);
   // Either half alone is enough — 45 minutes with no hours is a perfectly
   // ordinary entry — so it is the total that has to be more than nothing.
   const ready = bounds.ok(hours.date) && toDecimalHours(hours.h, hours.m) > 0;
@@ -265,7 +302,7 @@ export function HoursForm({ entityId, year, onAdded }) {
       });
       playSuccess();
       const logged = toDecimalHours(hours.h, hours.m);
-      setHours({ date: '', h: '', m: '', note: '' });
+      setHours({ date: hours.date, h: '', m: '', note: '' });
       onAdded?.({
         id: res.data?.id,
         detail: `${formatHours(logged)} worked from home${

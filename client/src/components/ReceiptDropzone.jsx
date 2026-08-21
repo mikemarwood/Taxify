@@ -106,8 +106,8 @@ export default function ReceiptDropzone({ file, onFileChange, uploadProgress, st
       onClick={() => !busy && inputRef.current?.click()}
       style={{
         border: `2px dashed ${status === 'error' ? 'var(--red)' : dragOver ? 'var(--violet)' : 'var(--border)'}`,
-        borderRadius: 16,
-        padding: 28,
+        borderRadius: 12,
+        padding: 18,
         textAlign: 'center',
         cursor: busy ? 'default' : 'pointer',
         background: status === 'error' ? 'rgba(239, 68, 68, 0.06)' : dragOver ? 'var(--accent-soft)' : 'var(--bg-elevated)',
@@ -217,13 +217,22 @@ export default function ReceiptDropzone({ file, onFileChange, uploadProgress, st
           </motion.div>
         ) : (
           <motion.div key="empty" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-            <div style={{ display: 'flex', justifyContent: 'center', color: 'var(--text-muted)' }}>
-              <Icon name="receipt" size={30} />
-            </div>
+            {/* The icon sits beside the words rather than above them.
+
+                It was a 30px glyph centred over two centred paragraphs inside
+                28px of padding — a tall, formal block for a field most people
+                skip, and the tallest thing on a form whose actual subject is
+                the amount. On one line it says the same and takes a third of
+                the room. */}
             {isMobile ? (
               <>
-                <p style={{ marginTop: 8, fontWeight: 600 }}>Add a receipt</p>
-                <p style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 14 }}>images, PDF or Word, up to 10MB</p>
+                <div style={{ display: 'flex', justifyContent: 'center', color: 'var(--text-muted)' }}>
+                  <Icon name="receipt" size={26} />
+                </div>
+                <p style={{ marginTop: 6, fontWeight: 600 }}>Add a receipt</p>
+                <p style={{ fontSize: 12.5, color: 'var(--text-muted)', marginBottom: 12 }}>
+                  Images, PDF or Word, up to 10MB
+                </p>
                 <div style={{ display: 'flex', gap: 10, justifyContent: 'center' }}>
                   <button
                     type="button"
@@ -252,10 +261,24 @@ export default function ReceiptDropzone({ file, onFileChange, uploadProgress, st
                 </div>
               </>
             ) : (
-              <>
-                <p style={{ marginTop: 8, fontWeight: 600 }}>Drop a receipt here</p>
-                <p style={{ fontSize: 13, color: 'var(--text-muted)' }}>or click to browse — images, PDF or Word, up to 10MB</p>
-              </>
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: 12,
+                  flexWrap: 'wrap',
+                  textAlign: 'left',
+                }}
+              >
+                <Icon name="receipt" size={22} style={{ color: 'var(--text-muted)', flexShrink: 0 }} />
+                <span>
+                  <span style={{ fontWeight: 600, fontSize: 13.5 }}>Drop a receipt here, or click to browse</span>
+                  <span style={{ display: 'block', fontSize: 12, color: 'var(--text-muted)', marginTop: 2 }}>
+                    Images, PDF or Word, up to 10MB
+                  </span>
+                </span>
+              </div>
             )}
           </motion.div>
         )}

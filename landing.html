@@ -454,6 +454,27 @@
     .lightbox img { max-height: calc(100dvh - 150px); }
     .lightbox .shotbox-close { top: 10px; right: 10px; }
   }
+
+  /* Turn the phone, on a phone held upright.
+  
+     A page cannot rotate a handset. screen.orientation.lock() only works
+     inside fullscreen, is refused outright on iOS, and there is no
+     JavaScript on this page at all — the hub proxy strips it. So the
+     honest version is to ask.
+  
+     A screenshot of a wide screen shown down the short side of a phone is
+     a picture of text nobody can read, and the fix takes the reader one
+     second. Only in portrait, only on a small screen, and it goes the
+     moment the phone is turned. */
+  @media (max-width: 640px) and (orientation: portrait) {
+    .lightbox figcaption::before {
+      content: "↻  Turn your phone sideways to read this";
+      display: block;
+      margin-bottom: 8px;
+      font-weight: 700;
+      color: #fff;
+    }
+  }
   .shot-step {
     display: inline-block;
     font-size: 10.5px;
@@ -717,14 +738,14 @@
         <!--SLOT:ad-1-->
         <div class="ad-frame">
           <video class="ad-video" controls playsinline preload="metadata" poster="/media/ads/ad-1-poster">
-            <source src="/media/ads/ad-1#t=0.1" type="video/mp4">
+            <source src="/media/ads/ad-1" type="video/mp4">
           </video>
         </div>
         <!--/SLOT:ad-1-->
         <!--SLOT:ad-2-->
         <div class="ad-frame">
           <video class="ad-video" controls playsinline preload="metadata" poster="/media/ads/ad-2-poster">
-            <source src="/media/ads/ad-2#t=0.1" type="video/mp4">
+            <source src="/media/ads/ad-2" type="video/mp4">
           </video>
         </div>
         <!--/SLOT:ad-2-->

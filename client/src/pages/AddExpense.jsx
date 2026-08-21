@@ -9,6 +9,7 @@ import Toggle from '../components/Toggle.jsx';
 import Icon from '../components/Icon.jsx';
 import { financialYearOf } from '../lib/financialYear.js';
 import { todayIso } from '../lib/dates.js';
+import { earliestOpenDate, dateIsClosed } from '../lib/openDates.js';
 import { useEntities } from '../lib/EntityContext.jsx';
 import { onDigitKeyDown, playSuccess } from '../lib/sounds.js';
 import { formatMoney, amountWhileTyping, amountOnBlur, parseAmount, currencySymbol } from '../lib/money.js';
@@ -44,6 +45,7 @@ export default function AddExpense() {
   const [kind, setKind] = useState('receipt');
 
   const [categories, setCategories] = useState([]);
+  const [finalisedYears, setFinalisedYears] = useState([]);
   const [itemName, setItemName] = useState('');
   const [amount, setAmount] = useState('');
   const [currency, setCurrency] = useState('AUD');
@@ -94,8 +96,17 @@ export default function AddExpense() {
   // which is the only set that can file it correctly.
   const categoryYear = financialYearOf(purchaseDate, user?.financialYearRule);
 
+  // Re-read when the books change, not only when the year does.
+  //
+  // Categories belong to a set of books, and this asked only about the year —
+  // so switching books on the form left the previous book's categories in the
+  // list, and filing an expense into one book under a category belonging to
+  // another. The entity is sent as well as watched, because the server
+  // otherwise answers about whichever books the sidebar has selected rather
+  // than the ones this form is filing into.
   useEffect(() => {
-    api.get(`/categories?financialYear=${encodeURIComponent(categoryYear)}`).then((res) => {
+    const scope = entityId ? `&entityId=${encodeURIComponent(entityId)}` : '';
+    api.get(`/categories?financialYear=${encodeURIComponent(categoryYear)}${scope}`).then((res) => {
       const next = res.data.categories;
       setCategoryId((current) => {
         // Carry the choice across by name where the year has one — changing
@@ -106,9 +117,12 @@ export default function AddExpense() {
         return next[0] ? String(next[0].id) : '';
       });
       setCategories(next);
+      // Which years of these books are shut, so the date picker can stay out
+      // of them rather than offering a day the server will refuse.
+      setFinalisedYears(res.data.finalisedYears || []);
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [categoryYear]);
+  }, [categoryYear, entityId]);
 
   function onItemNameChange(value) {
     setItemName(capitalizeWords(value));
@@ -201,6 +215,8 @@ export default function AddExpense() {
   // screen is a button that does nothing when pressed. Every one of these was
   // already a condition of submitting — they were simply never mentioned, so
   // whichever one you had not met was invisible.
+  const dateClosed = dateIsClosed(purchaseDate, finalisedYears, user?.financialYearRule);
+
   const missing = [];
   if (itemName.trim().length < ITEM_MIN) missing.push('what you bought');
   if (!(amountValue > 0 && amountValue <= AMOUNT_MAX)) missing.push('an amount');
@@ -218,6 +234,7 @@ export default function AddExpense() {
   // them something else on the label above.
   if (!entityId) missing.push('which books this belongs to');
   if (!purchaseDate) missing.push('a date');
+  if (dateClosed) missing.push('a date in a year that is still open');
   if (!conversionSettled) missing.push('the converted amount confirmed');
 
   const formComplete = missing.length === 0;
@@ -422,7 +439,11 @@ export default function AddExpense() {
           <div style={{ fontSize: 11.5, minHeight: 15, marginTop: 4, color: 'var(--red)' }}>{itemIssue}</div>
         </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+        {/* Amount and date, side by side where there is room and stacked
+            where there is not. A hard two-column grid gave each of them
+            half of a 360px phone, so the currency symbol, the figure and
+            the date all fought for about 150 pixels. */}
+        <div className="add-pair">
           <div>
             <label className="label">Amount</label>
             <div style={{ display: 'flex', gap: 8, position: 'relative' }}>
@@ -635,10 +656,14 @@ export default function AddExpense() {
             {/* Nothing in the future. A receipt for something that has not been
                 bought yet is a typo, and it files itself into a year that has
                 not started. */}
+            {/* Not into a year that has been finalised. The picker's floor is
+                the day after the last closed year ends; dateIsClosed catches a
+                closed year with an open one after it, which min cannot say. */}
             <input
               className="input"
               required
               type="date"
+              min={earliestOpenDate(finalisedYears, user?.financialYearRule)}
               max={todayIso()}
               value={purchaseDate}
               onChange={(e) => setPurchaseDate(e.target.value)}
@@ -649,8 +674,19 @@ export default function AddExpense() {
                 than from anything on this form. Somebody entering an old
                 receipt should be able to see it going to the right place
                 instead of finding out on the reports page. */}
-            <div style={{ fontSize: 11.5, color: 'var(--text-muted)', marginTop: 5, lineHeight: 1.5 }}>
-              {categoryYear ? `Filed into FY ${categoryYear}` : 'Choose a date to file this against a year'}
+            <div
+              style={{
+                fontSize: 11.5,
+                marginTop: 5,
+                lineHeight: 1.5,
+                color: dateClosed ? 'var(--red)' : 'var(--text-muted)',
+              }}
+            >
+              {dateClosed
+                ? `FY ${categoryYear} has been finalised — reopen it from Reports to add to it.`
+                : categoryYear
+                ? `Filed into FY ${categoryYear}`
+                : 'Choose a date to file this against a year'}
             </div>
           </div>
         </div>
@@ -662,33 +698,55 @@ export default function AddExpense() {
               and a receipt they wanted to file. It can be set later from the
               expense itself, which is often when it is actually known. */}
           <label className="label">
-            Category <span style={{ fontWeight: 500, color: 'var(--text-subtle)' }}>— optional</span>
+            Category
           </label>
-          <select
-            className="input"
-            value={categoryId}
-            onChange={(e) => {
-              setCategoryId(e.target.value);
-              // This is the whole of it — the suggestion note below is gated on
-              // !categoryTouched. A second setter here was never declared
-              // anywhere, so picking a category by hand threw a ReferenceError.
-              setCategoryTouched(true);
-            }}
-          >
-            {/* Somewhere to land when none of them is right.
-                The list had no empty option, so whatever happened to be
-                first was always selected and there was no way to say
-                "not one of these" — which is the honest answer at the
-                counter more often than it is later. The server has always
-                accepted an expense with no category and files it exactly
-                like this. */}
-            <option value="">Uncategorised</option>
-            {categories.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.name}
-              </option>
-            ))}
-          </select>
+
+          {/* One category is not a choice.
+
+              A dropdown with a single entry asks somebody to open it, look at
+              the one thing inside, and pick the thing that was already picked.
+              It is shown as what it is instead — the category this will be
+              filed under — and the select comes back the moment there are two
+              to choose between. */}
+          {categories.length === 1 ? (
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 9,
+                padding: '9px 12px',
+                borderRadius: 'var(--radius-sm)',
+                border: '1px solid var(--border)',
+                background: 'var(--bg-inset)',
+                fontSize: 14,
+              }}
+            >
+              <Icon name={categories[0].icon || 'tag'} size={16} style={{ color: categories[0].color }} />
+              <span style={{ fontWeight: 600 }}>{categories[0].name}</span>
+              <span style={{ marginLeft: 'auto', fontSize: 11.5, color: 'var(--text-muted)' }}>
+                the only category in these books
+              </span>
+            </div>
+          ) : (
+            <select
+              className="input"
+              value={categoryId}
+              onChange={(e) => {
+                setCategoryId(e.target.value);
+                // This is the whole of it — the suggestion note below is gated
+                // on !categoryTouched. A second setter here was never declared
+                // anywhere, so picking a category by hand threw a
+                // ReferenceError.
+                setCategoryTouched(true);
+              }}
+            >
+              {categories.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name}
+                </option>
+              ))}
+            </select>
+          )}
           {/* Says what it learned from, so the guess can be judged rather than
               just trusted. Choosing a category by hand silences it for good on
               this entry. */}
@@ -753,7 +811,12 @@ export default function AddExpense() {
         </div>
 
         <div>
-          <label className="label">Receipt (optional)</label>
+          {/* The word optional belongs to the label, in the same grey as every
+              other hint on this form, rather than in brackets as though it
+              were part of the field's name. */}
+          <label className="label">
+            Receipt <span style={{ fontWeight: 500, color: 'var(--text-subtle)' }}>— optional</span>
+          </label>
           <ReceiptDropzone
             file={file}
             onFileChange={onFileChange}
