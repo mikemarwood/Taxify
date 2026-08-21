@@ -303,24 +303,23 @@
   }
   .lightbox:target { display: flex; }
   .lightbox img {
-    max-width: min(1200px, 100%);
-    /* Room left for the caption underneath rather than the image filling the
-       screen and pushing it off. */
-    max-height: calc(100dvh - 132px);
+    max-width: min(1400px, 100%);
+    /* The whole height, less the padding. This used to stop 132px short to
+       leave room for a caption underneath — the caption is gone, and with it
+       the reason the picture was smaller than the screen it was opened on. */
+    max-height: calc(100dvh - 48px);
     width: auto;
     height: auto;
     border-radius: 12px;
     border: 1px solid rgba(255,255,255,.14);
     box-shadow: 0 40px 90px -30px rgba(0,0,0,.8);
   }
-  .lightbox figure { margin: 0; display: flex; flex-direction: column; gap: 12px; align-items: center; }
-  .lightbox figcaption {
-    font-size: 13px;
-    color: rgba(255,255,255,.72);
-    text-align: center;
-    max-width: 62ch;
-    line-height: 1.5;
-  }
+  /* No caption.
+     Somebody who has just clicked a screenshot to see it larger is looking at
+     the screenshot. The description still exists as the image's alt text,
+     which is what a screen reader reads and what the caption was duplicating
+     on screen. */
+  .lightbox figure { margin: 0; display: flex; align-items: center; justify-content: center; }
   /* A cross in the corner, and nothing else.
 
      It was a pill reading "× Close", which is a lot of furniture sitting on top
@@ -370,30 +369,42 @@
      The rule was there to lift both above the backdrop, and the backdrop
      no longer exists. */
   .lightbox figure { position: relative; }
+  /* Edge to edge on a phone.
+     The padding, the rounded corner and the border are all framing, and a
+     4in screen has no room to spend on framing. */
   @media (max-width: 640px) {
-    .lightbox { padding: 14px; }
-    .lightbox img { max-height: calc(100dvh - 150px); }
+    .lightbox { padding: 0; }
+    .lightbox img {
+      max-width: 100vw;
+      max-height: 100dvh;
+      border-radius: 0;
+      border: 0;
+    }
     .lightbox .shotbox-close { top: 10px; right: 10px; }
   }
 
-  /* Turn the phone, on a phone held upright.
-  
+  /* Turn the picture, on a phone held upright.
+
      A page cannot rotate a handset. screen.orientation.lock() only works
      inside fullscreen, is refused outright on iOS, and there is no
-     JavaScript on this page at all — the hub proxy strips it. So the
-     honest version is to ask.
-  
-     A screenshot of a wide screen shown down the short side of a phone is
-     a picture of text nobody can read, and the fix takes the reader one
-     second. Only in portrait, only on a small screen, and it goes the
-     moment the phone is turned. */
+     JavaScript on this page at all — the hub proxy strips it. What it can
+     do is turn the image instead, which needs nobody's permission.
+
+     Every screenshot here is wider than it is tall, so down the short side
+     of a phone one fills a fifth of the screen and is a picture of text
+     nobody can read. Asking the reader to turn the phone was the previous
+     answer, and it was a line of text sitting under a picture they had
+     opened to look at.
+
+     Rotated, the constraints swap: the image's width is bounded by the
+     screen's height and its height by the screen's width. It fills the
+     phone, and turning the phone — which the sideways picture asks for far
+     better than a sentence did — makes it upright and readable. */
   @media (max-width: 640px) and (orientation: portrait) {
-    .lightbox figcaption::before {
-      content: "↻  Turn your phone sideways to read this";
-      display: block;
-      margin-bottom: 8px;
-      font-weight: 700;
-      color: #fff;
+    .lightbox img {
+      transform: rotate(90deg);
+      max-width: 100dvh;
+      max-height: 100vw;
     }
   }
   .shot-step {
@@ -1024,21 +1035,18 @@
     <a class="shotbox-close" href="#" aria-label="Close the image" title="Close">&times;</a>
     <figure>
       <img src="/media/shot-capture.jpg" alt="A café receipt on a wooden table being photographed with a phone, the shot already framed on screen" loading="lazy">
-      <figcaption>One tap at the table — the receipt is photographed and filed</figcaption>
     </figure>
   </div>
   <div class="lightbox" id="shot-expenses" role="dialog" aria-label="Screenshot">
     <a class="shotbox-close" href="#" aria-label="Close the image" title="Close">&times;</a>
     <figure>
       <img src="/media/shot-expenses.png" alt="The expense list grouped by category — Home Rental, General and Tooling — each entry dated, tagged with its category and totalled, with receipts attached" loading="lazy">
-      <figcaption>Every expense grouped by category and totalled, with the receipt attached to each one</figcaption>
     </figure>
   </div>
   <div class="lightbox" id="shot-reports" role="dialog" aria-label="Screenshot">
     <a class="shotbox-close" href="#" aria-label="Close the image" title="Close">&times;</a>
     <figure>
       <img src="/media/shot-dashboard.png" alt="A year of deductions already added up: the total claimed, the top category, and where the money went" loading="lazy">
-      <figcaption>The reports page: three tax years side by side, each category totalled and its share of the whole</figcaption>
     </figure>
   </div>
 
