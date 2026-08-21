@@ -667,9 +667,43 @@
       <p class="hero-note" style="margin-top: 6px;">14-day free trial · No credit card required</p>
     </section>
 
-    <!-- What you are buying, before anything is claimed about it. Both halves
-         of the product in one picture: capture on the phone, totals on the
-         desktop. -->
+    <!--ADS-START-->
+    <!-- The advertisement films.
+
+         Uploaded from Administration → Landing page, not deployed. An
+         advertisement is the thing most likely to need replacing at short
+         notice, and needing a deploy to swap one means it does not get swapped.
+
+         Everything between ADS-START and ADS-END is removed by the server when
+         neither slot has a file, and each SLOT block is removed on its own when
+         that one is empty — so this is never a broken player, and one film on
+         its own is a single centred frame rather than a gap. -->
+    <section class="ads" aria-label="Watch Taxify">
+      <div class="section-head">
+        <h2>See it in action</h2>
+        <p>A couple of minutes, and you will know whether this is for you.</p>
+      </div>
+      <div class="ads-grid">
+        <!--SLOT:ad-1-->
+        <div class="ad-frame">
+          <video class="ad-video" controls playsinline preload="metadata" poster="/media/ads/ad-1-poster">
+            <source src="/media/ads/ad-1" type="video/mp4">
+          </video>
+        </div>
+        <!--/SLOT:ad-1-->
+        <!--SLOT:ad-2-->
+        <div class="ad-frame">
+          <video class="ad-video" controls playsinline preload="metadata" poster="/media/ads/ad-2-poster">
+            <source src="/media/ads/ad-2" type="video/mp4">
+          </video>
+        </div>
+        <!--/SLOT:ad-2-->
+      </div>
+    </section>
+    <!--ADS-END-->
+
+    <!-- The product itself, after the films have said what it is for. Both
+         halves in one picture: capture on the phone, totals on the desktop. -->
     <section class="shot" aria-label="Taxify on a laptop and a phone">
       <div class="device-scene" id="device-scene" data-ready="false">
         <div class="device-laptop">
@@ -718,40 +752,6 @@
       </div>
     </section>
 
-    <!--ADS-START-->
-    <!-- The advertisement films.
-
-         Uploaded from Administration → Landing page, not deployed. An
-         advertisement is the thing most likely to need replacing at short
-         notice, and needing a deploy to swap one means it does not get swapped.
-
-         Everything between ADS-START and ADS-END is removed by the server when
-         neither slot has a file, and each SLOT block is removed on its own when
-         that one is empty — so this is never a broken player, and one film on
-         its own is a single centred frame rather than a gap. -->
-    <section class="ads" aria-label="Watch Taxify">
-      <div class="section-head">
-        <h2>See it in action</h2>
-        <p>A couple of minutes, and you will know whether this is for you.</p>
-      </div>
-      <div class="ads-grid">
-        <!--SLOT:ad-1-->
-        <div class="ad-frame">
-          <video class="ad-video" controls playsinline preload="metadata" poster="/media/ads/ad-1-poster">
-            <source src="/media/ads/ad-1" type="video/mp4">
-          </video>
-        </div>
-        <!--/SLOT:ad-1-->
-        <!--SLOT:ad-2-->
-        <div class="ad-frame">
-          <video class="ad-video" controls playsinline preload="metadata" poster="/media/ads/ad-2-poster">
-            <source src="/media/ads/ad-2" type="video/mp4">
-          </video>
-        </div>
-        <!--/SLOT:ad-2-->
-      </div>
-    </section>
-    <!--ADS-END-->
 
     <!-- It runs in a browser, so it runs on whatever somebody already owns.
          Said plainly, because "web app" means nothing to most people. -->
