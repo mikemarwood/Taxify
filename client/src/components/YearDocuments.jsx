@@ -5,6 +5,15 @@ import { useToast } from './Toast.jsx';
 import Icon from './Icon.jsx';
 import ReceiptLightbox from './ReceiptLightbox.jsx';
 import { useConfirm } from '../lib/ConfirmContext.jsx';
+import { OFF_SCREEN_INPUT } from '../lib/fileInput.js';
+import { sentenceCase, sentenceCaseLive } from '../lib/textCase.js';
+import { onCasedInput } from '../lib/casedInput.js';
+import {
+  BROWSE_ACCEPT,
+  MAX_UPLOAD_LABEL,
+  fileKind,
+  uploadProblem,
+} from '../lib/uploadRules.js';
 
 function formatSize(bytes) {
   if (!bytes) return '';
@@ -14,6 +23,51 @@ function formatSize(bytes) {
 }
 
 const IMAGE_EXT = /\.(jpe?g|png|webp|gif|heic|heif|avif|bmp|tiff?|jfif)$/i;
+
+// What kind of file a row holds, said in the row.
+//
+// The thumbnail shows the first page of a PDF or the picture itself, which is
+// the best answer to "which document is this" — but not to "what will I get if
+// I download it". A photograph of a rates notice and a scan of one look
+// identical at 40px and open in different things. The chip is that answer, in
+// the two or three characters everybody already reads as a file type.
+const KIND_TONES = {
+  PDF: { fg: '#b91c1c', bg: 'rgba(185, 28, 28, 0.10)' },
+  DOC: { fg: '#1d4ed8', bg: 'rgba(29, 78, 216, 0.10)' },
+  DOCX: { fg: '#1d4ed8', bg: 'rgba(29, 78, 216, 0.10)' },
+};
+const IMAGE_TONE = { fg: '#047857', bg: 'rgba(4, 120, 87, 0.10)' };
+const PLAIN_TONE = { fg: 'var(--text-muted)', bg: 'var(--bg-card)' };
+
+function kindTone(kind, name) {
+  if (KIND_TONES[kind]) return KIND_TONES[kind];
+  if (IMAGE_EXT.test(name || '')) return IMAGE_TONE;
+  return PLAIN_TONE;
+}
+
+function KindChip({ name }) {
+  const kind = fileKind(name);
+  if (!kind) return null;
+  const tone = kindTone(kind, name);
+  return (
+    <span
+      title={`${kind} file`}
+      style={{
+        flexShrink: 0,
+        fontSize: 10,
+        fontWeight: 700,
+        letterSpacing: 0.4,
+        lineHeight: 1,
+        padding: '4px 6px',
+        borderRadius: 4,
+        color: tone.fg,
+        background: tone.bg,
+      }}
+    >
+      {kind}
+    </span>
+  );
+}
 
 // Small enough to sit in a list row, big enough that a page of a statement is
 // recognisable — which "PDF" written in a box never is.
@@ -134,6 +188,29 @@ export default function YearDocuments({
       cancelled = true;
     };
   }, [manage, financialYear, usable]);
+
+  // Checked here rather than only on the server, so somebody is told which
+  // file is the problem before they wait for an upload that was going to be
+  // refused. The accepted ones are kept — dropping the whole selection because
+  // one of five was too big is the more annoying answer.
+  function onPickFiles(e) {
+    const picked = [...e.target.files];
+    const ok = [];
+    const refused = [];
+    for (const file of picked) {
+      const problem = uploadProblem(file);
+      if (problem) refused.push({ file, problem });
+      else ok.push(file);
+    }
+    setFiles(ok);
+    if (refused.length === 1) {
+      toast(`${refused[0].file.name} — ${refused[0].problem}`, 'error');
+    } else if (refused.length > 1) {
+      toast(`${refused.length} files were not accepted — ${refused[0].problem}`, 'error');
+    }
+    // Cleared so choosing the same file again still counts as a change.
+    e.target.value = '';
+  }
 
   async function upload(e) {
     e.preventDefault();
@@ -285,6 +362,7 @@ export default function YearDocuments({
                       {d.category.name}
                     </span>
                   </button>
+                  <KindChip name={d.originalName} />
                   <span style={{ color: 'var(--text-muted)', fontSize: 11.5 }}>{formatSize(d.sizeBytes)}</span>
                   <a
                     href={`${d.url}${d.url.includes('?') ? '&' : '?'}download=1`}
@@ -361,20 +439,70 @@ export default function YearDocuments({
                           value={documentName}
                           maxLength={200}
                           placeholder="e.g. Council rates notice"
-                          onChange={(e) => setDocumentName(e.target.value)}
+                          // A document name is a sentence, not a title — "Council
+                          // rates notice", not "Council Rates Notice". Live while
+                          // typing so the first letter comes up as you type it,
+                          // and again on blur, which trims.
+                          onChange={onCasedInput(sentenceCaseLive, setDocumentName)}
+                          onBlur={() => setDocumentName((v) => sentenceCase(v))}
                         />
                       </div>
 
                       <div>
                         <label className="label">File</label>
-                        <input
-                          className="input"
-                          type="file"
-                          multiple
-                          onChange={(e) => setFiles([...e.target.files])}
-                        />
-                        <div style={{ fontSize: 11.5, color: 'var(--text-muted)', marginTop: 5 }}>
-                          Filed under FY {financialYear}. Several at once share the name you give them.
+                        {/* The same picker the rest of the app uses.
+                            A bare <input type="file"> inside .input renders as
+                            the browser's own grey "Choose files" button on a
+                            white field — the one control on the page that
+                            looks like it belongs to a different site. The real
+                            input is off-screen rather than hidden, because
+                            Safari will not open a picker for .click() on a
+                            display:none element. */}
+                        <label
+                          className="btn btn-ghost"
+                          style={{ fontSize: 12.5, gap: 7, cursor: 'pointer', width: 'fit-content' }}
+                        >
+                          <Icon name="upload" size={14} />
+                          {files.length === 0
+                            ? 'Choose files'
+                            : `${files.length} file${files.length === 1 ? '' : 's'} chosen`}
+                          <input
+                            type="file"
+                            multiple
+                            accept={BROWSE_ACCEPT}
+                            style={OFF_SCREEN_INPUT}
+                            onChange={onPickFiles}
+                          />
+                        </label>
+
+                        {files.length > 0 && (
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginTop: 8 }}>
+                            {files.map((f) => (
+                              <div
+                                key={`${f.name}-${f.size}`}
+                                style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12 }}
+                              >
+                                <KindChip name={f.name} />
+                                <span
+                                  style={{
+                                    flex: 1,
+                                    minWidth: 0,
+                                    overflow: 'hidden',
+                                    textOverflow: 'ellipsis',
+                                    whiteSpace: 'nowrap',
+                                  }}
+                                >
+                                  {f.name}
+                                </span>
+                                <span style={{ color: 'var(--text-muted)' }}>{formatSize(f.size)}</span>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+
+                        <div style={{ fontSize: 11.5, color: 'var(--text-muted)', marginTop: 6 }}>
+                          Images, PDFs and Word documents, up to {MAX_UPLOAD_LABEL} each. Filed under FY{' '}
+                          {financialYear}. Several at once share the name you give them.
                         </div>
                       </div>
 

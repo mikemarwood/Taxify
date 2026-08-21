@@ -5,40 +5,16 @@ import Icon from './Icon.jsx';
 import ProgressBar from './ProgressBar.jsx';
 import { playSuccess, playError } from '../lib/sounds.js';
 import { OFF_SCREEN_INPUT } from '../lib/fileInput.js';
+// Shared with the year-documents form and mirrored from the server's copy.
+// This file used to carry its own list, and it accepted SVG — `.svg` was in
+// the extension pattern and `image/svg+xml` passed the "starts with image/"
+// branch besides. The server has always refused it, so the only thing the
+// difference bought was somebody waiting for an upload that was going to be
+// rejected.
+import { BROWSE_ACCEPT, uploadProblem } from '../lib/uploadRules.js';
 
 const RADIUS = 26;
 const CIRCUMFERENCE = 2 * Math.PI * RADIUS;
-const MAX_FILE_BYTES = 10 * 1024 * 1024;
-const RECEIPT_EXT = /\.(jpe?g|png|webp|gif|heic|heif|avif|bmp|tiff?|svg|jfif|pdf|docx?)$/i;
-const DOC_MIME = new Set([
-  'application/pdf',
-  'application/msword',
-  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-]);
-
-// The extensions are for Windows, which matches on those; the MIME types are
-// for iOS, which matches on those and greys out everything else in Files if it
-// is only ever given extensions. Both lists, so both behave.
-const BROWSE_ACCEPT = [
-  'image/*',
-  'application/pdf',
-  'application/msword',
-  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-  '.heic',
-  '.heif',
-  '.pdf',
-  '.doc',
-  '.docx',
-].join(',');
-
-// Any image, plus PDF and Word. The extension is the fallback because a HEIC
-// off an iPhone — or a .doc off a network share — often arrives with no usable
-// MIME type at all.
-function isReceiptFile(file) {
-  if (DOC_MIME.has(file.type)) return true;
-  if (file.type?.startsWith('image/')) return true;
-  return RECEIPT_EXT.test(file.name || '');
-}
 
 export default function ReceiptDropzone({ file, onFileChange, uploadProgress, status = 'idle', errorMessage }) {
   const [dragOver, setDragOver] = useState(false);
@@ -62,12 +38,9 @@ export default function ReceiptDropzone({ file, onFileChange, uploadProgress, st
     (files) => {
       const picked = files && files[0];
       if (!picked) return;
-      if (!isReceiptFile(picked)) {
-        toast('Only images, PDFs and Word documents can be attached.', 'error');
-        return;
-      }
-      if (picked.size > MAX_FILE_BYTES) {
-        toast('That file is too large — receipts must be 10MB or smaller.', 'error');
+      const problem = uploadProblem(picked);
+      if (problem) {
+        toast(problem, 'error');
         return;
       }
       onFileChange(picked);
