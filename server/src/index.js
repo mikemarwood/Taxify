@@ -19,7 +19,7 @@ import taxYearRoutes from './routes/taxYears.routes.js';
 import deductionRoutes from './routes/deductions.routes.js';
 import notificationRoutes from './routes/notifications.routes.js';
 import entityRoutes from './routes/entities.routes.js';
-import { AD_SLOTS, adFile, posterFile, adsPresent } from './lib/landingAds.js';
+import { AD_SLOTS, adFile, posterFile, adsPresent, faststartExistingAds } from './lib/landingAds.js';
 import { cutEmptyAdSlots } from './lib/landingAdsHtml.js';
 import { injectLandingSocial } from './lib/landingSocial.js';
 import { landingSocialConfig } from './lib/socialSettings.js';
@@ -510,6 +510,14 @@ runTaxReminders(pool).catch((err) => console.error('Failed to run tax reminders'
 setInterval(() => {
   runTaxReminders(pool).catch((err) => console.error('Failed to run tax reminders', err));
 }, 12 * 60 * 60 * 1000);
+
+// Advertisements uploaded before the index was moved on the way in.
+//
+// Those are the ones people are watching right now, and the symptom — a frame
+// that stays blank on one network and plays on another — is not something the
+// viewer can report usefully or the admin can see. Cheap: it reads each file
+// once, and does nothing at all to one that is already in the right order.
+faststartExistingAds();
 
 app.listen(PORT, () => {
   console.log(`Taxify server listening on http://localhost:${PORT}`);

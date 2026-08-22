@@ -31,6 +31,7 @@ import {
   adFile,
   posterFile,
   clearSlot,
+  faststartAdFile,
 } from '../lib/landingAds.js';
 import { toTitleCase } from '../lib/text.js';
 import {
@@ -1777,7 +1778,17 @@ router.post(
   adUpload.single('file'),
   asyncHandler(async (req, res) => {
     if (!req.file) return res.status(400).json({ error: 'Choose a file to upload' });
-    res.json({ ok: true, slot: req.params.slot, bytes: req.file.size });
+
+    // Done here, once, rather than left to each viewer's network. Most encoders
+    // put the index at the end of the file, and behind a proxy that will not
+    // serve a range request that is a video which never starts. Posters are
+    // images and have nothing to move.
+    let faststarted = false;
+    if (req.query.poster !== '1') {
+      faststarted = faststartAdFile(req.file.path) === 'moved';
+    }
+
+    res.json({ ok: true, slot: req.params.slot, bytes: req.file.size, faststarted });
   })
 );
 

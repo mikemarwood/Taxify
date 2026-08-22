@@ -1,6 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { faststart, isFaststart } from './mp4Faststart.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -83,4 +84,48 @@ export function clearSlot(slot, types) {
 // What the landing page needs to know: which slots have something to show.
 export function adsPresent() {
   return AD_SLOTS.filter((slot) => adFile(slot) !== null);
+}
+
+// Move an advertisement's index to the front, in place.
+//
+// Worth doing once on the way in rather than hoping every viewer's network
+// behaves. An MP4 whose `moov` box sits behind 12MB of `mdat` cannot show a
+// frame until a player has fetched the tail of the file: fine over a
+// connection that honours range requests, and a permanently blank frame behind
+// a proxy that does not — which is what an office network usually is. The
+// reasoning in full is in mp4Faststart.js.
+//
+// Returns what happened, for the log, and never throws. An advertisement that
+// cannot be improved is still a perfectly good advertisement.
+export function faststartAdFile(file) {
+  try {
+    const buf = fs.readFileSync(file);
+    if (isFaststart(buf) !== false) return 'skipped';
+    const out = faststart(buf);
+    if (!out) return 'skipped';
+    // Written beside the original and renamed over it, so an interrupted write
+    // leaves the original intact rather than a truncated video.
+    const temp = `${file}.faststart`;
+    fs.writeFileSync(temp, out);
+    fs.renameSync(temp, file);
+    return 'moved';
+  } catch (err) {
+    console.error(`[ads] could not move the index in ${file} — ${err.message}`);
+    return 'failed';
+  }
+}
+
+// The same, for whatever is already on disk.
+//
+// The advertisements uploaded before this existed are the ones people are
+// watching right now, and "upload them again" is not a fix for somebody who
+// cannot see that anything is wrong.
+export function faststartExistingAds() {
+  for (const slot of AD_SLOTS) {
+    const found = adFile(slot);
+    if (!found) continue;
+    if (faststartAdFile(found.file) === 'moved') {
+      console.log(`[ads] ${slot}: index moved to the front — it can now start before it has fully downloaded`);
+    }
+  }
 }
