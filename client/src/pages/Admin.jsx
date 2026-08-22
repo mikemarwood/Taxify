@@ -768,6 +768,114 @@ function SettingsTab() {
           </div>
         </div>
       </div>
+
+      <FacebookSettingsCard />
+    </div>
+  );
+}
+
+// The Facebook buttons at the foot of the landing page.
+//
+// Its own card rather than more state in SettingsTab: it has three fields and
+// a save of its own, and the registration toggle saves on click.
+function FacebookSettingsCard() {
+  const toast = useToast();
+  const [form, setForm] = useState(null);
+  const [saved, setSaved] = useState(null);
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    api.get('/admin/settings').then((res) => {
+      const next = {
+        facebookEnabled: !!res.data.facebookEnabled,
+        facebookShareUrl: res.data.facebookShareUrl || '',
+        facebookPageUrl: res.data.facebookPageUrl || '',
+      };
+      setForm({ ...next, defaultShareUrl: res.data.defaultShareUrl || '' });
+      setSaved(next);
+    });
+  }, []);
+
+  if (!form) return null;
+
+  const changed =
+    saved &&
+    (form.facebookEnabled !== saved.facebookEnabled ||
+      form.facebookShareUrl.trim() !== saved.facebookShareUrl ||
+      form.facebookPageUrl.trim() !== saved.facebookPageUrl);
+
+  async function save() {
+    const next = {
+      facebookEnabled: form.facebookEnabled,
+      facebookShareUrl: form.facebookShareUrl.trim(),
+      facebookPageUrl: form.facebookPageUrl.trim(),
+    };
+    setBusy(true);
+    try {
+      await api.patch('/admin/settings', next);
+      setSaved(next);
+      toast(next.facebookEnabled ? 'Facebook buttons are on' : 'Facebook buttons are off', 'success');
+    } catch (err) {
+      toast(err.message, 'error');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  const set = (key) => (e) => setForm((f) => ({ ...f, [key]: e.target.value }));
+
+  return (
+    <div className="card" style={{ padding: 20, display: 'flex', flexDirection: 'column', gap: 14 }}>
+      <div>
+        <div style={{ fontWeight: 700 }}>Facebook Like and Share</div>
+        <div style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 2, lineHeight: 1.55 }}>
+          Adds a Like button and a Share button to the foot of the landing page. Both are Facebook&rsquo;s own
+          plugins, loaded without any script — the app hub strips scripts from that page, so the usual embed code
+          would do nothing there. There is no tracking pixel and nothing to paste in.
+        </div>
+      </div>
+
+      <label style={{ display: 'flex', alignItems: 'center', gap: 9, fontSize: 13, cursor: 'pointer' }}>
+        <input
+          type="checkbox"
+          checked={form.facebookEnabled}
+          onChange={(e) => setForm((f) => ({ ...f, facebookEnabled: e.target.checked }))}
+        />
+        Show the buttons on the landing page
+      </label>
+
+      <div>
+        <label className="label">Address people share</label>
+        <input
+          className="input"
+          value={form.facebookShareUrl}
+          placeholder={form.defaultShareUrl || 'https://taxify.mikesapphub.com'}
+          onChange={set('facebookShareUrl')}
+        />
+        <div style={{ fontSize: 11.5, color: 'var(--text-muted)', marginTop: 5 }}>
+          Leave it empty to use {form.defaultShareUrl || 'the site address'}, which is almost always what you want.
+        </div>
+      </div>
+
+      <div>
+        <label className="label">Your Facebook page (optional)</label>
+        <input
+          className="input"
+          value={form.facebookPageUrl}
+          placeholder="https://www.facebook.com/yourpage"
+          onChange={set('facebookPageUrl')}
+        />
+        <div style={{ fontSize: 11.5, color: 'var(--text-muted)', marginTop: 5 }}>
+          Adds a &ldquo;Follow us&rdquo; link beside the other two. Left empty, no link appears.
+        </div>
+      </div>
+
+      <div>
+        <button className="btn btn-primary" style={{ fontSize: 13 }} disabled={busy || !changed} onClick={save}>
+          {busy && <span className="spinner" />}
+          Save
+        </button>
+      </div>
     </div>
   );
 }

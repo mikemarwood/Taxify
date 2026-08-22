@@ -36,6 +36,7 @@ export default function Categories() {
   const [editName, setEditName] = useState('');
   const [editIcon, setEditIcon] = useState('tag');
   const [editColor, setEditColor] = useState('');
+  const [rental, setRental] = useState(false);
   const [editRental, setEditRental] = useState(false);
   const [editBusy, setEditBusy] = useState(false);
 
@@ -81,9 +82,13 @@ export default function Categories() {
     if (!name.trim()) return;
     setBusy(true);
     try {
-      await api.post('/categories', { name, color, icon, financialYear: year });
+      // Never sent as true from a business book, whatever the state left in
+      // the checkbox before the book was switched.
+      const isRental = filingInto?.kind !== 'business' && rental;
+      await api.post('/categories', { name, color, icon, financialYear: year, isPropertyRental: isRental });
       setName('');
       setIcon('tag');
+      setRental(false);
       setAdding(false);
       toast('Category added', 'success');
       load();
@@ -254,6 +259,36 @@ export default function Categories() {
               </div>
 
               <IconPicker value={icon} onChange={setIcon} />
+
+              {/* Offered when the category is created, not only when it is
+                  edited afterwards.
+
+                  This tick existed on the edit form alone, so the only way to
+                  make a rental was to add an ordinary category and then go
+                  back and change it — and nothing on the add form said so.
+                  Somebody adding "Smith St" had no reason to think there was
+                  a second step, and would find out at tax time when the
+                  property had nowhere to keep its statements.
+
+                  Personal books only, the same rule the edit form applies: a
+                  business that owns property keeps it in the business's own
+                  books and its own accounts. */}
+              {filingInto?.kind !== 'business' && (
+                <label
+                  title="Property rentals collect paperwork of their own — statements, schedules, end-of-year summaries."
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 8,
+                    fontSize: 12.5,
+                    cursor: 'pointer',
+                    color: 'var(--text-muted)',
+                  }}
+                >
+                  <input type="checkbox" checked={rental} onChange={(e) => setRental(e.target.checked)} />
+                  This is a rental property
+                </label>
+              )}
 
               <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
                 <button className="btn btn-primary" disabled={busy || !nameReady} type="submit">

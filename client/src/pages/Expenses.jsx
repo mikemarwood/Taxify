@@ -406,19 +406,32 @@ export default function Expenses() {
                           {e.entity.name}
                         </span>
                       )}
-                      {e.receiptUrl && (
-                        <button
-                          type="button"
-                          title="View receipt"
-                          style={{ lineHeight: 0, background: 'none', border: 'none', padding: 0, cursor: 'pointer', color: 'var(--text-muted)' }}
-                          onClick={(evt) => {
-                            evt.stopPropagation();
-                            setLightboxUrl({ url: e.receiptUrl, filename: e.receiptFilename });
-                          }}
-                        >
-                          <Icon name="receipt" size={15} />
-                        </button>
-                      )}
+                      {/* The slot is here whether or not there is a receipt in
+                          it.
+
+                          The name column is flex:1, so everything after it is
+                          pushed right by whatever follows — and this button
+                          only existed on rows that had a receipt. A row with
+                          one carried its category badge 25px left of a row
+                          without, so scanning down a list the badges stepped
+                          in and out and nothing lined up with anything. An
+                          empty span of the same width costs nothing and keeps
+                          the column straight. */}
+                      <span style={{ width: 15, flexShrink: 0, display: 'flex', justifyContent: 'center' }}>
+                        {e.receiptUrl && (
+                          <button
+                            type="button"
+                            title="View receipt"
+                            style={{ lineHeight: 0, background: 'none', border: 'none', padding: 0, cursor: 'pointer', color: 'var(--text-muted)' }}
+                            onClick={(evt) => {
+                              evt.stopPropagation();
+                              setLightboxUrl({ url: e.receiptUrl, filename: e.receiptFilename });
+                            }}
+                          >
+                            <Icon name="receipt" size={15} />
+                          </button>
+                        )}
+                      </span>
                       <Amount expense={e} style={{ width: 96 }} />
                     </motion.div>
                   ))}

@@ -194,7 +194,7 @@ router.get(
 router.post(
   '/',
   asyncHandler(async (req, res) => {
-    const { name, color, icon } = req.body || {};
+    const { name, color, icon, isPropertyRental } = req.body || {};
     const nameError = validateName(name);
     if (nameError) return res.status(400).json({ error: nameError });
 
@@ -216,14 +216,37 @@ router.post(
       });
     }
 
+    // A rental can be marked as the category is created, rather than only by
+    // editing it afterwards — and the rule is the same one the PATCH applies,
+    // repeated here because the form is not the thing that enforces it.
+    // A business that owns property keeps it in the business's own books.
+    const wantsRental = isPropertyRental ? 1 : 0;
+    if (wantsRental) {
+      const book = await entityFor(dataOwnerId(req.user), bookId);
+      if (book && book.kind === 'business') {
+        return res.status(409).json({
+          error: 'Rental properties belong to personal books, not to a business.',
+          code: 'rental_business',
+        });
+      }
+    }
+
     const finalColor = color || PALETTE[Math.floor(Math.random() * PALETTE.length)];
     try {
       const [result] = await pool.execute(
-        'INSERT INTO categories (user_id, entity_id, name, color, icon, financial_year) VALUES (?, ?, ?, ?, ?, ?)',
-        [req.user.id, writeEntityId(req.user), toTitleCase(String(name).trim()), finalColor, icon || 'tag', financialYear]
+        'INSERT INTO categories (user_id, entity_id, name, color, icon, financial_year, is_property_rental) VALUES (?, ?, ?, ?, ?, ?, ?)',
+        [
+          req.user.id,
+          writeEntityId(req.user),
+          toTitleCase(String(name).trim()),
+          finalColor,
+          icon || 'tag',
+          financialYear,
+          wantsRental,
+        ]
       );
       const [rows] = await pool.execute(
-        'SELECT id, name, color, icon, financial_year FROM categories WHERE id = ?',
+        'SELECT id, name, color, icon, financial_year, is_property_rental FROM categories WHERE id = ?',
         [result.insertId]
       );
       res.status(201).json({ category: rows[0] });

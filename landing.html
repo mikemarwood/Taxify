@@ -493,6 +493,17 @@
     display: none;
   }
 
+  /* The frame says "loading", not "broken".
+     A still placeholder and a film that has failed look identical, and the
+     second background layer here is a slow sheen crossing the frame so the
+     difference is visible without a word of explanation. It needs no
+     JavaScript, which matters: the hub proxy strips every script from this
+     page, so anything driven by one would do nothing for most visitors.
+
+     Nothing has to switch it off, either. The moment the browser paints the
+     poster — or the film's own opening frame, which preload="metadata" is
+     enough to decode — the video's content covers its background and the
+     sheen goes with it. */
   .ad-video {
     display: block;
     width: 100%;
@@ -500,11 +511,19 @@
     background-color: #0b2e6b;
     background-image:
       url('/logo.svg'),
+      linear-gradient(100deg, rgba(255, 255, 255, 0) 0%, rgba(255, 255, 255, 0.10) 50%, rgba(255, 255, 255, 0) 100%),
       radial-gradient(120% 90% at 50% 0%, rgba(59, 130, 246, 0.55) 0%, rgba(11, 46, 107, 0) 70%),
       linear-gradient(140deg, #12376f 0%, #0b2e6b 55%, #071d45 100%);
     background-repeat: no-repeat;
-    background-position: center, center, center;
-    background-size: clamp(56px, 12%, 92px) auto, cover, cover;
+    background-position: center, -60% 0, center, center;
+    background-size: clamp(56px, 12%, 92px) auto, 55% 100%, cover, cover;
+    animation: ad-loading 2.1s ease-in-out infinite;
+  }
+  /* Only the sheen moves; the other three layers are restated unchanged
+     because background-position animates the whole list or none of it. */
+  @keyframes ad-loading {
+    from { background-position: center, -60% 0, center, center; }
+    to { background-position: center, 160% 0, center, center; }
   }
 
 
@@ -516,6 +535,14 @@
   .features-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px; }
   .feature-card { padding: 24px; }
   .feature-icon {
+    /* One tint per card, rotating through six.
+       Every icon used to be the same blue on the same blue-to-cyan wash, so
+       twelve cards read as one texture and nothing in the block was
+       distinguishable from anything else in it. The hues are all mid-tones
+       that hold up on this dark ground, and the icon is the only place the
+       colour lands — the cards themselves stay uniform, so the grid still
+       reads as one set rather than a paint chart. */
+    --tint: 59, 130, 246;
     width: 38px;
     height: 38px;
     margin-bottom: 13px;
@@ -523,12 +550,39 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    background: linear-gradient(135deg, rgba(59, 130, 246, 0.18), rgba(6, 182, 212, 0.14));
-    color: var(--blue);
+    flex-shrink: 0;
+    background: linear-gradient(135deg, rgba(var(--tint), 0.20), rgba(var(--tint), 0.07));
+    color: rgb(var(--tint));
   }
+  .feature-card:nth-child(6n + 2) .feature-icon { --tint: 6, 182, 212; }
+  .feature-card:nth-child(6n + 3) .feature-icon { --tint: 16, 185, 129; }
+  .feature-card:nth-child(6n + 4) .feature-icon { --tint: 139, 122, 246; }
+  .feature-card:nth-child(6n + 5) .feature-icon { --tint: 245, 158, 11; }
+  .feature-card:nth-child(6n + 6) .feature-icon { --tint: 244, 114, 182; }
   .feature-icon svg { width: 19px; height: 19px; }
   .feature-title { font-weight: 700; font-size: 15px; margin-bottom: 6px; }
   .feature-text { font-size: 13.5px; color: var(--text-muted); }
+
+  /* On a phone the cards are a list, not a wall.
+     Stacked one per screen at desktop proportions, twelve of these is a very
+     long scroll through boxes that all look alike — a lot of thumb for not
+     much read. Turning each one on its side puts the icon beside the words
+     instead of above them, which takes roughly a third off the height of
+     every card and gives the column a left edge to run down. */
+  @media (max-width: 640px) {
+    .features-grid { gap: 10px; }
+    .feature-card {
+      display: grid;
+      grid-template-columns: auto 1fr;
+      align-items: start;
+      column-gap: 13px;
+      padding: 15px 16px;
+    }
+    .feature-icon { width: 34px; height: 34px; margin: 1px 0 0; border-radius: 10px; grid-row: span 2; }
+    .feature-icon svg { width: 17px; height: 17px; }
+    .feature-title { font-size: 14.5px; margin-bottom: 3px; }
+    .feature-text { font-size: 13px; line-height: 1.5; }
+  }
 
   .plans-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 20px; max-width: 640px; margin: 0 auto; }
   .plan-card { padding: 28px; position: relative; border: 1px solid var(--border); }
@@ -560,6 +614,8 @@
 
   @media (prefers-reduced-motion: reduce) {
     button.plan-card, button.plan-card:hover { transition: none; transform: none; }
+    /* The sheen stops; the frame keeps its branded ground. */
+    .ad-video { animation: none; }
   }
   .plan-badge {
     position: absolute;
@@ -573,7 +629,11 @@
     border-radius: 999px;
   }
   .plan-name { font-weight: 700; font-size: 16px; }
-  .plan-price { margin: 10px 0 4px; }
+  .plan-price { margin: 10px 0 2px; }
+  /* The yearly price, divided. A year is the honest way to charge and a week
+     is the honest way to understand it — $79 is a number people weigh up,
+     and a dollar fifty is one they don't. */
+  .plan-per { font-size: 12.5px; color: var(--text-muted); margin-bottom: 8px; }
   /* On every card, not only in the paragraph above them. Somebody comparing
      two prices is looking at the cards, and "does this one have a trial too?"
      should not be a question they have to scroll up to answer. */
@@ -603,6 +663,33 @@
 
   footer { text-align: center; font-size: 12px; color: var(--text-muted); padding: 16px 20px; }
   footer a { color: var(--blue); }
+  /* The Facebook buttons, when the admin panel has switched them on.
+     The Like plugin is an iframe of Facebook's own making and comes with its
+     own white ground, so it is left alone rather than fought with — the Share
+     button beside it is ours and matches the page. */
+  .social-row {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin: 0 0 16px;
+  }
+  .fb-like { border-radius: 4px; overflow: hidden; }
+  .social-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    font-size: 12.5px;
+    font-weight: 600;
+    padding: 5px 12px;
+    border-radius: 6px;
+    text-decoration: none;
+    color: var(--text);
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid var(--border);
+  }
+  .social-btn:hover { background: rgba(255, 255, 255, 0.12); }
 </style>
 </head>
 <body>
@@ -850,12 +937,14 @@
     <section>
       <div class="section-head">
         <h2>Simple, honest pricing</h2>
-        <p>Both plans start with the same 14-day free trial, and there is no card to enter until you have decided. One payment a year, cancel whenever you like, and the fee itself is deductible.</p>
+        <p>Around a dollar and a half a week — less than the coffee you bought the receipt for. One deduction you would otherwise have forgotten pays for the year, and the fee itself is deductible.</p>
+        <p>Both plans start with the same 14-day free trial, and there is no card to enter until you have decided. One payment a year, cancel whenever you like. No per-receipt fees, no upsells, no add-ons.</p>
       </div>
       <div class="plans-grid" id="plans">
         <button type="button" class="card plan-card" aria-pressed="false" data-plan="individual">
           <div class="plan-name">Individual</div>
           <div class="plan-price"><span class="amount" data-price="individual">$79</span><span class="period">/year</span></div>
+          <div class="plan-per" data-per="individual">about $1.52 a week</div>
           <div class="plan-trial">✓ 14-day free trial</div>
           <p class="plan-text">Every deduction you are owed, kept as you go.</p>
           <ul class="plan-features">
@@ -870,6 +959,7 @@
           <div class="plan-badge">MOST POPULAR</div>
           <div class="plan-name">Small Business</div>
           <div class="plan-price"><span class="amount" data-price="business">$149</span><span class="period">/year</span></div>
+          <div class="plan-per" data-per="business">about $2.87 a week</div>
           <div class="plan-trial">✓ 14-day free trial</div>
           <p class="plan-text">Your own return and up to two businesses, never mixed up.</p>
           <ul class="plan-features">
@@ -891,6 +981,12 @@
   </main>
 
   <footer>
+    <!-- Filled in by the server from the admin settings, or cut out entirely
+         when Facebook is switched off there. It cannot decide for itself: the
+         hub proxy strips every script from this page. See landingSocial.js,
+         which is also where the reason these are an iframe and a plain link
+         rather than Facebook's own SDK is written down. -->
+    <!--SOCIAL-START--><!--SOCIAL-END-->
     <a href="/app/terms">Terms of Service</a> · <a href="/app/privacy">Privacy Policy</a><br>
     © <span id="year"></span> Taxify · Powered by <a href="https://mikesapphub.com" target="_blank" rel="noreferrer">Mikes App Hub</a>
   </footer>
@@ -966,11 +1062,26 @@
             if (plan.amountPerYear === null || plan.amountPerYear === undefined) return;
             var el = document.querySelector('[data-price="' + plan.planType + '"]');
             if (!el) return;
+            var currency = plan.currency || 'AUD';
             el.textContent = new Intl.NumberFormat(undefined, {
               style: 'currency',
-              currency: plan.currency || 'AUD',
+              currency: currency,
               minimumFractionDigits: plan.amountPerYear % 100 === 0 ? 0 : 2,
             }).format(plan.amountPerYear / 100);
+
+            // The same figure divided by the year, because a yearly price is
+            // the honest way to charge and a weekly one is the honest way to
+            // understand it. Computed here rather than typed into the HTML so
+            // it cannot say a dollar fifty while the price above it says
+            // something else.
+            var per = document.querySelector('[data-per="' + plan.planType + '"]');
+            if (!per) return;
+            per.textContent =
+              'about ' +
+              new Intl.NumberFormat(undefined, { style: 'currency', currency: currency }).format(
+                plan.amountPerYear / 100 / 52
+              ) +
+              ' a week';
           });
         })
         .catch(function () {

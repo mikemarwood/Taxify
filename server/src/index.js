@@ -21,6 +21,8 @@ import notificationRoutes from './routes/notifications.routes.js';
 import entityRoutes from './routes/entities.routes.js';
 import { AD_SLOTS, adFile, posterFile, adsPresent } from './lib/landingAds.js';
 import { cutEmptyAdSlots } from './lib/landingAdsHtml.js';
+import { injectLandingSocial } from './lib/landingSocial.js';
+import { landingSocialConfig } from './lib/socialSettings.js';
 import { sweepExpiredInvites } from './lib/accountantInviteFlow.js';
 import { purgeUnactivatedAccounts, runBillingReminders } from './jobs/billingJobs.js';
 import { runRecurringExpenses } from './jobs/expenseJobs.js';
@@ -104,6 +106,14 @@ function withLandingAds(html) {
   );
 }
 
+// The Facebook buttons, for the same reason and by the same mechanism: the
+// page cannot read a setting for itself, so it is done here on the way out.
+// Every path that serves the page goes through this, including the fallbacks —
+// otherwise the buttons would appear only when the hub was reachable.
+async function withLandingExtras(html) {
+  return injectLandingSocial(withLandingAds(html), await landingSocialConfig());
+}
+
 async function serveLandingPage(req, res) {
   // Only a real top-level browser navigation gets the hub-proxy treatment
   // below. Everything else — the hub's own scraper (x-central-api-key),
@@ -121,7 +131,7 @@ async function serveLandingPage(req, res) {
     try {
       const file = await fs.promises.readFile(LANDING_HTML_PATH, 'utf8');
       res.set('Content-Type', 'text/html; charset=utf-8');
-      return res.send(withLandingAds(file));
+      return res.send(await withLandingExtras(file));
     } catch {
       return res.sendFile(LANDING_HTML_PATH);
     }
@@ -139,13 +149,13 @@ async function serveLandingPage(req, res) {
       clearTimeout(timer);
     }
     res.set('Content-Type', 'text/html; charset=utf-8');
-    res.send(withLandingAds(html));
+    res.send(await withLandingExtras(html));
   } catch (err) {
     console.error('[landing] hub proxy failed, falling back to static page:', err.message);
     try {
       const file = await fs.promises.readFile(LANDING_HTML_PATH, 'utf8');
       res.set('Content-Type', 'text/html; charset=utf-8');
-      res.send(withLandingAds(file));
+      res.send(await withLandingExtras(file));
     } catch {
       res.sendFile(LANDING_HTML_PATH);
     }

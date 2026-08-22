@@ -19,6 +19,7 @@ import { canTransition } from '../lib/planRequests.js';
 import { publicOrigin } from '../lib/publicOrigin.js';
 import { asyncHandler } from '../lib/asyncHandler.js';
 import { accountTeardownStatements, describeTeardownFailure } from '../lib/accountTeardown.js';
+import { readSocialSettings, writeSocialSettings } from '../lib/socialSettings.js';
 import multer from 'multer';
 import {
   AD_SLOTS,
@@ -878,6 +879,7 @@ router.get(
     res.json({
       registrationEnabled: registrationEnabled !== 'false',
       mfaMode,
+      ...(await readSocialSettings()),
     });
   })
 );
@@ -895,6 +897,12 @@ router.patch(
       }
       await setSetting('registration_enabled', registrationEnabled ? 'true' : 'false');
     }
+
+    // The Facebook buttons on the landing page. Validated in socialSettings.js
+    // and refused there rather than stored and quietly dropped at render time.
+    const socialError = await writeSocialSettings(req.body || {});
+    if (socialError) return res.status(400).json({ error: socialError });
+
     // The mfaMode block that stood here has gone, and it had to. It read a bare
     // `mfaMode` that the destructure above deliberately stopped providing — so
     // this endpoint threw a ReferenceError on every call and the registration
