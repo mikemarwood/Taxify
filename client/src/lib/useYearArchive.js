@@ -32,12 +32,30 @@ export function useYearArchive() {
     setReceived(0);
     setTotal(0);
 
+    const entityId = getEntityId();
+    const archiveUrl = `/api/export/year/${encodeURIComponent(financialYear)}.zip${
+      entityId ? `?entityId=${entityId}` : ''
+    }`;
+
+    // In the Android app, let the phone fetch it.
+    //
+    // The progress below works by reading the response in JavaScript and then
+    // handing the finished bytes over as a blob: URL. Android's download
+    // manager cannot fetch a blob: — it runs outside the webview and has no
+    // access to whatever created it — so in the app that is a download which
+    // silently never happens. A plain navigation reaches the DownloadListener
+    // in MainActivity instead, which saves the file properly and shows its own
+    // progress in the notification shade. Losing our progress bar inside the
+    // app is a fair trade for the file arriving at all.
+    if (typeof navigator !== 'undefined' && /TaxifyAndroid/i.test(navigator.userAgent || '')) {
+      window.location.assign(archiveUrl);
+      setStage('done');
+      setTimeout(() => setStage('idle'), 4000);
+      return;
+    }
+
     try {
-      const entityId = getEntityId();
-      const res = await fetch(
-        `/api/export/year/${encodeURIComponent(financialYear)}.zip${entityId ? `?entityId=${entityId}` : ''}`,
-        { credentials: 'include' }
-      );
+      const res = await fetch(archiveUrl, { credentials: 'include' });
 
       if (!res.ok) {
         // The failure body is JSON; the success body is a zip.

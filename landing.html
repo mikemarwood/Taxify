@@ -137,6 +137,9 @@
      off with it. */
   .hero-shot {
     position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
     max-width: 1000px;
     margin: 0 auto clamp(40px, 7vw, 76px);
     padding: 0 clamp(12px, 3vw, 24px);
@@ -153,6 +156,29 @@
     z-index: 0;
   }
   .hero-shot img { position: relative; z-index: 1; display: block; width: 100%; height: auto; }
+  /* The way to a flat, readable copy. The tablet is angled, so the dashboard
+     on it can be seen but not read, and this is the only thing on the page
+     worth opening full size. */
+  .hero-zoom {
+    position: relative;
+    z-index: 1;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 16px;
+    padding: 8px 16px;
+    border-radius: 999px;
+    border: 1px solid var(--border);
+    background: var(--bg-elevated);
+    color: var(--text);
+    font-size: 13px;
+    font-weight: 600;
+    text-decoration: none;
+    transition: border-color .15s ease, background .15s ease;
+  }
+  .hero-zoom svg { color: var(--blue); flex-shrink: 0; }
+  .hero-zoom:hover { border-color: var(--blue); background: rgba(59, 130, 246, .12); }
+  .hero-zoom:focus-visible { outline: 2px solid var(--blue); outline-offset: 3px; }
   .hero-actions { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
   .hero-note { font-size: 12.5px; color: var(--text-muted); margin-top: 18px; }
 
@@ -359,11 +385,7 @@
     border-radius: 14px;
     border: 1px solid var(--border);
     background: var(--bg-card);
-    cursor: zoom-in;
-    transition: transform .18s ease-out, box-shadow .18s ease-out;
   }
-  .shot-panel img:hover { transform: translateY(-2px); box-shadow: 0 18px 40px -22px rgba(0,0,0,.55); }
-  .shot-panel img:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
   /* Nothing needs an off-centre crop at the moment.
 
      This carried a .crop-right rule for the expense-list screenshot, which was
@@ -490,10 +512,6 @@
      of the image, throwing away what they were reading with no way back but
      finding the thumbnail again. The cross is deliberate; a click that lands
      beside the picture usually is not. */
-  /* The wrapper around each picture is a link now. Without this it inherits
-     the page link colour and underline, and draws a box round the image. */
-  .shot-open { display: block; text-decoration: none; color: inherit; border: 0; }
-  .shot-open:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
   /* No position on the close button here.
 
      This rule used to name it alongside the figure and set position:
@@ -517,7 +535,8 @@
       border-radius: 0;
       border: 0;
     }
-    .lightbox .shotbox-close { top: 10px; right: 10px; }
+    .lightbox .shotbox-close,
+    .notebox .shotbox-close { top: 10px; right: 10px; }
   }
 
   /* Turn the picture, on a phone held upright.
@@ -867,9 +886,15 @@
          Cut out with a real alpha channel so it sits on the page rather than
          in a box on it — the file arrived as a JPEG with a chequerboard
          painted into the pixels, which is not the same thing as transparency.
-         Not a lightbox: it is already as large as the page can show it. -->
+         The tablet is angled, so the dashboard on it can be seen but not read
+         — hence the button below it, which opens that screenshot flat and
+         full size. -->
     <div class="hero-shot">
       <img src="/media/hero-tablet.png" alt="Taxify open on a tablet, showing a year's deductions totalled by category" width="1100" height="646" fetchpriority="high" decoding="async">
+      <a class="hero-zoom" href="#dashboard-full">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5M8 11h6M11 8v6"/></svg>
+        See the dashboard full size
+      </a>
     </div>
 
 
@@ -966,9 +991,9 @@
       </div>
     </section>
 
-    <section class="shots-wrap" aria-label="What Taxify looks like">
+    <section class="shots-wrap" aria-label="How the process works">
       <div class="section-head">
-        <h2>What it actually looks like</h2>
+        <h2>The process, in three pictures</h2>
         <p>The whole job is the first panel. The other two happen on their own.</p>
       </div>
       <div class="shots">
@@ -981,7 +1006,7 @@
                JPEG, not PNG: this one is a photograph, and the same picture
                as a PNG is eight times the bytes for no visible gain.
                Overwrite that file, keeping its name. -->
-          <a class="shot-open" href="#shot-capture" aria-label="See this larger"><img src="/media/shot-capture.jpg" alt="A café receipt on a wooden table being photographed with a phone, the shot already framed on screen" width="1083" height="693" loading="lazy"></a>
+          <img src="/media/shot-capture.jpg" alt="A café receipt on a wooden table being photographed with a phone, the shot already framed on screen" width="1083" height="693" loading="lazy">
           <span class="shot-step">You do this</span>
           <div class="shot-title">Photograph it and move on</div>
           <div class="shot-text">One tap at the counter. Taxify reads the date and the total, and files it under the right category and year.</div>
@@ -995,19 +1020,20 @@
                        crop. Change the width and height below to match
                        whatever replaces it.
                Overwrite that file, keeping its name. -->
-          <a class="shot-open" href="#shot-expenses" aria-label="See this larger"><img src="/media/shot-expenses.jpg" alt="A laptop, a tablet and a phone side by side on a wooden desk" width="1400" height="1050" loading="lazy"></a>
+          <img src="/media/shot-expenses.jpg" alt="A laptop, a tablet and a phone side by side on a wooden desk" width="1400" height="1050" loading="lazy">
           <span class="shot-step">Taxify does this</span>
           <div class="shot-title">Everything in one place</div>
           <div class="shot-text">The same books on your phone, your tablet and your computer. Sorted, searchable, with the receipt attached to the expense — so a question in two years takes a moment, not an afternoon.</div>
         </div>
         <div class="shot-panel">
           <!-- REPLACE THIS IMAGE
-               File:   client/public/media/shot-dashboard.png
-               Shows:  a year already added up — totals, top category, where it went
-               Size:   1719x885 today; any wide screenshot works, but change
-                       the width and height below to match it
-               Overwrite that file, keeping its name. -->
-          <a class="shot-open" href="#shot-reports" aria-label="See this larger"><img src="/media/shot-dashboard.png" alt="A year of deductions already added up: the total claimed, the top category, and where the money went" width="1719" height="885" loading="lazy"></a>
+               File:   client/public/media/shot-reports.jpg
+               Shows:  figures, charted
+               Size:   1400x1050, already 4:3 — the shape the panel crops to.
+               The dashboard screenshot this replaced is not gone: it is on the
+               tablet at the top of the page, and behind the button beside it,
+               where it is large enough to actually read. -->
+          <img src="/media/shot-reports.jpg" alt="A printed bar chart in blues, each bar a different total" width="1400" height="1050" loading="lazy">
           <span class="shot-step">Come tax time</span>
           <div class="shot-title">The numbers, already added up</div>
           <div class="shot-text">Your year totalled, sorted by category, with every receipt behind it. Hand it to your accountant, or copy it straight into your return.</div>
@@ -1301,6 +1327,17 @@
        Always in the page; :target is what shows it. The button itself is
        written by the server, which is the only thing that knows what you are
        reading this on — see landingAppDownload.js. -->
+  <!-- The dashboard, flat and full size, behind the button under the tablet.
+       The three process pictures below are not clickable — two of them are
+       photographs, and enlarging a photograph tells nobody anything. This one
+       is the screenshot, and it is the only thing here worth a closer look. -->
+  <div class="lightbox" id="dashboard-full" role="dialog" aria-label="The Taxify dashboard">
+    <a class="shotbox-close" href="#" aria-label="Close the image" title="Close">&times;</a>
+    <figure>
+      <img src="/media/shot-dashboard.png" alt="A year of deductions already added up: the total claimed, the top category, and where the money went" loading="lazy">
+    </figure>
+  </div>
+
   <div class="notebox" id="android-only" role="dialog" aria-label="About the Android app">
     <a class="shotbox-close" href="#" aria-label="Close" title="Close">&times;</a>
     <div class="notebox-card">
@@ -1314,24 +1351,6 @@
     </div>
   </div>
 
-  <div class="lightbox" id="shot-capture" role="dialog" aria-label="Screenshot">
-    <a class="shotbox-close" href="#" aria-label="Close the image" title="Close">&times;</a>
-    <figure>
-      <img src="/media/shot-capture.jpg" alt="A café receipt on a wooden table being photographed with a phone, the shot already framed on screen" loading="lazy">
-    </figure>
-  </div>
-  <div class="lightbox" id="shot-expenses" role="dialog" aria-label="Screenshot">
-    <a class="shotbox-close" href="#" aria-label="Close the image" title="Close">&times;</a>
-    <figure>
-      <img src="/media/shot-expenses.jpg" alt="A laptop, a tablet and a phone side by side on a wooden desk" loading="lazy">
-    </figure>
-  </div>
-  <div class="lightbox" id="shot-reports" role="dialog" aria-label="Screenshot">
-    <a class="shotbox-close" href="#" aria-label="Close the image" title="Close">&times;</a>
-    <figure>
-      <img src="/media/shot-dashboard.png" alt="A year of deductions already added up: the total claimed, the top category, and where the money went" loading="lazy">
-    </figure>
-  </div>
 
 
   <script>

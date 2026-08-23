@@ -33,8 +33,8 @@ export default function ReceiptLightbox({ url, filename, onClose }) {
           alignItems: 'center',
           justifyContent: 'center',
           zIndex: 1300,
-          padding: 20,
         }}
+        className="receipt-backdrop"
         // Clicking outside deliberately does nothing.
         //
         // A receipt is looked at, dragged and zoomed, and any of those can
@@ -49,12 +49,13 @@ export default function ReceiptLightbox({ url, filename, onClose }) {
           animate={{ opacity: 1, y: 0, scale: 1 }}
           exit={{ opacity: 0, y: 8, scale: 0.97 }}
           transition={{ duration: 0.2, ease: 'easeOut' }}
-          className="card"
+          // Sized in theme.css rather than here, so a phone can be given the
+          // whole window. An inline width cannot be overridden by a media
+          // query without !important, and a receipt in a 90vw card with 20px
+          // of backdrop around it is a small picture of a small picture.
+          className="card receipt-viewer"
           style={{
             position: 'relative',
-            width: 'min(900px, 90vw)',
-            height: '85vh',
-            padding: 16,
             display: 'flex',
             flexDirection: 'column',
             gap: 12,

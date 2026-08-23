@@ -143,6 +143,18 @@
       Not required: the device does not have to have a camera. Somebody on a
       tablet without one can still attach a file.
     -->
+    <!--
+      Only for Android 9 and below, where writing a download into the public
+      Downloads folder still needed permission. From Android 10 the download
+      manager handles that itself, which is why this is capped — asking a
+      modern phone for storage access it does not need is how an app gets
+      declined. MainActivity falls back to its own folder if the write is
+      refused anyway.
+    -->
+    <uses-permission
+        android:name="android.permission.WRITE_EXTERNAL_STORAGE"
+        android:maxSdkVersion="28" />
+
     <uses-permission android:name="android.permission.CAMERA" />
     <uses-feature android:name="android.hardware.camera" android:required="false" />
 </manifest>

@@ -72,13 +72,67 @@ export default function ZoomableReceipt({ url, filename, style, showHint = true 
     return () => node.removeEventListener('wheel', onWheel);
   }, [zoomable]);
 
+  // Pinch, which is the only way to zoom on a phone.
+  //
+  // There was none, and touchAction is 'none' so the browser's own pinch was
+  // switched off as well — between the two, a receipt on a phone could not be
+  // enlarged at all. A wheel is not available on a touchscreen and was the
+  // only thing wired up.
+  //
+  // Both fingers are tracked here rather than through the drag path, because
+  // the second finger landing has to stop the pan cleanly: without that, the
+  // image lurches as the midpoint jumps between the two.
+  const pointersRef = useRef(new Map());
+  const pinchRef = useRef(null);
+
+  function midpointIn(node) {
+    const points = [...pointersRef.current.values()];
+    const rect = node.getBoundingClientRect();
+    const x = (points[0].x + points[1].x) / 2;
+    const y = (points[0].y + points[1].y) / 2;
+    return {
+      cx: x - (rect.left + rect.width / 2),
+      cy: y - (rect.top + rect.height / 2),
+      distance: Math.hypot(points[0].x - points[1].x, points[0].y - points[1].y),
+    };
+  }
+
   function onPointerDown(e) {
+    pointersRef.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    e.currentTarget.setPointerCapture(e.pointerId);
+
+    if (pointersRef.current.size === 2) {
+      dragRef.current = null; // a pinch is starting; stop panning
+      const { distance, cx, cy } = midpointIn(e.currentTarget);
+      pinchRef.current = { distance, cx, cy, zoom, offset };
+      return;
+    }
     if (zoom === MIN_ZOOM) return;
     dragRef.current = { startX: e.clientX, startY: e.clientY, origin: offset };
-    e.currentTarget.setPointerCapture(e.pointerId);
   }
 
   function onPointerMove(e) {
+    if (pointersRef.current.has(e.pointerId)) {
+      pointersRef.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    }
+
+    const pinch = pinchRef.current;
+    if (pinch && pointersRef.current.size === 2) {
+      const { distance } = midpointIn(e.currentTarget);
+      if (!distance || !pinch.distance) return;
+      const next = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, pinch.zoom * (distance / pinch.distance)));
+      // The point between the fingers stays between the fingers — the same
+      // correction the wheel makes around the cursor.
+      const ratio = next / pinch.zoom;
+      setZoom(next);
+      setOffset(
+        next === MIN_ZOOM
+          ? { x: 0, y: 0 }
+          : { x: pinch.cx - (pinch.cx - pinch.offset.x) * ratio, y: pinch.cy - (pinch.cy - pinch.offset.y) * ratio }
+      );
+      return;
+    }
+
     const drag = dragRef.current;
     if (!drag) return;
     setOffset({
@@ -88,7 +142,8 @@ export default function ZoomableReceipt({ url, filename, style, showHint = true 
   }
 
   function endDrag(e) {
-    if (!dragRef.current) return;
+    pointersRef.current.delete(e.pointerId);
+    if (pointersRef.current.size < 2) pinchRef.current = null;
     dragRef.current = null;
     if (e.currentTarget.hasPointerCapture?.(e.pointerId)) e.currentTarget.releasePointerCapture(e.pointerId);
   }

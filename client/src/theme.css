@@ -934,3 +934,31 @@ input[type="date"].input::-webkit-calendar-picker-indicator:hover { opacity: 1; 
   .reports-year > * { flex: 1 1 auto; }
   .reports-actions .btn { width: 100%; justify-content: center; }
 }
+
+/* The receipt viewer.
+   Sized here rather than inline so a phone can be given the whole window: an
+   inline width cannot be overridden by a media query without !important, and
+   on a handset a 90vw card inside 20px of backdrop is a small picture of a
+   small picture — which is most of why a receipt could not be read on a
+   phone. */
+.receipt-backdrop { padding: 20px; }
+.receipt-viewer {
+  width: min(900px, 90vw);
+  height: 85vh;
+  padding: 16px;
+}
+
+@media (max-width: 720px) {
+  /* Edge to edge, and the full height including behind the browser chrome —
+     dvh rather than vh, or the toolbar sliding away leaves a gap. */
+  .receipt-backdrop { padding: 0; }
+  .receipt-viewer {
+    width: 100vw;
+    height: 100dvh;
+    max-width: none;
+    border-radius: 0;
+    border: 0;
+    padding: 10px calc(10px + env(safe-area-inset-right)) calc(10px + env(safe-area-inset-bottom))
+      calc(10px + env(safe-area-inset-left));
+  }
+}

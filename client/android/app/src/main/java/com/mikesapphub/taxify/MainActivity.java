@@ -34,12 +34,90 @@ public class MainActivity extends BridgeActivity {
             }
         }
 
+        // Downloads. Without this, every one of them silently does nothing.
+        //
+        // A webview has no download manager of its own. When a navigation comes
+        // back as Content-Disposition: attachment — which is every receipt,
+        // every export and every archive — the webview cannot render it, so it
+        // hands the URL to a DownloadListener. With none set, that is the end of
+        // it: no file, no error, nothing in the log. Pressing Download in the
+        // app did nothing whatsoever, which is why it looked like a dead button.
+        if (getBridge() != null && getBridge().getWebView() != null) {
+            getBridge().getWebView().setDownloadListener(this::downloadThroughSystem);
+        }
+
         NotificationHelper.ensureChannel(this);
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU && !NotificationHelper.hasPermission(this)) {
             notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS);
         }
 
         openLink(getIntent());
+    }
+
+    /**
+     * Hand a download to Android's own download manager.
+     *
+     * Two things matter here beyond enqueuing it.
+     *
+     * The cookie. Every one of these files is behind a login, and the download
+     * manager makes its own request from outside the webview with none of its
+     * state — so without the session cookie copied across, the server answers
+     * every download with a sign-in page and the user gets an HTML file called
+     * receipt.pdf.
+     *
+     * And where it lands. The public Downloads folder is where somebody will
+     * look for it, but writing there needs a permission on Android 9 and below.
+     * Rather than ask for storage access on a modern phone that does not need
+     * it, the public folder is tried and the app's own downloads folder catches
+     * the fall — a file in an awkward place beats no file.
+     */
+    private void downloadThroughSystem(
+        String url,
+        String userAgent,
+        String contentDisposition,
+        String mimeType,
+        long contentLength
+    ) {
+        if (url == null || !(url.startsWith("http://") || url.startsWith("https://"))) {
+            // blob: and data: cannot be fetched by the download manager, which
+            // has no access to the page that made them. The web side keeps those
+            // off this path — see useYearArchive.js.
+            android.widget.Toast.makeText(this, "That file could not be saved", android.widget.Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        final String name = android.webkit.URLUtil.guessFileName(url, contentDisposition, mimeType);
+
+        try {
+            android.app.DownloadManager.Request request = new android.app.DownloadManager.Request(Uri.parse(url));
+
+            String cookie = android.webkit.CookieManager.getInstance().getCookie(url);
+            if (cookie != null) request.addRequestHeader("Cookie", cookie);
+            if (userAgent != null) request.addRequestHeader("User-Agent", userAgent);
+
+            request.setTitle(name);
+            request.setDescription("Taxify");
+            if (mimeType != null) request.setMimeType(mimeType);
+            request.setNotificationVisibility(
+                android.app.DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED
+            );
+
+            try {
+                request.setDestinationInExternalPublicDir(android.os.Environment.DIRECTORY_DOWNLOADS, name);
+            } catch (Exception outside) {
+                request.setDestinationInExternalFilesDir(this, android.os.Environment.DIRECTORY_DOWNLOADS, name);
+            }
+
+            android.app.DownloadManager manager =
+                (android.app.DownloadManager) getSystemService(android.content.Context.DOWNLOAD_SERVICE);
+            if (manager == null) throw new IllegalStateException("no download manager on this device");
+            manager.enqueue(request);
+
+            android.widget.Toast.makeText(this, "Saving " + name, android.widget.Toast.LENGTH_SHORT).show();
+        } catch (Exception err) {
+            android.util.Log.e("Taxify", "Could not download " + name, err);
+            android.widget.Toast.makeText(this, "Could not save " + name, android.widget.Toast.LENGTH_LONG).show();
+        }
     }
 
     @Override
