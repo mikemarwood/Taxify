@@ -821,6 +821,82 @@
   .cta-card h2 { margin: 0 0 12px; }
   .cta-card p { color: var(--text-muted); font-size: 15px; max-width: 480px; margin: 0 auto 24px; }
 
+  /* The two blocks that close the page.
+     Both exist because the end of the page was thin, and both say only things
+     that are true — every claim here is one the code actually keeps. */
+  .assurances {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+    gap: clamp(14px, 2.5vw, 22px);
+    max-width: 1000px;
+    margin: 0 auto clamp(48px, 8vw, 88px);
+  }
+  .assurance {
+    display: flex;
+    gap: 13px;
+    align-items: flex-start;
+    padding: 18px 20px;
+    border-radius: 14px;
+    border: 1px solid var(--border);
+    background: var(--bg-card);
+  }
+  .assurance-icon {
+    --tint: 59, 130, 246;
+    width: 34px;
+    height: 34px;
+    flex-shrink: 0;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: rgb(var(--tint));
+    background: linear-gradient(135deg, rgba(var(--tint), .20), rgba(var(--tint), .07));
+  }
+  .assurance:nth-child(2) .assurance-icon { --tint: 16, 185, 129; }
+  .assurance:nth-child(3) .assurance-icon { --tint: 139, 122, 246; }
+  .assurance:nth-child(4) .assurance-icon { --tint: 245, 158, 11; }
+  .assurance-title { font-size: 14px; font-weight: 700; margin-bottom: 3px; }
+  .assurance-text { font-size: 12.5px; color: var(--text-muted); line-height: 1.55; }
+
+  /* Questions, answered without a line of script — <details> is a browser
+     feature, and the hub proxy strips every script from this page. */
+  .faq { max-width: 780px; margin: 0 auto; display: flex; flex-direction: column; gap: 10px; }
+  .faq details {
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    background: var(--bg-card);
+    overflow: hidden;
+  }
+  .faq summary {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 14px;
+    padding: 16px 18px;
+    font-size: 14.5px;
+    font-weight: 600;
+    cursor: pointer;
+    list-style: none;
+  }
+  .faq summary::-webkit-details-marker { display: none; }
+  .faq summary::after {
+    content: '';
+    width: 9px;
+    height: 9px;
+    flex-shrink: 0;
+    border-right: 2px solid var(--text-muted);
+    border-bottom: 2px solid var(--text-muted);
+    transform: rotate(45deg) translate(-2px, -2px);
+    transition: transform .18s ease;
+  }
+  .faq details[open] summary::after { transform: rotate(-135deg) translate(-2px, -2px); }
+  .faq details[open] summary { border-bottom: 1px solid var(--border); }
+  .faq-answer { padding: 14px 18px 18px; font-size: 13.5px; color: var(--text-muted); line-height: 1.65; }
+  .faq-answer a { color: var(--blue); }
+  @media (prefers-reduced-motion: reduce) {
+    .faq summary::after { transition: none; }
+  }
+
   footer { text-align: center; font-size: 12px; color: var(--text-muted); padding: 16px 20px; }
   footer a { color: var(--blue); }
   /* The Facebook buttons, when the admin panel has switched them on.
@@ -1023,12 +1099,12 @@
         <div class="shot-panel">
           <!-- REPLACE THIS IMAGE
                File:   client/public/media/shot-reports.jpg
-               Shows:  figures, charted
+               Shows:  printed statements and a summary on a desk
                Size:   1400x1050, already 4:3 — the shape the panel crops to.
                The dashboard screenshot this replaced is not gone: it is on the
                tablet at the top of the page, and behind the button beside it,
                where it is large enough to actually read. -->
-          <img src="/media/shot-reports.jpg" alt="A printed bar chart in blues, each bar a different total" width="1400" height="1050" loading="lazy">
+          <img src="/media/shot-reports.jpg" alt="Printed statements and a summary on a wooden desk, the year already totalled" width="1400" height="1050" loading="lazy">
           <span class="shot-step">Come tax time</span>
           <div class="shot-title">The numbers, already added up</div>
           <div class="shot-text">Your year totalled, sorted by category, with every receipt behind it. Hand it to your accountant, or copy it straight into your return.</div>
@@ -1154,6 +1230,79 @@
       <p>Start your 14-day free trial and have your first expense logged before your coffee's cold.</p>
       <a href="https://taxify.mikesapphub.com/app/login" class="btn btn-primary btn-lg" id="cta">Continue to Taxify</a>
     </section>
+    <!-- What is promised, kept to what the code actually does. Every line
+         here is checkable against the app: the two-factor rule, the way a
+         receipt is served, how accountant access expires, and what comes out
+         of an export. -->
+    <section aria-label="What you can rely on">
+      <div class="assurances">
+        <div class="assurance">
+          <div class="assurance-icon"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg></div>
+          <div>
+            <div class="assurance-title">Two-factor, always</div>
+            <div class="assurance-text">A code at every sign-in, on every account. It is not a setting and it cannot be switched off.</div>
+          </div>
+        </div>
+        <div class="assurance">
+          <div class="assurance-icon"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg></div>
+          <div>
+            <div class="assurance-title">Your receipts are yours</div>
+            <div class="assurance-text">Served back only to the account that owns them, and you can pull every one of them out in a single zip whenever you like.</div>
+          </div>
+        </div>
+        <div class="assurance">
+          <div class="assurance-icon"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></div>
+          <div>
+            <div class="assurance-title">Accountant access expires</div>
+            <div class="assurance-text">Read-only or full, for the years you choose, and it closes by itself 24 hours after they first open your books.</div>
+          </div>
+        </div>
+        <div class="assurance">
+          <div class="assurance-icon"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M3 12h18"/><path d="M12 3a15 15 0 0 1 0 18a15 15 0 0 1 0-18"/></svg></div>
+          <div>
+            <div class="assurance-title">49 countries</div>
+            <div class="assurance-text">Your financial year is your country&rsquo;s — 1 July, 6 April, 1 March or 1 January — worked out for you rather than assumed.</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section aria-label="Questions">
+      <div class="section-head">
+        <h2>Questions people ask first</h2>
+      </div>
+      <div class="faq">
+        <details>
+          <summary>Do I need to know anything about accounting?</summary>
+          <div class="faq-answer">No. You photograph a receipt and it is filed &mdash; right category, right year, right set of books. The categories are there from the first day and carry forward into each new year, so there is nothing to set up and nothing to retype.</div>
+        </details>
+        <details>
+          <summary>What happens when tax time comes?</summary>
+          <div class="faq-answer">One click gives you a zip: a summary spreadsheet, a PDF, and every receipt in folders with each one linked from the sheet. Hand that to your accountant, or copy the totals straight into your return.</div>
+        </details>
+        <details>
+          <summary>Can my accountant use it with me?</summary>
+          <div class="faq-answer">Yes. You invite them by email and choose what they get &mdash; a read-only look, or the ability to file receipts on your behalf &mdash; limited to the years you pick. Access closes by itself 24 hours after they first open your books, and you can revoke it before then.</div>
+        </details>
+        <details>
+          <summary>What if I stop paying? Do I lose everything?</summary>
+          <div class="faq-answer">No. Everything you have entered can be exported at any time, in formats that are readable without Taxify &mdash; a spreadsheet, a PDF and the original receipt files. Nothing is locked in a format only we can open.</div>
+        </details>
+        <details>
+          <summary>Does it work outside Australia?</summary>
+          <div class="faq-answer">Yes, in 49 countries. The financial year follows the country on your account rather than a default: 1 July in Australia, 6 April in the UK, 1 April in New Zealand, India and Japan, 1 March in South Africa, 1 January in much of the rest of the world.</div>
+        </details>
+        <details>
+          <summary>Is there an app, or is it only a website?</summary>
+          <div class="faq-answer">Both. It runs in the browser on any phone, tablet or computer with nothing to install, and there is an Android app if you would rather have one. There is no iPhone app yet &mdash; the browser version is the same product.</div>
+        </details>
+        <details>
+          <summary>What does it cost, and is there a catch?</summary>
+          <div class="faq-answer">One payment a year, and both plans start with the same 14-day free trial &mdash; no card until you have decided. No per-receipt fees, no add-ons, and you can cancel whenever you like. The fee itself is deductible.</div>
+        </details>
+      </div>
+    </section>
+
   </main>
 
   <footer>
