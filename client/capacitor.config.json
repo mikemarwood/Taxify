@@ -5,7 +5,8 @@
   "server": {
     "url": "https://taxify.mikesapphub.com/app",
     "androidScheme": "https",
-    "cleartext": false
+    "cleartext": false,
+    "errorPath": "offline.html"
   },
   "android": {
     "backgroundColor": "#0a0f18",

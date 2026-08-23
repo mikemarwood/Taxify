@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Taxify — No connection</title>
+<meta name="theme-color" content="#0a0f18">
+<!--
+  The page the app shows when it cannot reach the server.
+
+  Taxify's Android app is a WebView pointed at the live site, so with no
+  connection the WebView falls back to Chrome's own ERR_INTERNET_DISCONNECTED
+  screen — a grey dinosaur and a URL, which looks like the app is broken rather
+  than like the phone is offline. Capacitor's server.errorPath hands that moment
+  to this file instead.
+
+  Two consequences worth knowing before editing it:
+
+  1. It is loaded from the app's own bundle at https://localhost/offline.html,
+     not from the server — so everything here has to be self-contained. No
+     fonts, no stylesheets, no images fetched from anywhere. If it needed the
+     network it could never be shown.
+
+  2. Capacitor loads it for HTTP errors as well as network ones, so it must not
+     insist the phone is offline. It says what it knows: the app could not
+     reach Taxify, and here is which of the two it looks like.
+-->
+<style>
+  :root {
+    --bg: #0a0f18;
+    --card: #101825;
+    --text: #e8eef7;
+    --muted: #93a3b8;
+    --blue: #3b82f6;
+    --border: rgba(255, 255, 255, 0.09);
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; }
+  body {
+    background: var(--bg);
+    background-image: radial-gradient(120% 80% at 50% 0%, rgba(37, 99, 235, 0.22) 0%, rgba(10, 15, 24, 0) 62%);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    /* Clear of the notch and the gesture bar — this is full-screen in the app. */
+    padding-top: calc(24px + env(safe-area-inset-top));
+    padding-bottom: calc(24px + env(safe-area-inset-bottom));
+    text-align: center;
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap { width: 100%; max-width: 340px; }
+
+  /* The mark, with a slow ring going out from it.
+     Something has to move, or a page that appears the instant the network
+     drops reads as the app having frozen at the worst possible moment. */
+  .mark {
+    position: relative;
+    width: 72px;
+    height: 72px;
+    margin: 0 auto 22px;
+  }
+  .mark svg { position: relative; z-index: 1; display: block; border-radius: 16px; }
+  .mark::after {
+    content: "";
+    position: absolute;
+    inset: -6px;
+    border-radius: 22px;
+    border: 1px solid rgba(59, 130, 246, 0.5);
+    animation: pulse 2.4s ease-out infinite;
+  }
+  @keyframes pulse {
+    0% { transform: scale(0.94); opacity: 0.85; }
+    70% { transform: scale(1.22); opacity: 0; }
+    100% { transform: scale(1.22); opacity: 0; }
+  }
+
+  h1 { font-size: 21px; font-weight: 800; margin: 0 0 10px; letter-spacing: -0.3px; }
+  p { font-size: 14.5px; line-height: 1.6; color: var(--muted); margin: 0 0 22px; }
+
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 9px;
+    width: 100%;
+    min-height: 46px;
+    padding: 12px 20px;
+    font: inherit;
+    font-size: 15px;
+    font-weight: 700;
+    color: #fff;
+    background: linear-gradient(135deg, #2563eb, #1d4ed8);
+    border: 0;
+    border-radius: 11px;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .btn:active { transform: translateY(1px); }
+  .btn[disabled] { opacity: 0.65; }
+
+  .spinner {
+    width: 15px;
+    height: 15px;
+    border: 2px solid rgba(255, 255, 255, 0.35);
+    border-top-color: #fff;
+    border-radius: 50%;
+    animation: spin 0.7s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* Reserved, so the layout does not jump when a message appears. */
+  .status { min-height: 20px; margin-top: 14px; font-size: 13px; color: var(--muted); }
+  .status.warn { color: #fbbf24; }
+
+  .hint {
+    margin-top: 26px;
+    padding-top: 18px;
+    border-top: 1px solid var(--border);
+    font-size: 12.5px;
+    color: var(--muted);
+    line-height: 1.6;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .mark::after, .spinner { animation: none; }
+  }
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="mark">
+      <!-- The same mark as logo.svg, inline because nothing here may be
+           fetched. Money out, money back: the two arrows are a 180° rotation
+           of each other about the centre. -->
+      <svg width="72" height="72" viewBox="0 0 128 128" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Taxify">
+        <defs>
+          <linearGradient id="g" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stop-color="#1e6ad4"/>
+            <stop offset="55%" stop-color="#1559b8"/>
+            <stop offset="100%" stop-color="#0f3f8a"/>
+          </linearGradient>
+        </defs>
+        <rect width="128" height="128" rx="26" fill="url(#g)"/>
+        <rect x="30" y="40" width="50" height="13" rx="6.5" fill="#7cb8ff"/>
+        <path d="M74 30 100 46.5 74 63Z" fill="#7cb8ff"/>
+        <rect x="48" y="76" width="50" height="13" rx="6.5" fill="#ffffff"/>
+        <path d="M54 66 28 82.5 54 99Z" fill="#ffffff"/>
+      </svg>
+    </div>
+
+    <h1 id="title">You&rsquo;re offline</h1>
+    <p id="body">Taxify needs a connection to load your books. Nothing you have entered is lost — it is on the server waiting for you.</p>
+
+    <button class="btn" id="retry" type="button">
+      <span id="retry-spinner" hidden></span>
+      <span id="retry-label">Try again</span>
+    </button>
+
+    <div class="status" id="status" role="status" aria-live="polite"></div>
+
+    <div class="hint">Check Wi&#8209;Fi or mobile data, then try again. This page reconnects on its own the moment the phone is back online.</div>
+  </div>
+
+<script>
+  (function () {
+    // Kept in step with server.url in client/capacitor.config.json. The error
+    // page is served from the app's own bundle, so it has no way to ask what
+    // the app was pointed at — this is the one place it has to be repeated.
+    var APP_URL = 'https://taxify.mikesapphub.com/app';
+
+    var retry = document.getElementById('retry');
+    var label = document.getElementById('retry-label');
+    var spinner = document.getElementById('retry-spinner');
+    var status = document.getElementById('status');
+    var title = document.getElementById('title');
+    var body = document.getElementById('body');
+    var going = false;
+
+    // Capacitor shows this page for a server error as well as a dropped
+    // connection, and telling somebody with four bars that they are offline is
+    // both wrong and unhelpful — they would go and check their Wi-Fi.
+    if (navigator.onLine) {
+      title.textContent = 'Can’t reach Taxify';
+      body.textContent =
+        'Your connection looks fine, so this is probably at our end or a network that is blocking the app. ' +
+        'Nothing you have entered is lost.';
+    }
+
+    function say(text, warn) {
+      status.textContent = text || '';
+      status.className = warn ? 'status warn' : 'status';
+    }
+
+    function go() {
+      if (going) return;
+
+      // Checked first so the common case does not flash: without this, tapping
+      // with no signal reloads the same page and looks like a dead button.
+      if (!navigator.onLine) {
+        say('Still no connection — check Wi‑Fi or mobile data.', true);
+        return;
+      }
+
+      going = true;
+      retry.disabled = true;
+      spinner.hidden = false;
+      spinner.className = 'spinner';
+      label.textContent = 'Reconnecting…';
+      say('');
+
+      // replace, not assign: a failed attempt must not stack up in the back
+      // stack, or the phone's back button walks through every one of them.
+      window.location.replace(APP_URL);
+    }
+
+    retry.addEventListener('click', go);
+
+    // Back on its own the moment the phone is, so somebody who walks into
+    // signal does not have to be told to press anything.
+    window.addEventListener('online', function () {
+      say('Back online — reconnecting…');
+      setTimeout(go, 600);
+    });
+    window.addEventListener('offline', function () {
+      say('Connection lost.', true);
+    });
+  })();
+</script>
+</body>
+</html>
