@@ -76,14 +76,6 @@ export default function ReceiptDropzone({ file, onFileChange, uploadProgress, st
     inputRef.current?.click();
   }, [busy]);
 
-  // Tapping the box itself. On a phone that means the camera: somebody adding
-  // a receipt from their pocket is standing in front of the thing they are
-  // photographing. At a desk it means the file browser.
-  const openDefaultPicker = useCallback(() => {
-    if (isMobile) openCamera();
-    else openBrowse();
-  }, [isMobile, openCamera, openBrowse]);
-
   // Only reached when the in-app camera cannot run at all. Hands over to the
   // native capture input, which is second choice rather than first because it
   // is the path whose lens we do not control — but a camera app with the wrong
@@ -122,34 +114,39 @@ export default function ReceiptDropzone({ file, onFileChange, uploadProgress, st
         setDragOver(false);
         if (!busy) handleFiles(e.dataTransfer.files);
       }}
-      // The whole box, not only the buttons inside it.
+      // Clickable at a desk, inert on a phone.
       //
-      // It was already meant to be clickable, but on a phone the two buttons
-      // took the eye and the area around them read as decoration — so the
-      // thing most people tapped first, the words "Add a receipt", was the one
-      // part that appeared to do nothing. On a phone it now opens the camera,
-      // which is what somebody standing at a counter wants; on a desktop it
-      // opens the file browser, which is what somebody at a desk wants.
+      // On a desktop the box is a dropzone and says so — "Drop a receipt here,
+      // or click to browse" — so the whole of it being a target is what the
+      // words promise. It also gets role and a key handler, because a div with
+      // an onClick alone is invisible to a keyboard and announced as nothing.
       //
-      // role and the key handler because a div with an onClick is invisible to
-      // a keyboard and announced as nothing at all.
-      role="button"
-      tabIndex={busy ? -1 : 0}
-      aria-label={isMobile ? 'Take a photo of your receipt' : 'Choose a receipt to attach'}
-      onClick={() => !busy && openDefaultPicker()}
-      onKeyDown={(e) => {
-        if (busy) return;
-        if (e.key === 'Enter' || e.key === ' ') {
-          e.preventDefault();
-          openDefaultPicker();
-        }
-      }}
+      // On a phone it does nothing, deliberately. The card there already holds
+      // two explicit buttons, and a thumb resting anywhere on a large target
+      // that silently opens a camera is a surprise rather than a shortcut. The
+      // buttons say which one you are getting; the card should not guess.
+      {...(isMobile
+        ? {}
+        : {
+            role: 'button',
+            tabIndex: busy ? -1 : 0,
+            'aria-label': 'Choose a receipt to attach',
+            onClick: () => !busy && openBrowse(),
+            onKeyDown: (e) => {
+              if (busy) return;
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                openBrowse();
+              }
+            },
+          })}
       style={{
         border: `2px dashed ${status === 'error' ? 'var(--red)' : dragOver ? 'var(--violet)' : 'var(--border)'}`,
         borderRadius: 12,
         padding: 18,
         textAlign: 'center',
-        cursor: busy ? 'default' : 'pointer',
+        // No pointer cursor where the box does nothing.
+        cursor: busy || isMobile ? 'default' : 'pointer',
         background: status === 'error' ? 'rgba(239, 68, 68, 0.06)' : dragOver ? 'var(--accent-soft)' : 'var(--bg-elevated)',
         transition: 'border-color 0.2s ease, background 0.2s ease',
         position: 'relative',
@@ -273,7 +270,10 @@ export default function ReceiptDropzone({ file, onFileChange, uploadProgress, st
                 <div style={{ display: 'flex', justifyContent: 'center', color: 'var(--text-muted)' }}>
                   <Icon name="receipt" size={26} />
                 </div>
-                <p style={{ marginTop: 6, fontWeight: 600 }}>Tap to photograph a receipt</p>
+                {/* Not "tap to add" — on a phone the card is deliberately not
+                    a target, and a heading that invites a tap would be lying
+                    about the two buttons underneath it. */}
+                <p style={{ marginTop: 6, fontWeight: 600 }}>Add a receipt</p>
                 <p style={{ fontSize: 12.5, color: 'var(--text-muted)', marginBottom: 12 }}>
                   Images, PDF or Word, up to 10MB
                 </p>
