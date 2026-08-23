@@ -3,6 +3,7 @@ import Icon from './Icon.jsx';
 import { useEntities } from '../lib/EntityContext.jsx';
 import ArchiveProgress from './ArchiveProgress.jsx';
 import { useYearArchive } from '../lib/useYearArchive.js';
+import { downloadsWork } from '../lib/canDownload.js';
 
 const itemStyle = {
   padding: '8px 10px',
@@ -51,7 +52,28 @@ export default function ExportMenu({ baseUrl, label = 'Export', archiveYear }) {
         {archive.busy ? <span className="spinner" /> : <Icon name="download" size={15} />}
         {label}
       </button>
-      {open && (
+      {open && !downloadsWork() && (
+        <div
+          className="card"
+          style={{
+            position: 'absolute',
+            top: '110%',
+            right: 0,
+            padding: 14,
+            width: 240,
+            zIndex: 50,
+            fontSize: 12.5,
+            lineHeight: 1.55,
+            color: 'var(--text-muted)',
+          }}
+        >
+          {/* This build of the app cannot save a file — see canDownload.js.
+              Listing four exports that all do nothing is worse than saying so. */}
+          Update the app to export. Everything here works in a browser in the
+          meantime, signed in as usual.
+        </div>
+      )}
+      {open && downloadsWork() && (
         <div
           className="card"
           style={{

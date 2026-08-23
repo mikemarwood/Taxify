@@ -39,10 +39,6 @@ const ANDROID_ICON =
   '<svg width="17" height="17" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">' +
   '<path d="M17.6 9.48l1.84-3.18a.42.42 0 00-.73-.42l-1.86 3.23a11.05 11.05 0 00-9.7 0L5.29 5.88a.42.42 0 00-.73.42L6.4 9.48A10.6 10.6 0 001 18h22a10.6 10.6 0 00-5.4-8.52zM7 15.25a1.25 1.25 0 111.25-1.25A1.25 1.25 0 017 15.25zm10 0a1.25 1.25 0 111.25-1.25A1.25 1.25 0 0117 15.25z"/></svg>';
 
-const DOWNLOAD_ICON =
-  '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" ' +
-  'stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
-  '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 15V3"/></svg>';
 
 // The markup for the app half of the devices bar.
 //
@@ -62,16 +58,19 @@ export function appDownloadHtml({ origin, isAndroid, sizeBytes }) {
     ? `${String(origin || '').replace(/\/$/, '')}/downloads/taxify.apk`
     : '#android-only';
 
+  // One line inside the button and the detail beside it, rather than a second
+  // line of small print crammed in. A button with a subtitle in it reads as a
+  // panel somebody has made into a button.
   return (
-    `<a class="devices-app devices-get" href="${escapeAttribute(href)}"${isAndroid ? ' download' : ''}>` +
+    `<span class="devices-line">` +
+    `<a class="devices-get" href="${escapeAttribute(href)}"${isAndroid ? ' download' : ''}>` +
     ANDROID_ICON +
-    '<span class="devices-get-label">Get the Android app' +
-    `<span class="devices-app-note">${
-      isAndroid ? `Installs directly${size ? ` &middot; ${size}` : ''}` : 'Android only &mdash; what about my phone?'
+    (isAndroid ? 'Download the Android app' : 'Get the Android app') +
+    '</a>' +
+    `<span class="devices-note">${
+      isAndroid ? `Installs directly${size ? ` &middot; ${size}` : ''}` : 'Android only'
     }</span>` +
-    '</span>' +
-    (isAndroid ? DOWNLOAD_ICON : '') +
-    '</a>'
+    '</span>'
   );
 }
 

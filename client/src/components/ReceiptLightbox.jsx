@@ -3,6 +3,7 @@ import { useLockBodyScroll } from '../lib/useLockBodyScroll.js';
 import { motion, AnimatePresence } from 'framer-motion';
 import ZoomableReceipt from './ZoomableReceipt.jsx';
 import Icon from './Icon.jsx';
+import { downloadsWork } from '../lib/canDownload.js';
 
 // Full-screen receipt viewer. The zoom, pan and PDF handling all live in
 // ZoomableReceipt, so this is only the frame around it: the backdrop, the
@@ -98,10 +99,21 @@ export default function ReceiptLightbox({ url, filename, onClose }) {
             <span style={{ flex: 1, minWidth: 0, fontSize: 12.5, color: 'var(--text-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
               {filename}
             </span>
-            <a href={`${url}?download=1`} download className="btn btn-primary" style={{ fontSize: 13 }}>
-              <Icon name="download" size={15} />
-              Download
-            </a>
+            {/* Offered only where it will actually produce a file.
+                Builds of the Android app before the one that set a
+                DownloadListener swallow every download — no file, no error,
+                no message. A button that behaves like that is worse than no
+                button, so those installs are told what to do instead. */}
+            {downloadsWork() ? (
+              <a href={`${url}?download=1`} download className="btn btn-primary" style={{ fontSize: 13 }}>
+                <Icon name="download" size={15} />
+                Download
+              </a>
+            ) : (
+              <span style={{ fontSize: 11.5, color: 'var(--text-muted)', textAlign: 'right', lineHeight: 1.35 }}>
+                Update the app<br />to save files
+              </span>
+            )}
             <button className="btn btn-ghost" style={{ fontSize: 13 }} onClick={onClose}>
               Close
             </button>

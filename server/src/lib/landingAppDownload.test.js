@@ -7,9 +7,9 @@ const BASE = { origin: 'https://taxify.mikesapphub.com', available: true, sizeBy
 
 test('an Android phone is offered the download', () => {
   const out = injectAppDownload(PAGE, { ...BASE, isAndroid: true });
-  assert.match(out, /Get the Android app/);
+  assert.match(out, /Download the Android app/);
   assert.match(out, /downloads\/taxify\.apk/);
-  assert.match(out, /download/);
+  assert.match(out, / download>/, 'the download attribute, not merely the word');
 });
 
 test('everybody else gets the same button, pointed at the explanation', () => {
