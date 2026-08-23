@@ -269,14 +269,13 @@
   }
   .shot-panel img:hover { transform: translateY(-2px); box-shadow: 0 18px 40px -22px rgba(0,0,0,.55); }
   .shot-panel img:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
-  /* Crop a very wide screenshot from the right instead of the middle.
+  /* Nothing needs an off-centre crop at the moment.
 
-     The expense list is 1.86:1. Cropped to 4:3 from the centre it loses 14% off
-     each side, and on that page the right-hand 14% is the amounts column — the
-     thumbnail would have shown a list of expenses with no money in it, next to
-     a sliver of navigation. Anchoring right keeps the figures and drops the
-     sidebar, which is chrome. The lightbox still shows the whole thing. */
-  .shot-panel img.crop-right { object-position: right top; }
+     This carried a .crop-right rule for the expense-list screenshot, which was
+     1.86:1 — cropped to 4:3 from the centre it lost the amounts column off the
+     right-hand side. That screenshot has been replaced by a photograph already
+     cropped to 4:3, so there is nothing left to anchor and the rule went with
+     it. Worth knowing it existed if a very wide screenshot turns up again. */
 
   /* Full size, on a ground dark enough that the screenshot is the only thing
      being looked at.
@@ -839,12 +838,14 @@
         </div>
         <div class="shot-panel">
           <!-- REPLACE THIS IMAGE
-               File:   client/public/media/shot-expenses.png
-               Shows:  the expense list — grouped by category, each group totalled
-               Size:   1743x937 today; change the width and height below to match
-                       whatever replaces it
+               File:   client/public/media/shot-expenses.jpg
+               Shows:  a handful of receipts being gone through at a desk
+               Size:   1400x1050, already 4:3 — the panel crops to that shape,
+                       so supplying it cropped means nothing is lost to the
+                       crop. Change the width and height below to match
+                       whatever replaces it.
                Overwrite that file, keeping its name. -->
-          <a class="shot-open" href="#shot-expenses" aria-label="See this larger"><img class="crop-right" src="/media/shot-expenses.png" alt="The expense list grouped by category — Home Rental, General and Tooling — each entry dated, tagged with its category and totalled, with receipts attached" width="1743" height="937" loading="lazy"></a>
+          <a class="shot-open" href="#shot-expenses" aria-label="See this larger"><img src="/media/shot-expenses.jpg" alt="A handful of paper receipts being sorted through by hand at a desk, with more spread across the table" width="1400" height="1050" loading="lazy"></a>
           <span class="shot-step">Taxify does this</span>
           <div class="shot-title">Everything in one place</div>
           <div class="shot-text">Sorted, searchable, with the receipt attached to the expense — so a question in two years takes a moment, not an afternoon.</div>
@@ -1151,7 +1152,7 @@
   <div class="lightbox" id="shot-expenses" role="dialog" aria-label="Screenshot">
     <a class="shotbox-close" href="#" aria-label="Close the image" title="Close">&times;</a>
     <figure>
-      <img src="/media/shot-expenses.png" alt="The expense list grouped by category — Home Rental, General and Tooling — each entry dated, tagged with its category and totalled, with receipts attached" loading="lazy">
+      <img src="/media/shot-expenses.jpg" alt="A handful of paper receipts being sorted through by hand at a desk, with more spread across the table" loading="lazy">
     </figure>
   </div>
   <div class="lightbox" id="shot-reports" role="dialog" aria-label="Screenshot">
