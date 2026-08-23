@@ -128,6 +128,31 @@
     max-width: 600px;
     margin: 0 auto 36px;
   }
+  /* The tablet under the hero.
+     Big, because it is the only place on the page the whole product is shown
+     at once, and it has a real alpha channel so there is no card or frame
+     around it — it just sits on the page. A soft glow behind it stops it
+     floating on the dark ground with nothing to stand on; the original had a
+     drop shadow, but that shadow was painted over the chequerboard and came
+     off with it. */
+  .hero-shot {
+    position: relative;
+    max-width: 1000px;
+    margin: 0 auto clamp(40px, 7vw, 76px);
+    padding: 0 clamp(12px, 3vw, 24px);
+  }
+  .hero-shot::before {
+    content: '';
+    position: absolute;
+    left: 12%;
+    right: 12%;
+    bottom: 4%;
+    height: 24%;
+    background: radial-gradient(ellipse at center, rgba(37, 99, 235, .30), rgba(37, 99, 235, 0) 70%);
+    filter: blur(26px);
+    z-index: 0;
+  }
+  .hero-shot img { position: relative; z-index: 1; display: block; width: 100%; height: auto; }
   .hero-actions { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
   .hero-note { font-size: 12.5px; color: var(--text-muted); margin-top: 18px; }
 
@@ -837,6 +862,15 @@
       <p class="hero-note">Fast, simple and effective · Works on any device</p>
       <p class="hero-note" style="margin-top: 6px;">14-day free trial · No credit card required</p>
     </section>
+
+    <!-- The product, once, at the top, before a word of argument.
+         Cut out with a real alpha channel so it sits on the page rather than
+         in a box on it — the file arrived as a JPEG with a chequerboard
+         painted into the pixels, which is not the same thing as transparency.
+         Not a lightbox: it is already as large as the page can show it. -->
+    <div class="hero-shot">
+      <img src="/media/hero-tablet.png" alt="Taxify open on a tablet, showing a year's deductions totalled by category" width="1100" height="646" fetchpriority="high" decoding="async">
+    </div>
 
 
     <!--ADS-START-->
