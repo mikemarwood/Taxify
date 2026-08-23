@@ -12,13 +12,13 @@ test('an Android phone is offered the download', () => {
   assert.match(out, /download/);
 });
 
-test('everybody else is told it exists and where it works', () => {
+test('everybody else gets the same button, pointed at the explanation', () => {
   const out = injectAppDownload(PAGE, { ...BASE, isAndroid: false });
-  assert.match(out, /Android app as well/);
-  assert.match(out, /Open this page on an Android phone/);
-  // No link at all — a button that cannot do anything is worse than no button.
-  assert.ok(!out.includes('taxify.apk'), 'no download link off Android');
-  assert.ok(!out.includes('<a '), 'not a link');
+  // The same words, so the app looks like it exists whatever you are on.
+  assert.match(out, /Get the Android app/);
+  assert.match(out, /href="#android-only"/);
+  assert.ok(!out.includes('taxify.apk'), 'no APK link off Android');
+  assert.ok(!/ download/.test(out), 'nothing to download here');
 });
 
 test('the link is absolute, because a relative one lands on the hub', () => {

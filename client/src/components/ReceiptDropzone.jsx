@@ -5,7 +5,7 @@ import Icon from './Icon.jsx';
 import ProgressBar from './ProgressBar.jsx';
 import { playSuccess, playError } from '../lib/sounds.js';
 import { OFF_SCREEN_INPUT } from '../lib/fileInput.js';
-import CameraCapture from './CameraCapture.jsx';
+import CameraCapture, { inAppCameraUnavailable } from './CameraCapture.jsx';
 // Shared with the year-documents form and mirrored from the server's copy.
 // This file used to carry its own list, and it accepted SVG — `.svg` was in
 // the extension pattern and `image/svg+xml` passed the "starts with image/"
@@ -68,6 +68,14 @@ export default function ReceiptDropzone({ file, onFileChange, uploadProgress, st
   // getUserMedia is unavailable or refused.
   const openCamera = useCallback(() => {
     if (busy) return;
+    // Straight to the phone's camera app once the in-app one has failed here
+    // — it fails for a whole install at a time, and opening an overlay that
+    // is going to close itself again looks like a fault rather than a
+    // fallback. See CameraCapture.jsx.
+    if (inAppCameraUnavailable()) {
+      cameraInputRef.current?.click();
+      return;
+    }
     setCameraOpen(true);
   }, [busy]);
 

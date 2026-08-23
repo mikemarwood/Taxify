@@ -46,29 +46,32 @@ const DOWNLOAD_ICON =
 
 // The markup for the app half of the devices bar.
 //
-// On an Android phone it is a download. Anywhere else it is a statement of
-// fact, because offering a button that cannot do anything useful is worse
-// than not offering one — and a desktop visitor still wants to know the app
-// exists.
+// The same button either way, because an app that exists should look like it
+// exists on every device somebody might be reading this on. Only where it
+// goes changes: on Android to the file, and everywhere else to a panel that
+// explains why not — which is a better place for that sentence than under the
+// button, where it sat as a permanent apology to people who had not asked.
+//
+// The panel is opened by :target, not by script. Nothing on this page can
+// rely on JavaScript; the hub proxy removes it. The lightboxes further down
+// work the same way.
 export function appDownloadHtml({ origin, isAndroid, sizeBytes }) {
   const size = formatApkSize(sizeBytes);
 
-  if (!isAndroid) {
-    return (
-      '<span class="devices-app">' +
-      ANDROID_ICON +
-      '<span>Android app as well<span class="devices-app-note">Open this page on an Android phone to install it</span></span>' +
-      '</span>'
-    );
-  }
+  const href = isAndroid
+    ? `${String(origin || '').replace(/\/$/, '')}/downloads/taxify.apk`
+    : '#android-only';
 
-  const href = `${String(origin || '').replace(/\/$/, '')}/downloads/taxify.apk`;
   return (
-    `<a class="devices-app devices-get" href="${escapeAttribute(href)}" download>` +
-    DOWNLOAD_ICON +
-    '<span>Get the Android app' +
-    `<span class="devices-app-note">Installs directly${size ? ` &middot; ${size}` : ''}</span>` +
-    '</span></a>'
+    `<a class="devices-app devices-get" href="${escapeAttribute(href)}"${isAndroid ? ' download' : ''}>` +
+    ANDROID_ICON +
+    '<span class="devices-get-label">Get the Android app' +
+    `<span class="devices-app-note">${
+      isAndroid ? `Installs directly${size ? ` &middot; ${size}` : ''}` : 'Android only &mdash; what about my phone?'
+    }</span>` +
+    '</span>' +
+    (isAndroid ? DOWNLOAD_ICON : '') +
+    '</a>'
   );
 }
 

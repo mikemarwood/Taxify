@@ -28,6 +28,19 @@ import Icon from './Icon.jsx';
 
 const JPEG_QUALITY = 0.9;
 
+// Remembered for the session once the in-app camera has failed to start.
+//
+// It fails for a whole install at a time, not now and then: the app was built
+// before android.permission.CAMERA was declared, so Android will not even
+// offer the prompt and getUserMedia is refused every time. Without this the
+// overlay opens, goes black, and closes again on every attempt before handing
+// over — a flicker that looks like a bug rather than a fallback.
+let unavailable = false;
+
+export function inAppCameraUnavailable() {
+  return unavailable;
+}
+
 export default function CameraCapture({ onCapture, onCancel, onFallback, onChooseFile }) {
   const videoRef = useRef(null);
   const streamRef = useRef(null);
@@ -75,13 +88,25 @@ export default function CameraCapture({ onCapture, onCancel, onFallback, onChoos
         setReady(true);
       } catch (err) {
         if (cancelled) return;
-        // A refusal is the person's decision and gets a message. Everything
-        // else is our problem and quietly becomes the file picker.
-        if (err?.name === 'NotAllowedError' || err?.name === 'SecurityError') {
-          setError('Camera access was refused. You can allow it in your settings, or choose a file instead.');
-        } else {
-          onFallback('The camera could not be opened.');
-        }
+
+        // Hand over to the phone's own camera app, whatever went wrong.
+        //
+        // This used to stop on a refusal and offer to pick a file, which was
+        // the wrong answer twice over. The phone has a camera app that takes
+        // photos under its own permission and needs nothing from us — so
+        // somebody who asked for a camera can still have one. And on the
+        // build that is installed today a refusal is not a decision anybody
+        // made: android.permission.CAMERA was declared after that APK was
+        // cut, so Android refuses without ever asking, and telling the owner
+        // to allow it in their settings sent them looking for a switch that
+        // is not there.
+        //
+        // Silent, because the outcome is a camera opening either way. The one
+        // thing lost is the guarantee of the rear lens, which is what the next
+        // APK restores.
+        console.warn('In-app camera unavailable, using the system camera instead:', err?.name || err);
+        unavailable = true;
+        onFallback('');
       }
     }
 
