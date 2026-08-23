@@ -104,11 +104,14 @@
       visibility declaration and not a permission: it grants nothing, and only
       lets us ask who handles taking a photo.
 
-      Note what is deliberately absent — android.permission.CAMERA. Capacitor
-      treats a declared CAMERA permission as one it must hold before it will
-      open the camera at all, so adding it would put a permission prompt in
-      front of every first photo. We never touch the camera ourselves; the
-      camera app does, under its own permission, and hands back a file.
+      This intent is the fallback now rather than the usual path, and the
+      reason is which lens it opens. Capacitor reads capture="environment" as a
+      yes or no — "the page wants the camera" — and builds this intent carrying
+      nothing but an output path. Which camera comes up is then entirely the
+      camera app's decision, and on plenty of phones that is the front one,
+      which is no use for photographing a receipt. So the app takes the photo
+      itself now, through getUserMedia, where facingMode really does select the
+      rear lens. The reasoning in full is at the top of CameraCapture.jsx.
     -->
     <queries>
         <intent>
@@ -121,4 +124,25 @@
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
+
+    <!--
+      CAMERA, having deliberately not been declared until now.
+
+      getUserMedia in a webview asks the host for VIDEO_CAPTURE, and Capacitor
+      answers that by requesting CAMERA at runtime — which Android only allows
+      for a permission declared here. Without this line the in-app camera can
+      never be granted and every photo falls back to the intent above, with the
+      wrong lens.
+
+      One consequence, written down so it does not have to be rediscovered:
+      Capacitor treats a *declared* CAMERA permission as one it must also hold
+      before it will use that fallback intent, so the fallback now asks first
+      where it used to go straight through. It is the same prompt getUserMedia
+      raises, on a path that is only reached when the in-app camera cannot run.
+
+      Not required: the device does not have to have a camera. Somebody on a
+      tablet without one can still attach a file.
+    -->
+    <uses-permission android:name="android.permission.CAMERA" />
+    <uses-feature android:name="android.hardware.camera" android:required="false" />
 </manifest>

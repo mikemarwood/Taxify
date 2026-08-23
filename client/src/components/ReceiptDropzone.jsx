@@ -5,6 +5,7 @@ import Icon from './Icon.jsx';
 import ProgressBar from './ProgressBar.jsx';
 import { playSuccess, playError } from '../lib/sounds.js';
 import { OFF_SCREEN_INPUT } from '../lib/fileInput.js';
+import CameraCapture from './CameraCapture.jsx';
 // Shared with the year-documents form and mirrored from the server's copy.
 // This file used to carry its own list, and it accepted SVG — `.svg` was in
 // the extension pattern and `image/svg+xml` passed the "starts with image/"
@@ -18,6 +19,7 @@ const CIRCUMFERENCE = 2 * Math.PI * RADIUS;
 
 export default function ReceiptDropzone({ file, onFileChange, uploadProgress, status = 'idle', errorMessage }) {
   const [dragOver, setDragOver] = useState(false);
+  const [cameraOpen, setCameraOpen] = useState(false);
   const inputRef = useRef(null);
   const cameraInputRef = useRef(null);
   const toast = useToast();
@@ -60,6 +62,50 @@ export default function ReceiptDropzone({ file, onFileChange, uploadProgress, st
     [handleFiles]
   );
 
+  // Photographing goes through CameraCapture, which is the only way to be sure
+  // which lens opens — see the note at the top of that file. The old
+  // capture="environment" input is still here and is what we fall back to when
+  // getUserMedia is unavailable or refused.
+  const openCamera = useCallback(() => {
+    if (busy) return;
+    setCameraOpen(true);
+  }, [busy]);
+
+  const openBrowse = useCallback(() => {
+    if (busy) return;
+    inputRef.current?.click();
+  }, [busy]);
+
+  // Tapping the box itself. On a phone that means the camera: somebody adding
+  // a receipt from their pocket is standing in front of the thing they are
+  // photographing. At a desk it means the file browser.
+  const openDefaultPicker = useCallback(() => {
+    if (isMobile) openCamera();
+    else openBrowse();
+  }, [isMobile, openCamera, openBrowse]);
+
+  // Only reached when the in-app camera cannot run at all. Hands over to the
+  // native capture input, which is second choice rather than first because it
+  // is the path whose lens we do not control — but a camera app with the wrong
+  // lens beats no camera.
+  const cameraFallback = useCallback(
+    (message) => {
+      setCameraOpen(false);
+      if (message) toast(message, 'error');
+      // After the overlay has gone: a click on an input underneath a covering
+      // element does not open a picker.
+      setTimeout(() => cameraInputRef.current?.click(), 0);
+    },
+    [toast]
+  );
+
+  // Somebody in the camera saying they would rather pick a file. A different
+  // thing from the camera having failed, and it goes somewhere different.
+  const chooseFileInstead = useCallback(() => {
+    setCameraOpen(false);
+    setTimeout(() => inputRef.current?.click(), 0);
+  }, []);
+
   const preview = file ? URL.createObjectURL(file) : null;
   const isImage = file && file.type.startsWith('image/');
   const offset = CIRCUMFERENCE - (uploadProgress / 100) * CIRCUMFERENCE;
@@ -76,7 +122,28 @@ export default function ReceiptDropzone({ file, onFileChange, uploadProgress, st
         setDragOver(false);
         if (!busy) handleFiles(e.dataTransfer.files);
       }}
-      onClick={() => !busy && inputRef.current?.click()}
+      // The whole box, not only the buttons inside it.
+      //
+      // It was already meant to be clickable, but on a phone the two buttons
+      // took the eye and the area around them read as decoration — so the
+      // thing most people tapped first, the words "Add a receipt", was the one
+      // part that appeared to do nothing. On a phone it now opens the camera,
+      // which is what somebody standing at a counter wants; on a desktop it
+      // opens the file browser, which is what somebody at a desk wants.
+      //
+      // role and the key handler because a div with an onClick is invisible to
+      // a keyboard and announced as nothing at all.
+      role="button"
+      tabIndex={busy ? -1 : 0}
+      aria-label={isMobile ? 'Take a photo of your receipt' : 'Choose a receipt to attach'}
+      onClick={() => !busy && openDefaultPicker()}
+      onKeyDown={(e) => {
+        if (busy) return;
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          openDefaultPicker();
+        }
+      }}
       style={{
         border: `2px dashed ${status === 'error' ? 'var(--red)' : dragOver ? 'var(--violet)' : 'var(--border)'}`,
         borderRadius: 12,
@@ -108,6 +175,10 @@ export default function ReceiptDropzone({ file, onFileChange, uploadProgress, st
         onClick={(e) => e.stopPropagation()}
         onChange={onPicked}
       />
+      {/* Still here, and still the fallback when the in-app camera cannot run.
+          It is second choice rather than first because this is the path whose
+          lens we do not control — the one that opens the front camera on some
+          phones — but a camera app with the wrong lens beats no camera. */}
       <input
         ref={cameraInputRef}
         type="file"
@@ -202,18 +273,21 @@ export default function ReceiptDropzone({ file, onFileChange, uploadProgress, st
                 <div style={{ display: 'flex', justifyContent: 'center', color: 'var(--text-muted)' }}>
                   <Icon name="receipt" size={26} />
                 </div>
-                <p style={{ marginTop: 6, fontWeight: 600 }}>Add a receipt</p>
+                <p style={{ marginTop: 6, fontWeight: 600 }}>Tap to photograph a receipt</p>
                 <p style={{ fontSize: 12.5, color: 'var(--text-muted)', marginBottom: 12 }}>
                   Images, PDF or Word, up to 10MB
                 </p>
                 <div style={{ display: 'flex', gap: 10, justifyContent: 'center' }}>
+                  {/* Both still here, because the box now does the same thing
+                      as the first of them and somebody who wants the other one
+                      should not have to guess that it exists. */}
                   <button
                     type="button"
                     className="btn btn-primary"
                     style={{ padding: '8px 16px', fontSize: 13, display: 'inline-flex', alignItems: 'center', gap: 7 }}
                     onClick={(e) => {
                       e.stopPropagation();
-                      cameraInputRef.current?.click();
+                      openCamera();
                     }}
                   >
                     <Icon name="camera" size={15} />
@@ -225,7 +299,7 @@ export default function ReceiptDropzone({ file, onFileChange, uploadProgress, st
                     style={{ padding: '8px 16px', fontSize: 13, display: 'inline-flex', alignItems: 'center', gap: 7 }}
                     onClick={(e) => {
                       e.stopPropagation();
-                      inputRef.current?.click();
+                      openBrowse();
                     }}
                   >
                     <Icon name="folder" size={15} />
@@ -256,6 +330,18 @@ export default function ReceiptDropzone({ file, onFileChange, uploadProgress, st
           </motion.div>
         )}
       </AnimatePresence>
+
+      {cameraOpen && (
+        <CameraCapture
+          onCapture={(photo) => {
+            setCameraOpen(false);
+            handleFiles([photo]);
+          }}
+          onCancel={() => setCameraOpen(false)}
+          onFallback={cameraFallback}
+          onChooseFile={chooseFileInstead}
+        />
+      )}
     </div>
   );
 }

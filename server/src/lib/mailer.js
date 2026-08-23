@@ -352,7 +352,7 @@ export async function sendAccountActivatedEmail(to, name, options = {}) {
       <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 18px;">
         ${
           asAccountant
-            ? bullet('You act for clients — there is no plan and nothing to pay')
+            ? bullet('You have accountant access — there is no plan and nothing to pay')
             : bullet(`You're on the <strong>${planLabel} plan</strong>`)
         }
         ${trialLine ? bullet(`Your free trial runs until <strong>${trialLine}</strong>`) : ''}
@@ -707,11 +707,15 @@ export async function sendAccountantRoleChangedEmail(to, name, nowActing) {
   const accountUrl = `${appOrigin()}/account`;
   await sendMail({
     to,
-    subject: nowActing ? 'You can now act for clients' : 'You no longer act for clients',
-    title: nowActing ? 'Acting for clients is on' : 'Acting for clients is off',
+    // "Accountant access", not "acting for clients". The second is what the
+    // flag does internally; the first is what somebody reading their inbox
+    // recognises — and it matches what the same switch is called on the plans
+    // page, so the email and the button agree.
+    subject: nowActing ? 'Accountant access is on' : 'Accountant access is off',
+    title: nowActing ? 'Accountant access is on' : 'Accountant access is off',
     heading: nowActing
-      ? `Hi${name ? ` ${escapeHtml(name)}` : ''}, your account can now act for clients.`
-      : `Hi${name ? ` ${escapeHtml(name)}` : ''}, your account no longer acts for clients.`,
+      ? `Hi${name ? ` ${escapeHtml(name)}` : ''}, your account now has accountant access.`
+      : `Hi${name ? ` ${escapeHtml(name)}` : ''}, accountant access has been turned off for your account.`,
     bodyHtml: nowActing
       ? `
       <p style="font-size:14px;color:#1f2937;margin:0 0 16px;line-height:1.55;">
