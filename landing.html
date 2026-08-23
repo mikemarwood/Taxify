@@ -246,6 +246,29 @@
     color: var(--text);
   }
   .devices-app svg { color: var(--emerald); flex-shrink: 0; }
+  /* The second line under it — what it is, or what it costs you. */
+  .devices-app-note {
+    display: block;
+    font-size: 11.5px;
+    font-weight: 500;
+    color: var(--text-muted);
+    margin-top: 1px;
+  }
+  /* On Android the same slot is a real download, so it looks like one.
+     Green rather than the page's blue: everything else in this bar is a
+     statement and this is the only thing you can press. */
+  a.devices-get {
+    text-decoration: none;
+    padding: 7px 15px 7px 13px;
+    margin: -7px -4px -7px 9px;
+    border-radius: 999px;
+    border: 1px solid rgba(16, 185, 129, 0.42);
+    background: rgba(16, 185, 129, 0.12);
+    transition: background 0.15s ease, border-color 0.15s ease;
+  }
+  a.devices-get:hover { background: rgba(16, 185, 129, 0.2); border-color: rgba(16, 185, 129, 0.6); }
+  a.devices-get:focus-visible { outline: 2px solid var(--emerald); outline-offset: 3px; }
+  a.devices-get .devices-app-note { color: rgba(167, 243, 208, 0.8); }
   /* A vertical divider is wrong once the bar has wrapped into rows. */
   @media (max-width: 680px) {
     .devices-bar { flex-direction: column; gap: 10px; border-radius: 18px; text-align: center; }
@@ -255,6 +278,12 @@
       border-top: 1px solid var(--border);
       width: 100%;
       justify-content: center;
+    }
+    a.devices-get {
+      padding: 10px 18px;
+      margin: 4px 0 0;
+      border-top: 1px solid rgba(16, 185, 129, 0.42);
+      width: auto;
     }
   }
 
@@ -810,10 +839,12 @@
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M2 20h20"/></svg>
         </span>
         <span class="devices-text">Runs in the browser on your phone, tablet or computer &mdash; nothing to install</span>
-        <span class="devices-app">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M17.6 9.48l1.84-3.18a.42.42 0 00-.73-.42l-1.86 3.23a11.05 11.05 0 00-9.7 0L5.29 5.88a.42.42 0 00-.73.42L6.4 9.48A10.6 10.6 0 001 18h22a10.6 10.6 0 00-5.4-8.52zM7 15.25a1.25 1.25 0 111.25-1.25A1.25 1.25 0 017 15.25zm10 0a1.25 1.25 0 111.25-1.25A1.25 1.25 0 0117 15.25z"/></svg>
-          Android app as well
-        </span>
+        <!-- Filled in by the server, which is the only thing here that knows
+             what you are reading this on. A download on Android, a plain
+             statement everywhere else, and nothing at all if there is no APK
+             on disk. The page cannot work this out for itself: the hub proxy
+             strips every script from it. See landingAppDownload.js. -->
+        <!--APPDL-START--><!--APPDL-END-->
       </div>
     </section>
 

@@ -23,6 +23,8 @@ import { AD_SLOTS, adFile, posterFile, adsPresent, faststartExistingAds } from '
 import { cutEmptyAdSlots } from './lib/landingAdsHtml.js';
 import { injectLandingSocial } from './lib/landingSocial.js';
 import { landingSocialConfig } from './lib/socialSettings.js';
+import { injectAppDownload, isAndroidAgent } from './lib/landingAppDownload.js';
+import { publicOrigin } from './lib/publicOrigin.js';
 import { sweepExpiredInvites } from './lib/accountantInviteFlow.js';
 import { purgeUnactivatedAccounts, runBillingReminders } from './jobs/billingJobs.js';
 import { runRecurringExpenses } from './jobs/expenseJobs.js';
@@ -110,8 +112,35 @@ function withLandingAds(html) {
 // page cannot read a setting for itself, so it is done here on the way out.
 // Every path that serves the page goes through this, including the fallbacks —
 // otherwise the buttons would appear only when the hub was reachable.
-async function withLandingExtras(html) {
-  return injectLandingSocial(withLandingAds(html), await landingSocialConfig());
+// The APK, if a build has produced one.
+//
+// Stat'd per request rather than remembered at startup: a deploy replaces this
+// file, and a page that went on advertising the previous size — or went on
+// advertising nothing because the first build happened after the server came
+// up — would be wrong in a way nobody would think to check. One stat is
+// cheaper than being wrong.
+const APK_PATH = path.join(__dirname, '..', '..', 'client', 'dist', 'downloads', 'taxify.apk');
+
+function apkOffer(req) {
+  let sizeBytes;
+  try {
+    sizeBytes = fs.statSync(APK_PATH).size;
+  } catch {
+    return { available: false };
+  }
+  return {
+    available: true,
+    sizeBytes,
+    isAndroid: isAndroidAgent(req.headers['user-agent']),
+    origin: publicOrigin(),
+  };
+}
+
+async function withLandingExtras(html, req) {
+  return injectAppDownload(
+    injectLandingSocial(withLandingAds(html), await landingSocialConfig()),
+    apkOffer(req)
+  );
 }
 
 async function serveLandingPage(req, res) {
@@ -131,7 +160,8 @@ async function serveLandingPage(req, res) {
     try {
       const file = await fs.promises.readFile(LANDING_HTML_PATH, 'utf8');
       res.set('Content-Type', 'text/html; charset=utf-8');
-      return res.send(await withLandingExtras(file));
+      res.set('Vary', 'User-Agent');
+      return res.send(await withLandingExtras(file, req));
     } catch {
       return res.sendFile(LANDING_HTML_PATH);
     }
@@ -149,13 +179,15 @@ async function serveLandingPage(req, res) {
       clearTimeout(timer);
     }
     res.set('Content-Type', 'text/html; charset=utf-8');
-    res.send(await withLandingExtras(html));
+      res.set('Vary', 'User-Agent');
+    res.send(await withLandingExtras(html, req));
   } catch (err) {
     console.error('[landing] hub proxy failed, falling back to static page:', err.message);
     try {
       const file = await fs.promises.readFile(LANDING_HTML_PATH, 'utf8');
       res.set('Content-Type', 'text/html; charset=utf-8');
-      res.send(await withLandingExtras(file));
+      res.set('Vary', 'User-Agent');
+      res.send(await withLandingExtras(file, req));
     } catch {
       res.sendFile(LANDING_HTML_PATH);
     }
