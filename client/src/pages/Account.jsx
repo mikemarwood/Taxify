@@ -18,8 +18,7 @@ import AccountantBooksPicker from '../components/AccountantBooksPicker.jsx';
 // Names and addresses are shown tidied rather than stored tidied — an
 // accountant's own name is theirs to spell, and rewriting the row would make
 // this page the thing that changed it.
-import { titleCase, titleCaseLive, lowerEmail } from '../lib/textCase.js';
-import { onCasedInput } from '../lib/casedInput.js';
+import { titleCase, lowerEmail } from '../lib/textCase.js';
 import StartOwnAccount from '../components/StartOwnAccount.jsx';
 import ActsForClientsCard from '../components/ActsForClientsCard.jsx';
 import { currentPlanType, planLabel as labelForPlan, hasLiveSubscription } from '../lib/plans.js';
@@ -1653,7 +1652,8 @@ export default function Account() {
   const [phone, setPhone] = useState(() => splitPhone(user.phone).number);
   const [dialCode, setDialCode] = useState(() => splitPhone(user.phone).dial);
   const [currency, setCurrency] = useState(user.currency || 'AUD');
-  const [practiceName, setPracticeName] = useState(user.practiceName || '');
+  // Read-only on this page, so there is no setter — it is shown, not edited.
+  const practiceName = user.practiceName || '';
   const [profileBusy, setProfileBusy] = useState(false);
   const [options, setOptions] = useState(null);
 
@@ -1719,25 +1719,31 @@ export default function Account() {
   // was compared against '', so Save sat enabled from the start for anyone who
   // had never chosen one — and pressing it saved nothing, because nothing had
   // been edited.
+  //
+  // The practice name is not in this list any more, and must not be: the field
+  // is read-only now, so it can never differ, and a comparison that can never
+  // be true is a line waiting to be misread as a live one.
   const profileChanged =
     firstName.trim() !== (user.firstName || '') ||
     lastName.trim() !== (user.lastName || '') ||
     dateOfBirth !== (user.dateOfBirth || '') ||
     joinPhone(dialCode, phone) !== (user.phone || '') ||
-    currency !== (user.currency || 'AUD') ||
-    practiceName.trim() !== (user.practiceName || '');
+    currency !== (user.currency || 'AUD');
 
   async function onSaveProfile(e) {
     e.preventDefault();
     setProfileBusy(true);
     try {
+      // practiceName is deliberately absent. PATCH /auth/profile is a real
+      // patch — a field that is not sent is left alone — so leaving it out is
+      // what makes this form unable to change it, rather than trusting a
+      // disabled attribute that anybody can remove with a browser inspector.
       await updateProfile({
         firstName: firstName.trim(),
         lastName: lastName.trim(),
         dateOfBirth,
         phone: joinPhone(dialCode, phone),
         currency,
-        practiceName: practiceName.trim(),
       });
       toast('Account details updated', 'success');
     } catch (err) {
@@ -1993,17 +1999,21 @@ export default function Account() {
           {(user.isAccountant || user.role === 'accountant') && (
             <div>
               <label className="label">Practice or firm name</label>
-              {/* Capitalised as it is typed, like every other name on the site.
-                  This is the one clients see. */}
+              {/* Shown, not edited.
+                  This is the name every client sees against your access to
+                  their books, and it is set once when accountant access is
+                  turned on. Leaving it editable here made it look like an
+                  ordinary preference. */}
               <input
                 className="input"
-                maxLength={160}
                 value={practiceName}
-                placeholder="e.g. Chen & Co"
-                onChange={onCasedInput(titleCaseLive, setPracticeName)}
+                disabled
+                aria-describedby="practice-note"
+                style={{ opacity: 0.75, cursor: 'not-allowed' }}
               />
-              <div style={{ fontSize: 11.5, color: 'var(--text-muted)', marginTop: 5 }}>
-                Shown to clients who share their books with you.
+              <div id="practice-note" style={{ fontSize: 11.5, color: 'var(--text-muted)', marginTop: 5 }}>
+                Shown to clients who share their books with you. Set when you turned on accountant access — ask
+                support if it needs changing.
               </div>
             </div>
           )}
