@@ -5,6 +5,7 @@ import { Link } from 'react-router-dom';
 import { api } from '../lib/api.js';
 import Icon from './Icon.jsx';
 import { formatDateTime } from '../lib/dates.js';
+import { isPushActive, onPushActiveChange, onPushMessage } from '../lib/pushNotifications.js';
 
 // Everything the app has told you, still here.
 //
@@ -87,7 +88,40 @@ export default function NotificationBell({ compact = false }) {
 
   useEffect(() => {
     load();
-    const id = setInterval(load, POLL_MS);
+
+    // The timer is the last resort, not the mechanism.
+    //
+    // It used to run every 45 seconds for everybody, including phones where
+    // Firebase was already delivering the same notifications — eighty radio
+    // wake-ups an hour to be told what push had told us, which is the part of
+    // this that costs battery. Two rules now decide whether it runs at all:
+    //
+    //   push is live  -> no timer, ever. Firebase says when something happens.
+    //   page hidden   -> no timer. Nobody is looking at the badge, and the
+    //                    focus handler below reads it before they can.
+    //
+    // In a browser with no push and the tab in front, it polls exactly as it
+    // always did, because there it is the only thing that works.
+    let id = null;
+    function schedule() {
+      if (id) clearInterval(id);
+      id = null;
+      if (isPushActive()) return;
+      if (typeof document !== 'undefined' && document.visibilityState !== 'visible') return;
+      id = setInterval(load, POLL_MS);
+    }
+    schedule();
+
+    // Registration finishes after this component has mounted, so the timer is
+    // started and then taken away again rather than never started.
+    const stopWatchingPush = onPushActiveChange(() => {
+      schedule();
+      load();
+    });
+
+    // A push landing while the app is open. This is what replaces the timer:
+    // without it, stopping the poll would mean the list never updated at all.
+    const stopWatchingMessages = onPushMessage(load);
 
     // And the moment somebody looks at the page again.
     //
@@ -97,11 +131,14 @@ export default function NotificationBell({ compact = false }) {
     // focus costs one request per return and removes the wait entirely.
     function onVisible() {
       if (document.visibilityState === 'visible') load();
+      schedule();
     }
     document.addEventListener('visibilitychange', onVisible);
     window.addEventListener('focus', onVisible);
     return () => {
-      clearInterval(id);
+      if (id) clearInterval(id);
+      stopWatchingPush();
+      stopWatchingMessages();
       document.removeEventListener('visibilitychange', onVisible);
       window.removeEventListener('focus', onVisible);
     };

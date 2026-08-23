@@ -111,7 +111,20 @@ async function pushToDevices(userId, { title, body, url }) {
             notification: { title, body: body || '' },
             // Tapping the notification should land on the thing it is about.
             data: url ? { url } : {},
-            android: { priority: 'HIGH', notification: { icon: 'ic_stat_taxify', color: '#1559b8' } },
+            // NORMAL, not HIGH.
+            //
+            // A high-priority message is delivered immediately even to a phone
+            // in Doze, waking the radio and the CPU to do it. That is right for
+            // a chat message or a car arriving. Nothing this app sends is
+            // either: a recurring expense was added, an accountant asked for
+            // access, an appointment is tomorrow. Normal lets Android deliver
+            // them alongside whatever it was already waking up for, which is
+            // the difference between push costing nothing and push costing a
+            // noticeable slice of the battery.
+            //
+            // The trade is that one can arrive late to an idle phone. For a
+            // reminder set a day ahead, that is not a cost.
+            android: { priority: 'NORMAL', notification: { icon: 'ic_stat_taxify', color: '#1559b8' } },
           },
         }),
       });
