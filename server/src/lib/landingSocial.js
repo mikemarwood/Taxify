@@ -64,6 +64,17 @@ export function socialButtonsHtml({ shareUrl, pageUrl }) {
     `<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" width="15" height="15">` +
     `<path d="M22 12a10 10 0 1 0-11.56 9.88v-6.99H7.9V12h2.54V9.8c0-2.5 1.49-3.89 3.77-3.89 1.09 0 2.24.2 2.24.2v2.46h-1.26c-1.24 0-1.63.77-1.63 1.56V12h2.78l-.45 2.89h-2.33v6.99A10 10 0 0 0 22 12Z"/>` +
     `</svg>Share on Facebook</a>` +
+    // Straight into a Messenger conversation, which is where most of this kind
+    // of recommendation actually happens — one person telling one other.
+    //
+    // fb-messenger:// rather than the web dialog on purpose: the web one needs
+    // a registered Facebook app id, and this needs nothing but Messenger being
+    // installed. On a desktop with no Messenger the link does nothing, so it is
+    // only offered on a touch device — see the CSS.
+    `<a class="social-btn social-btn--messenger" href="fb-messenger://share/?link=${encoded}">` +
+    `<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" width="15" height="15">` +
+    `<path d="M12 2C6.3 2 2 6.2 2 11.7c0 3.1 1.4 5.9 3.7 7.7v3.8l3.4-1.9c.9.3 1.9.4 2.9.4 5.7 0 10-4.2 10-9.7S17.7 2 12 2Zm1 13.1-2.6-2.7-5 2.7 5.5-5.8 2.6 2.7 4.9-2.7-5.4 5.8Z"/>` +
+    `</svg>Send on Messenger</a>` +
     (follow
       ? `<a class="social-btn" href="${escapeAttribute(follow)}" target="_blank" rel="noopener noreferrer">Follow us</a>`
       : '') +

@@ -24,6 +24,7 @@ import { cutEmptyAdSlots } from './lib/landingAdsHtml.js';
 import { injectLandingSocial } from './lib/landingSocial.js';
 import { landingSocialConfig } from './lib/socialSettings.js';
 import { injectAppDownload, isAndroidAgent } from './lib/landingAppDownload.js';
+import { injectLandingReviews } from './lib/landingReviews.js';
 import { publicOrigin } from './lib/publicOrigin.js';
 import { sweepExpiredInvites } from './lib/accountantInviteFlow.js';
 import { purgeUnactivatedAccounts, runBillingReminders } from './jobs/billingJobs.js';
@@ -137,9 +138,11 @@ function apkOffer(req) {
 }
 
 async function withLandingExtras(html, req) {
-  return injectAppDownload(
-    injectLandingSocial(withLandingAds(html), await landingSocialConfig()),
-    apkOffer(req)
+  return injectLandingReviews(
+    injectAppDownload(
+      injectLandingSocial(withLandingAds(html), await landingSocialConfig()),
+      apkOffer(req)
+    )
   );
 }
 

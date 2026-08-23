@@ -6,6 +6,36 @@
 <title>Taxify — Track every deduction, cleanly and simply</title>
 <meta name="description" content="Taxify logs your expenses, sorts them into categories, and builds year-over-year reports — so tax time takes minutes, not weekends.">
 <meta name="theme-color" content="#0a0f18">
+
+<!-- What a share of this link looks like.
+     There were none of these, which meant Facebook, Messenger, WhatsApp,
+     LinkedIn and every group chat picked a title, a line of text and a picture
+     off the page at random — usually the wrong ones, sometimes nothing at all.
+     No share button can control that; these tags can, and they do it for every
+     share from anywhere, not only from a button on this page.
+
+     Facebook's scraper reaches the static file rather than the hub's copy: the
+     proxy only runs for a real browser navigation, and a crawler is not one.
+
+     The image is absolute because a scraper cannot resolve a relative one, and
+     it is the dashboard because that is the product. At 1719x885 it is close
+     to the 1.91:1 Facebook lays out for, and well over the 1200x630 minimum. -->
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Taxify">
+<meta property="og:url" content="https://taxify.mikesapphub.com/">
+<meta property="og:title" content="Never lose a deduction again">
+<meta property="og:description" content="Photograph a receipt and Taxify files it — right category, right tax year. Come tax time the whole year is already added up. 14-day free trial, no card needed.">
+<meta property="og:image" content="https://taxify.mikesapphub.com/media/shot-dashboard.png">
+<meta property="og:image:width" content="1719">
+<meta property="og:image:height" content="885">
+<meta property="og:image:alt" content="A year of deductions already added up, sorted by category">
+<meta property="og:locale" content="en_AU">
+
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Never lose a deduction again">
+<meta name="twitter:description" content="Photograph a receipt and Taxify files it — right category, right tax year. Come tax time the whole year is already added up.">
+<meta name="twitter:image" content="https://taxify.mikesapphub.com/media/shot-dashboard.png">
+
 <!-- Same set as the app. An SVG alone leaves a blank page glyph in the tab on
      iOS, which ignores SVG icons, and on Android Chrome, which reads the
      manifest. -->
@@ -388,6 +418,16 @@
     backdrop-filter: blur(3px);
   }
   .lightbox:target { display: flex; }
+  /* Nothing moves behind an open overlay.
+     The lightbox and the Android panel are fixed and cover the viewport, but
+     the page underneath still scrolls to a flick or a wheel — so closing one
+     used to leave you somewhere else on the page than where you opened it.
+     :has() does this without a line of script, which this page cannot use:
+     the hub proxy strips every one before a visitor sees it. */
+  html:has(.lightbox:target),
+  html:has(.notebox:target) { overflow: hidden; }
+  body:has(.lightbox:target),
+  body:has(.notebox:target) { overflow: hidden; }
   .lightbox img {
     max-width: min(1400px, 100%);
     /* The whole height, less the padding. This used to stop 132px short to
@@ -452,6 +492,7 @@
   }
   .notebox:target { display: flex; }
   .notebox-card {
+    position: relative;
     max-width: 420px;
     width: 100%;
     padding: clamp(26px, 5vw, 34px);
@@ -459,6 +500,18 @@
     border: 1px solid var(--border);
     background: var(--bg-card);
     text-align: center;
+  }
+  /* On the card, not in the corner of the window.
+     The shared rule positions it against the full-screen overlay, which on a
+     desktop strands it a long way from the panel it closes — and on a phone
+     put it behind the picture. Smaller too: it is sitting on a 420px card now,
+     not on the whole screen. */
+  .notebox .notebox-card .shotbox-close {
+    top: 10px;
+    right: 10px;
+    width: 34px;
+    height: 34px;
+    font-size: 19px;
   }
   .notebox-mark {
     width: 62px;
@@ -821,6 +874,33 @@
   .cta-card h2 { margin: 0 0 12px; }
   .cta-card p { color: var(--text-muted); font-size: 15px; max-width: 480px; margin: 0 auto 24px; }
 
+  /* What customers have said.
+     Cut out of the page by the server until it holds something real — see
+     landingReviews.js. The markup below is the shape; the quotes are yours to
+     write, and until one is written this whole block is removed rather than
+     shipped with placeholders in it. */
+  .reviews {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: clamp(14px, 2.5vw, 22px);
+    max-width: 1040px;
+    margin: 0 auto;
+  }
+  .review {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    padding: 24px;
+    border-radius: 16px;
+    border: 1px solid var(--border);
+    background: var(--bg-card);
+  }
+  .review-stars { display: flex; gap: 3px; color: var(--amber, #f59e0b); }
+  .review-quote { font-size: 14.5px; line-height: 1.65; }
+  .review-who { display: flex; flex-direction: column; gap: 2px; margin-top: auto; }
+  .review-name { font-size: 13px; font-weight: 700; }
+  .review-role { font-size: 12px; color: var(--text-muted); }
+
   /* The two blocks that close the page.
      Both exist because the end of the page was thin, and both say only things
      that are true — every claim here is one the code actually keeps. */
@@ -858,45 +938,6 @@
   .assurance-title { font-size: 14px; font-weight: 700; margin-bottom: 3px; }
   .assurance-text { font-size: 12.5px; color: var(--text-muted); line-height: 1.55; }
 
-  /* Questions, answered without a line of script — <details> is a browser
-     feature, and the hub proxy strips every script from this page. */
-  .faq { max-width: 780px; margin: 0 auto; display: flex; flex-direction: column; gap: 10px; }
-  .faq details {
-    border: 1px solid var(--border);
-    border-radius: 12px;
-    background: var(--bg-card);
-    overflow: hidden;
-  }
-  .faq summary {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 14px;
-    padding: 16px 18px;
-    font-size: 14.5px;
-    font-weight: 600;
-    cursor: pointer;
-    list-style: none;
-  }
-  .faq summary::-webkit-details-marker { display: none; }
-  .faq summary::after {
-    content: '';
-    width: 9px;
-    height: 9px;
-    flex-shrink: 0;
-    border-right: 2px solid var(--text-muted);
-    border-bottom: 2px solid var(--text-muted);
-    transform: rotate(45deg) translate(-2px, -2px);
-    transition: transform .18s ease;
-  }
-  .faq details[open] summary::after { transform: rotate(-135deg) translate(-2px, -2px); }
-  .faq details[open] summary { border-bottom: 1px solid var(--border); }
-  .faq-answer { padding: 14px 18px 18px; font-size: 13.5px; color: var(--text-muted); line-height: 1.65; }
-  .faq-answer a { color: var(--blue); }
-  @media (prefers-reduced-motion: reduce) {
-    .faq summary::after { transition: none; }
-  }
-
   footer { text-align: center; font-size: 12px; color: var(--text-muted); padding: 16px 20px; }
   footer a { color: var(--blue); }
   /* The Facebook buttons, when the admin panel has switched them on.
@@ -926,6 +967,13 @@
     border: 1px solid var(--border);
   }
   .social-btn:hover { background: rgba(255, 255, 255, 0.12); }
+  /* Messenger only where Messenger exists.
+     fb-messenger:// needs the app installed; on a desktop the link is inert,
+     and an inert button is worse than no button. */
+  .social-btn--messenger { display: none; }
+  @media (pointer: coarse) {
+    .social-btn--messenger { display: inline-flex; }
+  }
 </style>
 </head>
 <body>
@@ -1098,13 +1146,13 @@
         </div>
         <div class="shot-panel">
           <!-- REPLACE THIS IMAGE
-               File:   client/public/media/shot-reports.jpg
-               Shows:  printed statements and a summary on a desk
+               File:   client/public/media/shot-dashboard.png
+               Shows:  the dashboard — the year charted and totalled
                Size:   1400x1050, already 4:3 — the shape the panel crops to.
                The dashboard screenshot this replaced is not gone: it is on the
                tablet at the top of the page, and behind the button beside it,
                where it is large enough to actually read. -->
-          <img src="/media/shot-reports.jpg" alt="Printed statements and a summary on a wooden desk, the year already totalled" width="1400" height="1050" loading="lazy">
+          <img src="/media/shot-dashboard.png" alt="The Taxify dashboard: spending charted by month, and every category ranked by what it came to" width="1719" height="885" loading="lazy">
           <span class="shot-step">Come tax time</span>
           <div class="shot-title">The numbers, already added up</div>
           <div class="shot-text">Your year totalled, sorted by category, with every receipt behind it. Hand it to your accountant, or copy it straight into your return.</div>
@@ -1267,41 +1315,43 @@
       </div>
     </section>
 
-    <section aria-label="Questions">
+    <!--REVIEWS-START-->
+    <!-- Customer reviews.
+
+         There is nothing here yet, and that is deliberate: the server removes
+         everything between these two markers until there is a real quote to
+         put in, so the page never carries invented praise.
+
+         To add one, copy a .review block into the grid below and fill in the
+         three parts — the quote, who said it, and what they do. Delete the
+         REVIEWS-EMPTY comment on the next line once the first one is in, and
+         the section appears. Nothing else is needed; there is no admin screen
+         and no database behind this, it is just this page.
+    -->
+    <!--REVIEWS-EMPTY-->
+    <section aria-label="What customers say">
       <div class="section-head">
-        <h2>Questions people ask first</h2>
+        <h2>What people using it say</h2>
       </div>
-      <div class="faq">
-        <details>
-          <summary>Do I need to know anything about accounting?</summary>
-          <div class="faq-answer">No. You photograph a receipt and it is filed &mdash; right category, right year, right set of books. The categories are there from the first day and carry forward into each new year, so there is nothing to set up and nothing to retype.</div>
-        </details>
-        <details>
-          <summary>What happens when tax time comes?</summary>
-          <div class="faq-answer">One click gives you a zip: a summary spreadsheet, a PDF, and every receipt in folders with each one linked from the sheet. Hand that to your accountant, or copy the totals straight into your return.</div>
-        </details>
-        <details>
-          <summary>Can my accountant use it with me?</summary>
-          <div class="faq-answer">Yes. You invite them by email and choose what they get &mdash; a read-only look, or the ability to file receipts on your behalf &mdash; limited to the years you pick. Access closes by itself 24 hours after they first open your books, and you can revoke it before then.</div>
-        </details>
-        <details>
-          <summary>What if I stop paying? Do I lose everything?</summary>
-          <div class="faq-answer">No. Everything you have entered can be exported at any time, in formats that are readable without Taxify &mdash; a spreadsheet, a PDF and the original receipt files. Nothing is locked in a format only we can open.</div>
-        </details>
-        <details>
-          <summary>Does it work outside Australia?</summary>
-          <div class="faq-answer">Yes, in 49 countries. The financial year follows the country on your account rather than a default: 1 July in Australia, 6 April in the UK, 1 April in New Zealand, India and Japan, 1 March in South Africa, 1 January in much of the rest of the world.</div>
-        </details>
-        <details>
-          <summary>Is there an app, or is it only a website?</summary>
-          <div class="faq-answer">Both. It runs in the browser on any phone, tablet or computer with nothing to install, and there is an Android app if you would rather have one. There is no iPhone app yet &mdash; the browser version is the same product.</div>
-        </details>
-        <details>
-          <summary>What does it cost, and is there a catch?</summary>
-          <div class="faq-answer">One payment a year, and both plans start with the same 14-day free trial &mdash; no card until you have decided. No per-receipt fees, no add-ons, and you can cancel whenever you like. The fee itself is deductible.</div>
-        </details>
+      <div class="reviews">
+        <!-- One of these per review. Five stars is optional; delete the
+             .review-stars div for an unrated one.
+
+        <div class="review">
+          <div class="review-stars" aria-label="Five out of five">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="m12 2 3.1 6.3 6.9 1-5 4.9 1.2 6.8L12 17.8 5.8 21l1.2-6.8-5-4.9 6.9-1Z"/></svg>
+          </div>
+          <p class="review-quote">&ldquo;Their words, exactly as they wrote them.&rdquo;</p>
+          <div class="review-who">
+            <span class="review-name">Their name</span>
+            <span class="review-role">What they do, and where</span>
+          </div>
+        </div>
+
+        -->
       </div>
     </section>
+    <!--REVIEWS-END-->
 
   </main>
 
@@ -1490,8 +1540,8 @@
   </div>
 
   <div class="notebox" id="android-only" role="dialog" aria-label="About the Android app">
-    <a class="shotbox-close" href="#" aria-label="Close" title="Close">&times;</a>
     <div class="notebox-card">
+      <a class="shotbox-close" href="#" aria-label="Close" title="Close">&times;</a>
       <div class="notebox-mark" aria-hidden="true">
         <svg width="30" height="30" viewBox="0 0 24 24" fill="currentColor"><path d="M17.6 9.48l1.84-3.18a.42.42 0 00-.73-.42l-1.86 3.23a11.05 11.05 0 00-9.7 0L5.29 5.88a.42.42 0 00-.73.42L6.4 9.48A10.6 10.6 0 001 18h22a10.6 10.6 0 00-5.4-8.52zM7 15.25a1.25 1.25 0 111.25-1.25A1.25 1.25 0 017 15.25zm10 0a1.25 1.25 0 111.25-1.25A1.25 1.25 0 0117 15.25z"/></svg>
       </div>
