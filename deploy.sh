@@ -33,11 +33,23 @@ main() {
   echo "==> npm install (client)"
   npm install --prefix client
 
-  echo "==> npm run build (client)"
-  npm run build
-
+  # Tests before the build, not after.
+  #
+  # The running server serves client/dist, so building first means a failed
+  # test leaves the new front end already live against the old back end —
+  # the deploy has stopped, but it has stopped half done. Testing first, a
+  # failure stops everything with nothing changed.
+  #
+  # What this is: check-imports catches calling a helper nobody imported (which
+  # reached production twice), then the test suite. Neither prints much unless
+  # something is wrong, and `set -e` means either one failing stops the deploy
+  # before pm2 restarts anything. That is the whole point of them being here —
+  # it is the last gate before customers see it.
   echo "==> npm test (server)"
   npm test --prefix server
+
+  echo "==> npm run build (client)"
+  npm run build
 
   # Deploying does not snapshot the database. `ops/backup.sh` is still here and
   # still works if one is ever wanted:
