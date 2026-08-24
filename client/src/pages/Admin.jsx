@@ -17,6 +17,8 @@ import Icon from '../components/Icon.jsx';
 import WebhookHealth from '../components/WebhookHealth.jsx';
 import PromoCodesTab from '../components/PromoCodesTab.jsx';
 import { useConfirm } from '../lib/ConfirmContext.jsx';
+import { sentenceCaseLive } from '../lib/textCase.js';
+import { onCasedInput } from '../lib/casedInput.js';
 import AdminStatsTab from '../components/AdminStatsTab.jsx';
 import SupportTab from '../components/SupportTab.jsx';
 import LockedPanel from '../components/LockedPanel.jsx';
@@ -644,6 +646,7 @@ function UsersTab() {
 
 function SettingsTab() {
   const toast = useToast();
+  const confirm = useConfirm();
   const [registrationEnabled, setRegistrationEnabled] = useState(null);
   const [mfaMode, setMfaMode] = useState(null);
   const [busy, setBusy] = useState(false);
@@ -654,7 +657,15 @@ function SettingsTab() {
   // everybody else can do right now.
   const [maint, setMaint] = useState(null);
   const [maintBusy, setMaintBusy] = useState(false);
-  const [draftMessage, setDraftMessage] = useState('');
+
+  // The wording and the reason are a draft until Save is pressed.
+  //
+  // They used to write on blur and on every chip click, which meant a
+  // half-typed sentence could be sitting in front of locked-out customers the
+  // moment attention wandered to another tab. `saved` is what is actually
+  // stored, so the card can tell whether there is anything to save.
+  const [draft, setDraft] = useState({ reason: 'maintenance', message: '' });
+  const [saved, setSaved] = useState({ reason: 'maintenance', message: '' });
 
   useEffect(() => {
     api.get('/admin/settings').then((res) => {
@@ -662,26 +673,83 @@ function SettingsTab() {
       setMfaMode(res.data.mfaMode);
       setMaint({
         enabled: res.data.maintenanceEnabled,
-        reason: res.data.maintenanceReason,
         stock: res.data.maintenanceStock,
       });
-      setDraftMessage(res.data.maintenanceMessage || '');
+      const stored = { reason: res.data.maintenanceReason, message: res.data.maintenanceMessage || '' };
+      setDraft(stored);
+      setSaved(stored);
     });
   }, []);
 
-  // One writer for all three fields, so switching the site off and choosing
-  // why cannot end up half-applied — the server writes the wording before the
-  // switch for the same reason.
-  async function saveMaintenance(changes, said) {
+  const maintDirty = draft.reason !== saved.reason || draft.message.trim() !== saved.message.trim();
+
+  // Writes the wording only. The switch has its own path below, because one is
+  // a note somebody is drafting and the other takes the site away from every
+  // customer using it — they should not share a button.
+  async function saveMaintenanceWording() {
     setMaintBusy(true);
     try {
       await api.patch('/admin/settings', {
-        maintenanceEnabled: changes.enabled,
-        maintenanceReason: changes.reason,
-        maintenanceMessage: changes.message,
+        maintenanceReason: draft.reason,
+        maintenanceMessage: draft.message.trim(),
       });
-      setMaint((prev) => ({ ...prev, enabled: changes.enabled, reason: changes.reason }));
-      toast(said, 'success');
+      setSaved({ reason: draft.reason, message: draft.message.trim() });
+      toast(maint.enabled ? 'Notice updated — visitors see it now' : 'Notice saved', 'success');
+    } catch (err) {
+      toast(err.message, 'error');
+    } finally {
+      setMaintBusy(false);
+    }
+  }
+
+  // Turning the site off, or bringing it back.
+  //
+  // Confirmed both ways, and this is not ceremony for its own sake. Off is the
+  // most destructive switch in the panel — every customer mid-task is stopped
+  // where they stand — and on is worth confirming too, because it is normally
+  // pressed in a hurry and it reopens the site to everybody the instant it
+  // lands. The dialog states what actually happens rather than asking "are you
+  // sure", which is a question nobody has ever answered no to on information
+  // they did not have.
+  async function setSiteOffline(next) {
+    const reason = draft.reason === 'technical' ? 'technical difficulties' : 'maintenance';
+    const wording = draft.message.trim();
+
+    const ok = await confirm(
+      next
+        ? {
+            title: 'Take Taxify offline for everyone?',
+            body:
+              `Every customer using the site right now is stopped where they are and shown the ${reason} notice ` +
+              `on their next action — including anyone part-way through adding an expense.\n\n` +
+              (wording ? `They will be told: “${wording}”\n\n` : '') +
+              'You and support staff keep working as normal, and the sign-in page stays open so you can get back in ' +
+              'and switch this off again.',
+            confirmLabel: 'Take the site offline',
+            tone: 'danger',
+          }
+        : {
+            title: 'Put Taxify back online?',
+            body:
+              'The notice comes down and everybody can use the site again straight away. Anyone sitting on the ' +
+              'notice page is let back in within half a minute without having to reload.',
+            confirmLabel: 'Bring it back online',
+          }
+    );
+    if (!ok) return;
+
+    setMaintBusy(true);
+    try {
+      // The wording goes with it, so switching off never shows the previous
+      // notice while an unsaved new one sits in the box.
+      await api.patch('/admin/settings', {
+        maintenanceEnabled: next,
+        maintenanceReason: draft.reason,
+        maintenanceMessage: wording,
+      });
+      setMaint((prev) => ({ ...prev, enabled: next }));
+      setSaved({ reason: draft.reason, message: wording });
+      toast(next ? 'The site is now offline for everyone but staff' : 'The site is back online', 'success');
     } catch (err) {
       toast(err.message, 'error');
     } finally {
@@ -722,7 +790,7 @@ function SettingsTab() {
 
   if (registrationEnabled === null || mfaMode === null || maint === null) return <SkeletonList rows={2} />;
 
-  const stock = maint.stock?.[maint.reason] || {};
+  const stock = maint.stock?.[draft.reason] || {};
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
@@ -756,12 +824,7 @@ function SettingsTab() {
             aria-checked={maint.enabled}
             aria-label="Take the site offline"
             disabled={maintBusy}
-            onClick={() =>
-              saveMaintenance(
-                { enabled: !maint.enabled, reason: maint.reason, message: draftMessage },
-                !maint.enabled ? 'The site is now offline for everyone but staff' : 'The site is back online'
-              )
-            }
+            onClick={() => setSiteOffline(!maint.enabled)}
             style={{
               flexShrink: 0,
               width: 52,
@@ -794,21 +857,16 @@ function SettingsTab() {
               key={option.key}
               type="button"
               disabled={maintBusy}
-              onClick={() =>
-                saveMaintenance(
-                  { enabled: maint.enabled, reason: option.key, message: draftMessage },
-                  `Visitors will be told it is ${option.key === 'technical' ? 'technical difficulties' : 'maintenance'}`
-                )
-              }
+              onClick={() => setDraft((d) => ({ ...d, reason: option.key }))}
               style={{
                 padding: '8px 14px',
                 borderRadius: 999,
                 fontSize: 13,
                 fontWeight: 600,
                 cursor: maintBusy ? 'default' : 'pointer',
-                border: `1px solid ${maint.reason === option.key ? 'var(--accent)' : 'var(--border-strong)'}`,
-                background: maint.reason === option.key ? 'var(--accent-soft)' : 'var(--bg-inset)',
-                color: maint.reason === option.key ? 'var(--accent)' : 'var(--text-muted)',
+                border: `1px solid ${draft.reason === option.key ? 'var(--accent)' : 'var(--border-strong)'}`,
+                background: draft.reason === option.key ? 'var(--accent-soft)' : 'var(--bg-inset)',
+                color: draft.reason === option.key ? 'var(--accent)' : 'var(--text-muted)',
               }}
             >
               {option.label}
@@ -820,25 +878,48 @@ function SettingsTab() {
           <label className="label" htmlFor="maintenance-message">
             What to tell people (optional)
           </label>
+          {/* Sentence capitals as it is typed, the same as every other prose
+              box in the app. sentenceCaseLive never changes the string's
+              length, so the caret stays where the typist left it, and it
+              leaves whitespace alone — which is what makes a blank line
+              between two paragraphs possible in a textarea. */}
           <textarea
             id="maintenance-message"
             className="input"
             rows={3}
             maxLength={400}
-            value={draftMessage}
-            onChange={(e) => setDraftMessage(e.target.value)}
-            onBlur={() =>
-              saveMaintenance({ enabled: maint.enabled, reason: maint.reason, message: draftMessage }, 'Notice saved')
-            }
+            value={draft.message}
+            onChange={onCasedInput(sentenceCaseLive, (value) => setDraft((d) => ({ ...d, message: value })))}
             placeholder={stock.body || ''}
             style={{ resize: 'vertical', lineHeight: 1.6 }}
           />
           <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 6, lineHeight: 1.6 }}>
             {/* The heading is never overridden, so say so rather than let
                 somebody write a message that contradicts it. */}
-            Shown under <strong>“{stock.heading}”</strong>. Leave it empty for the standard wording. Saved when you
-            click away.
+            Shown under <strong>“{stock.heading}”</strong>. Leave it empty for the standard wording.
           </div>
+        </div>
+
+        {/* Saved on a button, never on blur.
+            It wrote on every chip click and every time focus left the box,
+            so a half-typed sentence could be sitting in front of locked-out
+            customers the moment attention moved to another tab. */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          <button
+            type="button"
+            className="btn btn-primary"
+            style={{ fontSize: 13 }}
+            disabled={!maintDirty || maintBusy}
+            onClick={saveMaintenanceWording}
+          >
+            {maintBusy && <span className="spinner" />}
+            Save notice
+          </button>
+          {maintDirty && (
+            <span style={{ fontSize: 12.5, color: 'var(--text-muted)' }}>
+              {maint.enabled ? 'Not shown to anyone until you save' : 'Unsaved changes'}
+            </span>
+          )}
         </div>
       </div>
 

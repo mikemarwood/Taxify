@@ -209,6 +209,17 @@ export default function AdminUserDetail({ userId, me, onClose, onChanged, action
   const [dialog, setDialog] = useState(NO_DIALOG);
   const [acting, setActing] = useState(false);
 
+  // Sign-in history, folded down.
+  //
+  // Twenty rows of near-identical lines pushed everything after them off the
+  // screen, and the reason anybody opens this section is almost never "read
+  // all of them" — it is "when were they last on" or "is this happening from
+  // one browser or several". So it opens on the last few, and the device chips
+  // that were already here became the filter, since narrowing to one device is
+  // the question they were describing anyway.
+  const [showAllLogins, setShowAllLogins] = useState(false);
+  const [loginDevice, setLoginDevice] = useState(null);
+
   // Escape closes, since the backdrop deliberately doesn't. Not while a
   // confirmation is up: that dialog owns Escape, and one key press should
   // dismiss one thing.
@@ -407,7 +418,14 @@ export default function AdminUserDetail({ userId, me, onClose, onChanged, action
                       </span>
                     )}
                   </Field>
-                  <Field label="Deleted">{s.inTrash}</Field>
+                  {/* No "Deleted" count on this screen.
+
+                      The number is real — expenses are soft-deleted and purged
+                      later, so stats.inTrash is still calculated and still
+                      returned — but nothing in this panel acts on it. There is
+                      no restore-from-here, so it was a figure that could be
+                      read and not used, sitting in a grid where every other
+                      figure answers a question somebody actually has. */}
                   <Field label="Total tracked">{formatMoney(s.totalAmount)}</Field>
                   <Field label="Categories">{s.categories}</Field>
                   <Field label="Documents">{s.documents}</Field>
@@ -551,30 +569,68 @@ export default function AdminUserDetail({ userId, me, onClose, onChanged, action
                         way to know whether a support problem is the app or a
                         browser. */}
                     <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-                      {data.logins.devices.map((d, i) => (
-                        <span
-                          key={i}
-                          title={`${d.count} sign-in${d.count === 1 ? '' : 's'} · last ${dateTime(d.lastAt)}`}
+                      {data.logins.devices.map((d, i) => {
+                        const key = deviceLabel(d);
+                        const on = loginDevice === key;
+                        return (
+                          <button
+                            key={i}
+                            type="button"
+                            title={`${d.count} sign-in${d.count === 1 ? '' : 's'} · last ${dateTime(d.lastAt)}`}
+                            onClick={() => {
+                              setLoginDevice(on ? null : key);
+                              setShowAllLogins(false);
+                            }}
+                            style={{
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: 6,
+                              fontSize: 11.5,
+                              fontWeight: 600,
+                              padding: '4px 10px',
+                              borderRadius: 999,
+                              cursor: 'pointer',
+                              font: 'inherit',
+                              fontSize: 11.5,
+                              background: on ? 'var(--accent-soft)' : 'var(--bg-inset)',
+                              border: `1px solid ${on ? 'var(--accent)' : 'var(--border)'}`,
+                              color: on ? 'var(--accent)' : 'inherit',
+                            }}
+                          >
+                            <Icon name={deviceIcon(d.device)} size={12} />
+                            {key} · {d.count}
+                          </button>
+                        );
+                      })}
+                      {loginDevice && (
+                        <button
+                          type="button"
+                          onClick={() => setLoginDevice(null)}
                           style={{
-                            display: 'inline-flex',
-                            alignItems: 'center',
-                            gap: 6,
                             fontSize: 11.5,
-                            fontWeight: 600,
                             padding: '4px 10px',
                             borderRadius: 999,
-                            background: 'var(--bg-inset)',
                             border: '1px solid var(--border)',
+                            background: 'transparent',
+                            color: 'var(--text-muted)',
+                            cursor: 'pointer',
                           }}
                         >
-                          <Icon name={deviceIcon(d.device)} size={12} />
-                          {deviceLabel(d)} · {d.count}
-                        </span>
-                      ))}
+                          Show all devices
+                        </button>
+                      )}
                     </div>
 
+                    {(() => {
+                      const matching = loginDevice
+                        ? data.logins.recent.filter((l) => deviceLabel(l) === loginDevice)
+                        : data.logins.recent;
+                      const shown = showAllLogins ? matching : matching.slice(0, 5);
+                      const hidden = matching.length - shown.length;
+                      return (
+                        <>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 3, marginTop: 4 }}>
-                      {data.logins.recent.map((l, i) => (
+                      {shown.map((l, i) => (
                         <div
                           key={i}
                           style={{
@@ -598,6 +654,39 @@ export default function AdminUserDetail({ userId, me, onClose, onChanged, action
                         </div>
                       ))}
                     </div>
+
+                    {matching.length === 0 && (
+                      <div style={{ fontSize: 12.5, color: 'var(--text-muted)', marginTop: 4 }}>
+                        No sign-ins from {loginDevice} in the last {data.logins.recent.length}.
+                      </div>
+                    )}
+
+                    {/* The count is on the button, so it is a decision rather
+                        than a shrug — "another 15" is worth a click, "another
+                        1" is not. */}
+                    {(hidden > 0 || showAllLogins) && (
+                      <button
+                        type="button"
+                        onClick={() => setShowAllLogins((v) => !v)}
+                        style={{
+                          alignSelf: 'flex-start',
+                          marginTop: 6,
+                          padding: 0,
+                          border: 0,
+                          background: 'none',
+                          color: 'var(--accent)',
+                          font: 'inherit',
+                          fontSize: 12.5,
+                          fontWeight: 600,
+                          cursor: 'pointer',
+                        }}
+                      >
+                        {showAllLogins ? 'Show fewer' : `Show ${hidden} more`}
+                      </button>
+                    )}
+                        </>
+                      );
+                    })()}
                   </>
                 )}
               </Section>

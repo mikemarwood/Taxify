@@ -115,6 +115,14 @@ router.get(
   '/signup-options',
   asyncHandler(async (req, res) => {
     res.json({
+      // Whether sign-ups are open at all.
+      //
+      // The POST has always refused when they are closed, but only after
+      // somebody had filled in a name, a date of birth, a phone number, an
+      // address, a plan and a captcha — and then the refusal arrived as a
+      // toast in the corner. Being turned away at the door is the difference
+      // between a shop that is shut and a shop that takes your order first.
+      registrationEnabled: (await getSetting('registration_enabled')) !== 'false',
       countries: COUNTRIES,
       states: STATES,
       currencies: CURRENCIES,

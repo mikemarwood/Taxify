@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { AnimatePresence, motion } from 'framer-motion';
 import Icon from '../components/Icon.jsx';
 import { AuthSplitFrame, AuthMobileBrand } from '../components/AuthSplit.jsx';
+import AuthLayout from './AuthLayout.jsx';
 import SignupArtwork from '../components/SignupArtwork.jsx';
 import { api } from '../lib/api.js';
 import { useAuth } from '../lib/AuthContext.jsx';
@@ -403,6 +404,18 @@ export default function Register() {
   }
 
   if (pendingEmail) return <PendingActivation email={pendingEmail} />;
+
+  // Sign-ups closed: say so at the door, rather than taking the order first.
+  //
+  // The POST has always refused when they are off, but only at the very end —
+  // after a name, a date of birth, a phone number, an address, a plan and a
+  // captcha — and then the refusal arrived as a toast in the corner of a form
+  // still holding everything just typed. Nothing about that reads as "we are
+  // not taking new customers"; it reads as a sign-up that is broken.
+  //
+  // Only once the answer is actually in. `options` is null while it loads, and
+  // flashing this at everybody for half a second would be its own bug.
+  if (options && options.registrationEnabled === false) return <RegistrationClosed />;
 
   const selectedPlan = plans.find((p) => p.planType === planType) || null;
   const trialDays = options?.trialDays || 14;
@@ -1167,6 +1180,39 @@ function PlanCard({ plan, selected, discounted, trialDays, onSelect }) {
 
 // Shown once the account exists. The resend button counts down rather than
 // failing quietly, so it's clear the request was heard.
+// Sign-ups are switched off in the admin panel.
+//
+// Written as a door that is shut for now, not as an error and not as a
+// rejection of the person reading it: nothing they did caused this, and there
+// is a fair chance they will be welcome next week. So it says what is true,
+// gives the one thing they can still do if they already have an account, and
+// does not apologise at length for a decision that was deliberate.
+function RegistrationClosed() {
+  return (
+    <AuthLayout
+      title="New accounts are closed for now"
+      subtitle="We have paused sign-ups. Nothing is wrong — we are simply not taking new customers at the moment."
+    >
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
+        <p style={{ margin: 0, fontSize: 14, lineHeight: 1.65, color: 'var(--text-muted)' }}>
+          If you already have a Taxify account this does not affect it — sign in as usual and everything is where you
+          left it.
+        </p>
+        <Link className="btn btn-primary" to="/login" style={{ alignSelf: 'flex-start' }}>
+          Go to sign in
+        </Link>
+        <p style={{ margin: 0, fontSize: 12.5, lineHeight: 1.6, color: 'var(--text-subtle)' }}>
+          Wanting an account and cannot wait?{' '}
+          <Link to="/support" style={{ color: 'var(--accent)' }}>
+            Get in touch
+          </Link>{' '}
+          and we will let you know as soon as sign-ups reopen.
+        </p>
+      </div>
+    </AuthLayout>
+  );
+}
+
 function PendingActivation({ email }) {
   const { resendActivation } = useAuth();
   const toast = useToast();
