@@ -79,16 +79,27 @@ test('the mark is embedded, not typed', () => {
   assert.equal(sheet.getImages().length, 1);
 });
 
-test('the wordmark sits in the last column beside the mark', () => {
-  const { sheet, totalCols } = buildSheet();
-  assert.equal(sheet.getCell(2, totalCols).value, 'Taxify');
+test('the letterhead reads top to bottom: brand, title, subtitle', () => {
+  const { sheet } = buildSheet();
+  assert.equal(sheet.getCell(1, 1).value, 'Taxify');
+  assert.equal(sheet.getCell(2, 1).value, 'Category summary');
+  assert.equal(sheet.getCell(3, 1).value, 'a subtitle');
 });
 
-test('a narrow sheet drops the wordmark rather than writing over the title', () => {
-  // One year is three columns, and the title needs them.
-  const { sheet } = buildSheet({ years: ['2026-2027'] });
-  assert.equal(sheet.getCell(1, 1).value, 'Category summary');
-  assert.notEqual(sheet.getCell(2, 2).value, 'Taxify');
+test('the name is indented clear of the logo sitting in the same cell', () => {
+  // Without the indent the word starts underneath the image.
+  const { sheet } = buildSheet();
+  assert.ok(sheet.getCell(1, 1).alignment.indent >= 3);
+});
+
+test('the layout does not depend on how many columns the table has', () => {
+  // The old version anchored the mark over the last column, so a narrow sheet
+  // put it somewhere different from a wide one.
+  const narrow = buildSheet({ years: ['2026-2027'] });
+  const wide = buildSheet({ years: ['2024-2025', '2025-2026', '2026-2027'] });
+  assert.equal(narrow.sheet.getCell(1, 1).value, 'Taxify');
+  assert.equal(wide.sheet.getCell(1, 1).value, 'Taxify');
+  assert.equal(narrow.headerRow, wide.headerRow);
 });
 
 test('the whole workbook writes without throwing', async () => {
@@ -106,5 +117,6 @@ test('and reads back with the image intact', async () => {
   await reopened.xlsx.load(buffer);
   const sheet = reopened.getWorksheet('Category summary');
   assert.equal(sheet.getImages().length, 1, 'the logo must survive a round trip');
-  assert.equal(sheet.getCell(1, 1).value, 'Category summary');
+  assert.equal(sheet.getCell(1, 1).value, 'Taxify');
+  assert.equal(sheet.getCell(2, 1).value, 'Category summary');
 });

@@ -10,6 +10,7 @@ import { fileURLToPath } from 'url';
 import { financialYearOf, isFinancialYearLabel } from '../lib/financialYear.js';
 import { addBrandHeader, addFooter, BRAND } from '../lib/pdfBranding.js';
 import { addSheetBranding, styleSheetTable, ARGB } from '../lib/sheetBranding.js';
+import { formatMoney, excelMoneyFormat } from '../lib/exportMoney.js';
 import { streamYearArchive } from '../lib/yearArchive.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -66,6 +67,9 @@ router.get(
   '/expenses.xlsx',
   asyncHandler(async (req, res) => {
     const expenses = await loadExpenses(req);
+    // What the totals are denominated in. Every converted figure is already in
+    // this, and it is what the symbol on a total has to match.
+    const baseCurrency = req.user.currency || 'AUD';
 
     const workbook = new ExcelJS.Workbook();
     workbook.creator = 'Taxify';
@@ -131,9 +135,13 @@ router.get(
       ]);
       // Only the three money columns; 5, 9 and 10 are words, and 7 is a
       // percentage that reads worse with two decimal places on it.
-      row.getCell(4).numFmt = '#,##0.00';
-      if (e.baseAmount !== null) row.getCell(6).numFmt = '#,##0.00';
-      if (e.claimable !== null) row.getCell(8).numFmt = '#,##0.00';
+      // A column of bare numbers gives no clue what it is denominated in,
+      // and an account can be in any of eleven currencies. The symbol comes
+      // from the row, because a converted amount is in the base currency and
+      // the amount beside it may not be.
+      row.getCell(4).numFmt = excelMoneyFormat(e.currency);
+      if (e.baseAmount !== null) row.getCell(6).numFmt = excelMoneyFormat(e.baseCurrency || e.currency);
+      if (e.claimable !== null) row.getCell(8).numFmt = excelMoneyFormat(e.baseCurrency || e.currency);
       if (i % 2 === 1) {
         row.eachCell((cell) => {
           cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: ARGB.zebra } };
@@ -144,7 +152,7 @@ router.get(
     // The total is of what is being claimed, so it sits under that column.
     const totalRow = sheet.addRow(['', '', 'Total', '', '', '', '', total]);
     totalRow.font = { bold: true, color: { argb: ARGB.ink } };
-    totalRow.getCell(8).numFmt = '#,##0.00';
+    totalRow.getCell(8).numFmt = excelMoneyFormat(baseCurrency);
     for (let col = 1; col <= 10; col++) {
       totalRow.getCell(col).border = { top: { style: 'thin', color: { argb: ARGB.rule } } };
     }
@@ -163,6 +171,9 @@ router.get(
   '/expenses.pdf',
   asyncHandler(async (req, res) => {
     const expenses = await loadExpenses(req);
+    // What the totals are denominated in. Every converted figure is already in
+    // this, and it is what the symbol on a total has to match.
+    const baseCurrency = req.user.currency || 'AUD';
 
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', 'attachment; filename="taxify-expenses.pdf"');
@@ -217,10 +228,10 @@ router.get(
         new Date(e.purchaseDate).toLocaleDateString(),
         e.itemName,
         e.category,
-        e.amount.toFixed(2),
+        formatMoney(e.amount, e.currency),
         e.currency,
         String(e.businessUsePct ?? 100),
-        e.claimable === null ? 'needs rate' : e.claimable.toFixed(2),
+        e.claimable === null ? 'needs rate' : formatMoney(e.claimable, e.baseCurrency || e.currency),
         e.recurring,
         e.notes,
       ];
@@ -232,7 +243,7 @@ router.get(
       y += 18;
     });
 
-    doc.font('Helvetica-Bold').fontSize(10).text(`Total: ${total.toFixed(2)}`, doc.page.margins.left, y + 10);
+    doc.font('Helvetica-Bold').fontSize(10).text(`Total: ${formatMoney(total, baseCurrency)}`, doc.page.margins.left, y + 10);
     addFooter(doc);
     doc.end();
   })
@@ -242,6 +253,9 @@ router.get(
   '/categories.xlsx',
   asyncHandler(async (req, res) => {
     const expenses = await loadExpenses(req);
+    // What the totals are denominated in. Every converted figure is already in
+    // this, and it is what the symbol on a total has to match.
+    const baseCurrency = req.user.currency || 'AUD';
     const { categories, years, cells, totals } = buildCategorySummary(expenses);
 
     const workbook = new ExcelJS.Workbook();
@@ -286,6 +300,7 @@ router.get(
       firstDataRow,
       lastDataRow,
       totalRow: lastDataRow + 1,
+      moneyFormat: excelMoneyFormat(baseCurrency),
     });
 
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
@@ -299,6 +314,9 @@ router.get(
   '/categories.pdf',
   asyncHandler(async (req, res) => {
     const expenses = await loadExpenses(req);
+    // What the totals are denominated in. Every converted figure is already in
+    // this, and it is what the symbol on a total has to match.
+    const baseCurrency = req.user.currency || 'AUD';
     const { categories, years, cells, totals } = buildCategorySummary(expenses);
 
     res.setHeader('Content-Type', 'application/pdf');
@@ -345,15 +363,15 @@ router.get(
       x += catWidth;
       for (const yr of years) {
         const val = cells.get(`${cat}|${yr}`) || 0;
-        doc.text(val ? val.toFixed(2) : '—', x + 4, y + 4, { width: yearWidth - 8, align: 'right' });
+        doc.text(val ? formatMoney(val, baseCurrency) : '—', x + 4, y + 4, { width: yearWidth - 8, align: 'right' });
         x += yearWidth;
       }
-      doc.text((totals.get(cat) || 0).toFixed(2), x + 4, y + 4, { width: 72, align: 'right' });
+      doc.text(formatMoney(totals.get(cat) || 0, baseCurrency), x + 4, y + 4, { width: 72, align: 'right' });
       y += 18;
     });
 
     const grandTotal = Array.from(totals.values()).reduce((s, v) => s + v, 0);
-    doc.font('Helvetica-Bold').fontSize(10).text(`Grand total: ${grandTotal.toFixed(2)}`, doc.page.margins.left, y + 10);
+    doc.font('Helvetica-Bold').fontSize(10).text(`Grand total: ${formatMoney(grandTotal, baseCurrency)}`, doc.page.margins.left, y + 10);
     addFooter(doc);
     doc.end();
   })

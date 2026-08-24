@@ -129,6 +129,19 @@ export function addFooter(doc) {
     .fontSize(7.5)
     .fillColor(BRAND.muted)
     .text('Taxify', margins.left + 12, y + 1, { lineBreak: false });
+
+  // The address, on every page.
+  //
+  // These files get sent on — to an accountant, to a bookkeeper, into an email
+  // thread — and once one has, nothing on it said where it came from or where
+  // to get one. A line of text is the cheapest advertising available and the
+  // only thing that survives being printed out.
+  doc
+    .font('Helvetica')
+    .fontSize(7.5)
+    .fillColor(BRAND.blue)
+    .text('taxify.mikesapphub.com', margins.left + 44, y + 1, { lineBreak: false });
+
   doc
     .font('Helvetica')
     .fontSize(7.5)

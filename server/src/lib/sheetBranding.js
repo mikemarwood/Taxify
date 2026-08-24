@@ -25,49 +25,62 @@ export const ARGB = {
 // The mark floats over the last column rather than sitting in a cell, because
 // an image in a spreadsheet always floats — it is anchored to a position, not
 // stored in a cell — so the cells underneath are left empty for it.
-export function addSheetBranding(workbook, sheet, { title, subtitle, columns }) {
-  const lastCol = Math.max(columns, 1);
+export function addSheetBranding(workbook, sheet, { title, subtitle }) {
+  // A letterhead, read top-left to bottom-right like everything else.
+  //
+  // The mark used to be anchored over the last column, which put it alone in
+  // the far top-right of the sheet with the word "Taxify" underneath it — a
+  // small icon floating in an empty cell several columns from anything, which
+  // read as something pasted in by accident rather than as branding. It sits
+  // at the front now, on the same line as the name, with the report title
+  // under it.
+  //
+  // The name is indented past the image rather than put in the next column,
+  // because the next column is a data column of whatever width the table
+  // needs and the gap would be enormous.
+  const brand = sheet.getCell(1, 1);
+  brand.value = 'Taxify';
+  brand.font = { bold: true, size: 13, color: { argb: ARGB.blue } };
+  brand.alignment = { vertical: 'middle', indent: 4 };
+  sheet.getRow(1).height = 26;
 
-  sheet.getCell(1, 1).value = title;
-  sheet.getCell(1, 1).font = { bold: true, size: 16, color: { argb: ARGB.ink } };
-  sheet.getRow(1).height = 24;
+  sheet.getCell(2, 1).value = title;
+  sheet.getCell(2, 1).font = { bold: true, size: 16, color: { argb: ARGB.ink } };
+  sheet.getRow(2).height = 22;
 
   if (subtitle) {
-    sheet.getCell(2, 1).value = subtitle;
-    sheet.getCell(2, 1).font = { size: 10, color: { argb: ARGB.muted } };
+    sheet.getCell(3, 1).value = subtitle;
+    sheet.getCell(3, 1).font = { size: 10, color: { argb: ARGB.muted } };
   }
-  sheet.getRow(2).height = 16;
-
-  // The wordmark under the mark, right-aligned, so the two read as one lockup
-  // in the corner. Only when there is a column spare to put it in — with a
-  // single year the sheet is three columns wide and the title needs them.
-  if (lastCol >= 3) {
-    const wordmark = sheet.getCell(2, lastCol);
-    wordmark.value = 'Taxify';
-    wordmark.font = { bold: true, size: 11, color: { argb: ARGB.blue } };
-    wordmark.alignment = { horizontal: 'right' };
-  }
+  sheet.getRow(3).height = 15;
 
   const logo = brandLogoPng();
   if (logo) {
     const imageId = workbook.addImage({ buffer: logo, extension: 'png' });
-    // Fractional anchors nudge it off the cell's own corner so it is not
-    // jammed against the gridline. Rows are zero-based here, unlike getCell.
+    // Fractional anchors keep it off the gridline. Rows and columns are
+    // zero-based here, unlike getCell.
     sheet.addImage(imageId, {
-      tl: { col: lastCol - 0.55, row: 0.1 },
-      ext: { width: 26, height: 26 },
+      tl: { col: 0.08, row: 0.12 },
+      ext: { width: 22, height: 22 },
       editAs: 'oneCell',
     });
   }
 
   // A blank row, so the table is not welded to the letterhead.
-  return 4;
+  return 5;
 }
 
 // One look for every table in the exports: a brand-blue head, quiet zebra
 // striping, a ruled total row, and the head frozen so the columns still say
 // what they are two hundred rows down.
-export function styleSheetTable(sheet, { headerRow, firstDataRow, lastDataRow, totalRow, numberFrom = 2 }) {
+// moneyFormat is passed in rather than fixed here, because it carries the
+// account's currency symbol. It used to be a hard-coded '#,##0.00' set after
+// the caller had already applied its own format — so the caller's was silently
+// overwritten and every column came out as a bare number.
+export function styleSheetTable(
+  sheet,
+  { headerRow, firstDataRow, lastDataRow, totalRow, numberFrom = 2, moneyFormat = '#,##0.00' }
+) {
   const head = sheet.getRow(headerRow);
   head.height = 20;
   head.eachCell((cell, col) => {
@@ -81,7 +94,7 @@ export function styleSheetTable(sheet, { headerRow, firstDataRow, lastDataRow, t
     const striped = (r - firstDataRow) % 2 === 1;
     row.eachCell((cell, col) => {
       if (col >= numberFrom) {
-        cell.numFmt = '#,##0.00';
+        cell.numFmt = moneyFormat;
         cell.alignment = { horizontal: 'right' };
       }
       if (striped) cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: ARGB.zebra } };
@@ -94,7 +107,7 @@ export function styleSheetTable(sheet, { headerRow, firstDataRow, lastDataRow, t
       cell.font = { bold: true, color: { argb: ARGB.ink } };
       cell.border = { top: { style: 'thin', color: { argb: ARGB.rule } } };
       if (col >= numberFrom) {
-        cell.numFmt = '#,##0.00';
+        cell.numFmt = moneyFormat;
         cell.alignment = { horizontal: 'right' };
       }
     });

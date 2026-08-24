@@ -128,6 +128,14 @@
      rather than insisting on the width of its widest child. */
   main.lp { max-width: 1200px; min-width: 0; margin: 0 auto; padding: 0 clamp(20px, 5vw, 64px) 80px; }
   main.lp img, main.lp svg, main.lp video { max-width: 100%; height: auto; }
+  /* Nothing wider than the phone it is being read on.
+     Every grid used minmax(Npx, 1fr), and a grid track will not go below its
+     stated minimum — so on a narrow handset the widest of them was 300px
+     inside a 280px content box and the page could be dragged sideways. They
+     are all min(Npx, 100%) now, which lets a track give way when there is no
+     room. This line is the backstop for whatever gets added later and
+     forgets. */
+  html, body { max-width: 100%; overflow-x: hidden; }
 
   /* The product picture sits directly under the hero, so the hero stops
      reserving a section-sized gap beneath itself — the two are one thought. */
@@ -618,6 +626,31 @@
      The rule was there to lift both above the backdrop, and the backdrop
      no longer exists. */
   .lightbox figure { position: relative; }
+  /* Something to look at while a screenshot is on its way.
+     An <img> is transparent until it has decoded, so a background on the
+     figure shows through and is covered the instant the picture paints —
+     nothing has to switch it off. The mark and the slow sweep are the same
+     ones the advertisement frames use, so a wait looks the same wherever it
+     happens on this page. */
+  .lightbox figure {
+    background-color: #0b2e6b;
+    background-image:
+      url('/logo.svg'),
+      linear-gradient(100deg, rgba(255, 255, 255, 0) 0%, rgba(255, 255, 255, .10) 50%, rgba(255, 255, 255, 0) 100%),
+      linear-gradient(140deg, #12376f 0%, #0b2e6b 55%, #071d45 100%);
+    background-repeat: no-repeat;
+    background-position: center, -60% 0, center;
+    background-size: clamp(48px, 9%, 78px) auto, 55% 100%, cover;
+    border-radius: 12px;
+    animation: shot-loading 2.1s ease-in-out infinite;
+  }
+  @keyframes shot-loading {
+    from { background-position: center, -60% 0, center; }
+    to { background-position: center, 160% 0, center; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .lightbox figure { animation: none; }
+  }
   /* Edge to edge on a phone.
      The padding, the rounded corner and the border are all framing, and a
      4in screen has no room to spend on framing. */
@@ -714,7 +747,7 @@
   .ads { padding: 0; margin-top: calc(clamp(48px, 8vw, 88px) * -0.55); }
   .ads-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(min(300px, 100%), 1fr));
     gap: clamp(14px, 2vw, 22px);
     max-width: 940px;
     margin: 0 auto;
@@ -808,7 +841,7 @@
   h2 { font-size: clamp(24px, 4vw, 32px); margin: 0 0 12px; font-weight: 800; }
   .section-head p { color: var(--text-muted); font-size: 15px; max-width: 520px; margin: 0 auto; }
 
-  .features-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px; }
+  .features-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(240px, 100%), 1fr)); gap: 16px; }
   .feature-card { padding: 24px; }
   .feature-icon {
     /* One tint per card, rotating through six.
@@ -860,7 +893,7 @@
     .feature-text { font-size: 13px; line-height: 1.5; }
   }
 
-  .plans-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 20px; max-width: 640px; margin: 0 auto; }
+  .plans-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(260px, 100%), 1fr)); gap: 20px; max-width: 640px; margin: 0 auto; }
   .plan-card { padding: 28px; position: relative; border: 1px solid var(--border); }
   .plan-card.highlight { border-color: var(--violet); box-shadow: 0 0 0 1px var(--violet); }
 
@@ -953,7 +986,7 @@
      shipped with placeholders in it. */
   .reviews {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(min(280px, 100%), 1fr));
     gap: clamp(14px, 2.5vw, 22px);
     max-width: 1040px;
     margin: 0 auto;
@@ -973,42 +1006,6 @@
   .review-name { font-size: 13px; font-weight: 700; }
   .review-role { font-size: 12px; color: var(--text-muted); }
 
-  /* The two blocks that close the page.
-     Both exist because the end of the page was thin, and both say only things
-     that are true — every claim here is one the code actually keeps. */
-  .assurances {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
-    gap: clamp(14px, 2.5vw, 22px);
-    max-width: 1000px;
-    margin: 0 auto clamp(48px, 8vw, 88px);
-  }
-  .assurance {
-    display: flex;
-    gap: 13px;
-    align-items: flex-start;
-    padding: 18px 20px;
-    border-radius: 14px;
-    border: 1px solid var(--border);
-    background: var(--bg-card);
-  }
-  .assurance-icon {
-    --tint: 59, 130, 246;
-    width: 34px;
-    height: 34px;
-    flex-shrink: 0;
-    border-radius: 10px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: rgb(var(--tint));
-    background: linear-gradient(135deg, rgba(var(--tint), .20), rgba(var(--tint), .07));
-  }
-  .assurance:nth-child(2) .assurance-icon { --tint: 16, 185, 129; }
-  .assurance:nth-child(3) .assurance-icon { --tint: 139, 122, 246; }
-  .assurance:nth-child(4) .assurance-icon { --tint: 245, 158, 11; }
-  .assurance-title { font-size: 14px; font-weight: 700; margin-bottom: 3px; }
-  .assurance-text { font-size: 12.5px; color: var(--text-muted); line-height: 1.55; }
 
   footer { text-align: center; font-size: 12px; color: var(--text-muted); padding: 16px 20px; }
   footer a { color: var(--blue); }
@@ -1247,7 +1244,7 @@
         <div class="card feature-card">
           <div class="feature-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.7-.9L9.6 3.9A2 2 0 0 0 7.9 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/></svg></div>
           <div class="feature-title">Filed by financial year, automatically</div>
-          <div class="feature-text">Every expense lands in the right tax year on its own — using your country&rsquo;s year, whether that starts in July, April or January.</div>
+          <div class="feature-text">Every expense lands in the right tax year on its own, and the year is the one your return actually uses.</div>
         </div>
         <div class="card feature-card">
           <div class="feature-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20.6 13.4 12 22l-9-9V3h10l7.6 7.6a2 2 0 0 1 0 2.8Z"/><circle cx="7.5" cy="7.5" r="1.5"/></svg></div>
@@ -1303,6 +1300,11 @@
           <div class="feature-title">Your records, kept properly</div>
           <div class="feature-text">Passwords hashed, a code emailed at every sign-in, and receipts only ever served back to the account that owns them.</div>
         </div>
+        <div class="card feature-card">
+          <div class="feature-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2 4 5v6c0 5 3.4 9.2 8 11 4.6-1.8 8-6 8-11V5Z"/><path d="m9 12 2 2 4-4"/></svg></div>
+          <div class="feature-title">Easy on yourself if you are ever audited</div>
+          <div class="feature-text">Every receipt stays attached to the expense it belongs to, for as long as you keep the account. No shoebox, no scrambling, and no trying to remember what a bank line from three years ago was for.</div>
+        </div>
       </div>
     </section>
 
@@ -1350,43 +1352,6 @@
       <p>Start your 14-day free trial and have your first expense logged before your coffee's cold.</p>
       <a href="https://taxify.mikesapphub.com/app/login" class="btn btn-primary btn-lg" id="cta">Continue to Taxify</a>
     </section>
-    <!-- What is promised, kept to what the code actually does. Every line
-         here is checkable against the app: the two-factor rule, the way a
-         receipt is served, how accountant access expires, and what comes out
-         of an export. -->
-    <section aria-label="What you can rely on">
-      <div class="assurances">
-        <div class="assurance">
-          <div class="assurance-icon"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg></div>
-          <div>
-            <div class="assurance-title">Two-factor, always</div>
-            <div class="assurance-text">A code at every sign-in, on every account. It is not a setting and it cannot be switched off.</div>
-          </div>
-        </div>
-        <div class="assurance">
-          <div class="assurance-icon"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg></div>
-          <div>
-            <div class="assurance-title">Your receipts are yours</div>
-            <div class="assurance-text">Served back only to the account that owns them, and you can pull every one of them out in a single zip whenever you like.</div>
-          </div>
-        </div>
-        <div class="assurance">
-          <div class="assurance-icon"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></div>
-          <div>
-            <div class="assurance-title">Accountant access expires</div>
-            <div class="assurance-text">Read-only or full, for the years you choose, and it closes by itself 24 hours after they first open your books.</div>
-          </div>
-        </div>
-        <div class="assurance">
-          <div class="assurance-icon"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M3 12h18"/><path d="M12 3a15 15 0 0 1 0 18a15 15 0 0 1 0-18"/></svg></div>
-          <div>
-            <div class="assurance-title">49 countries</div>
-            <div class="assurance-text">Your financial year is your country&rsquo;s — 1 July, 6 April, 1 March or 1 January — worked out for you rather than assumed.</div>
-          </div>
-        </div>
-      </div>
-    </section>
-
     <!--REVIEWS-START-->
     <!-- Customer reviews.
 
@@ -1613,7 +1578,7 @@
     </div>
     <a class="shotbox-step shotbox-prev" href="#shot-3" aria-label="Previous, Reports"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg></a>
     <figure>
-      <img src="/media/shot-dashboard.jpg" alt="The Taxify dashboard: spending charted by month, and every category ranked by what it came to" width="1600" height="823" loading="lazy">
+      <img src="/media/shot-dashboard.jpg" alt="The Taxify dashboard: spending charted by month, and every category ranked by what it came to" width="1600" height="823" loading="eager" fetchpriority="low" decoding="async">
     </figure>
     <a class="shotbox-step shotbox-next" href="#shot-2" aria-label="Next, All expenses"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg></a>
     <div class="shotbox-bar">
@@ -1633,7 +1598,7 @@
     </div>
     <a class="shotbox-step shotbox-prev" href="#shot-1" aria-label="Previous, Dashboard"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg></a>
     <figure>
-      <img src="/media/shot-expenses-app.jpg" alt="The expense list, grouped by category with a total on each group" width="1600" height="840" loading="lazy">
+      <img src="/media/shot-expenses-app.jpg" alt="The expense list, grouped by category with a total on each group" width="1600" height="840" loading="eager" fetchpriority="low" decoding="async">
     </figure>
     <a class="shotbox-step shotbox-next" href="#shot-3" aria-label="Next, Reports"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg></a>
     <div class="shotbox-bar">
@@ -1653,7 +1618,7 @@
     </div>
     <a class="shotbox-step shotbox-prev" href="#shot-2" aria-label="Previous, All expenses"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg></a>
     <figure>
-      <img src="/media/shot-reports-app.jpg" alt="The reports page: three tax years side by side, each category totalled and its share of the whole" width="1600" height="864" loading="lazy">
+      <img src="/media/shot-reports-app.jpg" alt="The reports page: three tax years side by side, each category totalled and its share of the whole" width="1600" height="864" loading="eager" fetchpriority="low" decoding="async">
     </figure>
     <a class="shotbox-step shotbox-next" href="#shot-1" aria-label="Next, Dashboard"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg></a>
     <div class="shotbox-bar">
