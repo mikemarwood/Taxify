@@ -24,7 +24,17 @@ main() {
   # the two hashes match and it cannot loop.
   if [ "$before" != "$after" ]; then
     echo "==> deploy.sh itself changed — restarting with the new version"
-    exec "$0" "$@"
+    # Through bash explicitly, rather than exec'ing the path.
+    #
+    # `exec "$0"` asks the kernel to run the file, which needs the execute bit
+    # — and this is launched as `bash deploy.sh` from a wrapper, so nothing
+    # ever required that bit to be set and it was not. The restart died with
+    # "Permission denied" having already pulled, which is the worst place to
+    # stop: new code on disk, nothing installed, built or restarted.
+    #
+    # BASH_SOURCE rather than $0 because it is the script's own path even when
+    # the script is sourced or invoked through a wrapper.
+    exec "${BASH:-bash}" "${BASH_SOURCE[0]}" "$@"
   fi
 
   echo "==> npm install (server)"
