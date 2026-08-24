@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useLayoutEffect } from 'react';
 import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from './lib/AuthContext.jsx';
 import { useEntities } from './lib/EntityContext.jsx';
@@ -178,8 +178,19 @@ function AccountantOnly({ children }) {
 // the top mid-read would be a bug of its own.
 function ScrollToTop() {
   const { pathname } = useLocation();
-  useEffect(() => {
+  // Before the browser paints, not after.
+  //
+  // useEffect runs after the new page is already on screen, so the bottom of
+  // it is shown for a frame and then yanked upward — which on a phone is very
+  // visible and reads as the page having jumped on its own. useLayoutEffect
+  // runs between the render and the paint, so the first frame anybody sees is
+  // already at the top.
+  useLayoutEffect(() => {
+    // Both, because which one scrolls depends on the browser and on whether a
+    // modal has left overflow on the root — and setting the one that is not
+    // scrolling costs nothing.
     window.scrollTo(0, 0);
+    if (document.scrollingElement) document.scrollingElement.scrollTop = 0;
   }, [pathname]);
   return null;
 }

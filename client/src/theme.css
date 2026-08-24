@@ -1203,3 +1203,42 @@ input[type="date"].input::-webkit-calendar-picker-indicator:hover { opacity: 1; 
     linear-gradient(140deg, #12376f 0%, #0b2e6b 55%, #071d45 100%);
   box-shadow: 0 24px 60px -20px rgba(37, 99, 235, 0.45), 0 0 0 1px rgba(59, 130, 246, 0.12);
 }
+
+/* Tell someone about Taxify — the strip on the sign-in panel.
+
+   It was a bare row on the navy, with Facebook's white Like plugin floating in
+   the middle of it looking like something had failed to load. Now the whole
+   thing sits in its own faint panel, and the plugin gets a white chip cut to
+   its exact size so the white reads as a deliberate chip rather than a hole. */
+.social-share {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 13px 14px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+.social-share-label {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.6px;
+  text-transform: uppercase;
+  color: var(--nav-text);
+}
+.social-share-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+/* Exactly the plugin's own 118x28, so there is no white margin around it. */
+.social-share-like {
+  display: block;
+  width: 118px;
+  height: 28px;
+  overflow: hidden;
+  border-radius: 6px;
+  background: #fff;
+  flex-shrink: 0;
+}

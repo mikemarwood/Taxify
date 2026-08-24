@@ -46,22 +46,26 @@ export default function SocialShare() {
     '&width=118&layout=button_count&action=like&size=small&share=false&height=28&appId';
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
-      <span style={{ fontSize: 11.5, color: 'var(--nav-text)', letterSpacing: 0.2 }}>Tell someone about Taxify</span>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 9, flexWrap: 'wrap' }}>
-        {/* Facebook's own plugin, with its own white ground. Left alone rather
-            than fought with — there is no dark variant, and a half-restyled
-            third-party control looks worse than an honest one. */}
-        <iframe
-          src={likeSrc}
-          width="118"
-          height="28"
-          style={{ border: 'none', overflow: 'hidden', borderRadius: 4, colorScheme: 'light' }}
-          scrolling="no"
-          frameBorder="0"
-          loading="lazy"
-          title="Like Taxify on Facebook"
-        />
+    <div className="social-share">
+      <span className="social-share-label">Tell someone about Taxify</span>
+      <div className="social-share-row">
+        {/* Facebook's Like plugin has a white ground and no dark variant, and
+            a half-restyled third-party control looks worse than an honest one.
+            So it is not restyled — it is given a white chip of its own, cut to
+            its exact size, which turns the thing that looked like a rendering
+            fault into something that reads as deliberate. */}
+        <span className="social-share-like">
+          <iframe
+            src={likeSrc}
+            width="118"
+            height="28"
+            style={{ border: 'none', overflow: 'hidden', display: 'block', colorScheme: 'light' }}
+            scrolling="no"
+            frameBorder="0"
+            loading="lazy"
+            title="Like Taxify on Facebook"
+          />
+        </span>
 
         <a className="social-share-btn" href={`https://www.facebook.com/sharer/sharer.php?u=${encoded}`} target="_blank" rel="noopener noreferrer">
           <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" width="14" height="14">
