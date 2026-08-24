@@ -15,7 +15,7 @@ import { onDigitKeyDown, playOpen, playClose } from '../lib/sounds.js';
 import { useAuth } from '../lib/AuthContext.jsx';
 import { useEntities } from '../lib/EntityContext.jsx';
 import { financialYearOf } from '../lib/financialYear.js';
-import { formatDateShort, formatDateLong } from '../lib/dates.js';
+import { formatDateShort, formatDateLong, todayIso } from '../lib/dates.js';
 
 const CURRENCIES = ['AUD', 'USD', 'NZD', 'GBP', 'EUR'];
 
@@ -338,7 +338,24 @@ export default function ExpenseModal({ expense, onClose, onSaved, onDeleted }) {
                 </div>
                 <div>
                   <label className="label">Date</label>
-                  <input className="input" required type="date" value={purchaseDate} onChange={(e) => setPurchaseDate(e.target.value)} />
+                  {/* No date after today. Add expense has capped this since it
+                      was written and editing one never did, so the same value
+                      could be typed here that the other form refuses — and the
+                      typo it catches is the expensive kind: a 2027 keyed for
+                      2026 files the expense into a tax year that has not
+                      happened, where it vanishes from this year's total.
+
+                      todayIso() rather than toISOString(), which converts to
+                      UTC first and would refuse today until mid-morning in
+                      Australia. */}
+                  <input
+                    className="input"
+                    required
+                    type="date"
+                    max={todayIso()}
+                    value={purchaseDate}
+                    onChange={(e) => setPurchaseDate(e.target.value)}
+                  />
                 </div>
               </div>
               {showSwitcher && (

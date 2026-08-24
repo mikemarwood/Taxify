@@ -20,6 +20,7 @@ import { resolveBaseAmount } from '../lib/fx.js';
 import { isKnownCurrency } from '../lib/geoData.js';
 import { suggestCategory } from '../lib/categorySuggest.js';
 import { receiptDirFor, receiptRelDirFor, assertWithin, uniqueFilenameIn } from '../lib/receiptStorage.js';
+import { isFutureDate, FUTURE_DATE_MESSAGE } from '../lib/expenseDate.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const uploadsDir = path.join(__dirname, '..', '..', 'uploads');
@@ -429,6 +430,14 @@ router.post(
         cleanupUpload();
         return res.status(400).json({ error: 'Purchase date is required' });
       }
+      // Both forms cap the picker at today, but `max` on a date input is a
+      // hint to a browser: not sent, not checked, and no obstacle at all to
+      // anything calling the API directly. expenseDate.js has why a year
+      // mistyped forward is the costly one.
+      if (isFutureDate(purchaseDate)) {
+        cleanupUpload();
+        return res.status(400).json({ error: FUTURE_DATE_MESSAGE, field: 'purchaseDate' });
+      }
       if (notes && String(notes).length > 1000) {
         cleanupUpload();
         return res.status(400).json({ error: 'Notes must be 1000 characters or fewer' });
@@ -580,6 +589,13 @@ router.patch(
       if (!purchaseDate) {
         cleanupUpload();
         return res.status(400).json({ error: 'Purchase date is required' });
+      }
+      // Same rule as creating one. This is the route that had no limit at
+      // either end — the edit form's picker was uncapped as well — so an
+      // expense entered correctly could be edited into next year.
+      if (isFutureDate(purchaseDate)) {
+        cleanupUpload();
+        return res.status(400).json({ error: FUTURE_DATE_MESSAGE, field: 'purchaseDate' });
       }
       if (notes && String(notes).length > 1000) {
         cleanupUpload();
