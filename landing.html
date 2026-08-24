@@ -1147,29 +1147,33 @@
       <!-- A label on the pair rather than a chapter heading. The screenshot
            above is the thing being introduced; these show it working. -->
       <h2 class="ads-title">See it in action</h2>
-      <!-- The #t=0.1 on each source is what makes these show a picture rather
-           than a black rectangle.
+      <!-- No #t=0.1 on the sources any more.
 
-           With preload="metadata" and no poster, whether the first frame gets
-           painted is entirely the browser's discretion — Chrome usually does,
-           sometimes does not, and "sometimes" on a sales page reads as broken.
-           A media fragment removes the discretion: the browser seeks to that
-           moment and decodes the frame there, so a picture is guaranteed. It
-           costs one extra range request of a few hundred KB, which the server
-           already answers (206, accept-ranges), and it needs no poster file
-           to be produced or kept in step with the film. -->
+           It was an attempt to force a first frame to paint, and it could
+           never have worked: preload="metadata" does not fetch the sample
+           data, so there is no decoded frame at 0.1s to show. The poster does
+           that job properly now, and the fragment was not free — it makes
+           playback start a tenth of a second in, clipping the opening of both
+           films for no benefit.
+
+           The blank frames were never about the first frame at all. The hub
+           serves this page under a CSP with no media-src, which falls back to
+           default-src 'self' — and 'self' is the hub's origin, not ours, so
+           the browser refused to fetch the video before a request left. Fixed
+           in the hub, not here; nothing on this page could have worked around
+           it. -->
       <div class="ads-grid">
         <!--SLOT:ad-1-->
         <div class="ad-frame">
           <video class="ad-video" controls playsinline preload="metadata" controlslist="nodownload noplaybackrate" disablepictureinpicture poster="/media/ads/ad-1-poster">
-            <source src="/media/ads/ad-1#t=0.1" type="video/mp4">
+            <source src="/media/ads/ad-1" type="video/mp4">
           </video>
         </div>
         <!--/SLOT:ad-1-->
         <!--SLOT:ad-2-->
         <div class="ad-frame">
           <video class="ad-video" controls playsinline preload="metadata" controlslist="nodownload noplaybackrate" disablepictureinpicture poster="/media/ads/ad-2-poster">
-            <source src="/media/ads/ad-2#t=0.1" type="video/mp4">
+            <source src="/media/ads/ad-2" type="video/mp4">
           </video>
         </div>
         <!--/SLOT:ad-2-->
