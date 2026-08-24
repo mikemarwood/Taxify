@@ -1124,3 +1124,28 @@ input[type="date"].input::-webkit-calendar-picker-indicator:hover { opacity: 1; 
   .cam-loading-text::after { animation: none; }
   .cam-loading-text::after { clip-path: none; }
 }
+
+/* The Facebook buttons on the sign-in panel.
+   Sized and coloured for the navy side, not for the white form beside it —
+   see SocialShare.jsx, which also has why Like can be an iframe here and
+   cannot be on the landing page. */
+.social-share-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 11px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  text-decoration: none;
+  color: var(--nav-text-active);
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+}
+.social-share-btn:hover { background: rgba(255, 255, 255, 0.15); }
+/* Messenger only where Messenger exists. On a desktop fb-messenger:// does
+   nothing at all, and a button that does nothing is worse than no button. */
+.social-share-btn--messenger { display: none; }
+@media (pointer: coarse) {
+  .social-share-btn--messenger { display: inline-flex; }
+}

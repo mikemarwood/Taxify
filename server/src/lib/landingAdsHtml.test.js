@@ -100,3 +100,41 @@ test('no poster list means no posters', () => {
   const out = cutEmptyAdSlots(LANDING, ['ad-1']);
   assert.ok(!out.includes('ad-1-poster'));
 });
+
+test('the poster is absolute, because the hub does not rewrite that attribute', () => {
+  // The bug this exists to stop coming back. The proxy rewrites relative URLs
+  // to absolute for link[href], img[src], img[srcset], source[src],
+  // source[srcset], script[src], video[src] and a[href] — and video[poster] is
+  // not on that list. A relative poster therefore resolved against the hub's
+  // own origin, 404'd, and every visitor got a blank frame with a dead control
+  // bar. Verified by reading the attribute back off the proxied page.
+  const page =
+    '<!--ADS-START--><!--SLOT:ad-1--><video poster="/media/ads/ad-1-poster">' +
+    '<source src="/media/ads/ad-1"></video><!--/SLOT:ad-1--><!--ADS-END-->';
+
+  const out = cutEmptyAdSlots(page, ['ad-1'], [], 'https://taxify.example');
+  assert.match(out, /poster="https:\/\/taxify\.example\/media\/ad-poster\.jpg"/);
+  assert.ok(!/poster="\/media/.test(out), 'nothing relative survives');
+});
+
+test('an uploaded poster is made absolute too', () => {
+  const page =
+    '<!--ADS-START--><!--SLOT:ad-1--><video poster="/media/ads/ad-1-poster">' +
+    '<source src="/media/ads/ad-1"></video><!--/SLOT:ad-1--><!--ADS-END-->';
+
+  const out = cutEmptyAdSlots(page, ['ad-1'], ['ad-1'], 'https://taxify.example/');
+  assert.match(out, /poster="https:\/\/taxify\.example\/media\/ads\/ad-1-poster"/);
+  assert.ok(!/poster="\/media/.test(out));
+});
+
+test('with no origin known, the fallback poster is still used', () => {
+  // publicOrigin() can be empty on a machine that has not been told its own
+  // address. A relative poster is wrong through the proxy but right when
+  // Taxify serves the page itself, so it is the safer of the two.
+  const page =
+    '<!--ADS-START--><!--SLOT:ad-1--><video poster="/media/ads/ad-1-poster">' +
+    '<source src="/media/ads/ad-1"></video><!--/SLOT:ad-1--><!--ADS-END-->';
+
+  const out = cutEmptyAdSlots(page, ['ad-1'], [], '');
+  assert.match(out, /poster="\/media\/ad-poster\.jpg"/);
+});

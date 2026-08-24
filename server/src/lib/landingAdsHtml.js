@@ -14,9 +14,18 @@ import { AD_SLOTS } from './landingAds.js';
 //
 // HTML comments do survive the proxy. That was measured against the live hub
 // copy, not assumed.
-export function cutEmptyAdSlots(html, present, withPoster) {
+export function cutEmptyAdSlots(html, present, withPoster, origin) {
   const live = Array.isArray(present) ? present : [];
   const posters = Array.isArray(withPoster) ? withPoster : [];
+  // Absolute, because the hub does not rewrite this one.
+  //
+  // Its proxy rewrites relative URLs to absolute for link[href], img[src],
+  // img[srcset], source[src], source[srcset], script[src], video[src] and
+  // a[href] — and that list does not include video[poster]. So a relative
+  // poster resolved against the hub's own origin, where the file does not
+  // exist, and every visitor got a 404 and a blank frame. Checked by fetching
+  // the proxied page and reading the attribute back, not assumed.
+  const base = String(origin || '').replace(/\/$/, '');
 
   // Nothing uploaded at all: the whole section goes, heading and all.
   if (live.length === 0) {
@@ -50,7 +59,10 @@ export function cutEmptyAdSlots(html, present, withPoster) {
     // uploads/ and would not exist on a fresh machine. An uploaded one still
     // wins wherever there is one.
     if (!posters.includes(slot)) {
-      out = out.replace(` poster="/media/ads/${slot}-poster"`, ' poster="/media/ad-poster.jpg"');
+      out = out.replace(` poster="/media/ads/${slot}-poster"`, ` poster="${base}/media/ad-poster.jpg"`);
+    } else if (base) {
+      // An uploaded poster needs the same treatment, for the same reason.
+      out = out.replace(` poster="/media/ads/${slot}-poster"`, ` poster="${base}/media/ads/${slot}-poster"`);
     }
   }
   return out;

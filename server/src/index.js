@@ -106,7 +106,8 @@ function withLandingAds(html) {
   return cutEmptyAdSlots(
     html,
     adsPresent(),
-    AD_SLOTS.filter((slot) => posterFile(slot) !== null)
+    AD_SLOTS.filter((slot) => posterFile(slot) !== null),
+    publicOrigin()
   );
 }
 
@@ -272,6 +273,28 @@ app.use(assetLinksRoutes);
 // Whether the site is deliberately offline, and what to say about it. Outside
 // the gate, because the sign-in page asks it in order to explain itself.
 app.get('/api/maintenance', maintenanceStatus);
+
+// The same Facebook settings the landing page is built from, for the sign-in
+// panel to draw its own buttons from.
+//
+// The same settings deliberately, not a second copy: switching Facebook off in
+// admin has to switch it off in both places, and the address shared has to be
+// the same address, or the two would advertise different pages under one name.
+// What gets shared is the landing URL, so its Open Graph tags supply the title,
+// description and picture — which is what "shares the same content" means here.
+//
+// Public and unauthenticated, because the people looking at the sign-in page
+// are by definition not signed in yet.
+app.get('/api/social', async (req, res) => {
+  try {
+    res.set('Cache-Control', 'public, max-age=300');
+    res.json(await landingSocialConfig());
+  } catch {
+    // A settings table that cannot be read is not a reason to fail the page
+    // this sits on. Off is the safe answer: the panel renders without it.
+    res.json({ enabled: false });
+  }
+});
 
 // The gate, in front of every API router rather than inside them. A route that
 // forgot to opt in would be a hole in the middle of an outage, and the list of

@@ -1,6 +1,7 @@
 import { motion } from 'framer-motion';
 import Icon from './Icon.jsx';
 import SignupArtwork from './SignupArtwork.jsx';
+import SocialShare from './SocialShare.jsx';
 import { useKeyboardOpen } from '../lib/useKeyboardOpen.js';
 
 // The shared frame for every signed-out page: a navy brand side running edge
@@ -123,6 +124,10 @@ export function ProductPanel({ headline = 'Every receipt where you left it, come
       </div>
 
       <div style={{ marginTop: 'auto', display: 'flex', flexDirection: 'column', gap: 14 }}>
+        {/* The same buttons the landing page carries, from the same admin
+            settings, sharing the same address — see SocialShare.jsx. Renders
+            nothing at all when Facebook is switched off. */}
+        <SocialShare />
         <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap' }}>
           {[
             { icon: 'gift', label: '14-day free trial' },

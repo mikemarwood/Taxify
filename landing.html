@@ -658,7 +658,13 @@
   .lightbox figure {
     background-color: #0b2e6b;
     background-image:
-      url('/logo.svg'),
+      /* Absolute, and it has to be. The hub proxy lifts this stylesheet into
+         its own document, so a relative url() resolves against the hub's
+         origin rather than ours — where /logo.svg does not exist. It rewrites
+         img[src] but nothing inside CSS, so this mark had never once appeared
+         for a real visitor. Same fault as the poster attribute; see
+         landingAdsHtml.js. */
+      url('https://taxify.mikesapphub.com/logo.svg'),
       linear-gradient(100deg, rgba(255, 255, 255, 0) 0%, rgba(255, 255, 255, .10) 50%, rgba(255, 255, 255, 0) 100%),
       linear-gradient(140deg, #12376f 0%, #0b2e6b 55%, #071d45 100%);
     background-repeat: no-repeat;
@@ -1072,10 +1078,18 @@
       <img src="/logo.svg" alt="Taxify" width="32" height="32">
       <span>Taxify</span>
     </a>
-    <div class="nav-actions">
-      <a href="https://taxify.mikesapphub.com/app/login" class="btn btn-ghost">Log in</a>
-      <a href="https://taxify.mikesapphub.com/app/login" class="btn btn-primary">Open Taxify</a>
-    </div>
+    <!-- No buttons up here.
+
+         They were invisible until the topbar stopped being a <header> the hub
+         deletes, and one look at them back in place settled it: the hub draws
+         its own signed-in nav across the top of this page, so Log in and Open
+         Taxify sat directly beneath the hub's own — two sets of controls
+         saying the same thing, inches apart, the second of them ours and
+         redundant.
+
+         Nothing is lost. The call to action at the foot of the page still goes
+         to the same place, and by then the reader has been given a reason to
+         press it. -->
   </div>
 
   <main class="lp">
