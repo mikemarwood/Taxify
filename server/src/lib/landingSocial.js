@@ -15,8 +15,6 @@
 
 // Facebook renders these at a fixed size, and the iframe has to be told the
 // same size or it scrolls its own content.
-const LIKE_WIDTH = 118;
-const LIKE_HEIGHT = 28;
 
 function escapeAttribute(value) {
   return String(value)
@@ -47,18 +45,23 @@ export function socialButtonsHtml({ shareUrl, pageUrl }) {
   if (!target) return null;
 
   const encoded = encodeURIComponent(target);
-  const likeSrc =
-    `https://www.facebook.com/plugins/like.php?href=${encoded}` +
-    `&width=${LIKE_WIDTH}&layout=button_count&action=like&size=small&share=false&height=${LIKE_HEIGHT}&appId`;
-
   const follow = safeHttpUrl(pageUrl);
 
+  // No Like button, and it is not coming back in this form.
+  //
+  // Facebook's Like is an iframe onto facebook.com — there is no version of it
+  // that is not. Visitors reach this page through the hub proxy, which serves
+  // it under "default-src 'self'" with no frame-src, so that iframe is refused
+  // by the browser before a request is made. It rendered as a small empty gap
+  // next to the working buttons.
+  //
+  // Liking a page from a button that is not on that page needs Facebook's SDK
+  // and a registered app id anyway. The honest equivalent is a link to the
+  // page itself, which is the "Follow us" button below — set the page address
+  // in the admin panel and it appears. Everything here is a plain anchor now,
+  // and plain anchors survive both the proxy and its CSP.
   return (
     `<div class="social-row">` +
-    `<iframe class="fb-like" src="${escapeAttribute(likeSrc)}" width="${LIKE_WIDTH}" height="${LIKE_HEIGHT}" ` +
-    `style="border:none;overflow:hidden" scrolling="no" frameborder="0" allowfullscreen="true" ` +
-    `loading="lazy" title="Like Taxify on Facebook" ` +
-    `allow="autoplay; clipboard-write; encrypted-media; picture-in-picture; web-share"></iframe>` +
     `<a class="social-btn" href="https://www.facebook.com/sharer/sharer.php?u=${encoded}" ` +
     `target="_blank" rel="noopener noreferrer">` +
     `<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" width="15" height="15">` +

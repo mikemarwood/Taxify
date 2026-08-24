@@ -348,7 +348,12 @@ export default function ExpenseModal({ expense, onClose, onSaved, onDeleted }) {
                     {entities.map((e) => (
                       <option key={e.id} value={e.id}>
                         {e.name}
-                        {e.kind === 'business' ? ' — business' : ''}
+                        {/* Capitalised, and both kinds named. Add expense
+                            already says "— Business" / "— Individual"; this
+                            said "— business" for one kind and nothing for the
+                            other, so the same list read differently depending
+                            on which screen you opened it from. */}
+                        {e.kind === 'business' ? ' — Business' : ' — Individual'}
                       </option>
                     ))}
                   </select>
@@ -617,38 +622,18 @@ export default function ExpenseModal({ expense, onClose, onSaved, onDeleted }) {
                     Delete this expense? It will be removed from your records and from every report and total.
                   </span>
 
-                  {/* The receipt goes with the expense. Always, and without
-                      being asked.
+                  {/* Nothing here about the receipt.
 
-                      This was a checkbox, and it should not have been: the
-                      receipt is evidence for a claim, so once the claim is
-                      gone the file is a stray document sitting in the books
-                      attached to nothing. Nobody deleting an expense means to
-                      keep its receipt, so the question only ever collected an
-                      answer nobody had a view on — and left orphaned files
-                      behind whenever it was unticked by accident. Stated
-                      rather than asked. */}
-                  {expense.receiptUrl && (
-                    <span
-                      style={{
-                        display: 'block',
-                        fontSize: 13,
-                        padding: '10px 12px',
-                        borderRadius: 'var(--radius-sm)',
-                        border: '1px solid var(--border)',
-                        background: 'var(--bg-elevated)',
-                        color: 'var(--text-muted)',
-                      }}
-                    >
-                      <span style={{ fontWeight: 600, color: 'var(--text)' }}>
-                        “{expense.receiptFilename}” is deleted with it
-                      </span>
-                      <span style={{ display: 'block', marginTop: 2 }}>
-                        Removed from disk now, and restoring this expense will not bring it back. Kept only if another
-                        expense still uses the same file.
-                      </span>
-                    </span>
-                  )}
+                      It was a checkbox, then a panel explaining what the
+                      checkbox used to decide, and both were answering a
+                      question nobody asked. The receipt is evidence for the
+                      claim: once the claim is gone the file is a document in
+                      the books attached to nothing, so it goes too, and that
+                      is what anybody would assume. Spelling out the filename
+                      and the consequences turned a one-line confirmation into
+                      a paragraph of small print about a decision that is not
+                      theirs to make. The line above already says the expense
+                      is removed from their records. */}
 
                   <div style={{ display: 'flex', gap: 10 }}>
                     <button className="btn btn-primary" style={{ background: 'var(--red)', fontSize: 13, flex: 1 }} disabled={busy} onClick={onDelete}>

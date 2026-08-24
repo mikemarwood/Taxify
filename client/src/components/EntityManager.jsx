@@ -17,7 +17,7 @@ import { onCasedInput } from '../lib/casedInput.js';
 
 const KINDS = [
   { value: 'individual', label: 'Individual', hint: 'Your own tax return' },
-  { value: 'business', label: 'Small business', hint: 'A business you run' },
+  { value: 'business', label: 'Small Business', hint: 'A business you run' },
 ];
 
 const CADENCES = [
@@ -241,7 +241,7 @@ export default function EntityManager() {
               </button>
 
               <div style={{ fontSize: 11.5, color: 'var(--text-muted)', marginTop: 6 }}>
-                {e.kind === 'business' ? 'Small business' : 'Individual'} ·{' '}
+                {e.kind === 'business' ? 'Small Business' : 'Individual'} ·{' '}
                 {e.cadence === 'quarterly' ? `${filesVerb} quarterly` : `${filesVerb} yearly`}
               </div>
               <div style={{ fontSize: 11.5, color: 'var(--text-subtle)', marginTop: 2 }}>
@@ -463,7 +463,7 @@ export default function EntityManager() {
                 />
                 <span style={{ flex: 1, minWidth: 120, fontWeight: 600 }}>{e.name}</span>
                 <span style={{ fontSize: 11.5, color: 'var(--text-muted)' }}>
-                  {e.kind === 'business' ? 'Small business' : 'Individual'}
+                  {e.kind === 'business' ? 'Small Business' : 'Individual'}
                 </span>
                 <button
                   type="button"

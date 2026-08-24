@@ -30,14 +30,27 @@ export function cutEmptyAdSlots(html, present, withPoster) {
       out = out.replace(new RegExp(`<!--SLOT:${slot}-->[\\s\\S]*?<!--/SLOT:${slot}-->`), '');
       continue;
     }
-    // No poster uploaded: the attribute goes rather than pointing at a URL
-    // that would 404. Two reasons. A poster that fails to load and no poster at
-    // all look the same to the eye, but one is a wasted request and a red line
-    // in the console for anybody who opens it. And a poster attribute that
-    // fails is not the same as no poster attribute: without one the browser
-    // paints the film's own opening frame, which is what we want to see.
+    // No poster uploaded: fall back to the one drawn into the site.
+    //
+    // This used to delete the attribute, on the stated grounds that "without
+    // one the browser paints the film's own opening frame". That is not true,
+    // and believing it is what left two black rectangles on the landing page.
+    // With preload="metadata", whether any frame gets painted is the browser's
+    // discretion — often yes on a desktop Chrome, often no elsewhere, and
+    // reported blank from several different devices.
+    //
+    // The attempt before this one was #t=0.1 on the source, which fails for a
+    // reason worth recording: the fragment says where to seek, but
+    // preload="metadata" will not fetch the sample data, so there is no
+    // decoded frame at 0.1s for it to show.
+    //
+    // A poster is a plain image paint. No codec, no range request, no
+    // discretion, identical on every device. media/ad-poster.jpg is committed
+    // and ships with the site, unlike an uploaded poster, which lives under
+    // uploads/ and would not exist on a fresh machine. An uploaded one still
+    // wins wherever there is one.
     if (!posters.includes(slot)) {
-      out = out.replace(` poster="/media/ads/${slot}-poster"`, '');
+      out = out.replace(` poster="/media/ads/${slot}-poster"`, ' poster="/media/ad-poster.jpg"');
     }
   }
   return out;

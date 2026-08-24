@@ -90,7 +90,22 @@
     border-radius: 16px;
   }
 
-  header {
+  /* Not <header>, and not <footer> further down, for a reason that cost this
+     page its entire top bar and its legal links without anybody noticing.
+
+     Visitors arrive through the Mikes App Hub proxy, and the first thing it
+     does to a proxied page is
+       $('header, nav.site-nav, nav.main-nav, nav.navbar, .site-header,
+          .site-footer, footer, …').remove()
+     — so every one of those tags, and its contents, was deleted in transit.
+     The origin served them correctly, which is why this was invisible from
+     here and only ever wrong for the people it was written for.
+
+     What was being thrown away: the brand, Log in, Open Taxify, Terms of
+     Service, Privacy Policy, the copyright line and the Facebook buttons.
+     Plain divs with our own class names survive. Do not rename these to
+     anything on that list. */
+  .lp-topbar {
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -1015,21 +1030,19 @@
   .review-role { font-size: 12px; color: var(--text-muted); }
 
 
-  footer { text-align: center; font-size: 12px; color: var(--text-muted); padding: 16px 20px; }
-  footer a { color: var(--blue); }
+  .lp-footer { text-align: center; font-size: 12px; color: var(--text-muted); padding: 16px 20px; }
+  .lp-footer a { color: var(--blue); }
   /* The Facebook buttons, when the admin panel has switched them on.
-     The Like plugin is an iframe of Facebook's own making and comes with its
-     own white ground, so it is left alone rather than fought with — the Share
-     button beside it is ours and matches the page. */
+     All plain links now — landingSocial.js has why the Like iframe went. */
+  .social-section { padding: 4px 20px 34px; text-align: center; }
   .social-row {
     display: flex;
     align-items: center;
     justify-content: center;
     flex-wrap: wrap;
     gap: 10px;
-    margin: 0 0 16px;
+    margin: 0;
   }
-  .fb-like { border-radius: 4px; overflow: hidden; }
   .social-btn {
     display: inline-flex;
     align-items: center;
@@ -1054,7 +1067,7 @@
 </style>
 </head>
 <body>
-  <header>
+  <div class="lp-topbar">
     <a class="brand" href="/">
       <img src="/logo.svg" alt="Taxify" width="32" height="32">
       <span>Taxify</span>
@@ -1063,7 +1076,7 @@
       <a href="https://taxify.mikesapphub.com/app/login" class="btn btn-ghost">Log in</a>
       <a href="https://taxify.mikesapphub.com/app/login" class="btn btn-primary">Open Taxify</a>
     </div>
-  </header>
+  </div>
 
   <main class="lp">
     <section class="hero">
@@ -1404,18 +1417,32 @@
     </section>
     <!--REVIEWS-END-->
 
+    <!-- Outside the footer, and that is the whole reason these buttons are
+         visible at all.
+
+         They were in it, and never appeared for a single visitor. The hub
+         proxy's first act on a proxied page is
+           $('header, nav.site-nav, …, .site-footer, footer, …').remove()
+         so the entire footer — social row included — was deleted in transit.
+         The origin served the buttons correctly the whole time, which is why
+         switching the setting on and off in admin changed nothing and why the
+         earlier guess that the setting defaulted to off was wrong.
+
+         Filled in by the server from the admin settings, or cut out entirely
+         when Facebook is switched off there. It cannot decide for itself: the
+         proxy strips every script from this page. See landingSocial.js, which
+         is where the reason these are plain links rather than Facebook's own
+         SDK is written down. -->
+    <section class="social-section" aria-label="Share Taxify">
+      <!--SOCIAL-START--><!--SOCIAL-END-->
+    </section>
+
   </main>
 
-  <footer>
-    <!-- Filled in by the server from the admin settings, or cut out entirely
-         when Facebook is switched off there. It cannot decide for itself: the
-         hub proxy strips every script from this page. See landingSocial.js,
-         which is also where the reason these are an iframe and a plain link
-         rather than Facebook's own SDK is written down. -->
-    <!--SOCIAL-START--><!--SOCIAL-END-->
+  <div class="lp-footer">
     <a href="/app/terms">Terms of Service</a> · <a href="/app/privacy">Privacy Policy</a><br>
     © <span id="year"></span> Taxify · Powered by <a href="https://mikesapphub.com" target="_blank" rel="noreferrer">Mikes App Hub</a>
-  </footer>
+  </div>
 
   <script>
     // Absolute when the page is somewhere other than Taxify, relative when it

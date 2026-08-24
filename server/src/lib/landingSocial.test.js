@@ -7,7 +7,6 @@ const PAGE = '<header>x</header><!--SOCIAL-START--><!--SOCIAL-END--><footer>y</f
 test('puts the buttons between the markers', () => {
   const out = injectLandingSocial(PAGE, { enabled: true, shareUrl: 'https://taxify.example' });
   assert.match(out, /sharer\.php/);
-  assert.match(out, /plugins\/like\.php/);
   assert.match(out, /<header>x<\/header>/);
   assert.match(out, /<footer>y<\/footer>/);
 });
@@ -48,7 +47,7 @@ test('escapes the address rather than trusting it', () => {
   const html = socialButtonsHtml({ shareUrl: 'https://taxify.example/?a=1&b=2' });
   assert.ok(!html.includes('"><script'), 'no way out of the attribute');
   // Encoded once for the query string it sits in.
-  assert.match(html, /href=https%3A%2F%2Ftaxify\.example%2F%3Fa%3D1%26b%3D2/);
+  assert.match(html, /u=https%3A%2F%2Ftaxify\.example%2F%3Fa%3D1%26b%3D2/);
 });
 
 test('adds a follow link only when a page address is given', () => {
@@ -64,11 +63,17 @@ test('ignores a follow address that is not a real URL', () => {
   assert.ok(!html.includes('javascript:'));
 });
 
-test('the like button is an iframe, not a script', () => {
-  // The hub proxy strips every script from this page, so the SDK version of
-  // this button would silently render nothing at all.
+test('every button is a plain link — no iframe, no script', () => {
+  // Both would be thrown away before a visitor saw them. The hub proxy strips
+  // every script from this page, so Facebook's SDK renders nothing; and it
+  // serves the page under "default-src 'self'" with no frame-src, so an
+  // iframe onto facebook.com is refused by the browser before a request goes
+  // out. That is what the Like button was, and why it is gone: it showed as a
+  // small empty gap beside the buttons that work.
   const html = socialButtonsHtml({ shareUrl: 'https://taxify.example' });
-  assert.match(html, /<iframe/);
+  assert.ok(!html.includes('<iframe'), 'an iframe would be blocked by the proxy CSP');
   assert.ok(!html.includes('<script'));
   assert.ok(!html.includes('connect.facebook.net'));
+  assert.ok(!html.includes('plugins/like.php'));
+  assert.match(html, /sharer\.php/);
 });
