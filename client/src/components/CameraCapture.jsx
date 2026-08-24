@@ -171,29 +171,50 @@ export default function CameraCapture({ onCapture, onCancel, onFallback, onChoos
       }}
     >
       <div style={{ position: 'relative', flex: 1, minHeight: 0, overflow: 'hidden' }}>
+        {/* Hidden until there are frames to show, not merely covered.
+            An empty <video> is not blank: the Android webview paints its own
+            placeholder into it — a grey field with a giant black play triangle
+            — and that was showing full-screen behind the loading text with the
+            spinner sitting on top of it. Nothing about that reads as a camera
+            about to open. visibility:hidden keeps the element laid out and
+            keeps the stream attached, and paints none of it. */}
         <video
           ref={videoRef}
           playsInline
           muted
           autoPlay
-          style={{ width: '100%', height: '100%', objectFit: 'contain', display: error ? 'none' : 'block' }}
+          style={{
+            width: '100%',
+            height: '100%',
+            objectFit: 'cover',
+            display: error ? 'none' : 'block',
+            visibility: ready ? 'visible' : 'hidden',
+            opacity: ready ? 1 : 0,
+            transition: 'opacity .32s ease',
+          }}
         />
 
+        {/* The viewfinder. Four corner brackets in the shape of a receipt —
+            tall and narrow — so there is something to aim with, and so the
+            wait has the same furniture as the camera it becomes. It stays
+            once the picture arrives; that is the point of it. */}
+        {!error && (
+          <div className="cam-frame" aria-hidden="true">
+            <span className="cam-corner tl" />
+            <span className="cam-corner tr" />
+            <span className="cam-corner bl" />
+            <span className="cam-corner br" />
+            <span className={ready ? 'cam-scan is-idle' : 'cam-scan'} />
+          </div>
+        )}
+
         {!ready && !error && (
-          <div
-            style={{
-              position: 'absolute',
-              inset: 0,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              color: 'rgba(255,255,255,.75)',
-              fontSize: 14,
-              gap: 10,
-            }}
-          >
-            <span className="spinner" />
-            Opening the camera…
+          <div className="cam-loading">
+            <span className="cam-lens" aria-hidden="true">
+              <Icon name="camera" size={26} />
+            </span>
+            <span className="cam-loading-text">Opening the camera</span>
+            <span className="cam-loading-hint">Hold the receipt flat and fill the frame</span>
           </div>
         )}
 
@@ -254,46 +275,31 @@ export default function CameraCapture({ onCapture, onCancel, onFallback, onChoos
             justifyContent: 'center',
             gap: 26,
             padding: '20px 20px calc(24px + env(safe-area-inset-bottom))',
-            background: '#000',
+            // Not a hard black seam against the picture. The bar lifts out of
+            // the frame rather than being stuck on under it.
+            background: 'linear-gradient(to bottom, rgba(0,0,0,.55), #000 34%)',
           }}
         >
-          <button
-            type="button"
-            onClick={onChooseFile}
-            style={{
-              background: 'none',
-              border: 0,
-              color: 'rgba(255,255,255,.72)',
-              font: 'inherit',
-              fontSize: 13,
-              cursor: 'pointer',
-              padding: 8,
-            }}
-          >
+          <button type="button" onClick={onChooseFile} className="cam-alt">
+            <Icon name="file" size={15} />
             Choose a file
           </button>
 
           {/* The shutter, drawn the way every camera draws one, so there is
-              nothing to read before using it. */}
+              nothing to read before using it. A ring with a disc inside, and
+              the disc alone shrinks on the press — the ring holding still is
+              what makes it feel like a shutter rather than a button. */}
           <button
             type="button"
             onClick={shoot}
             disabled={!ready || busy}
             aria-label="Take the photo"
-            style={{
-              width: 68,
-              height: 68,
-              borderRadius: '50%',
-              border: '4px solid rgba(255,255,255,.9)',
-              background: busy ? 'rgba(255,255,255,.45)' : '#fff',
-              cursor: ready && !busy ? 'pointer' : 'default',
-              opacity: ready ? 1 : 0.45,
-              flexShrink: 0,
-              padding: 0,
-            }}
-          />
+            className={`cam-shutter${busy ? ' is-busy' : ''}${ready ? ' is-ready' : ''}`}
+          >
+            <span className="cam-shutter-disc" />
+          </button>
 
-          <span style={{ width: 76 }} aria-hidden="true" />
+          <span style={{ width: 96 }} aria-hidden="true" />
         </div>
       )}
     </div>

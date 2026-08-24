@@ -41,11 +41,21 @@ public class UpdateManager {
                 String versionName = json.optString("versionName", "");
                 String apkUrl = json.getString("url");
 
+                // The floor below which this build must not go on being used.
+                //
+                // Absent or zero means every update is optional, which is the
+                // right default — forcing people through an installer for a
+                // change of wording is contempt for their time. It is set on
+                // the release that fixes something the app is actively getting
+                // wrong, where carrying on is worse than the interruption.
+                int minVersionCode = json.optInt("minVersionCode", 0);
+
                 int localVersionCode = BuildConfig.VERSION_CODE;
+                boolean required = localVersionCode < minVersionCode;
 
                 if (remoteVersionCode > localVersionCode) {
                     new Handler(Looper.getMainLooper()).post(() ->
-                        promptUpdate(context, apkUrl, versionName));
+                        promptUpdate(context, apkUrl, versionName, required));
                 }
             } catch (Exception ignored) {
                 // No network, or server unreachable — silently skip the check.
@@ -53,24 +63,41 @@ public class UpdateManager {
         }).start();
     }
 
-    private static void promptUpdate(Context context, String apkUrl, String versionName) {
-        NotificationHelper.ensureChannel(context);
-        NotificationHelper.notify(
-            context,
-            context.getString(R.string.update_available_title),
-            context.getString(R.string.update_available_message),
-            null
-        );
+    private static void promptUpdate(Context context, String apkUrl, String versionName, boolean required) {
+        // No notification for a required update. The dialog is already in
+        // front of them and cannot be dismissed; a notification about it would
+        // be telling somebody something they are currently looking at.
+        if (!required) {
+            NotificationHelper.ensureChannel(context);
+            NotificationHelper.notify(
+                context,
+                context.getString(R.string.update_available_title),
+                context.getString(R.string.update_available_message),
+                null
+            );
+        }
 
-        new AlertDialog.Builder(context)
-            .setTitle(context.getString(R.string.update_available_title))
-            .setMessage(versionName != null && !versionName.isEmpty()
-                ? "Taxify " + versionName + " is ready to install."
-                : context.getString(R.string.update_available_message))
-            .setPositiveButton(R.string.update_action, (dialog, which) -> downloadAndInstall(context, apkUrl))
-            .setNegativeButton(R.string.update_later, null)
-            .setCancelable(true)
-            .show();
+        String named = versionName != null && !versionName.isEmpty() ? "Taxify " + versionName : "A new version";
+
+        AlertDialog.Builder builder = new AlertDialog.Builder(context)
+            .setTitle(required
+                ? context.getString(R.string.update_required_title)
+                : context.getString(R.string.update_available_title))
+            .setMessage(required
+                ? named + " is needed before you can carry on. This one fixes something the version you have gets"
+                    + " wrong, so there is no sensible way to keep using it."
+                : named + " is ready to install.")
+            .setPositiveButton(R.string.update_action, (dialog, which) -> downloadAndInstall(context, apkUrl));
+
+        if (required) {
+            // No Later, no back button, no tapping outside. Every other way out
+            // of this dialog leaves somebody using a build we know is wrong.
+            builder.setCancelable(false);
+        } else {
+            builder.setNegativeButton(R.string.update_later, null).setCancelable(true);
+        }
+
+        builder.show();
     }
 
     private static void downloadAndInstall(Context context, String apkUrl) {

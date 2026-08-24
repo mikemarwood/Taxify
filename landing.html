@@ -193,31 +193,15 @@
     filter: blur(26px);
     z-index: 0;
   }
-  .hero-shot img { display: block; width: 100%; height: auto; }
-  /* The tablet, and the three screens cycling inside it.
-     Everything is stacked in one box that keeps the tablet's own aspect, so
-     the screens sit exactly under the hole in the frame at every width. */
-  .tablet { position: relative; z-index: 1; width: 100%; aspect-ratio: 1100 / 646; }
-  .tablet-screen,
-  .tablet-frame { position: absolute; inset: 0; width: 100%; height: 100%; }
-  .tablet-frame { z-index: 2; }
-  /* Each screen holds for a third of the cycle and dissolves into the next.
-     One animation, three delays — 12s round, so each is up for about three
-     seconds, long enough to read a heading and not long enough to wait for. */
-  .tablet-screen { z-index: 1; opacity: 0; animation: tablet-cycle 12s linear infinite; }
-  .tablet-screen.s1 { animation-delay: 0s; }
-  .tablet-screen.s2 { animation-delay: -8s; }
-  .tablet-screen.s3 { animation-delay: -4s; }
-  @keyframes tablet-cycle {
-    0%, 27% { opacity: 1; }
-    33%, 94% { opacity: 0; }
-    100% { opacity: 1; }
-  }
-  /* Reduced motion gets the dashboard and nothing moving. */
-  @media (prefers-reduced-motion: reduce) {
-    .tablet-screen { animation: none; }
-    .tablet-screen.s1 { opacity: 1; }
-  }
+  /* One flat picture, deliberately.
+     This was three screenshots cross-fading behind a cut-out frame, and it
+     read as glitchy for a reason that only shows in motion: mid-dissolve both
+     screens are partly visible, and superimposed text at half opacity looks
+     like a double image rather than a transition. The frame is now baked over
+     the dashboard, so there is nothing to fall out of step — and it is one
+     request instead of four. The other two screens are still a click away,
+     full size, under the button below. */
+  .hero-shot img { position: relative; z-index: 1; display: block; width: 100%; height: auto; }
   /* The way to a flat, readable copy. The tablet is angled, so the dashboard
      on it can be seen but not read, and this is the only thing on the page
      worth opening full size. */
@@ -1102,25 +1086,7 @@
          — hence the button below it, which opens that screenshot flat and
          full size. -->
     <div class="hero-shot">
-      <div class="tablet">
-        <!-- Three screens behind one frame.
-
-             The frame is the tablet with its screen cut out, so the pictures
-             behind show through the hole. That is what makes this responsive
-             without a line of script: frame and screens are the same canvas,
-             both are width:100%, and they cannot drift apart at any size. The
-             perspective was applied to the screenshots offline rather than in
-             CSS, because matrix3d works in pixels and only lines up at one
-             viewport width.
-
-             Order matters below: the last one declared is on top, so the
-             animation delays run in reverse to give dashboard, expenses,
-             reports. -->
-        <img class="tablet-screen s3" src="/media/tablet-reports.jpg" alt="" width="1100" height="646" aria-hidden="true" decoding="async">
-        <img class="tablet-screen s2" src="/media/tablet-expenses.jpg" alt="" width="1100" height="646" aria-hidden="true" decoding="async">
-        <img class="tablet-screen s1" src="/media/tablet-dashboard.jpg" alt="" width="1100" height="646" aria-hidden="true" decoding="async">
-        <img class="tablet-frame" src="/media/tablet-frame.png" alt="Taxify open on a tablet, cycling through the dashboard, the expense list and the reports" width="1100" height="646" fetchpriority="high" decoding="async">
-      </div>
+      <img src="/media/hero-tablet.jpg" alt="Taxify open on a tablet, showing a year's deductions totalled by category" width="1100" height="646" fetchpriority="high" decoding="async">
       <a class="hero-zoom" href="#shot-1">
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5M8 11h6M11 8v6"/></svg>
         See the screens full size
@@ -1143,18 +1109,29 @@
       <!-- A label on the pair rather than a chapter heading. The screenshot
            above is the thing being introduced; these show it working. -->
       <h2 class="ads-title">See it in action</h2>
+      <!-- The #t=0.1 on each source is what makes these show a picture rather
+           than a black rectangle.
+
+           With preload="metadata" and no poster, whether the first frame gets
+           painted is entirely the browser's discretion — Chrome usually does,
+           sometimes does not, and "sometimes" on a sales page reads as broken.
+           A media fragment removes the discretion: the browser seeks to that
+           moment and decodes the frame there, so a picture is guaranteed. It
+           costs one extra range request of a few hundred KB, which the server
+           already answers (206, accept-ranges), and it needs no poster file
+           to be produced or kept in step with the film. -->
       <div class="ads-grid">
         <!--SLOT:ad-1-->
         <div class="ad-frame">
           <video class="ad-video" controls playsinline preload="metadata" controlslist="nodownload noplaybackrate" disablepictureinpicture poster="/media/ads/ad-1-poster">
-            <source src="/media/ads/ad-1" type="video/mp4">
+            <source src="/media/ads/ad-1#t=0.1" type="video/mp4">
           </video>
         </div>
         <!--/SLOT:ad-1-->
         <!--SLOT:ad-2-->
         <div class="ad-frame">
           <video class="ad-video" controls playsinline preload="metadata" controlslist="nodownload noplaybackrate" disablepictureinpicture poster="/media/ads/ad-2-poster">
-            <source src="/media/ads/ad-2" type="video/mp4">
+            <source src="/media/ads/ad-2#t=0.1" type="video/mp4">
           </video>
         </div>
         <!--/SLOT:ad-2-->

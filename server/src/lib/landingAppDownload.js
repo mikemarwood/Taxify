@@ -61,15 +61,22 @@ export function appDownloadHtml({ origin, isAndroid, sizeBytes }) {
   // One line inside the button and the detail beside it, rather than a second
   // line of small print crammed in. A button with a subtitle in it reads as a
   // panel somebody has made into a button.
+  //
+  // Nothing beside the button on anything that is not Android. "Android only"
+  // sat there permanently, aimed at the people it does not apply to, and read
+  // as an apology for the product rather than as information. Somebody on a
+  // desktop who wants the app taps the button and the panel tells them then.
+  // On Android the note earns its place: the size of the download, and that it
+  // installs directly, are both worth knowing before the tap and not after.
+  const note = isAndroid ? `Installs directly${size ? ` &middot; ${size}` : ''}` : '';
+
   return (
     `<span class="devices-line">` +
     `<a class="devices-get" href="${escapeAttribute(href)}"${isAndroid ? ' download' : ''}>` +
     ANDROID_ICON +
     (isAndroid ? 'Download the Android app' : 'Get the Android app') +
     '</a>' +
-    `<span class="devices-note">${
-      isAndroid ? `Installs directly${size ? ` &middot; ${size}` : ''}` : 'Android only'
-    }</span>` +
+    (note ? `<span class="devices-note">${note}</span>` : '') +
     '</span>'
   );
 }

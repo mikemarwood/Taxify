@@ -962,3 +962,165 @@ input[type="date"].input::-webkit-calendar-picker-indicator:hover { opacity: 1; 
       calc(10px + env(safe-area-inset-left));
   }
 }
+
+/* ---------------------------------------------------------------------------
+   The camera sheet.
+
+   What this replaces: an empty <video> filling the screen while getUserMedia
+   resolved. An empty video element is not blank — the Android webview paints
+   its own placeholder into it, a grey field with a giant black play triangle,
+   and the loading text sat on top of that. The video is hidden until it has
+   frames now, and everything below is what shows in the meantime.
+   ------------------------------------------------------------------------ */
+
+/* The viewfinder: four corner brackets in the proportions of a receipt, so
+   there is something to line the paper up with. Stays after the picture
+   arrives — a frame you aim with is more use than a frame you wait behind. */
+.cam-frame {
+  position: absolute;
+  inset: 10% 12%;
+  pointer-events: none;
+}
+.cam-corner {
+  position: absolute;
+  width: 30px;
+  height: 30px;
+  border: 2.5px solid rgba(255, 255, 255, 0.9);
+  border-radius: 3px;
+}
+.cam-corner.tl { top: 0; left: 0; border-right: 0; border-bottom: 0; border-top-left-radius: 12px; }
+.cam-corner.tr { top: 0; right: 0; border-left: 0; border-bottom: 0; border-top-right-radius: 12px; }
+.cam-corner.bl { bottom: 0; left: 0; border-right: 0; border-top: 0; border-bottom-left-radius: 12px; }
+.cam-corner.br { bottom: 0; right: 0; border-left: 0; border-top: 0; border-bottom-right-radius: 12px; }
+
+/* A line sweeping the frame while we wait: the one thing on screen that says
+   this is working rather than stuck. It stops once the picture is live, so it
+   never competes with what you are trying to photograph. */
+.cam-scan {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 2px;
+  border-radius: 2px;
+  background: linear-gradient(90deg, transparent, var(--accent, #1559b8), transparent);
+  box-shadow: 0 0 18px 2px rgba(37, 99, 235, 0.55);
+  animation: cam-sweep 2.2s cubic-bezier(0.45, 0, 0.55, 1) infinite;
+}
+.cam-scan.is-idle { display: none; }
+@keyframes cam-sweep {
+  0%, 100% { top: 0; opacity: 0; }
+  12%, 88% { opacity: 1; }
+  50% { top: calc(100% - 2px); }
+}
+
+.cam-loading {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  padding: 24px;
+  text-align: center;
+  color: #fff;
+}
+/* The lens: a disc with two rings breathing out of it. Reads as a camera
+   waking up, which is exactly what is happening. */
+.cam-lens {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 62px;
+  height: 62px;
+  border-radius: 50%;
+  color: #fff;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+}
+.cam-lens::before,
+.cam-lens::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  border: 1.5px solid rgba(255, 255, 255, 0.5);
+  animation: cam-breathe 2.4s ease-out infinite;
+}
+.cam-lens::after { animation-delay: 1.2s; }
+@keyframes cam-breathe {
+  0% { transform: scale(1); opacity: 0.7; }
+  100% { transform: scale(1.85); opacity: 0; }
+}
+/* Three dots that fill in, rather than a static ellipsis that looks frozen. */
+.cam-loading-text {
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: -0.1px;
+}
+.cam-loading-text::after {
+  content: '…';
+  clip-path: inset(0 100% 0 0);
+  animation: cam-dots 1.5s steps(4) infinite;
+}
+@keyframes cam-dots { to { clip-path: inset(0 -2px 0 0); } }
+.cam-loading-hint {
+  font-size: 12.5px;
+  line-height: 1.5;
+  max-width: 230px;
+  color: rgba(255, 255, 255, 0.62);
+}
+
+.cam-alt {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 9px 14px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(255, 255, 255, 0.86);
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+.cam-alt:active { background: rgba(255, 255, 255, 0.14); }
+
+/* Ring and disc, drawn separately so the press animates the disc alone. A
+   button that scales as one lump reads as a button; a shutter does not move
+   its ring. */
+.cam-shutter {
+  display: grid;
+  place-items: center;
+  width: 72px;
+  height: 72px;
+  padding: 0;
+  border: 3px solid rgba(255, 255, 255, 0.92);
+  border-radius: 50%;
+  background: transparent;
+  flex-shrink: 0;
+  opacity: 0.4;
+  cursor: default;
+  transition: opacity 0.25s ease;
+}
+.cam-shutter.is-ready { opacity: 1; cursor: pointer; }
+.cam-shutter-disc {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: #fff;
+  transition: transform 0.14s ease, background 0.14s ease;
+}
+.cam-shutter.is-ready:active .cam-shutter-disc { transform: scale(0.84); }
+.cam-shutter.is-busy .cam-shutter-disc {
+  transform: scale(0.7);
+  background: rgba(255, 255, 255, 0.55);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cam-scan,
+  .cam-lens::before,
+  .cam-lens::after,
+  .cam-loading-text::after { animation: none; }
+  .cam-loading-text::after { clip-path: none; }
+}

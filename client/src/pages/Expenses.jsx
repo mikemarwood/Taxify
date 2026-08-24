@@ -251,6 +251,11 @@ export default function Expenses() {
 
   const hourRows = (deductions?.homeOffice?.entries || []).filter((h) => !q || h.note.toLowerCase().includes(q));
 
+  // Null when no rate has been published for this financial year, and the rows
+  // then leave the money out entirely — better than a confident $0.00 sitting
+  // beside real hours. The endpoint distinguishes the two for this reason.
+  const hourlyRate = deductions?.rates?.perHour ?? null;
+
   return (
     <div>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24, flexWrap: 'wrap', gap: 12 }}>
@@ -566,28 +571,75 @@ export default function Expenses() {
             icon="home"
             rows={hourRows}
             summary={
-              hourRows.length > 0
-                ? formatHours(hourRows.reduce((sum, h) => sum + h.hours, 0))
-                : null
+              hourRows.length > 0 ? (
+                <>
+                  {/* The claim first, then the hours behind it. Every other
+                      group on this page puts money on the right, and the hours
+                      are how it was arrived at rather than the point of it. */}
+                  {hourlyRate !== null && (
+                    <span style={{ color: 'var(--emerald)' }}>
+                      {formatMoney(hourRows.reduce((sum, h) => sum + h.hours, 0) * hourlyRate)}
+                    </span>
+                  )}
+                  <span style={{ color: 'var(--text-muted)', fontWeight: 600, marginLeft: 8 }}>
+                    {formatHours(hourRows.reduce((sum, h) => sum + h.hours, 0))}
+                  </span>
+                </>
+              ) : null
             }
             onRemove={(id) => removeDeduction('home-office', id)}
             render={(h) => (
               <>
+                {/* The rate, in the slot the vehicle panel gives the odometer
+                    readings, so the two panels line up as one page.
+
+                    Without this the row was a date and a duration and nothing
+                    else — a line that says an entry exists without saying what
+                    it is worth, which is the only reason anybody logged the
+                    hours. The claim is arithmetic the reader should not have
+                    to do: hours by the published rate. */}
+                <span
+                  style={{
+                    flexShrink: 0,
+                    fontSize: 12,
+                    color: 'var(--text-subtle)',
+                    fontVariantNumeric: 'tabular-nums',
+                    whiteSpace: 'nowrap',
+                  }}
+                  title={hourlyRate ? 'The published rate for this financial year' : undefined}
+                >
+                  {hourlyRate ? `${formatMoney(hourlyRate)}/hr` : ''}
+                </span>
                 <span
                   className="deduction-note"
                   style={{
                     flex: 1,
                     minWidth: 0,
-                    color: 'var(--text-muted)',
+                    color: h.note ? 'var(--text-muted)' : 'var(--text-subtle)',
+                    fontStyle: h.note ? undefined : 'italic',
                     overflow: 'hidden',
                     textOverflow: 'ellipsis',
                     whiteSpace: 'nowrap',
                   }}
                 >
-                  {h.note}
+                  {h.note || 'No note'}
                 </span>
-                {/* Same fixed, right-aligned, tabular box as the kilometres, so
-                    the two panels read as one page rather than two. */}
+                {/* What the hours are worth, then the hours themselves. Same
+                    fixed, right-aligned, tabular boxes as the kilometres. */}
+                {hourlyRate !== null && (
+                  <span
+                    style={{
+                      flexShrink: 0,
+                      textAlign: 'right',
+                      fontWeight: 700,
+                      color: 'var(--emerald)',
+                      whiteSpace: 'nowrap',
+                      fontVariantNumeric: 'tabular-nums',
+                    }}
+                  >
+                    {formatMoney(h.hours * hourlyRate)}
+                  </span>
+                )}
                 <span
                   style={{
                     width: 92,

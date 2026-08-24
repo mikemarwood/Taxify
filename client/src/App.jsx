@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from './lib/AuthContext.jsx';
 import { useEntities } from './lib/EntityContext.jsx';
@@ -164,8 +165,29 @@ function AccountantOnly({ children }) {
   );
 }
 
+// Every navigation starts at the top of the page it went to.
+//
+// A browser only restores a scroll position on a real page load; a router
+// swaps the content underneath a window that never moved. So opening All
+// expenses, scrolling to the bottom and tapping Add expense landed on the form
+// already scrolled past its own heading — the Save button in view and nothing
+// above it to say what was being saved.
+//
+// Keyed on the pathname alone, deliberately. Paging and filtering rewrite the
+// query string of the page somebody is already reading, and hauling that to
+// the top mid-read would be a bug of its own.
+function ScrollToTop() {
+  const { pathname } = useLocation();
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [pathname]);
+  return null;
+}
+
 export default function App() {
   return (
+    <>
+    <ScrollToTop />
     <Routes>
       <Route path="/login" element={<PublicOnly><Login /></PublicOnly>} />
       <Route path="/register" element={<PublicOnly><Register /></PublicOnly>} />
@@ -205,5 +227,6 @@ export default function App() {
       <Route path="/admin" element={<Protected adminOnly><Admin /></Protected>} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
+    </>
   );
 }

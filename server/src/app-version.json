@@ -1,5 +1,6 @@
 {
-  "versionCode": 7,
-  "versionName": "1.2.0",
-  "notes": "The app now opens straight into your account, and links in our emails open it rather than a browser."
+  "versionCode": 10,
+  "versionName": "1.2.3",
+  "minVersionCode": 10,
+  "notes": "Receipts photograph with the rear camera, downloads and exports save to your phone, and there is a proper page when you are offline."
 }

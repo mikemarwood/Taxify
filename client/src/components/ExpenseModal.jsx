@@ -79,9 +79,6 @@ export default function ExpenseModal({ expense, onClose, onSaved, onDeleted }) {
     }
   }
   const [confirmingDelete, setConfirmingDelete] = useState(false);
-  // Default on: deleting an expense and leaving its receipt behind is how
-  // orphaned files accumulate. Opt out if you want it kept for a restore.
-  const [alsoDeleteReceipt, setAlsoDeleteReceipt] = useState(true);
   const [lightboxOpen, setLightboxOpen] = useState(false);
 
   const [itemName, setItemName] = useState(expense.itemName);
@@ -197,8 +194,11 @@ export default function ExpenseModal({ expense, onClose, onSaved, onDeleted }) {
   async function onDelete() {
     setBusy(true);
     try {
+      // Always. The receipt is evidence for the claim; with the claim gone it
+      // is a file in the books attached to nothing. The server still declines
+      // to unlink one that another expense is using.
       const res = await api.delete(`/expenses/${expense.id}`, {
-        params: alsoDeleteReceipt ? { deleteReceipt: 'true' } : undefined,
+        params: { deleteReceipt: 'true' },
       });
       toast(res.data?.receiptDeleted ? 'Expense and receipt deleted' : 'Expense deleted', 'success');
       onDeleted();
@@ -434,8 +434,20 @@ export default function ExpenseModal({ expense, onClose, onSaved, onDeleted }) {
               </div>
               <div>
                 <label className="label">Category</label>
-                <select className="input" value={categoryId} onChange={(e) => setCategoryId(e.target.value)}>
-                  <option value="">Uncategorised</option>
+                {/* No Uncategorised to choose.
+                    Filing an expense under nothing is not a decision anybody
+                    makes on purpose while editing one — the category is what
+                    puts the amount into a total and onto a report, so picking
+                    it off is only ever a way to lose the claim. The blank
+                    option is still rendered when the expense arrived without a
+                    category, because the select has to show something; it is
+                    disabled, so it can be left but not returned to. */}
+                <select className="input" required value={categoryId} onChange={(e) => setCategoryId(e.target.value)}>
+                  {!categoryId && (
+                    <option value="" disabled>
+                      Choose a category
+                    </option>
+                  )}
                   {categories.map((c) => (
                     <option key={c.id} value={c.id}>
                       {c.name}
@@ -605,35 +617,37 @@ export default function ExpenseModal({ expense, onClose, onSaved, onDeleted }) {
                     Delete this expense? It will be removed from your records and from every report and total.
                   </span>
 
+                  {/* The receipt goes with the expense. Always, and without
+                      being asked.
+
+                      This was a checkbox, and it should not have been: the
+                      receipt is evidence for a claim, so once the claim is
+                      gone the file is a stray document sitting in the books
+                      attached to nothing. Nobody deleting an expense means to
+                      keep its receipt, so the question only ever collected an
+                      answer nobody had a view on — and left orphaned files
+                      behind whenever it was unticked by accident. Stated
+                      rather than asked. */}
                   {expense.receiptUrl && (
-                    <label
+                    <span
                       style={{
-                        display: 'flex',
-                        alignItems: 'flex-start',
-                        gap: 9,
+                        display: 'block',
                         fontSize: 13,
                         padding: '10px 12px',
                         borderRadius: 'var(--radius-sm)',
                         border: '1px solid var(--border)',
                         background: 'var(--bg-elevated)',
-                        cursor: 'pointer',
+                        color: 'var(--text-muted)',
                       }}
                     >
-                      <input
-                        type="checkbox"
-                        checked={alsoDeleteReceipt}
-                        onChange={(e) => setAlsoDeleteReceipt(e.target.checked)}
-                        style={{ marginTop: 2 }}
-                      />
-                      <span>
-                        <span style={{ fontWeight: 600 }}>Delete the receipt file too</span>
-                        <span style={{ display: 'block', color: 'var(--text-muted)', marginTop: 2 }}>
-                          {alsoDeleteReceipt
-                            ? `“${expense.receiptFilename}” is removed from disk now — restoring this expense won't bring it back. Kept if another expense still uses it.`
-                            : 'The receipt file is kept for now and removed with the expense in 30 days.'}
-                        </span>
+                      <span style={{ fontWeight: 600, color: 'var(--text)' }}>
+                        “{expense.receiptFilename}” is deleted with it
                       </span>
-                    </label>
+                      <span style={{ display: 'block', marginTop: 2 }}>
+                        Removed from disk now, and restoring this expense will not bring it back. Kept only if another
+                        expense still uses the same file.
+                      </span>
+                    </span>
                   )}
 
                   <div style={{ display: 'flex', gap: 10 }}>
