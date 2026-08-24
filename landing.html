@@ -650,12 +650,24 @@
      no longer exists. */
   .lightbox figure { position: relative; }
   /* Something to look at while a screenshot is on its way.
-     An <img> is transparent until it has decoded, so a background on the
-     figure shows through and is covered the instant the picture paints —
-     nothing has to switch it off. The mark and the slow sweep are the same
-     ones the advertisement frames use, so a wait looks the same wherever it
-     happens on this page. */
-  .lightbox figure {
+
+     On the <img>, not on the <figure>, and that distinction is the whole bug
+     this used to have: a blue border down both sides of every full-size
+     screenshot that never went away.
+
+     The figure is a flex item sized from its content's *width* — 1400px after
+     max-width — but the picture is then held back by max-height and paints
+     narrower than that, around 1360. The figure keeps the wider box, so a
+     hundred pixels of loading placeholder sat either side of the image
+     permanently. Nothing was broken; the placeholder was simply bigger than
+     the thing meant to cover it.
+
+     An <img> paints its own background behind its own content and is exactly
+     the size of the picture, so there is no gap for this to show through. It
+     is still covered the instant the picture decodes, and still needs nothing
+     switched off afterwards. The mark and the slow sweep are the same ones the
+     advertisement frames use, so a wait looks the same wherever it happens. */
+  .lightbox img {
     background-color: #0b2e6b;
     background-image:
       /* Absolute, and it has to be. The hub proxy lifts this stylesheet into
@@ -670,7 +682,6 @@
     background-repeat: no-repeat;
     background-position: center, -60% 0, center;
     background-size: clamp(48px, 9%, 78px) auto, 55% 100%, cover;
-    border-radius: 12px;
     animation: shot-loading 2.1s ease-in-out infinite;
   }
   @keyframes shot-loading {
@@ -678,7 +689,7 @@
     to { background-position: center, 160% 0, center; }
   }
   @media (prefers-reduced-motion: reduce) {
-    .lightbox figure { animation: none; }
+    .lightbox img { animation: none; }
   }
   /* Edge to edge on a phone.
      The padding, the rounded corner and the border are all framing, and a
