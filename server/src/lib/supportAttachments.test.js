@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import path from 'path';
 import {
   isAllowedAttachment,
+  extensionFor,
   storedFilename,
   ticketDir,
   isInsideTicket,
@@ -10,11 +11,39 @@ import {
   MAX_ATTACHMENT_BYTES,
 } from './supportAttachments.js';
 
-test('images are allowed and everything else is not', () => {
+test('images, PDFs and Word documents are allowed', () => {
   assert.equal(isAllowedAttachment({ mimetype: 'image/png' }), true);
   assert.equal(isAllowedAttachment({ mimetype: 'image/jpeg' }), true);
-  assert.equal(isAllowedAttachment({ mimetype: 'application/pdf' }), false);
+  // A PDF is what a letter from an accountant or a bank statement actually
+  // arrives as. Safe here because serveAttachment.js sends every attachment
+  // under "default-src 'none'; object-src 'none'; sandbox", which leaves a
+  // script-bearing PDF nothing to run and nowhere to send it.
+  assert.equal(isAllowedAttachment({ mimetype: 'application/pdf' }), true);
+  assert.equal(isAllowedAttachment({ mimetype: 'application/msword' }), true);
+  assert.equal(
+    isAllowedAttachment({
+      mimetype: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    }),
+    true
+  );
+});
+
+test('an executable is still refused', () => {
   assert.equal(isAllowedAttachment({ mimetype: 'application/x-msdownload' }), false);
+  assert.equal(isAllowedAttachment({ mimetype: 'application/x-sh' }), false);
+  assert.equal(isAllowedAttachment({ mimetype: 'text/html' }), false);
+});
+
+test('Word documents are never served inline', () => {
+  // The reason a macro-capable format can be accepted at all: neither .doc nor
+  // .docx is in serveAttachment's inline list, so both go out as
+  // application/octet-stream with Content-Disposition: attachment. The browser
+  // saves them; it never opens them.
+  assert.equal(extensionFor({ mimetype: 'application/msword' }), '.doc');
+  assert.equal(
+    extensionFor({ mimetype: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' }),
+    '.docx'
+  );
 });
 
 test('SVG is refused, because it is a document that can carry script', () => {

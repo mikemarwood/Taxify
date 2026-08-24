@@ -333,7 +333,15 @@ export function HoursForm({ entityId, year, onAdded }) {
         />
         <FiledInto date={hours.date} rule={user?.financialYearRule} />
       </div>
-      <div style={{ flex: '1 1 330px', minWidth: 320 }}>
+      {/* minWidth: 0, not 320.
+
+          320 plus the form's own padding is wider than a 360px phone, so the
+          whole page scrolled sideways and the right-hand end of the time
+          control was simply off the screen with no way to reach it. The picker
+          already handles being narrow — its row is nowrap with overflow-x —
+          but only if it is allowed to be narrower than its content, and a flex
+          item will not shrink past its min-width. */}
+      <div style={{ flex: '1 1 330px', minWidth: 0 }}>
         <HoursPicker
           hours={hours.h}
           minutes={hours.m}

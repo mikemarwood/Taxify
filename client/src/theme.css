@@ -1149,3 +1149,57 @@ input[type="date"].input::-webkit-calendar-picker-indicator:hover { opacity: 1; 
 @media (pointer: coarse) {
   .social-share-btn--messenger { display: inline-flex; }
 }
+
+/* A receipt on its way.
+
+   The preview box used to sit empty until a multi-megabyte phone photograph
+   arrived, which looks exactly like a receipt that failed to load. A sweep
+   across a tinted ground says "coming" without a spinner, and because it is
+   laid over the image rather than shown instead of it, nothing moves or
+   resizes when the picture lands. */
+.receipt-loading {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  color: var(--text-subtle);
+  background: var(--bg-elevated);
+  overflow: hidden;
+}
+.receipt-loading::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    100deg,
+    rgba(255, 255, 255, 0) 20%,
+    rgba(255, 255, 255, 0.13) 50%,
+    rgba(255, 255, 255, 0) 80%
+  );
+  transform: translateX(-100%);
+  animation: receipt-sweep 1.25s ease-in-out infinite;
+}
+@keyframes receipt-sweep {
+  to { transform: translateX(100%); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .receipt-loading::after { animation: none; }
+}
+
+/* An advertisement in the admin panel, framed the way the landing page frames
+   it. It was a black rectangle with square corners, which meant the one screen
+   for checking how a film looks showed it in a setting it never appears in.
+   Kept in step with .ad-frame and .ad-video in landing.html by hand — the two
+   pages cannot share a stylesheet, since the hub proxy lifts that one out and
+   rewrites nothing inside it. */
+.ad-preview {
+  display: block;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  border-radius: 18px;
+  border: 1px solid var(--border);
+  background-color: #0b2e6b;
+  background-image: radial-gradient(120% 90% at 50% 0%, rgba(59, 130, 246, 0.55) 0%, rgba(11, 46, 107, 0) 70%),
+    linear-gradient(140deg, #12376f 0%, #0b2e6b 55%, #071d45 100%);
+  box-shadow: 0 24px 60px -20px rgba(37, 99, 235, 0.45), 0 0 0 1px rgba(59, 130, 246, 0.12);
+}

@@ -1,5 +1,4 @@
 import { Link } from 'react-router-dom';
-import SiteFooter from './SiteFooter.jsx';
 
 // The shell both legal pages share, so they cannot drift apart in tone or
 // layout. Readable at a phone width, with a contents list — nobody reads these
@@ -68,7 +67,13 @@ export function LegalPage({ title, summary, updated, sections, children }) {
           </Link>
         </p>
 
-        <SiteFooter style={{ marginTop: 18 }} />
+        {/* No SiteFooter here.
+
+            These pages are always inside the app shell, which already carries
+            the copyright and the Powered by line at the foot of the template —
+            so this printed a second one directly above it. The Terms and
+            Privacy links above stay: they are how you get from one of these
+            two pages to the other, which is a different job. */}
       </div>
     </div>
   );

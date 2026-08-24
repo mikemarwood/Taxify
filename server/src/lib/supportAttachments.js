@@ -22,14 +22,35 @@ const ALLOWED = new Map([
   ['image/heic', '.heic'],
   ['image/heif', '.heif'],
   ['image/gif', '.gif'],
+
+  // A PDF is what an accountant's letter, a bank statement and half the
+  // paperwork anybody wants to ask about actually arrives as, and refusing it
+  // meant they went by email instead, outside the ticket.
+  //
+  // Safe to serve because of serveAttachment.js, not because PDFs are safe: it
+  // sends every attachment under "default-src 'none'; object-src 'none';
+  // sandbox", which leaves a script-bearing PDF nothing to run and nowhere to
+  // send it. That header is also what already covers receipts, which have
+  // allowed PDFs all along.
+  ['application/pdf', '.pdf'],
+
+  // Word, both eras. Neither is in serveAttachment's inline list, so both go
+  // out as application/octet-stream with Content-Disposition: attachment — the
+  // browser saves them and never opens them, which is the whole reason a
+  // macro-capable format can be accepted here at all.
+  ['application/msword', '.doc'],
+  ['application/vnd.openxmlformats-officedocument.wordprocessingml.document', '.docx'],
 ]);
 
-// Large enough for a full-resolution phone screenshot, small enough that a
-// mailbox full of them is not a disk problem.
-export const MAX_ATTACHMENT_BYTES = 8 * 1024 * 1024;
+// Ten, up from eight. A phone photograph of a document is regularly over eight
+// and there was no way for the sender to know why it failed.
+export const MAX_ATTACHMENT_BYTES = 10 * 1024 * 1024;
 export const MAX_ATTACHMENTS_PER_MESSAGE = 3;
 
-export const ATTACHMENT_REJECTED_MESSAGE = 'Attachments have to be images — JPG, PNG, WEBP, HEIC or GIF.';
+// Names the formats rather than the MIME types, because the person reading it
+// is looking at a file, not at a header.
+export const ATTACHMENT_REJECTED_MESSAGE =
+  'Attachments can be images (JPG, PNG, WEBP, HEIC, GIF), PDFs, or Word documents — up to 10MB each.';
 
 export function isAllowedAttachment(file) {
   return ALLOWED.has(String(file?.mimetype || '').toLowerCase());

@@ -18,6 +18,11 @@ function isPdf(filename, url) {
 // and keeps the full size on a tall one.
 export default function ReceiptPreview({ url, filename, onOpen, height = 'min(260px, 30vh)' }) {
   const [imgError, setImgError] = useState(false);
+  // A receipt photographed on a phone is several megabytes, and until it
+  // arrived this box was an empty panel with a corner badge floating in it —
+  // indistinguishable from a receipt that had failed to load. Both a picture
+  // and a PDF start here; both clear it when they fire onLoad.
+  const [loaded, setLoaded] = useState(false);
   const pdf = isPdf(filename, url);
   // HEIC no longer lands here — the server converts it to JPEG for display —
   // so this is a Word document, or a file that genuinely failed to load.
@@ -62,6 +67,7 @@ export default function ReceiptPreview({ url, filename, onOpen, height = 'min(26
           src={`${url}#toolbar=0&navpanes=0&scrollbar=0&view=Fit`}
           title={filename || 'Receipt'}
           tabIndex={-1}
+          onLoad={() => setLoaded(true)}
           style={{ width: '100%', height: '100%', border: 'none', background: '#fff', pointerEvents: 'none' }}
         />
       ) : (
@@ -74,6 +80,7 @@ export default function ReceiptPreview({ url, filename, onOpen, height = 'min(26
           // rest of the panel while the browser works through it.
           decoding="async"
           loading="lazy"
+          onLoad={() => setLoaded(true)}
           onError={() => setImgError(true)}
           style={{
             width: '100%',
@@ -83,6 +90,18 @@ export default function ReceiptPreview({ url, filename, onOpen, height = 'min(26
             display: 'block',
           }}
         />
+      )}
+
+      {/* The shimmer, over the top until there is something to see.
+
+          Not a spinner: the shape of what is coming is more use than a
+          rotating circle, and it means the box does not change size or jump
+          when the picture lands. It sits above the image rather than instead
+          of it, so there is no second layout pass. */}
+      {!unrenderable && !loaded && (
+        <span className="receipt-loading" aria-hidden="true">
+          <Icon name="receipt" size={26} />
+        </span>
       )}
 
       <span

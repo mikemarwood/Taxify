@@ -105,15 +105,20 @@ function Slot({ slot, index, state, onChanged }) {
 
       {live ? (
         // The film itself, exactly as a visitor gets it — the only check worth
-        // having is watching the thing that is actually being served.
+        // having is watching the thing that is actually being served. That
+        // includes the frame around it: this was a black rectangle with square
+        // corners, so the one screen for checking how an advertisement looks
+        // showed it in a setting it never appears in. Same poster fallback as
+        // the landing page too, so an upload with no poster of its own previews
+        // the picture a visitor will actually get rather than a black box.
         <video
           key={version}
+          className="ad-preview"
           controls
           playsInline
           preload="metadata"
-          poster={state.poster ? `/media/ads/${slot}-poster?v=${version}` : undefined}
+          poster={state.poster ? `/media/ads/${slot}-poster?v=${version}` : '/media/ad-poster.jpg'}
           src={`/media/ads/${slot}?v=${version}`}
-          style={{ width: '100%', aspectRatio: '16 / 9', background: '#000', borderRadius: 10, display: 'block' }}
         />
       ) : (
         <div

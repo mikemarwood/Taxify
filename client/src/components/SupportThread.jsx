@@ -7,11 +7,25 @@ import { sentenceCaseLive } from '../lib/textCase.js';
 import { useToast } from './Toast.jsx';
 import ImageLightbox from './ImageLightbox.jsx';
 
-// Matched to the server. Stated here as well so somebody is told before a
-// 8 MB upload crawls up a phone connection only to be refused at the far end.
-export const MAX_ATTACHMENT_BYTES = 8 * 1024 * 1024;
+// Matched to the server — see lib/supportAttachments.js, which is where the
+// rule actually lives. Stated here as well so somebody is told before a 10 MB
+// upload crawls up a phone connection only to be refused at the far end.
+export const MAX_ATTACHMENT_BYTES = 10 * 1024 * 1024;
 export const MAX_ATTACHMENTS = 3;
-const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/heif', 'image/gif'];
+const ALLOWED_TYPES = [
+  'image/jpeg',
+  'image/png',
+  'image/webp',
+  'image/heic',
+  'image/heif',
+  'image/gif',
+  // A letter from an accountant or a bank statement arrives as one of these,
+  // and refusing them sent people to email instead — outside the ticket, where
+  // the thread loses half the conversation.
+  'application/pdf',
+  'application/msword',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+];
 
 function readableSize(bytes) {
   if (bytes >= 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
@@ -669,7 +683,7 @@ export function AttachmentPicker({ files, setFiles, disabled = false }) {
 
     for (const file of picked) {
       if (!ALLOWED_TYPES.includes(file.type)) {
-        toast(`${file.name} is not an image — JPG, PNG, WEBP, HEIC and GIF only`, 'error');
+        toast(`${file.name} cannot be attached — images, PDFs and Word documents only`, 'error');
         continue;
       }
       if (file.size > MAX_ATTACHMENT_BYTES) {
@@ -681,7 +695,7 @@ export function AttachmentPicker({ files, setFiles, disabled = false }) {
 
     setFiles((prev) => {
       const room = MAX_ATTACHMENTS - prev.length;
-      if (kept.length > room) toast(`You can attach ${MAX_ATTACHMENTS} images at most`, 'error');
+      if (kept.length > room) toast(`You can attach ${MAX_ATTACHMENTS} files at most`, 'error');
       return [...prev, ...kept.slice(0, Math.max(0, room))];
     });
   }
@@ -734,7 +748,7 @@ export function AttachmentPicker({ files, setFiles, disabled = false }) {
           alignSelf: 'flex-start',
           cursor: disabled || files.length >= MAX_ATTACHMENTS ? 'not-allowed' : 'pointer',
         }}
-        title={`Up to ${MAX_ATTACHMENTS} images, ${readableSize(MAX_ATTACHMENT_BYTES)} each`}
+        title={`Up to ${MAX_ATTACHMENTS} files — images, PDFs or Word documents, ${readableSize(MAX_ATTACHMENT_BYTES)} each`}
       >
         <Icon name="image" size={14} />
         Attach image

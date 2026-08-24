@@ -148,7 +148,7 @@ export default function NewTicketForSomebody({ categories, staff, currentUserId,
     <div className="card" style={{ padding: 18, display: 'flex', flexDirection: 'column', gap: 14 }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
         <Icon name="mail" size={17} style={{ color: 'var(--accent)' }} />
-        <span style={{ fontWeight: 700, fontSize: 14.5 }}>Start a conversation</span>
+        <span style={{ fontWeight: 700, fontSize: 14.5 }}>Start a ticket on behalf of a customer</span>
         <span style={{ flex: 1 }} />
         <button className="btn btn-ghost" style={{ fontSize: 12 }} disabled={busy} onClick={onCancel}>
           Cancel

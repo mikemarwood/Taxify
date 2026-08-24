@@ -261,6 +261,20 @@ export default function AdminUserDetail({ userId, me, onClose, onChanged, action
   const s = data?.stats;
   const isSelf = u?.id === me?.id;
 
+  // Whether the Actions section has anything in it.
+  //
+  // Every control in there is conditional, and on an administrator looking at
+  // their own row all three conditions fail at once: the role picker is hidden
+  // because they already have everything it could grant, View as is hidden
+  // because standing in your own shoes is not a thing, and Delete is hidden
+  // because losing the last administrator locks everyone out for good. What
+  // was left was a heading, a wrench icon and a blank space — a section that
+  // announces there is something to do and then offers nothing.
+  const canSetRole = !u?.isAdmin;
+  const canViewAs = !isSelf;
+  const canDelete = !isSelf && !u?.isAdmin;
+  const hasActions = canSetRole || canViewAs || canDelete;
+
   return (
     <AnimatePresence>
       {/* The backdrop does not dismiss. This panel carries plan changes, free
@@ -695,6 +709,7 @@ export default function AdminUserDetail({ userId, me, onClose, onChanged, action
                 <PlanAndBilling user={u} onSaved={refresh} />
               </Section>
 
+              {hasActions && (
               <Section title="Actions" icon="wrench">
                 {/* The support team is a separate thing from administration:
                     it grants the ticket queue and nothing else. Somebody
@@ -711,7 +726,7 @@ export default function AdminUserDetail({ userId, me, onClose, onChanged, action
                     the queue and everything else besides, so the only thing
                     this could do for them is look as though it meant
                     something. */}
-                {!u.isAdmin && (
+                {canSetRole && (
                 <div style={{ display: 'flex', alignItems: 'flex-end', gap: 10, marginBottom: 12, flexWrap: 'wrap' }}>
                   <div style={{ flex: '1 1 220px', minWidth: 200 }}>
                     <label className="label" style={{ fontSize: 11.5 }}>
@@ -813,6 +828,7 @@ export default function AdminUserDetail({ userId, me, onClose, onChanged, action
                   </p>
                 )}
               </Section>
+              )}
             </div>
           )}
         </motion.div>
