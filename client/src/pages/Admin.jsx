@@ -17,7 +17,7 @@ import Icon from '../components/Icon.jsx';
 import WebhookHealth from '../components/WebhookHealth.jsx';
 import PromoCodesTab from '../components/PromoCodesTab.jsx';
 import { useConfirm } from '../lib/ConfirmContext.jsx';
-import { sentenceCaseLive } from '../lib/textCase.js';
+import { sentenceCaseLive, titleCaseLive } from '../lib/textCase.js';
 import { onCasedInput } from '../lib/casedInput.js';
 import AdminStatsTab from '../components/AdminStatsTab.jsx';
 import SupportTab from '../components/SupportTab.jsx';
@@ -30,6 +30,7 @@ import { IconPicker, ColourPicker, CategoryPreview, SWATCHES } from '../componen
 import Avatar from '../components/Avatar.jsx';
 import AdminUserDetail from '../components/AdminUserDetail.jsx';
 import { planLabel } from '../lib/plans.js';
+import { autoFocusFields } from '../lib/device.js';
 
 
 // Storage figures are for a human deciding whether someone is using a lot, so
@@ -1715,7 +1716,8 @@ function DefaultCategoriesTab() {
     if (!name.trim()) return;
     setBusy(true);
     try {
-      await api.post('/admin/default-categories', { name, color, icon, kind });
+      // Tidied here, where trimming and collapsing runs of spaces is right.
+      await api.post('/admin/default-categories', { name: tidyCategoryName(name), color, icon, kind });
       setName('');
       setIcon('tag');
       toast('Default category added — new signups will get it', 'success');
@@ -1727,11 +1729,23 @@ function DefaultCategoriesTab() {
     }
   }
 
+  // Whether the edit form differs from the row it opened on. Compared against
+  // the tidied name, so re-typing the same name with a stray trailing space
+  // does not count as a change.
+  function editDirty(row) {
+    return (
+      tidyCategoryName(editName) !== row.name ||
+      editColor !== row.color ||
+      editIcon !== (row.icon || 'tag') ||
+      editKind !== (row.kind || 'both')
+    );
+  }
+
   async function onSaveEdit(id) {
     setBusy(true);
     try {
       await api.patch(`/admin/default-categories/${id}`, {
-        name: editName,
+        name: tidyCategoryName(editName),
         color: editColor,
         icon: editIcon,
         kind: editKind,
@@ -1769,12 +1783,21 @@ function DefaultCategoriesTab() {
           <CategoryPreview icon={icon} color={color} />
           <div style={{ flex: 1, minWidth: 200 }}>
             <label className="label">Name</label>
+            {/* titleCaseLive, not tidyCategoryName.
+
+                tidyCategoryName is titleCase, which trims and collapses
+                whitespace — right on submit, ruinous per keystroke. The space
+                between two words was deleted the instant it was typed, so
+                "Office Supplies" could not be entered here at all. The live
+                version only changes the case of characters already present,
+                so the length never moves and neither does the caret. Submit
+                still tidies properly. */}
             <input
               className="input"
               placeholder="New Default Category Name"
               maxLength={MAX_NAME_LENGTH}
               value={name}
-              onChange={(e) => setName(tidyCategoryName(e.target.value))}
+              onChange={onCasedInput(titleCaseLive, setName)}
               aria-invalid={nameError ? 'true' : undefined}
               style={nameError ? { borderColor: 'var(--red)' } : undefined}
             />
@@ -1892,7 +1915,24 @@ function DefaultCategoriesTab() {
                     <CategoryPreview icon={editing ? editIcon : c.icon} color={editing ? editColor : c.color} size={48} />
                     <div style={{ flex: 1, minWidth: 0 }}>
                       {editing ? (
-                        <input className="input" autoFocus value={editName} onChange={(e) => setEditName(e.target.value)} />
+                        <>
+                          <input
+                            className="input"
+                            autoFocus={autoFocusFields}
+                            maxLength={MAX_NAME_LENGTH}
+                            value={editName}
+                            onChange={onCasedInput(titleCaseLive, setEditName)}
+                            aria-invalid={editNameError ? 'true' : undefined}
+                            style={editNameError ? { borderColor: 'var(--red)' } : undefined}
+                          />
+                          {/* editNameError was already being calculated here
+                              and thrown away, so renaming a default onto a
+                              name that already existed looked fine until the
+                              server refused it. */}
+                          {editNameError && (
+                            <div style={{ fontSize: 11.5, marginTop: 5, color: 'var(--red)' }}>{editNameError}</div>
+                          )}
+                        </>
                       ) : (
                         <div style={{ fontWeight: 700, fontSize: 15 }}>{c.name}</div>
                       )}
@@ -1931,10 +1971,13 @@ function DefaultCategoriesTab() {
                       <ColourPicker value={editColor} onChange={setEditColor} />
                       <IconPicker value={editIcon} onChange={setEditIcon} />
                       <div style={{ display: 'flex', gap: 8 }}>
+                        {/* Nothing changed, nothing to save. A live Save on an
+                            untouched form invites a write that does nothing
+                            and a toast saying it worked. */}
                         <button
                           className="btn btn-primary"
                           style={{ fontSize: 13 }}
-                          disabled={busy || !editName.trim()}
+                          disabled={busy || !editName.trim() || Boolean(editNameError) || !editDirty(c)}
                           onClick={() => onSaveEdit(c.id)}
                         >
                           {busy && <span className="spinner" />}

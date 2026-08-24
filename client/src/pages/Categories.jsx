@@ -12,6 +12,8 @@ import { Link } from 'react-router-dom';
 import { useAuth } from '../lib/AuthContext.jsx';
 import { useEntities } from '../lib/EntityContext.jsx';
 
+import { autoFocusFields } from '../lib/device.js';
+
 import {
   MAX_NAME_LENGTH,
   MIN_NAME_LENGTH,
@@ -106,6 +108,21 @@ export default function Categories() {
     setEditIcon(c.icon || 'tag');
     setEditRental(!!c.isPropertyRental);
     setConfirmingId(null);
+  }
+
+  // Whether the open edit form differs from the row it was opened on.
+  //
+  // Compared against the tidied name, so re-typing the same name with a stray
+  // trailing space does not count as a change. Without this, Save was live on
+  // a form nobody had touched — a write that changes nothing, followed by a
+  // toast saying it worked.
+  function editDirty(row) {
+    return (
+      tidyCategoryName(editName) !== row.name ||
+      editColor !== row.color ||
+      editIcon !== (row.icon || 'tag') ||
+      editRental !== !!row.isPropertyRental
+    );
   }
 
   async function saveEdit(id) {
@@ -233,7 +250,7 @@ export default function Categories() {
                   <label className="label">Name</label>
                   <input
                     className="input"
-                    autoFocus
+                    autoFocus={autoFocusFields}
                     placeholder="e.g. Software Subscriptions"
                     maxLength={MAX_NAME_LENGTH}
                     value={name}
@@ -382,7 +399,7 @@ export default function Categories() {
                         <>
                           <input
                             className="input"
-                            autoFocus
+                            autoFocus={autoFocusFields}
                             maxLength={MAX_NAME_LENGTH}
                             value={editName}
                             onChange={(e) => setEditName(tidyCategoryName(e.target.value))}
@@ -481,7 +498,7 @@ export default function Categories() {
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
                       <input
                         className="input"
-                        autoFocus
+                        autoFocus={autoFocusFields}
                         placeholder='Type "delete"'
                         value={confirmText}
                         onChange={(e) => setConfirmText(e.target.value)}
@@ -573,7 +590,7 @@ export default function Categories() {
                         <button
                           className="btn btn-primary"
                           style={{ fontSize: 13 }}
-                          disabled={editBusy || !editNameReady}
+                          disabled={editBusy || !editNameReady || !editDirty(c)}
                           onClick={() => saveEdit(c.id)}
                         >
                           {editBusy && <span className="spinner" />}

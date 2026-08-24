@@ -12,6 +12,7 @@ import { lodgementPeriodsFor } from '../lib/lodgementPeriods.js';
 import { claimable } from '../lib/money.js';
 import { useConfirm } from '../lib/ConfirmContext.jsx';
 import { onCasedInput } from '../lib/casedInput.js';
+import { autoFocusFields } from '../lib/device.js';
 
 function formatWhen(value) {
   if (!value) return null;
@@ -625,7 +626,7 @@ export default function TaxYears({ years, spendByYear, expenses, onFinalisedChan
                         <label className="label">Refund received</label>
                         <input
                           className="input"
-                          autoFocus
+                          autoFocus={autoFocusFields}
                           inputMode="decimal"
                           placeholder="0.00"
                           value={amount}
@@ -691,7 +692,7 @@ export default function TaxYears({ years, spendByYear, expenses, onFinalisedChan
                               <input
                                 className="input"
                                 type="date"
-                                autoFocus
+                                autoFocus={autoFocusFields}
                                 min={todayIso()}
                                 value={booking.date}
                                 onChange={(e) => setBooking((b) => ({ ...b, date: e.target.value }))}
