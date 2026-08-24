@@ -20,7 +20,16 @@ export const SOCIAL_KEYS = {
 // means and having to type your own address in to share your own page is a
 // silly thing to ask.
 export async function landingSocialConfig() {
-  const enabled = (await getSetting(SOCIAL_KEYS.enabled)) === 'true';
+  // On unless somebody has turned it off.
+  //
+  // This defaulted to off, so the buttons were built, shipped, deployed and
+  // invisible — and nothing on the page explained why, because the server
+  // removes the block entirely rather than leaving an empty row. The share
+  // link needs no configuration at all: the address falls back to this site's
+  // own origin. A feature that works out of the box should be out of the box.
+  //
+  // Same shape as registration_enabled, which is also on until switched off.
+  const enabled = (await getSetting(SOCIAL_KEYS.enabled)) !== 'false';
   if (!enabled) return { enabled: false };
   const configured = await getSetting(SOCIAL_KEYS.shareUrl);
   return {
@@ -35,7 +44,9 @@ export async function landingSocialConfig() {
 // pre-filled with an address nobody typed.
 export async function readSocialSettings() {
   return {
-    facebookEnabled: (await getSetting(SOCIAL_KEYS.enabled)) === 'true',
+    // Must match landingSocialConfig, or the admin screen shows the switch off
+    // while the buttons are on the page.
+    facebookEnabled: (await getSetting(SOCIAL_KEYS.enabled)) !== 'false',
     facebookShareUrl: (await getSetting(SOCIAL_KEYS.shareUrl)) || '',
     facebookPageUrl: (await getSetting(SOCIAL_KEYS.pageUrl)) || '',
     // Shown beside the empty share box so it is obvious what it will use.
