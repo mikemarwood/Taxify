@@ -27,10 +27,34 @@ api.interceptors.request.use((config) => {
   return config;
 });
 
+// Told to the whole app at once when the server says the site is off.
+//
+// A published callback rather than something each page catches, because this
+// is not a question any one page can answer. Whoever happened to make the
+// request that hit the closed door should not be the only screen that knows.
+let onMaintenance = () => {};
+
+export function setMaintenanceHandler(fn) {
+  onMaintenance = typeof fn === 'function' ? fn : () => {};
+}
+
 api.interceptors.response.use(
   (res) => res,
   async (err) => {
     const data = err?.response?.data || {};
+
+    // The site has been taken offline from the admin panel.
+    //
+    // A 503 carrying a maintenance body, not a 503 on its own: a proxy hiccup
+    // or a restart mid-deploy produces a bare 503, and replacing somebody's
+    // screen with "we are down for maintenance" because one request lost a
+    // race would be worse than the error they would otherwise have seen.
+    //
+    // The rejection still goes through, so nothing is left waiting on a
+    // promise that never settles.
+    if (err?.response?.status === 503 && data.maintenance) {
+      onMaintenance(data.maintenance);
+    }
 
     // A book id that no longer belongs to this account.
     //

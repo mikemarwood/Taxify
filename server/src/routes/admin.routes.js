@@ -20,6 +20,7 @@ import { publicOrigin } from '../lib/publicOrigin.js';
 import { asyncHandler } from '../lib/asyncHandler.js';
 import { accountTeardownStatements, describeTeardownFailure } from '../lib/accountTeardown.js';
 import { readSocialSettings, writeSocialSettings } from '../lib/socialSettings.js';
+import { readMaintenanceSettings, writeMaintenanceSettings } from '../lib/maintenanceSettings.js';
 import multer from 'multer';
 import {
   AD_SLOTS,
@@ -881,6 +882,7 @@ router.get(
       registrationEnabled: registrationEnabled !== 'false',
       mfaMode,
       ...(await readSocialSettings()),
+      ...(await readMaintenanceSettings()),
     });
   })
 );
@@ -903,6 +905,13 @@ router.patch(
     // and refused there rather than stored and quietly dropped at render time.
     const socialError = await writeSocialSettings(req.body || {});
     if (socialError) return res.status(400).json({ error: socialError });
+
+    // Taking the site offline, and what to tell people while it is. Validated
+    // in maintenanceSettings.js for the same reason as the Facebook fields:
+    // wording that cannot be stored should be refused where somebody typed it,
+    // not dropped an hour later in front of the people it was written for.
+    const maintenanceError = await writeMaintenanceSettings(req.body || {});
+    if (maintenanceError) return res.status(400).json({ error: maintenanceError });
 
     // The mfaMode block that stood here has gone, and it had to. It read a bare
     // `mfaMode` that the destructure above deliberately stopped providing — so

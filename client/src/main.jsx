@@ -6,6 +6,7 @@ import { AuthProvider } from './lib/AuthContext.jsx';
 import { EntityProvider } from './lib/EntityContext.jsx';
 import { ConfirmProvider } from './lib/ConfirmContext.jsx';
 import { ToastProvider } from './components/Toast.jsx';
+import MaintenanceBoundary from './components/MaintenanceBoundary.jsx';
 import './theme.css';
 
 // Progress, moved from the boot screen's own timer to the things that
@@ -66,7 +67,13 @@ ReactDOM.createRoot(document.getElementById('root')).render(
             {/* Innermost, so anything rendered can ask — and above App so the one
                 dialog sits over whatever asked for it. */}
             <ConfirmProvider>
-              <App />
+              {/* Holds the door for everybody but staff while the site is
+                  switched off from the admin panel. Inside the router, because
+                  it lets the sign-in page through by path — which is what
+                  stops the switch locking out the person who threw it. */}
+              <MaintenanceBoundary>
+                <App />
+              </MaintenanceBoundary>
             </ConfirmProvider>
           </EntityProvider>
         </AuthProvider>

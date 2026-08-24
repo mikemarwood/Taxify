@@ -649,12 +649,45 @@ function SettingsTab() {
   const [busy, setBusy] = useState(false);
   const [mfaBusy, setMfaBusy] = useState(false);
 
+  // Taking the site offline. Kept in its own state rather than folded into the
+  // toggle above, because it is the one setting on this page that changes what
+  // everybody else can do right now.
+  const [maint, setMaint] = useState(null);
+  const [maintBusy, setMaintBusy] = useState(false);
+  const [draftMessage, setDraftMessage] = useState('');
+
   useEffect(() => {
     api.get('/admin/settings').then((res) => {
       setRegistrationEnabled(res.data.registrationEnabled);
       setMfaMode(res.data.mfaMode);
+      setMaint({
+        enabled: res.data.maintenanceEnabled,
+        reason: res.data.maintenanceReason,
+        stock: res.data.maintenanceStock,
+      });
+      setDraftMessage(res.data.maintenanceMessage || '');
     });
   }, []);
+
+  // One writer for all three fields, so switching the site off and choosing
+  // why cannot end up half-applied — the server writes the wording before the
+  // switch for the same reason.
+  async function saveMaintenance(changes, said) {
+    setMaintBusy(true);
+    try {
+      await api.patch('/admin/settings', {
+        maintenanceEnabled: changes.enabled,
+        maintenanceReason: changes.reason,
+        maintenanceMessage: changes.message,
+      });
+      setMaint((prev) => ({ ...prev, enabled: changes.enabled, reason: changes.reason }));
+      toast(said, 'success');
+    } catch (err) {
+      toast(err.message, 'error');
+    } finally {
+      setMaintBusy(false);
+    }
+  }
 
   async function toggle() {
     const next = !registrationEnabled;
@@ -687,10 +720,128 @@ function SettingsTab() {
     }
   }
 
-  if (registrationEnabled === null || mfaMode === null) return <SkeletonList rows={2} />;
+  if (registrationEnabled === null || mfaMode === null || maint === null) return <SkeletonList rows={2} />;
+
+  const stock = maint.stock?.[maint.reason] || {};
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+      {/* First on the page, and red when it is on.
+
+          Everything else here changes what somebody can do next time; this one
+          changes what everybody can do right now. It is also the setting most
+          easily left on by accident, so it says loudly when it is. */}
+      <div
+        className="card"
+        style={{
+          padding: 20,
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 14,
+          borderColor: maint.enabled ? 'var(--red)' : undefined,
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16 }}>
+          <div>
+            <div style={{ fontWeight: 700 }}>Take the site offline</div>
+            <div style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 2 }}>
+              {maint.enabled
+                ? 'The site is off. Everyone signed in has been shown the notice; only admins and support can use it.'
+                : 'Everyone can use Taxify normally. Turning this on shows a notice instead — admins and support keep working, and the sign-in page stays open so you can turn it back on.'}
+            </div>
+          </div>
+          <button
+            type="button"
+            role="switch"
+            aria-checked={maint.enabled}
+            aria-label="Take the site offline"
+            disabled={maintBusy}
+            onClick={() =>
+              saveMaintenance(
+                { enabled: !maint.enabled, reason: maint.reason, message: draftMessage },
+                !maint.enabled ? 'The site is now offline for everyone but staff' : 'The site is back online'
+              )
+            }
+            style={{
+              flexShrink: 0,
+              width: 52,
+              height: 30,
+              padding: 3,
+              borderRadius: 999,
+              border: 0,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: maint.enabled ? 'flex-end' : 'flex-start',
+              background: maint.enabled ? 'var(--red)' : 'var(--border-strong)',
+              cursor: maintBusy ? 'default' : 'pointer',
+              opacity: maintBusy ? 0.6 : 1,
+              transition: 'background .18s ease',
+            }}
+          >
+            <span style={{ width: 24, height: 24, borderRadius: '50%', background: '#fff' }} />
+          </button>
+        </div>
+
+        {/* Which kind of offline. Planned work and a fault leave the reader in
+            different positions and are worth saying apart — that is the whole
+            reason there is a choice here rather than one generic notice. */}
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+          {[
+            { key: 'maintenance', label: 'Undergoing maintenance' },
+            { key: 'technical', label: 'Technical difficulties' },
+          ].map((option) => (
+            <button
+              key={option.key}
+              type="button"
+              disabled={maintBusy}
+              onClick={() =>
+                saveMaintenance(
+                  { enabled: maint.enabled, reason: option.key, message: draftMessage },
+                  `Visitors will be told it is ${option.key === 'technical' ? 'technical difficulties' : 'maintenance'}`
+                )
+              }
+              style={{
+                padding: '8px 14px',
+                borderRadius: 999,
+                fontSize: 13,
+                fontWeight: 600,
+                cursor: maintBusy ? 'default' : 'pointer',
+                border: `1px solid ${maint.reason === option.key ? 'var(--accent)' : 'var(--border-strong)'}`,
+                background: maint.reason === option.key ? 'var(--accent-soft)' : 'var(--bg-inset)',
+                color: maint.reason === option.key ? 'var(--accent)' : 'var(--text-muted)',
+              }}
+            >
+              {option.label}
+            </button>
+          ))}
+        </div>
+
+        <div>
+          <label className="label" htmlFor="maintenance-message">
+            What to tell people (optional)
+          </label>
+          <textarea
+            id="maintenance-message"
+            className="input"
+            rows={3}
+            maxLength={400}
+            value={draftMessage}
+            onChange={(e) => setDraftMessage(e.target.value)}
+            onBlur={() =>
+              saveMaintenance({ enabled: maint.enabled, reason: maint.reason, message: draftMessage }, 'Notice saved')
+            }
+            placeholder={stock.body || ''}
+            style={{ resize: 'vertical', lineHeight: 1.6 }}
+          />
+          <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 6, lineHeight: 1.6 }}>
+            {/* The heading is never overridden, so say so rather than let
+                somebody write a message that contradicts it. */}
+            Shown under <strong>“{stock.heading}”</strong>. Leave it empty for the standard wording. Saved when you
+            click away.
+          </div>
+        </div>
+      </div>
+
       <div className="card" style={{ padding: 20, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16 }}>
         <div>
           <div style={{ fontWeight: 700 }}>New account registration</div>

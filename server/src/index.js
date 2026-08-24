@@ -47,6 +47,7 @@ import { closeExpiredAssignments } from './auth/accountants.js';
 import { closeExpiredInvites } from './auth/accountantInvites.js';
 import { notify } from './lib/notify.js';
 import assetLinksRoutes from './routes/assetLinks.routes.js';
+import { maintenanceGate, maintenanceStatus } from './middleware/maintenanceGate.js';
 import { sendAccountantInviteLapsedEmail } from './lib/mailer.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -267,6 +268,16 @@ app.get(new RegExp('^/(' + MOVED_TO_APP.join('|') + ')(/.*)?$'), (req, res) => {
 // index.html with a 200 — which reads as a malformed asset-links file and
 // silently turns app links back into browser links.
 app.use(assetLinksRoutes);
+
+// Whether the site is deliberately offline, and what to say about it. Outside
+// the gate, because the sign-in page asks it in order to explain itself.
+app.get('/api/maintenance', maintenanceStatus);
+
+// The gate, in front of every API router rather than inside them. A route that
+// forgot to opt in would be a hole in the middle of an outage, and the list of
+// routes only ever grows. Admins pass; see lib/maintenance.js for the short
+// list of paths that keep working so an admin can still sign in.
+app.use('/api', maintenanceGate);
 
 app.use('/api/auth', authRoutes);
 app.use('/api/categories', categoriesRoutes);

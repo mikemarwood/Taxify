@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import AuthLayout from './AuthLayout.jsx';
+import { MaintenanceLoginNotice } from '../components/MaintenanceBoundary.jsx';
 import { useAuth } from '../lib/AuthContext.jsx';
 import { autoFocusFields } from '../lib/device.js';
 import { useToast } from '../components/Toast.jsx';
@@ -261,6 +262,11 @@ export default function Login() {
 
   return (
     <AuthLayout title="Welcome back" subtitle="Log in to keep tracking your deductions.">
+      {/* Why this is the only page working, when it is. Login stays open
+          during an outage so an admin can get in and turn the site back on;
+          without a word of explanation it would look like the outage had
+          simply ended. */}
+      <MaintenanceLoginNotice />
       <form onSubmit={onSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
         {signInError && (
           <div
