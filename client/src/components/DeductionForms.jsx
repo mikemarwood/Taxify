@@ -119,7 +119,15 @@ export function TripForm({ entityId, year, onAdded }) {
   // in the state because there is none on the form: the distance is worked out
   // from these every time it is needed, so the figure shown, the figure
   // checked and the figure sent cannot differ.
-  const [trip, setTrip] = useState({ date: todayIso(), vehicle: '', purpose: '', from: '', to: '' });
+  const [trip, setTrip] = useState({
+    date: todayIso(),
+    vehicle: '',
+    purpose: '',
+    from: '',
+    to: '',
+    startPlace: '',
+    endPlace: '',
+  });
 
   const closedYears = useClosedYears(entityId);
   const bounds = dateBounds(year, user?.financialYearRule, closedYears);
@@ -152,6 +160,8 @@ export function TripForm({ entityId, year, onAdded }) {
         date: trip.date,
         vehicle: trip.vehicle,
         purpose: trip.purpose,
+        startPlace: trip.startPlace,
+        endPlace: trip.endPlace,
         km: tripKm,
         // The readings as well as the distance. The distance is still what
         // is claimed and what everything is worked out from; these are the
@@ -165,7 +175,18 @@ export function TripForm({ entityId, year, onAdded }) {
       // The date stays too. A run of trips is entered for the same day far
       // more often than not, and clearing it makes somebody answer the same
       // question every time.
-      setTrip({ date: trip.date, vehicle: trip.vehicle, purpose: '', from: '', to: '' });
+      // Date and vehicle are kept, everything else cleared. Somebody logging a
+      // day's driving enters several trips in the same car; the places change
+      // every time and the car does not.
+      setTrip({
+        date: trip.date,
+        vehicle: trip.vehicle,
+        purpose: '',
+        from: '',
+        to: '',
+        startPlace: '',
+        endPlace: '',
+      });
       // What was lodged, said in the words of the thing rather than as a
       // count. "2 logged" tells somebody how many times they pressed a
       // button, not what is now on their return.
@@ -260,12 +281,41 @@ export function TripForm({ entityId, year, onAdded }) {
           )}
         </div>
       </div>
+      {/* Both ends of the journey.
+
+          A logbook entry is expected to show where a trip started and where it
+          finished, and a distance with only a purpose against it is the weakest
+          version of the record — "168km, site visit" answers nothing if it is
+          ever queried. Title case as it is typed, because these are place
+          names: "bunnings joondalup" typed in a hurry should reach the export
+          as "Bunnings Joondalup". titleCaseLive leaves a short all-capitals
+          word alone, so WA and GPO survive being typed properly. */}
+      <div style={{ flex: '1 1 180px', minWidth: 150 }}>
+        <label className="label">From</label>
+        <input
+          className="input"
+          maxLength={120}
+          placeholder="e.g. Home"
+          value={trip.startPlace}
+          onChange={onCasedInput(titleCaseLive, (value) => setTrip({ ...trip, startPlace: value }))}
+        />
+      </div>
+      <div style={{ flex: '1 1 180px', minWidth: 150 }}>
+        <label className="label">To</label>
+        <input
+          className="input"
+          maxLength={120}
+          placeholder="e.g. Bunnings Joondalup"
+          value={trip.endPlace}
+          onChange={onCasedInput(titleCaseLive, (value) => setTrip({ ...trip, endPlace: value }))}
+        />
+      </div>
       <div style={{ flex: '2 1 200px', minWidth: 150 }}>
         <label className="label">Purpose</label>
         <input
           className="input"
           maxLength={255}
-          placeholder="e.g. Site visit, Parramatta"
+          placeholder="e.g. Picking up materials"
           value={trip.purpose}
           onChange={onCasedInput(sentenceCaseLive, (value) => setTrip({ ...trip, purpose: value }))}
         />

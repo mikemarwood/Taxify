@@ -120,6 +120,15 @@ export async function ensureSchema() {
   await pool.query(`ALTER TABLE vehicle_trips ADD COLUMN IF NOT EXISTS odo_start INT NULL`);
   await pool.query(`ALTER TABLE vehicle_trips ADD COLUMN IF NOT EXISTS odo_end INT NULL`);
 
+  // Where the journey started and where it finished.
+  //
+  // Nullable for the same reason as the readings above: every trip logged
+  // before this has none, and inventing them would be worse than a blank. A
+  // logbook entry is expected to show both ends of a journey, so a trip
+  // carrying them is a stronger record than one with only a purpose.
+  await pool.query(`ALTER TABLE vehicle_trips ADD COLUMN IF NOT EXISTS start_place VARCHAR(120) NULL`);
+  await pool.query(`ALTER TABLE vehicle_trips ADD COLUMN IF NOT EXISTS end_place VARCHAR(120) NULL`);
+
   await pool.query(`ALTER TABLE accountant_invites ADD COLUMN IF NOT EXISTS declined_at DATETIME NULL`);
   await pool.query(
     `ALTER TABLE accountant_invites ADD COLUMN IF NOT EXISTS expired_notified_at DATETIME NULL`

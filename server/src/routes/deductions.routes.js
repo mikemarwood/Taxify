@@ -62,7 +62,8 @@ router.get(
     const params = entityId ? [userId, financialYear, entityId] : [userId, financialYear];
 
     const [trips] = await pool.execute(
-      `SELECT id, trip_date, vehicle, km, purpose, odo_start, odo_end FROM vehicle_trips
+      `SELECT id, trip_date, vehicle, km, purpose, odo_start, odo_end, start_place, end_place
+         FROM vehicle_trips
        WHERE user_id = ? AND financial_year = ?${scope} ORDER BY trip_date DESC, id DESC`,
       params
     );
@@ -98,6 +99,8 @@ router.get(
           vehicle: t.vehicle,
           km: Number(t.km),
           purpose: t.purpose || '',
+          startPlace: t.start_place || '',
+          endPlace: t.end_place || '',
           // Null for anything logged before the readings were kept, which the
           // page shows as a distance on its own rather than as a gap.
           odoStart: t.odo_start === null ? null : Number(t.odo_start),
@@ -136,7 +139,7 @@ async function assertWritable(req, res, date, entityId) {
 router.post(
   '/vehicle-trips',
   asyncHandler(async (req, res) => {
-    const { date, vehicle, km, purpose } = req.body || {};
+    const { date, vehicle, km, purpose, startPlace, endPlace } = req.body || {};
     if (!/^\d{4}-\d{2}-\d{2}$/.test(String(date || ''))) return res.status(400).json({ error: 'Enter the trip date' });
     if (isFutureDate(date)) return res.status(400).json({ error: 'A trip cannot be dated in the future' });
     if (!vehicle || !String(vehicle).trim()) return res.status(400).json({ error: 'Name the vehicle' });
@@ -165,8 +168,10 @@ router.post(
     if (!(await assertWritable(req, res, date, entityId))) return;
 
     const [result] = await pool.execute(
-      `INSERT INTO vehicle_trips (user_id, entity_id, financial_year, trip_date, vehicle, km, purpose, created_by, odo_start, odo_end)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO vehicle_trips
+         (user_id, entity_id, financial_year, trip_date, vehicle, km, purpose, created_by,
+          odo_start, odo_end, start_place, end_place)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         ownerOf(req),
         entityId,
@@ -178,6 +183,12 @@ router.post(
         req.user.id,
         readings ? readings.start : null,
         readings ? readings.end : null,
+        // Title case, like the vehicle name and unlike the purpose: these are
+        // place names, and "bunnings joondalup" written in a hurry should read
+        // as "Bunnings Joondalup" on the logbook an accountant sees. titleCase
+        // leaves a short all-capitals word alone, so WA and GPO survive.
+        startPlace ? titleCase(startPlace).slice(0, 120) || null : null,
+        endPlace ? titleCase(endPlace).slice(0, 120) || null : null,
       ]
     );
     res.status(201).json({ id: result.insertId });

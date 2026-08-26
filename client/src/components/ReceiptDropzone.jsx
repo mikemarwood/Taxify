@@ -106,8 +106,25 @@ export default function ReceiptDropzone({ file, onFileChange, uploadProgress, st
     setTimeout(() => inputRef.current?.click(), 0);
   }, []);
 
-  const preview = file ? URL.createObjectURL(file) : null;
+  // Made once per file and handed back afterwards.
+  //
+  // This was URL.createObjectURL(file) inline in the render body, which mints
+  // a fresh blob URL on every single render and never releases one. Each holds
+  // the whole file in memory until the tab closes, and a receipt photographed
+  // on a phone is several megabytes — so typing into the amount box, which
+  // re-renders this component on every keystroke, quietly leaked one copy per
+  // character.
+  const preview = useMemo(() => (file ? URL.createObjectURL(file) : null), [file]);
+  useEffect(() => () => { if (preview) URL.revokeObjectURL(preview); }, [preview]);
+
   const isImage = file && file.type.startsWith('image/');
+  // A PDF previews too. The browser renders one natively from a blob URL, the
+  // same way the saved-receipt preview does for a file already on the server —
+  // and a receipt that arrived as a PDF is a receipt, so showing a grey page
+  // icon for it while photographs get a picture was arbitrary. Checked on the
+  // type and the extension both, because a file dragged in from some Windows
+  // shares arrives with an empty type.
+  const isPdf = file && (file.type === 'application/pdf' || /\.pdf$/i.test(file.name || ''));
   const offset = CIRCUMFERENCE - (uploadProgress / 100) * CIRCUMFERENCE;
 
   return (
@@ -246,6 +263,26 @@ export default function ReceiptDropzone({ file, onFileChange, uploadProgress, st
           <motion.div key="preview" initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0 }}>
             {isImage ? (
               <img src={preview} alt="Receipt preview" style={{ maxHeight: 140, borderRadius: 10, margin: '0 auto', display: 'block' }} />
+            ) : isPdf ? (
+              /* pointer-events off, so a click still reaches the card behind
+                 rather than being swallowed by the PDF viewer's own controls.
+                 The same reason ReceiptPreview does it for saved files. */
+              <iframe
+                src={`${preview}#toolbar=0&navpanes=0&scrollbar=0&view=Fit`}
+                title={file.name || 'Receipt preview'}
+                tabIndex={-1}
+                style={{
+                  width: '100%',
+                  maxWidth: 220,
+                  height: 140,
+                  margin: '0 auto',
+                  display: 'block',
+                  border: '1px solid var(--border)',
+                  borderRadius: 10,
+                  background: '#fff',
+                  pointerEvents: 'none',
+                }}
+              />
             ) : (
               <div style={{ display: 'flex', justifyContent: 'center', color: 'var(--text-muted)' }}>
                 <Icon name="file-text" size={38} />

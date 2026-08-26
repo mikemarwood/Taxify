@@ -535,6 +535,10 @@ export default function Expenses() {
                     ? `${t.odoStart.toLocaleString()} → ${t.odoEnd.toLocaleString()}`
                     : ''}
                 </span>
+                {/* Where it went, then why. The journey is the record; the
+                    purpose is the note against it. Trips logged before the two
+                    places existed simply show the purpose, as they always
+                    did. */}
                 <span
                   className="deduction-note"
                   style={{
@@ -546,6 +550,12 @@ export default function Expenses() {
                     whiteSpace: 'nowrap',
                   }}
                 >
+                  {t.startPlace && t.endPlace && (
+                    <span style={{ color: 'var(--text)' }}>
+                      {t.startPlace} → {t.endPlace}
+                      {t.purpose ? ' · ' : ''}
+                    </span>
+                  )}
                   {t.purpose}
                 </span>
                 {/* Right-aligned in a fixed box and tabular, so the digits line
