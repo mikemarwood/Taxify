@@ -71,7 +71,15 @@
     --emerald: #10b981;
     --gradient-brand: linear-gradient(135deg, var(--blue), var(--violet) 55%, var(--cyan));
   }
-  html, body { height: 100%; }
+  /* min-height, not height, and body only.
+
+     height: 100% on html made the root exactly one viewport tall. That is what
+     the body gradients are positioned against, so it was doing real work here
+     — but this rule is lifted into the hub's document too, where pinning the
+     root to viewport height is not ours to decide. min-height gives the
+     gradients a full viewport to sit in on a short page without capping a tall
+     one, and leaves the root alone. */
+  body { min-height: 100%; }
   body {
     font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
     background:
@@ -148,9 +156,24 @@
      stated minimum — so on a narrow handset the widest of them was 300px
      inside a 280px content box and the page could be dragged sideways. They
      are all min(Npx, 100%) now, which lets a track give way when there is no
-     room. This line is the backstop for whatever gets added later and
-     forgets. */
-  html, body { max-width: 100%; overflow-x: hidden; }
+     room. This is the backstop for whatever gets added later and forgets.
+
+     On the page's own wrapper, and clip rather than hidden. Both parts matter,
+     and the old version — overflow-x: hidden on html — broke the scrollbar of
+     a page that is not even ours.
+
+     The hub proxy lifts this whole stylesheet into its own <head>, so every
+     rule here written against html or body lands on the hub's document. And
+     overflow-x: hidden on a root element is a known trap: the spec says a
+     non-visible value on one axis forces the other to compute to auto, so that
+     one line quietly turned the hub's root into a scroll container of its own
+     and left its scrollbar sitting behind the fixed header.
+
+     overflow: clip has no such side effect — it clips without ever creating a
+     scroll container — and .lp is our own <main>, which is where every grid
+     that could overflow actually lives. The lightboxes sit outside <main>, so
+     nothing position: fixed is caught by the clipping. */
+  .lp { overflow-x: clip; }
 
   /* The product picture sits directly under the hero, so the hero stops
      reserving a section-sized gap beneath itself — the two are one thought. */

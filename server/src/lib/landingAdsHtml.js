@@ -22,9 +22,10 @@ export function cutEmptyAdSlots(html, present, withPoster, origin) {
   // Its proxy rewrites relative URLs to absolute for link[href], img[src],
   // img[srcset], source[src], source[srcset], script[src], video[src] and
   // a[href] — and that list does not include video[poster]. So a relative
-  // poster resolved against the hub's own origin, where the file does not
-  // exist, and every visitor got a 404 and a blank frame. Checked by fetching
-  // the proxied page and reading the attribute back, not assumed.
+  // poster resolves against the hub's own origin, where the file does not
+  // exist. Checked by fetching the proxied page and reading the attribute
+  // back, not assumed. Only reached when somebody has uploaded a poster; see
+  // below for why there is no longer a fallback one.
   const base = String(origin || '').replace(/\/$/, '');
 
   // Nothing uploaded at all: the whole section goes, heading and all.
@@ -39,29 +40,29 @@ export function cutEmptyAdSlots(html, present, withPoster, origin) {
       out = out.replace(new RegExp(`<!--SLOT:${slot}-->[\\s\\S]*?<!--/SLOT:${slot}-->`), '');
       continue;
     }
-    // No poster uploaded: fall back to the one drawn into the site.
+    // No poster uploaded: the attribute goes, and the film shows its own
+    // opening frame.
     //
-    // This used to delete the attribute, on the stated grounds that "without
-    // one the browser paints the film's own opening frame". That is not true,
-    // and believing it is what left two black rectangles on the landing page.
-    // With preload="metadata", whether any frame gets painted is the browser's
-    // discretion — often yes on a desktop Chrome, often no elsewhere, and
-    // reported blank from several different devices.
+    // Which it does. That was the original behaviour here, I replaced it with a
+    // drawn fallback poster on the theory that painting a first frame was "the
+    // browser's discretion", and the theory was wrong. Measured rather than
+    // argued about the third time: Edge headless, this exact markup, a magenta
+    // page behind the video so anything unpainted would be unmistakable. Both
+    // films painted their real first frame and covered the ground completely.
     //
-    // The attempt before this one was #t=0.1 on the source, which fails for a
-    // reason worth recording: the fragment says where to seek, but
-    // preload="metadata" will not fetch the sample data, so there is no
-    // decoded frame at 0.1s for it to show.
+    // The blank frames were never about the first frame at all. The hub served
+    // this page with no media-src in its CSP, so media fell back to
+    // default-src 'self' — and 'self' is the hub's origin, not ours. The
+    // browser refused to fetch the films before a request left. Every attempt
+    // made here (faststart, then #t=0.1, then the poster) was working on the
+    // wrong problem, and the drawn poster made it worse: it had a play button
+    // painted into it, so each film appeared to have two, and the prominent
+    // one was a picture that could not be clicked.
     //
-    // A poster is a plain image paint. No codec, no range request, no
-    // discretion, identical on every device. media/ad-poster.jpg is committed
-    // and ships with the site, unlike an uploaded poster, which lives under
-    // uploads/ and would not exist on a fresh machine. An uploaded one still
-    // wins wherever there is one.
+    // An uploaded poster still wins where somebody has set one.
     if (!posters.includes(slot)) {
-      out = out.replace(` poster="/media/ads/${slot}-poster"`, ` poster="${base}/media/ad-poster.jpg"`);
+      out = out.replace(` poster="/media/ads/${slot}-poster"`, '');
     } else if (base) {
-      // An uploaded poster needs the same treatment, for the same reason.
       out = out.replace(` poster="/media/ads/${slot}-poster"`, ` poster="${base}/media/ads/${slot}-poster"`);
     }
   }
