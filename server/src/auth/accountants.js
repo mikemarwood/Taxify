@@ -101,13 +101,6 @@ export function serialiseYears(years) {
 // Reading it as expired locks every accountant out before they start.
 const LIVE_ASSIGNMENT = '(a.expires_at IS NULL OR a.expires_at > NOW())';
 
-export async function purgeExpiredAssignments() {
-  const [result] = await pool.execute(
-    'DELETE FROM accountant_assignments WHERE expires_at IS NOT NULL AND expires_at < NOW()'
-  );
-  return result.affectedRows || 0;
-}
-
 export async function listAssignments(accountantUserId) {
   const [rows] = await pool.execute(
     `SELECT a.id, a.owner_user_id, a.financial_years, a.entity_ids, a.access_level, a.window_hours, a.first_login_at, a.expires_at, a.created_at,

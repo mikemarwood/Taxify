@@ -16,10 +16,6 @@ export function setDateLocale(next) {
   if (next) locale = next;
 }
 
-export function getDateLocale() {
-  return locale;
-}
-
 // Today, as an <input type="date"> reads it.
 //
 // Built from the local parts rather than toISOString(), which converts to UTC
@@ -88,12 +84,6 @@ export function formatAppointmentTime(value, fallback = '—') {
         minute: '2-digit',
       })
     : fallback;
-}
-
-// April 2026 — chart axes and month groupings.
-export function formatMonthYear(value, fallback = '—') {
-  const d = toDate(value);
-  return d ? d.toLocaleDateString(locale, { month: 'long', year: 'numeric' }) : fallback;
 }
 
 // dd/mm/yyyy, hh:mm — for a deadline, where the exact day matters and reading

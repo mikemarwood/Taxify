@@ -126,8 +126,3 @@ export function financialYearRange(label, rule = DEFAULT_RULE) {
     end: `${end.getUTCFullYear()}-${pad(end.getUTCMonth() + 1)}-${pad(end.getUTCDate())}`,
   };
 }
-
-// "FY 2025-2026" or "FY 2025" — used wherever a year is shown to someone.
-export function financialYearLabel(label) {
-  return `FY ${label}`;
-}

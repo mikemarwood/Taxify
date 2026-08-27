@@ -101,20 +101,6 @@ export function canReply(ticket) {
   return ticket?.status !== 'closed';
 }
 
-export function statusLabel(status) {
-  if (status === 'closed') return 'Closed';
-  if (status === 'awaiting_customer') return 'Waiting for you';
-  return 'With support';
-}
-
-// The same three states from support's side, where "waiting for you" means the
-// opposite person.
-export function adminStatusLabel(status) {
-  if (status === 'closed') return 'Closed';
-  if (status === 'awaiting_customer') return 'Waiting on customer';
-  return 'Needs a reply';
-}
-
 // Matched to the form, so nothing is accepted there and refused here.
 const MAX_BODY = 5000;
 const MIN_BODY = 20;

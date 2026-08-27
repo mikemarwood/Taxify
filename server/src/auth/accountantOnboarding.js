@@ -9,8 +9,6 @@
 // bar than signing in to your own account, and the people whose records they
 // are did not get a say in how careful their accountant is.
 
-export const ACCOUNTANT_REQUIREMENTS = ['mfa', 'profile'];
-
 // otpEnabled is already mode-aware by the time it reaches here — publicUser.js
 // reports it as true whenever the site requires MFA of everyone. So an account
 // under `mfa_mode: required` satisfies this without a second code path, and

@@ -15,10 +15,6 @@ export function setBaseCurrency(code) {
   if (code) baseCurrency = String(code).toUpperCase();
 }
 
-export function getBaseCurrency() {
-  return baseCurrency;
-}
-
 // "1,234.50" — no symbol, for places that draw their own.
 export function formatAmount(value) {
   const n = Number(value);
@@ -70,10 +66,6 @@ export function fullAmount(expense) {
 export function isApportioned(expense) {
   const pct = Number(expense?.businessUsePct);
   return Number.isFinite(pct) && pct > 0 && pct < 100;
-}
-
-export function sumClaimable(expenses) {
-  return (expenses || []).reduce((total, e) => total + claimable(e), 0);
 }
 
 // Rows that are in a foreign currency and have no conversion. Shown as a

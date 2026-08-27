@@ -487,35 +487,6 @@ export async function sendEmailChangedNoticeEmail(to, name, newEmail) {
   });
 }
 
-// For an accountant who already has a Taxify login — they don't need another
-// account, just telling that another client's books are now on their list.
-export async function sendAccountantAccessEmail(to, name, clientName, loginUrl, yearScope) {
-  const scope = yearScope
-    ? `You have been given the financial ${yearScope.includes(',') ? 'years' : 'year'} <strong>${escapeHtml(
-        yearScope.split(',').join(', ')
-      )}</strong>.`
-    : 'You have been given their full history.';
-  await sendMail({
-    to,
-    subject: `${clientName} has given you access to their Taxify account`,
-    title: 'New client access',
-    heading: `Hi${name ? ` ${name}` : ''}, ${escapeHtml(clientName)} has shared their books with you.`,
-    bodyHtml: `
-      <p style="font-size:14px;color:#1f2937;margin:0 0 16px;line-height:1.55;">
-        Sign in with the accountant login you already have — <strong>${escapeHtml(clientName)}</strong> will appear
-        alongside your other clients. ${scope}
-      </p>
-      ${button(loginUrl, 'Sign in as an accountant')}
-      ${linkFallback(loginUrl)}
-      <p style="font-size:13px;color:#4b5563;margin:0;line-height:1.55;">
-        Access is <strong>read-only</strong> and lasts <strong>24 hours from the first time you open their
-        account</strong>, after which it is removed automatically. Ask them to share it again whenever you need
-        another look.
-      </p>
-    `,
-  });
-}
-
 // Sent once per lodgement — a whole year for an individual, a quarter for a
 // business that reports quarterly — and only to someone who hasn't already
 // booked. One email per lodgement is a reminder; more than that is nagging, so
@@ -570,27 +541,6 @@ export async function sendTaxAppointmentReminderEmail(to, name, financialYear, w
       </p>
       ${button(reportsUrl, 'Download my year')}
       ${linkFallback(reportsUrl)}
-    `,
-  });
-}
-
-export async function sendInviteEmail(to, name, role, acceptUrl, inviterName) {
-  const roleLabel = role === 'accountant' ? 'accountant (read-only)' : 'family member';
-  await sendMail({
-    to,
-    subject: `${inviterName} invited you to Taxify`,
-    title: 'Account invitation',
-    heading: `Hi${name ? ` ${name}` : ''}, ${inviterName} has invited you to Taxify.`,
-    bodyHtml: `
-      <p style="font-size:14px;color:#1f2937;margin:0 0 16px;line-height:1.55;">
-        You've been added as a <strong>${roleLabel}</strong>. Setting a password is all that's left —
-        it finishes creating your account.
-      </p>
-      ${button(acceptUrl, 'Set my password')}
-      ${linkFallback(acceptUrl)}
-      <p style="font-size:13px;color:#4b5563;margin:0;line-height:1.55;">
-        This link expires in 5 days. If you weren't expecting this, you can ignore it.
-      </p>
     `,
   });
 }
@@ -668,30 +618,6 @@ export async function sendAccountantInviteEmail(to, name, clientName, acceptUrl,
       <p style="font-size:13px;color:#4b5563;margin:0;line-height:1.55;">
         This invitation expires ${expiryLabel}. If you were not expecting it, ignore this email \u2014 nobody has been
         given anything, and it stops working on its own.
-      </p>
-    `,
-  });
-}
-
-// Somebody who already has a Taxify login. Nothing to set up; a client simply
-// appears on their list.
-export async function sendAccountantAccessGrantedEmail(to, name, clientName, loginUrl, yearScope, windowLabel) {
-  await sendMail({
-    to,
-    subject: `${clientName} has shared their Taxify records with you`,
-    title: 'New client access',
-    heading: `Hi${name ? ` ${escapeHtml(name)}` : ''}, ${escapeHtml(clientName)} has shared their books with you.`,
-    bodyHtml: `
-      <p style="font-size:14px;color:#1f2937;margin:0 0 16px;line-height:1.55;">
-        Nothing to set up \u2014 sign in with the login you already have and they will be on your client list.
-        ${scopeSentence(yearScope)}
-      </p>
-      ${button(loginUrl, 'Open my client list')}
-      ${linkFallback(loginUrl)}
-      <p style="font-size:13px;color:#4b5563;margin:0;line-height:1.55;">
-        Access is <strong>read-only</strong> and lasts <strong>${windowLabel}</strong> from the first time you open
-        their account, after which it is removed automatically. Ask them to share it again whenever you need another
-        look.
       </p>
     `,
   });
@@ -801,28 +727,6 @@ export async function sendAccountantInviteExpiredEmail(to, ownerName, accountant
       </p>
       ${button(accountUrl, 'Send another invitation')}
       ${linkFallback(accountUrl)}
-    `,
-  });
-}
-
-// The client changed something without revoking and starting over. Only sent
-// when the change widens what they have — a narrowing does not need to
-// interrupt anyone's afternoon.
-export async function sendAccountantAccessUpdatedEmail(to, name, clientName, loginUrl, changeLabel) {
-  await sendMail({
-    to,
-    subject: `${clientName} has updated your access`,
-    title: 'Your access has changed',
-    heading: `Hi${name ? ` ${escapeHtml(name)}` : ''}, ${escapeHtml(clientName)} has updated what you can see.`,
-    bodyHtml: `
-      <p style="font-size:14px;color:#1f2937;margin:0 0 16px;line-height:1.55;">
-        You now have ${escapeHtml(changeLabel)}.
-      </p>
-      ${button(loginUrl, 'Open my client list')}
-      ${linkFallback(loginUrl)}
-      <p style="font-size:13px;color:#4b5563;margin:0;line-height:1.55;">
-        Changes take effect immediately \u2014 there is no need to sign out and back in.
-      </p>
     `,
   });
 }
@@ -988,26 +892,6 @@ export async function sendAccountRemovedEmail(to, name, registerUrl, days) {
       <p style="font-size:13px;color:#4b5563;margin:0;line-height:1.55;">
         If you did not sign up for Taxify, somebody typed your address by mistake and there is nothing left to do —
         the account is gone and you will hear no more about it.
-      </p>
-    `,
-  });
-}
-
-export async function sendAdminCreatedAccountEmail(to, name, acceptUrl) {
-  await sendMail({
-    to,
-    subject: 'An account has been created for you on Taxify',
-    title: 'Account created',
-    heading: `Hi${name ? ` ${name}` : ''}, an account has been set up for you.`,
-    bodyHtml: `
-      <p style="font-size:14px;color:#1f2937;margin:0 0 16px;line-height:1.55;">
-        An administrator created a Taxify account for you. Setting a password finishes it off and starts
-        your 14-day free trial, with full access to every feature.
-      </p>
-      ${button(acceptUrl, 'Set my password')}
-      ${linkFallback(acceptUrl)}
-      <p style="font-size:13px;color:#4b5563;margin:0;line-height:1.55;">
-        This link expires in 5 days.
       </p>
     `,
   });

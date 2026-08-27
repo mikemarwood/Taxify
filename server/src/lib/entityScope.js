@@ -88,11 +88,3 @@ export async function resolveRequestEntity(req) {
 
   return { id: entity.id, entity, locked };
 }
-
-// The books a write lands in when the request did not say. Only ever the
-// account's own default — never the first row, and never a guess.
-export async function defaultWriteEntity(req) {
-  const ownerId = dataOwnerId(req.user);
-  if (!ownerId) return null;
-  return ensureDefaultEntity(ownerId);
-}
