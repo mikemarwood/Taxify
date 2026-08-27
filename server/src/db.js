@@ -665,14 +665,27 @@ export async function ensureSchema() {
   await pool.query(`
     ALTER TABLE expenses ADD COLUMN IF NOT EXISTS notified_at DATETIME NULL
   `);
-  // Idempotency key for one-off spreadsheet imports (see scripts/importLegacy.js).
-  // NULL for everything created through the app, and MariaDB allows repeated
-  // NULLs in a unique index, so only imported rows are constrained.
+  // The idempotency key for one-off spreadsheet imports, removed.
+  //
+  // It went with the importer: scripts/importLegacy.js and legacySheet.js are
+  // gone, the xlsx dependency with them, and the comment that used to sit here
+  // pointed at a file that no longer existed. Nothing has read or written this
+  // column since. Dropped rather than left, for the same reason
+  // activation_reminded_at was: a column nobody writes is one somebody
+  // eventually trusts.
+  //
+  // THE INDEX FIRST, AND THAT ORDER IS NOT COSMETIC.
+  //
+  // uq_expenses_import is UNIQUE (user_id, import_key). Dropping a column that
+  // sits in a multi-column index does not drop the index — MariaDB removes the
+  // column from it and keeps what is left, which here would be UNIQUE
+  // (user_id): one expense per customer, forever, and every insert after their
+  // first refused. Dropping the index first leaves nothing to be reduced.
   await pool.query(`
-    ALTER TABLE expenses ADD COLUMN IF NOT EXISTS import_key VARCHAR(190) NULL
+    ALTER TABLE expenses DROP INDEX IF EXISTS uq_expenses_import
   `);
   await pool.query(`
-    ALTER TABLE expenses ADD UNIQUE INDEX IF NOT EXISTS uq_expenses_import (user_id, import_key)
+    ALTER TABLE expenses DROP COLUMN IF EXISTS import_key
   `);
 
   // Who entered it and who touched it last. user_id is who the expense belongs
