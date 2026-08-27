@@ -5,6 +5,7 @@ import { SkeletonList, SkeletonStat } from '../components/Skeletons.jsx';
 import CategoryBadge from '../components/CategoryBadge.jsx';
 import { useEntities } from '../lib/EntityContext.jsx';
 import ExpenseModal from '../components/ExpenseModal.jsx';
+import EditTripModal from '../components/EditTripModal.jsx';
 import ReceiptLightbox from '../components/ReceiptLightbox.jsx';
 import { defaultFinancialYear } from '../lib/financialYear.js';
 import YearDocuments from '../components/YearDocuments.jsx';
@@ -50,7 +51,7 @@ function matchesAmount(amount, rawQuery) {
 // total on the right — because it is the same kind of thing: a heap of entries
 // that add up to part of a claim. What it adds up to is kilometres or hours,
 // which is the only difference worth showing.
-function DeductionPanel({ title, icon, rows, summary, render, onRemove, chips }) {
+function DeductionPanel({ title, icon, rows, summary, render, onRemove, onEdit, chips }) {
   if (rows.length === 0) return null;
   return (
     <div style={{ marginTop: 20 }}>
@@ -101,27 +102,50 @@ function DeductionPanel({ title, icon, rows, summary, render, onRemove, chips })
           >
             <span style={{ width: 78, flexShrink: 0, color: 'var(--text-muted)' }}>{formatDayMonth(row.date)}</span>
             {render(row)}
-            {onRemove && (
-              <button
-                type="button"
-                title="Remove this entry"
-                aria-label="Remove this entry"
-                onClick={() => onRemove(row.id)}
-                style={{
-                  lineHeight: 0,
-                  background: 'none',
-                  border: 'none',
-                  // Pinned to the right of whatever line it lands on, and a
-                  // real target rather than a bare 15px glyph.
-                  marginLeft: 'auto',
-                  padding: 4,
-                  cursor: 'pointer',
-                  color: 'var(--text-muted)',
-                  flexShrink: 0,
-                }}
-              >
-                <Icon name="trash" size={15} />
-              </button>
+            {/* Both controls in one group, pinned right together — otherwise
+                the first to appear takes margin-left:auto and the second sits
+                against it from the left, which reads as one control with a
+                stray glyph beside it. */}
+            {(onEdit || onRemove) && (
+              <span style={{ display: 'flex', gap: 2, marginLeft: 'auto', flexShrink: 0 }}>
+                {onEdit && (
+                  <button
+                    type="button"
+                    title="Edit this entry"
+                    aria-label="Edit this entry"
+                    onClick={() => onEdit(row)}
+                    style={{
+                      lineHeight: 0,
+                      background: 'none',
+                      border: 'none',
+                      padding: 4,
+                      cursor: 'pointer',
+                      color: 'var(--text-muted)',
+                    }}
+                  >
+                    <Icon name="pencil" size={15} />
+                  </button>
+                )}
+                {onRemove && (
+                  <button
+                    type="button"
+                    title="Remove this entry"
+                    aria-label="Remove this entry"
+                    onClick={() => onRemove(row.id)}
+                    style={{
+                      lineHeight: 0,
+                      background: 'none',
+                      border: 'none',
+                      // A real target rather than a bare 15px glyph.
+                      padding: 4,
+                      cursor: 'pointer',
+                      color: 'var(--text-muted)',
+                    }}
+                  >
+                    <Icon name="trash" size={15} />
+                  </button>
+                )}
+              </span>
             )}
           </div>
         ))}
@@ -239,6 +263,11 @@ export default function Expenses() {
   const tripRows = (deductions?.vehicle?.trips || []).filter(
     (t) => !q || t.vehicle.toLowerCase().includes(q) || t.purpose.toLowerCase().includes(q)
   );
+  // The trip being corrected, or null. Held here rather than in the panel so
+  // the dialog is a sibling of the list and not inside a row that re-renders
+  // under it when the list reloads.
+  const [editingTrip, setEditingTrip] = useState(null);
+
   async function removeDeduction(kind, id) {
     if (!(await confirm({ tone: 'danger', title: 'Remove this entry?', confirmLabel: 'Remove' }))) return;
     try {
@@ -464,6 +493,7 @@ export default function Expenses() {
                 : null
             }
             onRemove={(id) => removeDeduction('vehicle-trips', id)}
+            onEdit={(row) => setEditingTrip(row)}
             chips={
               // One line per car. Two sets of readings against one vehicle are
               // one claim, and where a country caps the kilometres per car, the
@@ -666,6 +696,17 @@ export default function Expenses() {
             )}
           />
         </>
+      )}
+
+      {editingTrip && (
+        <EditTripModal
+          trip={editingTrip}
+          onClose={() => setEditingTrip(null)}
+          onSaved={() => {
+            setEditingTrip(null);
+            loadDeductions();
+          }}
+        />
       )}
 
       {selectedExpense && (

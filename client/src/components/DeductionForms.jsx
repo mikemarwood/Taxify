@@ -281,36 +281,45 @@ export function TripForm({ entityId, year, onAdded }) {
           )}
         </div>
       </div>
-      {/* Both ends of the journey.
+      {/* The journey, then why it was made — and in that order on the page.
 
-          A logbook entry is expected to show where a trip started and where it
-          finished, and a distance with only a purpose against it is the weakest
-          version of the record — "168km, site visit" answers nothing if it is
-          ever queried. Title case as it is typed, because these are place
-          names: "bunnings joondalup" typed in a hurry should reach the export
-          as "Bunnings Joondalup". titleCaseLive leaves a short all-capitals
-          word alone, so WA and GPO survive being typed properly. */}
-      <div style={{ flex: '1 1 180px', minWidth: 150 }}>
-        <label className="label">From</label>
-        <input
-          className="input"
-          maxLength={120}
-          placeholder="e.g. Home"
-          value={trip.startPlace}
-          onChange={onCasedInput(titleCaseLive, (value) => setTrip({ ...trip, startPlace: value }))}
-        />
+          Start and Destination are one line and Purpose is the line under it,
+          because the two places are one question asked twice and reading them
+          side by side is the point. Left to the wrap they landed wherever the
+          row happened to break, with the purpose sometimes between them.
+
+          A logbook is expected to show both ends of a journey; a distance with
+          only a purpose against it is the weakest form of the record, since
+          "168km, site visit" answers nothing if it is ever queried.
+
+          Title case as it is typed, because these are place names: "bunnings
+          joondalup" entered in a hurry should reach the accountant's export as
+          "Bunnings Joondalup". titleCaseLive leaves a short all-capitals word
+          alone, so WA and GPO survive being typed properly, and it never
+          changes the string's length so the caret stays put. */}
+      <div style={{ flex: '1 1 100%', minWidth: 0, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+        <div style={{ flex: '1 1 180px', minWidth: 0 }}>
+          <label className="label">Start</label>
+          <input
+            className="input"
+            maxLength={120}
+            placeholder="e.g. Home"
+            value={trip.startPlace}
+            onChange={onCasedInput(titleCaseLive, (value) => setTrip({ ...trip, startPlace: value }))}
+          />
+        </div>
+        <div style={{ flex: '1 1 180px', minWidth: 0 }}>
+          <label className="label">Destination</label>
+          <input
+            className="input"
+            maxLength={120}
+            placeholder="e.g. Bunnings Joondalup"
+            value={trip.endPlace}
+            onChange={onCasedInput(titleCaseLive, (value) => setTrip({ ...trip, endPlace: value }))}
+          />
+        </div>
       </div>
-      <div style={{ flex: '1 1 180px', minWidth: 150 }}>
-        <label className="label">To</label>
-        <input
-          className="input"
-          maxLength={120}
-          placeholder="e.g. Bunnings Joondalup"
-          value={trip.endPlace}
-          onChange={onCasedInput(titleCaseLive, (value) => setTrip({ ...trip, endPlace: value }))}
-        />
-      </div>
-      <div style={{ flex: '2 1 200px', minWidth: 150 }}>
+      <div style={{ flex: '1 1 100%', minWidth: 0 }}>
         <label className="label">Purpose</label>
         <input
           className="input"

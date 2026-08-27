@@ -90,6 +90,31 @@ const FLOWS = [
     ],
     rule: 'The reference is never the row id. “Ticket 3” tells a customer they are the third person ever to write in.',
   },
+  {
+    title: 'You take the site offline',
+    icon: 'wrench',
+    steps: [
+      { label: 'You throw the switch', detail: 'Maintenance, or technical difficulties — the notice differs', file: 'Admin.jsx' },
+      { label: 'Confirmed first', detail: 'The dialog says what happens, both turning it off and back on', file: 'Admin.jsx' },
+      { label: 'Everyone else is stopped', detail: 'On their next request, without reloading', file: 'maintenanceGate.js' },
+      { label: 'Staff carry on', detail: 'Admins and support see the app plus a red banner', file: 'MaintenanceBoundary.jsx' },
+      { label: 'Sign-in stays open', detail: 'Login and the second factor keep working', file: 'maintenance.js' },
+      { label: 'Back on', detail: 'Anyone sitting on the notice is let in within half a minute', file: 'MaintenanceScreen.jsx' },
+    ],
+    rule: 'It is off unless somebody switched it on — the opposite default to everything else here, because a missing row or a half-run migration must leave the site up rather than down. The paths that keep working are an exact list, not a rule of thumb: without login and the second factor on it, the switch would be a way to lock yourself out of your own site permanently. Registration and password reset are deliberately not on it, since an account created during an outage cannot be activated.',
+  },
+  {
+    title: 'You release an Android build',
+    icon: 'phone',
+    steps: [
+      { label: 'Build it signed', detail: 'The same keystore every time, or it will not update in place', file: 'build.gradle' },
+      { label: 'Drop the APK in', detail: 'client/public/downloads, so a deploy carries it', file: 'app.routes.js' },
+      { label: 'Say what it is', detail: 'versionCode and versionName in app-version.json', file: 'app-version.json' },
+      { label: 'Phones ask on resume', detail: 'They compare against their own build', file: 'UpdateManager.java' },
+      { label: 'Offered, or required', detail: 'Below minVersionCode there is no Later button', file: 'UpdateManager.java' },
+    ],
+    rule: 'The version people are offered comes from app-version.json, not from the file on disk — so a build that ships without that number being raised is a build nobody is ever told about, which is exactly what happened between versions 7 and 9. minVersionCode is the floor below which a build must not go on being used; set it only when the old one gets something actively wrong, because an installer forced on somebody for a change of wording is contempt for their time. The signing certificate must not change: a different one cannot update an installed app and silently breaks every app link.',
+  },
 ];
 
 function Step({ step, last }) {

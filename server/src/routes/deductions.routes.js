@@ -136,31 +136,58 @@ async function assertWritable(req, res, date, entityId) {
   return true;
 }
 
+// Everything a trip has to satisfy, in one place.
+//
+// Adding one and editing one are the same rules, and the only way to be sure
+// they stay the same rules is for there to be one copy of them. Returns either
+// { error } to refuse with, or the columns to write.
+function readTripInput(body = {}) {
+  const { date, vehicle, km, purpose, startPlace, endPlace } = body;
+
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(String(date || ''))) return { error: 'Enter the trip date' };
+  if (isFutureDate(date)) return { error: 'A trip cannot be dated in the future' };
+  if (!vehicle || !String(vehicle).trim()) return { error: 'Name the vehicle' };
+
+  const distance = Number(km);
+  if (!Number.isFinite(distance) || distance <= 0) return { error: 'Enter the kilometres driven' };
+  if (distance > 100000) return { error: 'That distance is too large' };
+
+  // The readings, where they were given.
+  //
+  // Optional on the wire: trips entered before these existed have none, and a
+  // future caller might only know the distance. Kept only when they are a pair
+  // that agrees with the distance being claimed — a start and an end that do
+  // not subtract to the number on the claim are two different stories, and
+  // storing both would leave nobody able to say which is true.
+  const start = Number(body.odoStart);
+  const end = Number(body.odoEnd);
+  const readings =
+    Number.isInteger(start) && Number.isInteger(end) && start >= 0 && end - start === distance
+      ? { start, end }
+      : null;
+
+  return {
+    date,
+    vehicle: titleCase(vehicle).slice(0, 80),
+    distance,
+    purpose: purpose ? sentenceCase(purpose).slice(0, 255) || null : null,
+    odoStart: readings ? readings.start : null,
+    odoEnd: readings ? readings.end : null,
+    // Title case, like the vehicle name and unlike the purpose: these are
+    // place names, and "bunnings joondalup" written in a hurry should read as
+    // "Bunnings Joondalup" on the logbook an accountant sees. titleCase leaves
+    // a short all-capitals word alone, so WA and GPO survive.
+    startPlace: startPlace ? titleCase(startPlace).slice(0, 120) || null : null,
+    endPlace: endPlace ? titleCase(endPlace).slice(0, 120) || null : null,
+  };
+}
+
 router.post(
   '/vehicle-trips',
   asyncHandler(async (req, res) => {
-    const { date, vehicle, km, purpose, startPlace, endPlace } = req.body || {};
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(String(date || ''))) return res.status(400).json({ error: 'Enter the trip date' });
-    if (isFutureDate(date)) return res.status(400).json({ error: 'A trip cannot be dated in the future' });
-    if (!vehicle || !String(vehicle).trim()) return res.status(400).json({ error: 'Name the vehicle' });
-
-    const distance = Number(km);
-    if (!Number.isFinite(distance) || distance <= 0) return res.status(400).json({ error: 'Enter the kilometres driven' });
-    if (distance > 100000) return res.status(400).json({ error: 'That distance is too large' });
-
-    // The readings, where they were given.
-    //
-    // Optional on the wire: trips entered before these existed have none, and a
-    // future caller might only know the distance. Kept only when they are a
-    // pair that agrees with the distance being claimed — a start and an end
-    // that do not subtract to the number on the claim are two different
-    // stories, and storing both would leave nobody able to say which is true.
-    const start = Number(req.body?.odoStart);
-    const end = Number(req.body?.odoEnd);
-    const readings =
-      Number.isInteger(start) && Number.isInteger(end) && start >= 0 && end - start === distance
-        ? { start, end }
-        : null;
+    const trip = readTripInput(req.body);
+    if (trip.error) return res.status(400).json({ error: trip.error });
+    const { date } = trip;
 
     // The page names the books rather than relying on what is selected, so a
     // trip can be logged from the combined view without guessing.
@@ -177,21 +204,71 @@ router.post(
         entityId,
         financialYearOf(date, req.user.financialYearRule),
         date,
-        titleCase(vehicle).slice(0, 80),
-        distance,
-        purpose ? sentenceCase(purpose).slice(0, 255) || null : null,
+        trip.vehicle,
+        trip.distance,
+        trip.purpose,
         req.user.id,
-        readings ? readings.start : null,
-        readings ? readings.end : null,
-        // Title case, like the vehicle name and unlike the purpose: these are
-        // place names, and "bunnings joondalup" written in a hurry should read
-        // as "Bunnings Joondalup" on the logbook an accountant sees. titleCase
-        // leaves a short all-capitals word alone, so WA and GPO survive.
-        startPlace ? titleCase(startPlace).slice(0, 120) || null : null,
-        endPlace ? titleCase(endPlace).slice(0, 120) || null : null,
+        trip.odoStart,
+        trip.odoEnd,
+        trip.startPlace,
+        trip.endPlace,
       ]
     );
     res.status(201).json({ id: result.insertId });
+  })
+);
+
+// Editing a trip.
+//
+// It could only be deleted and retyped before, which is the wrong shape for
+// the mistakes people actually make here: a digit wrong in an odometer
+// reading, or the destination left blank. Retyping to fix one field invites a
+// second mistake in a field that was right.
+//
+// Both dates are checked against the finalised years, not just the new one.
+// Moving a trip *out* of a closed year changes what that closed year claims
+// just as surely as moving one in, and a year somebody has signed off is
+// exactly what must not change underneath them.
+router.patch(
+  '/vehicle-trips/:id',
+  asyncHandler(async (req, res) => {
+    const [rows] = await pool.execute(
+      'SELECT trip_date, entity_id FROM vehicle_trips WHERE id = ? AND user_id = ?',
+      [req.params.id, ownerOf(req)]
+    );
+    const existing = rows[0];
+    if (!existing) return res.status(404).json({ error: 'Trip not found' });
+
+    const trip = readTripInput(req.body);
+    if (trip.error) return res.status(400).json({ error: trip.error });
+
+    // Which books it belongs to can change, the same way it can on an expense.
+    const entityId = await resolveWriteEntity(req.user, ownerOf(req), req.body?.entityId ?? existing.entity_id);
+
+    if (!(await assertWritable(req, res, trip.date, entityId))) return;
+    if (!(await assertWritable(req, res, existing.trip_date, existing.entity_id))) return;
+
+    await pool.execute(
+      `UPDATE vehicle_trips
+          SET entity_id = ?, financial_year = ?, trip_date = ?, vehicle = ?, km = ?, purpose = ?,
+              odo_start = ?, odo_end = ?, start_place = ?, end_place = ?
+        WHERE id = ? AND user_id = ?`,
+      [
+        entityId,
+        financialYearOf(trip.date, req.user.financialYearRule),
+        trip.date,
+        trip.vehicle,
+        trip.distance,
+        trip.purpose,
+        trip.odoStart,
+        trip.odoEnd,
+        trip.startPlace,
+        trip.endPlace,
+        req.params.id,
+        ownerOf(req),
+      ]
+    );
+    res.json({ ok: true });
   })
 );
 

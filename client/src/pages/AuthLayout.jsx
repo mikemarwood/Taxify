@@ -1,5 +1,4 @@
 import { motion } from 'framer-motion';
-import { Link } from 'react-router-dom';
 import AuthSplit from '../components/AuthSplit.jsx';
 import SiteFooter from '../components/SiteFooter.jsx';
 
@@ -54,13 +53,11 @@ export default function AuthLayout({ title, subtitle, children }) {
             flexWrap: 'wrap',
           }}
         >
-          <Link to="/terms" style={{ color: 'inherit' }}>
-            Terms
-          </Link>
-          <Link to="/privacy" style={{ color: 'inherit' }}>
-            Privacy
-          </Link>
-          <SiteFooter align="right" style={{ marginLeft: 'auto' }} />
+          {/* The Terms and Privacy links that stood here have gone into
+              SiteFooter, which now carries them everywhere — including inside
+              the app, where they were previously unreachable. Two pairs a few
+              centimetres apart on this one page was the cost of that. */}
+          <SiteFooter align="left" />
         </div>
       </motion.div>
     </AuthSplit>
