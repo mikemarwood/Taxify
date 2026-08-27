@@ -191,7 +191,7 @@ function Message({ message, canEdit, canDelete, onDelete, onEdit, onPreview }) {
       transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
       style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}
     >
-      <Avatar name={message.name} avatarUrl={message.avatarUrl} size={32} />
+      <Avatar name={message.name} avatarUrl={message.avatarUrl} hue={message.hue ?? null} size={32} />
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 4 }}>
           <span style={{ fontSize: 13, fontWeight: 700 }}>{message.name || (support ? 'Support' : 'You')}</span>

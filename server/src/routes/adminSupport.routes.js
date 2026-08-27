@@ -6,6 +6,7 @@ import { asyncHandler } from '../lib/asyncHandler.js';
 import { publicOrigin, appOrigin } from '../lib/publicOrigin.js';
 import { notify } from '../lib/notify.js';
 import { categoryLabel, isPriority, PRIORITIES } from '../lib/support.js';
+import { maskTicket, maskMessage, seedForTicket, pseudonymFor } from '../lib/supportIdentity.js';
 import { sendSupportClosedEmail } from '../lib/mailer.js';
 import { getSignupPlans } from '../lib/stripe.js';
 import {
@@ -139,7 +140,10 @@ router.get(
     const state = Object.fromEntries(states.map((row) => [row.status, Number(row.n) || 0]));
 
     res.json({
-      tickets: rows.map((r) => shapeTicket(r, { includeEmail: true })),
+      // Masked, not merely un-rendered. Anything sent here can be read by
+      // whoever is looking at the queue, so the name never leaves the server
+      // until somebody asks for it by ticket — see the identity endpoint.
+      tickets: rows.map((r) => maskTicket(shapeTicket(r), seedForTicket(r))),
       total: Number(counted.n) || 0,
       page,
       perPage,
@@ -247,10 +251,55 @@ router.get(
     }
 
     res.json({
-      ticket: shapeTicket(rows[0], { includeEmail: true }),
-      messages: await messagesFor(rows[0].id, { includeNotes: true }),
+      ticket: maskTicket(shapeTicket(rows[0]), seedForTicket(rows[0])),
+      messages: await messagesFor(rows[0].id, { includeNotes: true, maskSeed: seedForTicket(rows[0]) }),
       customer,
       planRequest,
+    });
+  })
+);
+
+// Who a ticket actually belongs to.
+//
+// The queue and the thread carry a pseudonym; this is the only way back to a
+// name, and asking is recorded. That record is the point. Hiding a name behind
+// a button nobody can audit is a speed bump dressed as a protection — the
+// difference between the two is whether anybody can answer "who looked, and
+// how often".
+//
+// Not restricted beyond support staff, and deliberately: an administrator can
+// read every name in the user list anyway, so refusing them here would only
+// push the same lookup somewhere that keeps no record of it. The same rule for
+// both, which is what was asked for.
+router.get(
+  '/support/tickets/:id/identity',
+  requireSupportStaff,
+  asyncHandler(async (req, res) => {
+    const [rows] = await pool.execute(
+      `SELECT t.id, t.user_id, t.guest_name, t.guest_email, u.name, u.email, u.avatar_path
+         FROM support_tickets t
+         LEFT JOIN users u ON u.id = t.user_id
+        WHERE t.id = ?`,
+      [req.params.id]
+    );
+    const ticket = rows[0];
+    if (!ticket) return res.status(404).json({ error: 'Ticket not found' });
+
+    // Written before the answer goes out, so a reveal cannot be had without
+    // the record of it. A failure here fails the request rather than quietly
+    // handing over a name off the books.
+    await pool.execute(
+      'INSERT INTO support_identity_reveals (ticket_id, staff_user_id) VALUES (?, ?)',
+      [ticket.id, req.user.id]
+    );
+
+    res.set('Cache-Control', 'no-store');
+    res.json({
+      name: ticket.user_id ? ticket.name : ticket.guest_name,
+      email: ticket.user_id ? ticket.email : ticket.guest_email,
+      avatarUrl: ticket.user_id && ticket.avatar_path ? `/api/auth/avatar/${ticket.user_id}` : null,
+      isGuest: !ticket.user_id,
+      pseudonym: pseudonymFor(seedForTicket(ticket)),
     });
   })
 );

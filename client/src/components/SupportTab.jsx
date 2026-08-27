@@ -56,7 +56,7 @@ function Row({ ticket, active, onOpen }) {
         borderLeft: `3px solid ${ticket.status === 'awaiting_support' ? 'var(--accent)' : 'var(--border)'}`,
       }}
     >
-      <Avatar name={ticket.who} avatarUrl={ticket.avatarUrl} size={30} />
+      <Avatar name={ticket.who} avatarUrl={ticket.avatarUrl} hue={ticket.hue ?? null} size={30} />
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ fontSize: 13, fontWeight: 700, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
           {ticket.subject}
@@ -169,7 +169,10 @@ function CustomerStrip({ customer, ticket }) {
       ]
     : [
         ['Account', 'None — wrote in as a guest'],
-        ['Email', ticket.email || '—'],
+        // No email row. It was the guest's address, and the payload no longer
+        // carries one — leaving the row would print a permanent dash, which
+        // reads as missing data rather than as withheld. It is in the strip
+        // above, behind "Show who this is", along with the name.
       ];
 
   return (
@@ -225,6 +228,12 @@ export default function SupportTab() {
   const [tickets, setTickets] = useState(null);
   const [openId, setOpenId] = useState(null);
   const [thread, setThread] = useState(null);
+  // Who the open ticket belongs to, once somebody has asked. Cleared whenever
+  // a different ticket is opened, so a name can never sit over the wrong
+  // conversation — and asking again for the next one is another recorded ask,
+  // which is the whole point of it not being sticky.
+  const [identity, setIdentity] = useState(null);
+  const [revealing, setRevealing] = useState(false);
   const [busy, setBusy] = useState(false);
   // How many were waiting last time, so a new one arriving can be heard rather
   // than only seen by somebody already looking at the screen.
@@ -257,7 +266,20 @@ export default function SupportTab() {
       });
   }
 
+  async function revealIdentity(ticketId) {
+    setRevealing(true);
+    try {
+      const { data } = await api.get(`/admin/support/tickets/${ticketId}/identity`);
+      setIdentity(data);
+    } catch (err) {
+      toast(err.message, 'error');
+    } finally {
+      setRevealing(false);
+    }
+  }
+
   function loadThread(id) {
+    setIdentity(null);
     api
       .get(`/admin/support/tickets/${id}`)
       .then((res) => setThread(res.data))
@@ -684,7 +706,6 @@ export default function SupportTab() {
                     {thread.ticket.reference}
                   </span>{' '}
                   · {thread.ticket.categoryLabel} · {thread.ticket.who}
-                  {thread.ticket.email && ` · ${thread.ticket.email}`}
                   {thread.ticket.isGuest && ' · not signed in'}
                   <br />
                   raised {formatDateTime(thread.ticket.createdAt)}
@@ -698,6 +719,67 @@ export default function SupportTab() {
             {/* Who is dealing with it, and how to change that. Sits above the
                 conversation because it decides whether the reply box below is
                 usable at all. */}
+            {/* Who this is, on request.
+
+                The queue and the thread carry a pseudonym, not a name and a
+                face. Working forty tickets does not need forty customers'
+                identities on screen to answer a question about an export
+                failing — and every one of those names is on a screen that gets
+                shoulder-surfed, screen-shared and screenshotted into bug
+                reports.
+
+                Said plainly rather than hidden behind a neutral icon: whoever
+                presses this should know it is written down, because a record
+                nobody is told about is surveillance rather than an audit. */}
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 10,
+                flexWrap: 'wrap',
+                padding: '10px 12px',
+                borderRadius: 9,
+                border: '1px dashed var(--border)',
+                background: 'var(--bg-inset)',
+                marginBottom: 10,
+              }}
+            >
+              <Avatar
+                name={identity?.name || thread.ticket.who}
+                avatarUrl={identity?.avatarUrl || null}
+                hue={identity ? null : (thread.ticket.hue ?? null)}
+                size={28}
+              />
+              <div style={{ minWidth: 0 }}>
+                <div style={{ fontSize: 12.5, fontWeight: 700 }}>
+                  {identity ? identity.name || 'No name given' : thread.ticket.who}
+                  {thread.ticket.isGuest && (
+                    <span style={{ fontWeight: 400, color: 'var(--text-muted)' }}> · guest</span>
+                  )}
+                </div>
+                <div style={{ fontSize: 11.5, color: 'var(--text-muted)' }}>
+                  {identity ? identity.email : 'Identity hidden until you ask'}
+                </div>
+              </div>
+
+              <span style={{ flex: 1 }} />
+
+              {!identity && (
+                <button
+                  className="btn btn-ghost"
+                  style={{ fontSize: 12 }}
+                  disabled={revealing}
+                  onClick={() => revealIdentity(thread.ticket.id)}
+                >
+                  {revealing && <span className="spinner" />}
+                  Show who this is
+                </button>
+              )}
+              {identity && (
+                <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>Recorded against your account</span>
+              )}
+            </div>
+
             <div
               style={{
                 display: 'flex',

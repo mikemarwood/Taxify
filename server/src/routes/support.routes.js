@@ -12,6 +12,7 @@ import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { serveAttachment } from '../lib/serveAttachment.js';
+import { maskMessage } from '../lib/supportIdentity.js';
 import {
   ensureTicketDir,
   ticketDir,
@@ -188,7 +189,13 @@ export async function planRequestFor(ticket) {
   };
 }
 
-async function messagesFor(ticketId, { token = null, includeNotes = false } = {}) {
+// `maskSeed` masks the customer's own messages, for the support side.
+//
+// Passed in rather than worked out here, so the seed that names somebody in
+// the thread is provably the same one that named them in the queue — two
+// places deriving it separately is two places that can drift and show one
+// person under two pseudonyms.
+async function messagesFor(ticketId, { token = null, includeNotes = false, maskSeed = null } = {}) {
   const [rows] = await pool.execute(
     `SELECT m.*, u.avatar_path FROM support_messages m
        LEFT JOIN users u ON u.id = m.author_user_id
@@ -200,7 +207,10 @@ async function messagesFor(ticketId, { token = null, includeNotes = false } = {}
     // the customer's side — filtered here rather than in each route, because a
     // route written later would not know to.
     .filter((row) => includeNotes || row.author_role !== 'note')
-    .map((row) => shapeMessage(row, token));
+    .map((row) => {
+      const shaped = shapeMessage(row, token);
+      return maskSeed ? maskMessage(shaped, maskSeed) : shaped;
+    });
 }
 
 // Where a given ticket is read. A guest has no account to sign in to, so their
