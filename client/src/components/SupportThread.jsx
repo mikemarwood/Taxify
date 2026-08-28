@@ -39,6 +39,23 @@ import { onCasedInput } from '../lib/casedInput.js';
 // without reaching for refresh.
 const POLL_MS = 8000;
 
+// The thing that actually scrolls around an element.
+//
+// Needed because "am I near the bottom" has to be asked of whichever box is
+// doing the scrolling, and that differs between the two places this component
+// is used: the customer's page scrolls the document, and the admin panel
+// scrolls a div inside it. Walking up and reading the computed overflow is the
+// only way to find out which.
+function scrollParentOf(node) {
+  let el = node?.parentElement;
+  while (el) {
+    const { overflowY } = getComputedStyle(el);
+    if ((overflowY === 'auto' || overflowY === 'scroll') && el.scrollHeight > el.clientHeight) return el;
+    el = el.parentElement;
+  }
+  return document.scrollingElement || document.documentElement;
+}
+
 export function StatusPill({ status, admin = false }) {
   const map = admin
     ? {
@@ -445,6 +462,7 @@ export default function SupportThread({
   // The foot of the conversation, scrolled to on open and whenever something
   // new arrives.
   const foot = useRef(null);
+  const listRef = useRef(null);
 
   useEffect(() => {
     if (!onRefresh) return undefined;
@@ -492,6 +510,39 @@ export default function SupportThread({
     // page down under somebody reading further up.
   }, [messages?.length, ticket?.id]);
 
+  // And again whenever the thread actually changes height.
+  //
+  // Two animation frames is enough for text and not for pictures. An avatar or
+  // an attachment thumbnail has no dimensions until it has loaded, so the last
+  // message grows after the scroll has already been aimed and the thread
+  // settles a little short — which is exactly the "I have to scroll down a
+  // touch myself" symptom, and it gets worse the more images the last message
+  // carries.
+  //
+  // A ResizeObserver catches every one of those without having to guess how
+  // long to wait or bind a load handler to each image. It only re-pins when
+  // the reader is already near the bottom, so somebody reading back up the
+  // thread is never dragged down by a picture finishing behind them.
+  useEffect(() => {
+    const list = listRef.current;
+    if (!list || typeof ResizeObserver === 'undefined') return undefined;
+
+    const observer = new ResizeObserver(() => {
+      const scroller = scrollParentOf(list);
+      if (!scroller) return;
+      const fromBottom =
+        scroller === document.scrollingElement
+          ? scroller.scrollHeight - window.innerHeight - scroller.scrollTop
+          : scroller.scrollHeight - scroller.clientHeight - scroller.scrollTop;
+      // Generous, because this fires as the picture is still growing and the
+      // gap is widening while it does.
+      if (fromBottom < 400) foot.current?.scrollIntoView({ block: 'end', behavior: 'auto' });
+    });
+
+    observer.observe(list);
+    return () => observer.disconnect();
+  }, [ticket?.id]);
+
   // A different ticket is a different conversation, and it opens at its own
   // newest message with no animation.
   useEffect(() => {
@@ -525,7 +576,7 @@ export default function SupportThread({
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+      <div ref={listRef} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
         <AnimatePresence initial={false}>
           {(messages || []).map((m) => (
             <Message
@@ -549,7 +600,13 @@ export default function SupportThread({
           ))}
         </AnimatePresence>
 
-        <span ref={foot} aria-hidden style={{ scrollMarginBottom: 120 }} />
+        {/* The anchor, with room under it.
+            
+            block:'end' puts this element's bottom edge at the bottom of the
+            scroller, which lands the last message flush against it with the
+            reply box out of sight. The margin is what leaves the last line
+            clear of the edge instead of touching it. */}
+        <span ref={foot} aria-hidden style={{ display: 'block', scrollMarginBottom: 160 }} />
 
         <ImageLightbox
           open={Boolean(preview)}
