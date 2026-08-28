@@ -1,6 +1,36 @@
 import { useEffect, useState } from 'react';
 import { api } from '../lib/api.js';
-import { sentenceCase } from '../lib/textCase.js';
+import { sentenceCase, sentenceCaseLive } from '../lib/textCase.js';
+import { onCasedInput } from '../lib/casedInput.js';
+
+// What a code will actually do if somebody types it into the sign-up form.
+//
+// Mirrors evaluatePromoCode on the server, in the same order, so this screen
+// and the form cannot disagree about why a code was refused. Off is checked
+// first because it beats everything else; expiry before redemption because a
+// code can be both and the date is the one somebody can act on.
+function promoState(p) {
+  if (!p.active) {
+    return { label: 'Off', colour: 'var(--text-muted)', background: 'var(--bg-elevated)', why: 'Switched off here' };
+  }
+  if (p.expiresAt && new Date(p.expiresAt) < new Date()) {
+    return {
+      label: 'Expired',
+      colour: 'var(--red)',
+      background: 'rgba(220, 38, 38, .12)',
+      why: `Expired on ${new Date(p.expiresAt).toLocaleDateString()}`,
+    };
+  }
+  if (p.maxUses !== null && p.maxUses !== undefined && p.usedCount >= p.maxUses) {
+    return {
+      label: 'Used up',
+      colour: 'var(--red)',
+      background: 'rgba(220, 38, 38, .12)',
+      why: `All ${p.maxUses} uses have been taken`,
+    };
+  }
+  return { label: 'Active', colour: 'var(--emerald)', background: 'rgba(12, 115, 67, 0.12)', why: 'Working now' };
+}
 
 // Recomputed per render rather than held in a constant, so a tab left open
 // overnight does not still be offering yesterday.
@@ -17,6 +47,10 @@ export default function PromoCodesTab() {
   const confirm = useConfirm();
   const toast = useToast();
   const [codes, setCodes] = useState(null);
+  // The code whose customers are being looked at, and who they are. One at a
+  // time: two open lists on this screen would be two columns of email
+  // addresses with nothing saying which belonged to which.
+  const [usersOf, setUsersOf] = useState(null);
   const [busy, setBusy] = useState(false);
   const [form, setForm] = useState({
     code: '',
@@ -53,6 +87,17 @@ export default function PromoCodesTab() {
       toast(err.message, 'error');
     } finally {
       setBusy(false);
+    }
+  }
+
+  async function showUsers(promo) {
+    setUsersOf({ code: promo.code, loading: true, users: [] });
+    try {
+      const { data } = await api.get(`/admin/promo-codes/${encodeURIComponent(promo.code)}/users`);
+      setUsersOf({ code: promo.code, loading: false, users: data.users });
+    } catch (err) {
+      toast(err.message, 'error');
+      setUsersOf(null);
     }
   }
 
@@ -99,12 +144,16 @@ export default function PromoCodesTab() {
           </div>
           <div>
             <label className="label">Description (optional)</label>
+            {/* sentenceCaseLive, not sentenceCase. The trimming version
+                collapses runs of whitespace — right on submit, ruinous per
+                keystroke: the space between two words was deleted the instant
+                it was typed, so this box could only ever hold one word. */}
             <input
               className="input"
               value={form.description}
               maxLength={255}
               placeholder="Spring campaign — 25% off the first year"
-              onChange={(e) => set('description', sentenceCase(e.target.value))}
+              onChange={onCasedInput(sentenceCaseLive, (value) => set('description', value))}
             />
           </div>
         </div>
@@ -228,19 +277,40 @@ export default function PromoCodesTab() {
                 </span>
               )}
 
-              <span
-                style={{
-                  fontSize: 11.5,
-                  fontWeight: 700,
-                  padding: '3px 9px',
-                  borderRadius: 999,
-                  color: p.active ? 'var(--emerald)' : 'var(--text-muted)',
-                  background: p.active ? 'rgba(12, 115, 67, 0.12)' : 'var(--bg-elevated)',
-                }}
-              >
-                {p.active ? 'Active' : 'Off'}
-              </span>
+              {/* Active is not the same as usable.
+                  A code switched on, fully redeemed and three weeks past its
+                  expiry read "Active" here while the sign-up form refused it —
+                  so the one screen for answering "why did this not work" said
+                  the opposite of what the customer was seeing. */}
+              {(() => {
+                const state = promoState(p);
+                return (
+                  <span
+                    style={{
+                      fontSize: 11.5,
+                      fontWeight: 700,
+                      padding: '3px 9px',
+                      borderRadius: 999,
+                      whiteSpace: 'nowrap',
+                      color: state.colour,
+                      background: state.background,
+                    }}
+                    title={state.why}
+                  >
+                    {state.label}
+                  </span>
+                );
+              })()}
 
+              <button
+                className="btn btn-ghost"
+                style={{ fontSize: 12, padding: '6px 12px' }}
+                disabled={!p.usedCount}
+                title={p.usedCount ? 'Who used this code' : 'Nobody has used this code yet'}
+                onClick={() => showUsers(p)}
+              >
+                Who used it
+              </button>
               <button className="btn btn-ghost" style={{ fontSize: 12, padding: '6px 12px' }} onClick={() => toggle(p)}>
                 {p.active ? 'Disable' : 'Enable'}
               </button>
@@ -251,6 +321,59 @@ export default function PromoCodesTab() {
               >
                 Delete
               </button>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {usersOf && (
+        <div
+          className="card"
+          style={{ marginTop: 14, padding: 16, display: 'flex', flexDirection: 'column', gap: 10 }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <strong style={{ fontSize: 14 }}>
+              Signed up with <code>{usersOf.code}</code>
+            </strong>
+            <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>
+              {usersOf.loading ? 'Loading…' : `${usersOf.users.length} account${usersOf.users.length === 1 ? '' : 's'}`}
+            </span>
+            <span style={{ flex: 1 }} />
+            <button className="btn btn-ghost" style={{ fontSize: 12 }} onClick={() => setUsersOf(null)}>
+              Close
+            </button>
+          </div>
+
+          {!usersOf.loading && usersOf.users.length === 0 && (
+            /* The count and this list can disagree, and the difference is
+               information rather than a fault: the count is redemptions ever,
+               this is customers who still exist. A code used twice by accounts
+               since deleted shows two uses and nobody here. */
+            <div style={{ fontSize: 12.5, color: 'var(--text-muted)', lineHeight: 1.6 }}>
+              Nobody with an account still open used this code. The use count includes accounts that have since been
+              deleted.
+            </div>
+          )}
+
+          {usersOf.users.map((u) => (
+            <div
+              key={u.id}
+              style={{
+                display: 'flex',
+                gap: 10,
+                flexWrap: 'wrap',
+                alignItems: 'baseline',
+                fontSize: 12.5,
+                padding: '6px 0',
+                borderTop: '1px solid var(--border)',
+              }}
+            >
+              <span style={{ fontWeight: 600, minWidth: 140 }}>{u.name}</span>
+              <span style={{ color: 'var(--text-muted)', flex: 1, minWidth: 180 }}>{u.email}</span>
+              <span style={{ color: 'var(--text-muted)' }}>{u.planType || '—'}</span>
+              <span style={{ color: u.activated ? 'var(--text-muted)' : 'var(--red)' }}>
+                {u.activated ? new Date(u.joinedAt).toLocaleDateString() : 'never activated'}
+              </span>
             </div>
           ))}
         </div>

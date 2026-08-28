@@ -136,6 +136,59 @@ const DEVICE_COLOUR = {
 };
 const FALLBACK_COLOUR = 'var(--border)';
 
+// Where sign-ups say they came from, as a share of those who answered.
+//
+// The share is of people who answered, not of all accounts, and the card says
+// so underneath. Mixing the two lets a run of blanks quietly halve every
+// channel and read as a campaign going cold when nothing has changed but the
+// number of people who skipped an optional question.
+function ReferralSplit({ data }) {
+  if (!data || !data.sources.length) {
+    return (
+      <div style={{ fontSize: 12.5, color: 'var(--text-muted)', lineHeight: 1.6 }}>
+        Nobody has answered this yet.
+      </div>
+    );
+  }
+
+  const top = data.sources[0].count || 1;
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
+      {data.sources.map((row) => (
+        <div key={row.source} style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+          <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, fontSize: 12.5 }}>
+            <span style={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              {row.source}
+            </span>
+            <strong style={{ fontVariantNumeric: 'tabular-nums' }}>{row.percent}%</strong>
+            <span style={{ color: 'var(--text-muted)', fontVariantNumeric: 'tabular-nums', minWidth: 28, textAlign: 'right' }}>
+              {row.count}
+            </span>
+          </div>
+          {/* Scaled to the biggest answer rather than to 100, so the shape of
+              the list is readable when the leader is only on 20%. */}
+          <div style={{ height: 5, borderRadius: 3, background: 'var(--bg-inset)', overflow: 'hidden' }}>
+            <div
+              style={{
+                width: `${Math.max(3, (row.count / top) * 100)}%`,
+                height: '100%',
+                borderRadius: 3,
+                background: 'var(--accent)',
+              }}
+            />
+          </div>
+        </div>
+      ))}
+
+      <div style={{ fontSize: 11.5, color: 'var(--text-muted)', lineHeight: 1.55, marginTop: 2 }}>
+        Share of the {data.answered} account{data.answered === 1 ? '' : 's'} that answered
+        {data.accounts > data.answered && `, of ${data.accounts} in total`}. Deleted accounts stop counting.
+      </div>
+    </div>
+  );
+}
+
 function DeviceSplit({ devices }) {
   const total = devices.reduce((sum, d) => sum + d.count, 0);
   if (!total) return <div style={{ fontSize: 12.5, color: 'var(--text-muted)' }}>No sign-ins in the last 30 days.</div>;
@@ -340,6 +393,10 @@ export default function AdminStatsTab({ onHowItWorks }) {
 
         <Panel title="How people sign in" icon="phone">
           <DeviceSplit devices={devices} />
+        </Panel>
+
+        <Panel title="How people heard about us" icon="chart">
+          <ReferralSplit data={stats.referralSources} />
         </Panel>
       </div>
     </div>

@@ -300,6 +300,16 @@ export default function Register() {
   };
   const stepValid = STEPS.map((s) => validByKey[s.key]);
 
+  // The last button needs the whole form, not just the last step.
+  //
+  // Ordinarily you cannot reach the end with an earlier step unfinished — each
+  // Next is gated. But the draft in sessionStorage restores the step somebody
+  // was on, and if what it holds for an earlier step is missing or no longer
+  // valid, you land at the end with a live Create account button and a form
+  // the server is about to refuse. Cheaper to check all five here than to
+  // explain the refusal afterwards.
+  const allValid = STEPS.every((s) => Boolean(validByKey[s.key]));
+
   // Written on every change, so leaving for the terms and coming back lands
   // on the same step with the same answers.
   useEffect(() => {
@@ -399,6 +409,7 @@ export default function Register() {
   function onSubmit(event) {
     event.preventDefault();
     if (busy || !stepValid[step]) return;
+    if (isLast && !allValid) return;
     if (isLast) submit();
     else go(step + 1);
   }
@@ -416,6 +427,13 @@ export default function Register() {
   // Only once the answer is actually in. `options` is null while it loads, and
   // flashing this at everybody for half a second would be its own bug.
   if (options && options.registrationEnabled === false) return <RegistrationClosed />;
+  // And nothing at all until the answer is in.
+  //
+  // Rendering the form while the request was still in flight meant a closed
+  // sign-up flashed the whole thing up for a second or two before replacing
+  // it, which reads as the page changing its mind. A brief hold is better than
+  // showing somebody a form they are about to be told they cannot use.
+  if (!options) return <AuthLayout title="Create your account" subtitle="One moment…"><div /></AuthLayout>;
 
   const selectedPlan = plans.find((p) => p.planType === planType) || null;
   const trialDays = options?.trialDays || 14;
@@ -1050,9 +1068,9 @@ export default function Register() {
             <motion.button
               type="submit"
               className="btn btn-primary"
-              disabled={!stepValid[step] || busy}
-              whileHover={stepValid[step] && !busy ? { scale: 1.02 } : undefined}
-              whileTap={stepValid[step] && !busy ? { scale: 0.98 } : undefined}
+              disabled={(isLast ? !allValid : !stepValid[step]) || busy}
+              whileHover={(isLast ? allValid : stepValid[step]) && !busy ? { scale: 1.02 } : undefined}
+              whileTap={(isLast ? allValid : stepValid[step]) && !busy ? { scale: 0.98 } : undefined}
               style={{ minWidth: 138 }}
             >
               {busy && <span className="spinner" />}
@@ -1072,7 +1090,12 @@ const HEADINGS = {
   you: { title: 'Let’s start with you', sub: 'The name your records and reports will be filed under.' },
   where: { title: 'Where are you based?', sub: 'Sets your financial year, your currency and your dialling code.' },
   email: { title: 'Where can we reach you?', sub: 'This becomes your sign-in, so it needs to be one you can open.' },
-  plan: { title: 'Pick a plan', sub: 'Both start with a free trial. You can change plan later.' },
+  plan: {
+    title: 'Pick a plan',
+    // The two things that stop somebody hesitating here, said where they are
+    // hesitating rather than only on the landing page they came from.
+    sub: '14-day free trial, no card required. You can change plan later.',
+  },
   finish: { title: 'Last thing', sub: 'Then we’ll email you a link to set your password.' },
 };
 
@@ -1191,7 +1214,7 @@ function RegistrationClosed() {
   return (
     <AuthLayout
       title="New accounts are closed for now"
-      subtitle="We have paused sign-ups. Nothing is wrong — we are simply not taking new customers at the moment."
+      subtitle="We have paused sign-ups and are not taking new customers at the moment."
     >
       <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
         <p style={{ margin: 0, fontSize: 14, lineHeight: 1.65, color: 'var(--text-muted)' }}>
@@ -1201,12 +1224,13 @@ function RegistrationClosed() {
         <Link className="btn btn-primary" to="/login" style={{ alignSelf: 'flex-start' }}>
           Go to sign in
         </Link>
+        {/* A way to reach us, without inviting anybody to ask for an exception.
+            "Cannot wait? Get in touch" offered something that is not on offer,
+            and every reply to it would have been no. */}
         <p style={{ margin: 0, fontSize: 12.5, lineHeight: 1.6, color: 'var(--text-subtle)' }}>
-          Wanting an account and cannot wait?{' '}
           <Link to="/support" style={{ color: 'var(--accent)' }}>
-            Get in touch
-          </Link>{' '}
-          and we will let you know as soon as sign-ups reopen.
+            Contact support
+          </Link>
         </p>
       </div>
     </AuthLayout>

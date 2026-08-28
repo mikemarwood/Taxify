@@ -120,6 +120,19 @@ export async function collectStats() {
     [SERIES_DAYS - 1]
   );
 
+  // Only account holders, and only those who answered.
+  //
+  // role = 'owner' because a sub-user never saw the question — counting their
+  // NULL as "did not answer" would drag every share down by however many
+  // logins a family plan happens to have.
+  const [referrals] = await pool.query(
+    `SELECT referral_source, COUNT(*) AS count
+       FROM users
+      WHERE role = 'owner' AND referral_source IS NOT NULL AND referral_source <> ''
+      GROUP BY referral_source
+      ORDER BY count DESC, referral_source ASC`
+  );
+
   const [devices] = await pool.query(
     `SELECT COALESCE(device, 'unknown') AS device, COUNT(DISTINCT user_id) AS count
        FROM login_events WHERE at >= NOW() - INTERVAL 30 DAY
@@ -167,6 +180,28 @@ export async function collectStats() {
       visits: fillDays(visitSeries, SERIES_DAYS),
     },
     devices: devices.map((d) => ({ device: d.device, count: Number(d.count) || 0 })),
+    // Where people say they heard about us, as a share of those who answered.
+    //
+    // Counted off the users table, so an account that has been deleted stops
+    // counting the moment it goes — which is what makes this a picture of the
+    // customers there are rather than of every form ever submitted.
+    //
+    // The percentage is of people who answered, not of all accounts. Mixing
+    // the two would let a run of blanks quietly halve every channel and read
+    // as a campaign going cold.
+    referralSources: (() => {
+      const answered = referrals.reduce((n, r) => n + (Number(r.count) || 0), 0);
+      return {
+        answered,
+        // Everybody, so the denominator is never a mystery.
+        accounts: Number(totals.total) || 0,
+        sources: referrals.map((r) => ({
+          source: r.referral_source,
+          count: Number(r.count) || 0,
+          percent: answered ? Math.round(((Number(r.count) || 0) / answered) * 1000) / 10 : 0,
+        })),
+      };
+    })(),
     onlineUsers: onlineUsers.map((u) => ({
       id: u.id,
       name: u.name,

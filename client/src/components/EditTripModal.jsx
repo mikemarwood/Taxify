@@ -25,6 +25,17 @@ export default function EditTripModal({ trip, onClose, onSaved }) {
   const toast = useToast();
   const [busy, setBusy] = useState(false);
 
+  // What the form opened on, so it can tell whether anything has moved.
+  const initial = {
+    date: String(trip.date).slice(0, 10),
+    vehicle: trip.vehicle || '',
+    startPlace: trip.startPlace || '',
+    endPlace: trip.endPlace || '',
+    purpose: trip.purpose || '',
+    from: trip.odoStart === null ? '' : Number(trip.odoStart).toLocaleString(),
+    to: trip.odoEnd === null ? '' : Number(trip.odoEnd).toLocaleString(),
+  };
+
   const [date, setDate] = useState(String(trip.date).slice(0, 10));
   const [vehicle, setVehicle] = useState(trip.vehicle || '');
   const [startPlace, setStartPlace] = useState(trip.startPlace || '');
@@ -50,7 +61,19 @@ export default function EditTripModal({ trip, onClose, onSaved }) {
         ? 'Both readings have to be numbers'
         : null;
 
-  const ready = Boolean(date) && Boolean(vehicle.trim()) && !problem && Number(km) > 0;
+  // Compared on the parsed readings rather than the typed text, so retyping
+  // "41200" as "41,200" is not a change — it is the same number written
+  // differently, and offering to save it would be offering to save nothing.
+  const dirty =
+    date !== initial.date ||
+    vehicle !== initial.vehicle ||
+    startPlace !== initial.startPlace ||
+    endPlace !== initial.endPlace ||
+    purpose !== initial.purpose ||
+    parseKm(from) !== parseKm(initial.from) ||
+    parseKm(to) !== parseKm(initial.to);
+
+  const ready = Boolean(date) && Boolean(vehicle.trim()) && !problem && Number(km) > 0 && dirty;
 
   async function save(event) {
     event.preventDefault();
@@ -83,7 +106,11 @@ export default function EditTripModal({ trip, onClose, onSaved }) {
       role="dialog"
       aria-modal="true"
       aria-label="Edit trip"
-      onClick={onClose}
+      // No close on the backdrop.
+      //
+      // This is a form somebody is part-way through typing into, and a stray
+      // click beside it threw the lot away with no warning and no undo. The
+      // cross and Cancel are both deliberate; a click on the surround is not.
       style={{
         position: 'fixed',
         inset: 0,
@@ -100,7 +127,6 @@ export default function EditTripModal({ trip, onClose, onSaved }) {
         animate={{ opacity: 1, y: 0, scale: 1 }}
         transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
         onSubmit={save}
-        onClick={(e) => e.stopPropagation()}
         className="card"
         style={{
           width: '100%',
@@ -225,7 +251,7 @@ export default function EditTripModal({ trip, onClose, onSaved }) {
             Save trip
           </button>
           <button type="button" className="btn btn-ghost" onClick={onClose}>
-            Cancel
+            {dirty ? 'Discard changes' : 'Close'}
           </button>
         </div>
       </motion.form>

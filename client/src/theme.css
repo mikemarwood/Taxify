@@ -1232,13 +1232,3 @@ input[type="date"].input::-webkit-calendar-picker-indicator:hover { opacity: 1; 
   gap: 8px;
   flex-wrap: wrap;
 }
-/* Exactly the plugin's own 118x28, so there is no white margin around it. */
-.social-share-like {
-  display: block;
-  width: 118px;
-  height: 28px;
-  overflow: hidden;
-  border-radius: 6px;
-  background: #fff;
-  flex-shrink: 0;
-}

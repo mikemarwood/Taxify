@@ -193,7 +193,7 @@ function NewTicket({ user, onRaised }) {
           </div>
           <div>
             <label className="label">Email address</label>
-            <input
+            <input autoComplete="email"
               className="input"
               required
               type="email"

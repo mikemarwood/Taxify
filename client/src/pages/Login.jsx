@@ -289,7 +289,7 @@ export default function Login() {
         )}
         <div>
           <label className="label">Email</label>
-          <input
+          <input autoComplete="email"
             className="input"
             type="email"
             required
@@ -311,7 +311,7 @@ export default function Login() {
               Forgot password?
             </Link>
           </div>
-          <input className="input" type="password" required value={password} onChange={(e) => {
+          <input autoComplete="current-password" className="input" type="password" required value={password} onChange={(e) => {
                 setSignInError('');
                 setPassword(e.target.value);
               }} />

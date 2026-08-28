@@ -62,6 +62,7 @@ import { assignAccountNumber } from '../lib/accountNumber.js';
 import { getSignupPlans } from '../lib/stripe.js';
 import { evaluatePromoCode, recordPromoRedemption } from '../lib/promoCodes.js';
 import { publicOrigin, appOrigin } from '../lib/publicOrigin.js';
+import { currentMaintenanceNotice } from '../lib/maintenanceSettings.js';
 
 // Re-exported from the one place that decides it, so the sign-up page and the
 // rule cannot disagree about how long a trial is.
@@ -2381,13 +2382,27 @@ router.post(
     // out who has an account here, which is worth more to somebody guessing
     // addresses than it is to the person who forgot their password.
     const [rows] = await pool.execute(
-      `SELECT id, email, first_name, name, activated_at, password_reset_requested_at,
+      `SELECT id, email, first_name, name, is_admin, activated_at, password_reset_requested_at,
               activation_token_expires_at
        FROM users WHERE email = ?`,
       [normalizedEmail]
     );
     const user = rows[0];
     if (!user) return res.json(neutral);
+
+    // While the site is deliberately off, only an administrator can reset.
+    //
+    // The sign-in page stays open during an outage so somebody can get in and
+    // switch it back on, and a password reset is part of getting in — but only
+    // for the people the outage does not apply to. Resetting a customer's
+    // password mid-outage sends them a link to a door that will not open, and
+    // the link expires while they are locked out of it.
+    //
+    // Answered with the same neutral { ok: true } as every other branch. A
+    // different answer here would say "this address belongs to an
+    // administrator", which is worth more to somebody guessing addresses than
+    // it is to the person who forgot their password.
+    if (!user.is_admin && (await currentMaintenanceNotice())) return res.json(neutral);
 
     // An account still waiting on its activation link has no password to
     // reset. It used to be filtered out by the query, which was correct and

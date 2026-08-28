@@ -1895,7 +1895,7 @@ export default function Account() {
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
           <div>
             <label className="label">Date of birth</label>
-            <input
+            <input autoComplete="bday"
               className="input"
               type="date"
               max={LATEST_DOB}
@@ -1940,7 +1940,7 @@ export default function Account() {
         <div>
           <label className="label">Email</label>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-            <input className="input" type="email" value={user.email} readOnly disabled style={{ flex: 1, minWidth: 200 }} />
+            <input autoComplete="email" className="input" type="email" value={user.email} readOnly disabled style={{ flex: 1, minWidth: 200 }} />
             <button
               type="button"
               className="btn btn-ghost"
@@ -2041,7 +2041,7 @@ export default function Account() {
         <div style={{ fontWeight: 700 }}>Change password</div>
         <div>
           <label className="label">Current password</label>
-          <input
+          <input autoComplete="current-password"
             className="input"
             required
             type="password"
@@ -2052,11 +2052,11 @@ export default function Account() {
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
           <div>
             <label className="label">New password</label>
-            <input className="input" required type="password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} />
+            <input autoComplete="new-password" className="input" required type="password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} />
           </div>
           <div>
             <label className="label">Confirm new password</label>
-            <input
+            <input autoComplete="new-password"
               className="input"
               required
               type="password"

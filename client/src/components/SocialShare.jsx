@@ -41,32 +41,21 @@ export default function SocialShare() {
   if (!config) return null;
 
   const encoded = encodeURIComponent(config.shareUrl);
-  const likeSrc =
-    `https://www.facebook.com/plugins/like.php?href=${encoded}` +
-    '&width=118&layout=button_count&action=like&size=small&share=false&height=28&appId';
 
   return (
     <div className="social-share">
       <span className="social-share-label">Tell someone about Taxify</span>
       <div className="social-share-row">
-        {/* Facebook's Like plugin has a white ground and no dark variant, and
-            a half-restyled third-party control looks worse than an honest one.
-            So it is not restyled — it is given a white chip of its own, cut to
-            its exact size, which turns the thing that looked like a rendering
-            fault into something that reads as deliberate. */}
-        <span className="social-share-like">
-          <iframe
-            src={likeSrc}
-            width="118"
-            height="28"
-            style={{ border: 'none', overflow: 'hidden', display: 'block', colorScheme: 'light' }}
-            scrolling="no"
-            frameBorder="0"
-            loading="lazy"
-            title="Like Taxify on Facebook"
-          />
-        </span>
+        {/* No Like button here either, and the white box it left behind is
+            why. It is an iframe onto facebook.com, and an iframe that does not
+            load renders as its own background — a blank white rectangle sat in
+            the middle of a navy panel looking like something had broken. It
+            fails to load often: a blocked third-party frame, a tracking-
+            protection setting, or simply not being signed in to Facebook.
 
+            A control whose normal appearance depends on a third party's cookie
+            state is not a control we can put on a sign-in page. Follow, below,
+            is a plain link to the same page and always looks like itself. */}
         <a className="social-share-btn" href={`https://www.facebook.com/sharer/sharer.php?u=${encoded}`} target="_blank" rel="noopener noreferrer">
           <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" width="14" height="14">
             <path d="M22 12a10 10 0 1 0-11.56 9.88v-6.99H7.9V12h2.54V9.8c0-2.5 1.49-3.89 3.77-3.89 1.09 0 2.24.2 2.24.2v2.46h-1.26c-1.24 0-1.63.77-1.63 1.56V12h2.78l-.45 2.89h-2.33v6.99A10 10 0 0 0 22 12Z" />

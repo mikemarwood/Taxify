@@ -4,7 +4,7 @@ import crypto from 'crypto';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import { userRootDir } from '../lib/receiptStorage.js';
+import { userStorageBytes, removeUserFiles } from '../lib/userFiles.js';
 import { normalisePromoCode, isValidPromoCodeFormat } from '../lib/promoCodes.js';
 import pool, { getSetting, setSetting, getMfaMode } from '../db.js';
 import { sendPlanChangedEmail } from '../lib/mailer.js';
@@ -50,32 +50,6 @@ import Stripe from 'stripe';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const uploadsDir = path.join(__dirname, '..', '..', 'uploads');
 
-// Walked rather than cached: the user list is an admin screen loaded now and
-// then, not a hot path, and a stored total would drift every time a receipt
-// was added or deleted. Returns 0 for a user who has never uploaded anything.
-function directorySize(dir) {
-  let total = 0;
-  let entries;
-  try {
-    entries = fs.readdirSync(dir, { withFileTypes: true });
-  } catch {
-    return 0;
-  }
-  for (const entry of entries) {
-    const full = path.join(dir, entry.name);
-    if (entry.isDirectory()) {
-      total += directorySize(full);
-      continue;
-    }
-    try {
-      total += fs.statSync(full).size;
-    } catch {
-      // vanished mid-walk — skip it
-    }
-  }
-  return total;
-}
-
 const router = Router();
 
 // A capital at the start of every sentence, so a line typed in a hurry does not
@@ -108,6 +82,21 @@ router.get(
        LEFT JOIN users holder ON holder.id = u.account_holder_id
        ORDER BY u.created_at`
     );
+    // One query for the whole page rather than one per row: the storage figure
+    // needs to know which tickets belong to whom, and asking per user would be
+    // fifty round trips to draw one list.
+    const ticketsByUser = new Map();
+    if (users.length) {
+      const [tickets] = await pool.query(
+        `SELECT id, user_id FROM support_tickets WHERE user_id IN (${users.map(() => '?').join(',')})`,
+        users.map((u) => u.id)
+      );
+      for (const t of tickets) {
+        if (!ticketsByUser.has(t.user_id)) ticketsByUser.set(t.user_id, []);
+        ticketsByUser.get(t.user_id).push(t.id);
+      }
+    }
+
     res.json({
       users: users.map((u) => ({
         id: u.id,
@@ -130,9 +119,17 @@ router.get(
         role: u.role || 'owner',
         accountHolderId: u.account_holder_id || null,
         accountHolderName: u.holder_name || null,
-        // Everything this user has uploaded — receipts and property documents
-        // both live under <uploads>/<id>.
-        storageBytes: directorySize(userRootDir(uploadsDir, u.id)),
+        // Everything this user has uploaded, in all three places it can be.
+        //
+        // This counted only <uploads>/<id>, which holds receipts and property
+        // documents — not the avatar, which lives in a shared folder, and not
+        // support attachments, which live under the ticket. An account with
+        // both was reported as holding 0 MB. See userFiles.js.
+        storageBytes: userStorageBytes(uploadsDir, {
+          userId: u.id,
+          avatarPath: u.avatar_path,
+          ticketIds: ticketsByUser.get(u.id) || [],
+        }),
       })),
     });
   })
@@ -254,9 +251,18 @@ router.delete(
     const targetId = Number(req.params.id);
     if (targetId === req.user.id) return res.status(400).json({ error: "You can't delete your own account" });
 
-    const [rows] = await pool.execute('SELECT id, email, name, is_admin FROM users WHERE id = ?', [targetId]);
+    const [rows] = await pool.execute(
+      'SELECT id, email, name, is_admin, avatar_path FROM users WHERE id = ?',
+      [targetId]
+    );
     const target = rows[0];
     if (!target) return res.status(404).json({ error: 'User not found' });
+
+    // Read before the transaction removes the rows. Support attachments live
+    // under the ticket, so once the tickets are gone there is nothing left to
+    // say which directories on disk belonged to this account.
+    const [ownTickets] = await pool.execute('SELECT id FROM support_tickets WHERE user_id = ?', [targetId]);
+    const targetTicketIds = ownTickets.map((t) => t.id);
     if (target.is_admin) {
       return res.status(400).json({ error: 'Administrator accounts can’t be deleted here — remove admin first' });
     }
@@ -264,7 +270,7 @@ router.delete(
     // Sub-users hang off this account and go with it. Accountants do not —
     // their login is their own and may act for other people, so only their
     // assignment to this client disappears, by foreign key cascade.
-    const [dependents] = await pool.execute('SELECT id FROM users WHERE account_holder_id = ?', [targetId]);
+    const [dependents] = await pool.execute('SELECT id, avatar_path FROM users WHERE account_holder_id = ?', [targetId]);
 
     // Read before the delete, because the cascade takes the assignments with
     // it. A client is about to disappear from these people's lists, and until
@@ -305,11 +311,26 @@ router.delete(
       }
     }
 
-    for (const id of [targetId, ...dependents.map((d) => d.id)]) {
-      try {
-        fs.rmSync(userRootDir(uploadsDir, id), { recursive: true, force: true });
-      } catch (err) {
-        console.error(`Removed user ${id} but could not delete their uploads`, err.message);
+    // Everything, through the same list the figure on screen was built from.
+    //
+    // This removed <uploads>/<id> and nothing else, so every deleted account
+    // left its avatar behind in the shared avatars folder and its support
+    // attachments under their ticket directories: files belonging to nobody,
+    // with nothing left pointing at them and no way to find them again.
+    const toClear = [
+      { id: targetId, avatarPath: target.avatar_path, ticketIds: targetTicketIds },
+      // A dependent login has its own avatar. Its tickets, if any, were raised
+      // against its own id and are gone with the same cascade.
+      ...dependents.map((d) => ({ id: d.id, avatarPath: d.avatar_path, ticketIds: [] })),
+    ];
+    for (const who of toClear) {
+      const failed = removeUserFiles(uploadsDir, {
+        userId: who.id,
+        avatarPath: who.avatarPath,
+        ticketIds: who.ticketIds,
+      });
+      for (const f of failed) {
+        console.error(`Removed user ${who.id} but could not delete ${f.path}:`, f.error);
       }
     }
 
@@ -404,6 +425,11 @@ router.get(
     );
     const u = rows[0];
     if (!u) return res.status(404).json({ error: 'User not found' });
+
+    // Their tickets, for the storage figure — attachments live under the
+    // ticket rather than under the person.
+    const [ownTickets] = await pool.execute('SELECT id FROM support_tickets WHERE user_id = ?', [id]);
+    const detailTicketIds = ownTickets.map((t) => t.id);
 
     const [[counts]] = await pool.execute(
       `SELECT
@@ -502,7 +528,11 @@ router.get(
         termsAcceptedAt: u.terms_accepted_at,
         otpEnabled: !!u.otp_enabled,
         otpLockedUntil: u.otp_locked_until,
-        storageBytes: directorySize(userRootDir(uploadsDir, u.id)),
+        storageBytes: userStorageBytes(uploadsDir, {
+          userId: u.id,
+          avatarPath: u.avatar_path,
+          ticketIds: detailTicketIds,
+        }),
       },
       stats: {
         expenses: Number(counts.expenses) || 0,
@@ -689,6 +719,44 @@ router.delete(
     const [result] = await pool.execute('DELETE FROM tax_rates WHERE id = ?', [req.params.id]);
     if (result.affectedRows === 0) return res.status(404).json({ error: 'Rate not found' });
     res.json({ ok: true });
+  })
+);
+
+// Who actually used a code.
+//
+// The count on the list says how many; this says who, which is the question
+// behind it — whether a code leaked, whether a campaign reached the people it
+// was cut for, and who to talk to when one is withdrawn.
+//
+// Read from users.promo_code, which is where the code is stamped at sign-up.
+// It follows that a deleted account drops off this list, and that is right:
+// the list is of customers, not of redemptions. The count on the code itself
+// is the redemption tally and does not move.
+router.get(
+  '/promo-codes/:code/users',
+  asyncHandler(async (req, res) => {
+    const code = String(req.params.code || '').trim();
+    if (!code) return res.status(400).json({ error: 'Name the code' });
+
+    const [rows] = await pool.execute(
+      `SELECT id, name, email, plan_type, created_at, activated_at, subscription_status
+         FROM users
+        WHERE promo_code = ? AND role = 'owner'
+        ORDER BY created_at DESC
+        LIMIT 200`,
+      [code]
+    );
+    res.json({
+      users: rows.map((u) => ({
+        id: u.id,
+        name: u.name,
+        email: u.email,
+        planType: u.plan_type || null,
+        joinedAt: u.created_at,
+        activated: Boolean(u.activated_at),
+        subscriptionStatus: u.subscription_status || null,
+      })),
+    });
   })
 );
 

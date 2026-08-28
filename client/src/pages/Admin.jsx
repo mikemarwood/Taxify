@@ -1238,7 +1238,7 @@ function EmailSettingsTab() {
           </label>
           <label style={{ flex: 1, fontSize: 13, fontWeight: 600 }}>
             SMTP password
-            <input
+            <input autoComplete="current-password"
               className="input"
               type="password"
               style={{ marginTop: 6, width: '100%' }}
@@ -1280,7 +1280,7 @@ function EmailSettingsTab() {
           )}
         </div>
         <div style={{ display: 'flex', gap: 10 }}>
-          <input
+          <input autoComplete="email"
             className="input"
             type="email"
             style={{ flex: 1 }}
@@ -1365,7 +1365,7 @@ function StripeModeSection({ label, hint, section, values, secretDraft, onFieldC
 
       <label style={{ fontSize: 13, fontWeight: 600 }}>
         Secret key
-        <input
+        <input autoComplete="current-password"
           className="input"
           type="password"
           style={{ marginTop: 6, width: '100%' }}
