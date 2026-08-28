@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { onCasedInput } from './casedInput.js';
 import { kmWhileTyping } from './deductionInput.js';
 import { titleCaseLive } from './textCase.js';
+import { amountWhileTyping } from './money.js';
 
 // A stand-in for a text input, enough of one for the caret logic.
 //
@@ -139,4 +140,30 @@ test('editing in the middle of a formatted number keeps the caret there', () => 
 
   assert.equal(el.value, '491,200');
   assert.equal(el.selectionStart, 2, 'the caret stayed after the digit just typed');
+});
+
+test('an amount groups itself as it is typed', () => {
+  // Same class of bug as the odometer, and the reason this transform had to be
+  // moved onto onCasedInput at the same time as it learned to group: inserting
+  // a comma changes the string's length, so a caret restored to its old offset
+  // ends up in front of the digit it was behind.
+  assert.equal(typeInto(amountWhileTyping, '2000'), '2,000');
+  assert.equal(typeInto(amountWhileTyping, '1234567'), '1,234,567');
+  assert.equal(typeInto(amountWhileTyping, '999'), '999');
+});
+
+test('the decimal part is never grouped, and the point can be typed', () => {
+  // A trailing point has to survive keystroke by keystroke or the separator is
+  // deleted the moment it is pressed and no fraction can ever be entered.
+  assert.equal(typeInto(amountWhileTyping, '2000.50'), '2,000.50');
+  assert.equal(typeInto(amountWhileTyping, '1000000.55'), '1,000,000.55');
+  assert.equal(typeInto(amountWhileTyping, '0.99'), '0.99');
+});
+
+test('a second point is a slip, not a second separator', () => {
+  assert.equal(typeInto(amountWhileTyping, '12.3.4'), '12.34');
+});
+
+test('cents are capped at two while typing', () => {
+  assert.equal(typeInto(amountWhileTyping, '5.999'), '5.99');
 });

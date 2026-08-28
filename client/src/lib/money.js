@@ -126,8 +126,26 @@ export function amountWhileTyping(raw) {
   }
 
   const [whole, decimals] = text.split('.');
-  if (decimals === undefined) return whole;
-  return `${whole}.${decimals.slice(0, 2)}`;
+
+  // Grouped as it is typed, not only once the field is left.
+  //
+  // 2000 reads as 2,000 while somebody is still entering it, which is the
+  // point at which a mistyped extra zero is actually noticed — after a blur is
+  // after they have moved on. Applied to the whole part alone: a decimal
+  // fraction is never grouped, and doing it there would put a comma inside the
+  // cents.
+  //
+  // This changes the string's length, so every field using it has to go
+  // through onCasedInput or the caret ends up in the wrong place — that is
+  // exactly what put 200500 into an odometer as 200,005. Both amount fields do.
+  const grouped_whole = whole ? Number(whole).toLocaleString('en-US') : whole;
+
+  if (decimals === undefined) {
+    // A trailing point survives so "2000." can be typed on the way to
+    // "2000.50". Stripping it would delete the separator as it was pressed.
+    return text.endsWith('.') ? `${grouped_whole}.` : grouped_whole;
+  }
+  return `${grouped_whole}.${decimals.slice(0, 2)}`;
 }
 
 // What it settles to when the field is left. "32.2" becomes "32.20" and "32."

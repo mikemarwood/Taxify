@@ -17,6 +17,7 @@ import { useAuth } from '../lib/AuthContext.jsx';
 import { useEntities } from '../lib/EntityContext.jsx';
 import { financialYearOf } from '../lib/financialYear.js';
 import { formatDateShort, formatDateLong, todayIso } from '../lib/dates.js';
+import { onCasedInput } from '../lib/casedInput.js';
 
 
 function capitalizeWords(str) {
@@ -332,7 +333,7 @@ export default function ExpenseModal({ expense, onClose, onSaved, onDeleted }) {
                       inputMode="decimal"
                       maxLength={14}
                       value={amount}
-                      onChange={(e) => setAmount(amountWhileTyping(e.target.value))}
+                      onChange={onCasedInput(amountWhileTyping, setAmount)}
                       onBlur={() => setAmount(amountOnBlur(amount))}
                       // One style prop, not two.
                       //

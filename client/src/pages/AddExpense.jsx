@@ -17,6 +17,7 @@ import { useAuth } from '../lib/AuthContext.jsx';
 import { TripForm, HoursForm } from '../components/DeductionForms.jsx';
 import LodgedConfirmation from '../components/LodgedConfirmation.jsx';
 import { currenciesFor } from '../lib/currencies.js';
+import { onCasedInput } from '../lib/casedInput.js';
 
 // The three things this page can add. A receipt is the common one and stays
 // the default; the other two are the deductions that have no receipt to
@@ -478,7 +479,7 @@ export default function AddExpense() {
                 inputMode="decimal"
                 maxLength={10}
                 value={amount}
-                onChange={(e) => setAmount(amountWhileTyping(e.target.value))}
+                onChange={onCasedInput(amountWhileTyping, setAmount)}
                 onBlur={() => setAmount(amountOnBlur(amount))}
                 placeholder="0.00"
                 aria-invalid={amountIssue ? 'true' : undefined}

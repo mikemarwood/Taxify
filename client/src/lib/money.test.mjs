@@ -60,16 +60,30 @@ test('an empty or unreadable amount parses to null, not zero', () => {
 });
 
 test('an already grouped value survives being edited in place', () => {
-  // The field shows "3,350.00" after a blur, so whatever is typed into it next
-  // arrives with the commas still there.
-  assert.equal(amountWhileTyping('3,350.00'), '3350.00');
+  // The field shows "3,350.00", so whatever is typed into it next arrives with
+  // the commas still there. They are stripped and reapplied rather than
+  // trusted, so a comma left in the wrong place by an edit does not persist.
+  assert.equal(amountWhileTyping('3,350.00'), '3,350.00');
+  assert.equal(amountWhileTyping('3,3,5,0'), '3,350');
   assert.equal(amountOnBlur('3,350.005'), '3,350.01');
 });
 
-test('grouping is never applied while typing', () => {
-  // Inserting a separator changes the length of the text, and a controlled
-  // input whose length changes under the cursor throws the caret to the end —
-  // so correcting the third digit of a long number would be impossible.
-  assert.equal(amountWhileTyping('3350'), '3350');
-  assert.equal(amountWhileTyping('1234567'), '1234567');
+test('grouping is applied while typing', () => {
+  // This used to assert the opposite, and the reason it gave was sound at the
+  // time: inserting a separator changes the length of the text, and a
+  // controlled input whose length changes under the cursor throws the caret to
+  // the end — so correcting the third digit of a long number was impossible.
+  //
+  // onCasedInput now anchors the caret on the count of digits before it rather
+  // than on a character offset, which is what makes a length-changing
+  // transform safe in a live field. Both amount inputs go through it. The
+  // keystroke-by-keystroke proof is in casedInput.test.mjs; this only checks
+  // the transform itself.
+  assert.equal(amountWhileTyping('3350'), '3,350');
+  assert.equal(amountWhileTyping('1234567'), '1,234,567');
+  // The fraction is left alone — a comma inside the cents would be nonsense.
+  assert.equal(amountWhileTyping('1234.56'), '1,234.56');
+  // And a trailing point survives, or the separator is deleted as it is typed
+  // and no fraction can ever be entered.
+  assert.equal(amountWhileTyping('1234.'), '1,234.');
 });
