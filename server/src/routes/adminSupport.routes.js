@@ -370,7 +370,7 @@ router.post(
       }
     }
 
-    res.json({ ok: true, messages: await messagesFor(ticket.id, { includeNotes: true }) });
+    res.json({ ok: true, messages: await messagesFor(ticket.id, { includeNotes: true, staff: true }) });
   })
 );
 
@@ -412,7 +412,7 @@ router.delete(
     }
 
     await pool.execute('DELETE FROM support_messages WHERE id = ?', [row.id]);
-    res.json({ ok: true, messages: await messagesFor(row.ticket_id, { includeNotes: true }) });
+    res.json({ ok: true, messages: await messagesFor(row.ticket_id, { includeNotes: true, staff: true }) });
   })
 );
 
@@ -775,7 +775,7 @@ router.post(
     // Deliberately does not touch status or last_message_at. A note is not an
     // answer, and marking the ticket as replied to because somebody wrote
     // themselves a reminder would hide it from the queue.
-    res.json({ ok: true, messages: await messagesFor(rows[0].id, { includeNotes: true }) });
+    res.json({ ok: true, messages: await messagesFor(rows[0].id, { includeNotes: true, staff: true }) });
   })
 );
 

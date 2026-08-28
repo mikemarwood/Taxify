@@ -743,32 +743,34 @@ export default function SupportTab() {
               {/* Only an administrator can pass a ticket to somebody else —
                   including to themselves, which is how they take one that a
                   colleague is already holding. */}
-              {/* How urgent, set by us rather than asked of the customer:
-                  everybody believes their own problem is urgent, so a field
-                  where they say so sorts nothing. */}
-              <select
-                className="input"
-                value={thread.ticket.priority || 'normal'}
-                disabled={busy}
-                onChange={async (e) => {
-                  try {
-                    await api.post(`/admin/support/tickets/${openId}/priority`, { priority: e.target.value });
-                    loadThread(openId);
-                    loadList();
-                  } catch (err) {
-                    toast(err.message, 'error');
-                  }
-                }}
-                style={{ fontSize: 12, width: 'auto', padding: '5px 8px' }}
-              >
-                {PRIORITIES.map((x) => (
-                  <option key={x.value} value={x.value}>
-                    {x.label}
-                  </option>
-                ))}
-              </select>
+              {/* How urgent, shown and not set.
 
-              {user?.isAdmin && staff.length > 0 && (
+                  It was a live dropdown on the thread, so the ordering of
+                  everybody's queue could be changed by anyone who happened to
+                  have the ticket open — and silently, since nothing announces
+                  it. Priority decides what gets answered first, which makes it
+                  a decision about the queue rather than about this one
+                  conversation. Read-only here; the endpoint still exists for
+                  wherever that decision ends up being made deliberately. */}
+              {thread.ticket.priority && thread.ticket.priority !== 'normal' && (
+                <span
+                  title="How this ticket is prioritised"
+                  style={{
+                    fontSize: 11.5,
+                    fontWeight: 700,
+                    padding: '3px 9px',
+                    borderRadius: 999,
+                    textTransform: 'capitalize',
+                    color: PRIORITIES.find((x) => x.value === thread.ticket.priority)?.colour || 'var(--text-muted)',
+                    background: 'var(--bg-inset)',
+                    border: '1px solid var(--border)',
+                  }}
+                >
+                  {PRIORITIES.find((x) => x.value === thread.ticket.priority)?.label || thread.ticket.priority}
+                </span>
+              )}
+
+              {user?.isAdmin && staff.some((person) => person.id !== user?.id) && (
                 <select
                   className="input"
                   value=""
@@ -777,12 +779,19 @@ export default function SupportTab() {
                   style={{ fontSize: 12, width: 'auto', padding: '5px 8px' }}
                 >
                   <option value="">Transfer to…</option>
-                  {staff.map((person) => (
-                    <option key={person.id} value={person.id}>
-                      {person.name}
-                      {person.id === user.id ? ' (you)' : ''}
-                    </option>
-                  ))}
+                  {/* Everybody but you.
+                      Transferring a ticket to yourself is not a transfer — it
+                      is Take it, which is its own button a few inches away and
+                      only appears when the ticket is unheld. Two controls
+                      doing the same thing under different names is how one of
+                      them gets pressed by mistake. */}
+                  {staff
+                    .filter((person) => person.id !== user?.id)
+                    .map((person) => (
+                      <option key={person.id} value={person.id}>
+                        {person.name}
+                      </option>
+                    ))}
                 </select>
               )}
             </div>
