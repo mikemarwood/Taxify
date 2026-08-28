@@ -209,6 +209,12 @@ function Message({ message, canEdit, canDelete, onDelete, onEdit, onPreview }) {
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 4 }}>
           <span style={{ fontSize: 13, fontWeight: 700 }}>{message.name || (support ? 'Support' : 'You')}</span>
+          {/* Who actually wrote it — support side only. The server sends this
+              on nothing else, so a customer's page has nothing to render here
+              even if it tried. */}
+          {message.staffName && (
+            <span style={{ fontSize: 11.5, color: 'var(--text-muted)', fontWeight: 600 }}>{message.staffName}</span>
+          )}
           <RoleBadge role={message.role} />
           <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>{formatDateTime(message.createdAt)}</span>
         </div>

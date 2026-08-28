@@ -8,28 +8,29 @@
 // either: they need to know a person answered, that it is the same person as
 // last time, and how to address them.
 //
-// So a reply is signed Support_Mike with the Taxify mark beside it. The first
-// name is kept deliberately — "Support_Mike" is somebody you can thank, and
-// there is nothing to be gained by making it Operator #3.
+// So every reply reaches a customer as "Taxify Support" with the Taxify mark
+// beside it, whoever wrote it. One identity rather than a per-person handle:
+// the customer is dealing with the company, and a name that changes between
+// replies invites the question of who they are speaking to now — which is
+// exactly the question this exists to stop having to answer.
+//
+// Support staff see the same label with the real name underneath it, because
+// a queue where nobody can tell who answered is a queue where a handover
+// cannot happen and nobody can be asked about their own reply.
 //
 // Support staff still see customers by name. They are answering a question
 // about a real account and often have to check they are talking to the person
 // who owns it, and a pseudonym there costs more than it protects.
 
-// Everything before the first space, and only the letters. A double-barrelled
-// surname or a middle name is not part of a working name, and anything that is
-// not a letter is dropped so the label can never carry markup.
-export function firstNameOf(fullName) {
-  const first = String(fullName || '').trim().split(/\s+/)[0] || '';
-  const letters = first.replace(/[^\p{L}'-]/gu, '');
-  if (!letters) return '';
-  return letters.charAt(0).toUpperCase() + letters.slice(1);
-}
+// The name a customer sees on anything from us. Always this, for everybody.
+//
+// It takes no argument on purpose. A function that accepted a name and
+// sometimes returned part of it is a function somebody will later be tempted
+// to make return a bit more of it.
+export const SUPPORT_DISPLAY_NAME = 'Taxify Support';
 
-// The name a customer sees on a reply from us.
-export function supportDisplayName(fullName) {
-  const first = firstNameOf(fullName);
-  return first ? `Support_${first}` : 'Support';
+export function supportDisplayName() {
+  return SUPPORT_DISPLAY_NAME;
 }
 
 // Hides the person behind one message, for the customer's side of a thread.
@@ -42,13 +43,18 @@ export function supportDisplayName(fullName) {
 // was a field, and a route added later that forgets to mask would look like a
 // blank quietly filling in rather than like a face appearing where none should
 // be.
-export function maskStaffMessage(message) {
+export function maskStaffMessage(message, { staff = false } = {}) {
   if (!message || message.role !== 'support') return message;
   const masked = { ...message };
   delete masked.avatarUrl;
-  masked.name = supportDisplayName(message.name);
+  masked.name = SUPPORT_DISPLAY_NAME;
   // The client swaps in the Taxify mark on this, rather than deriving initials
-  // from "Support_Mike" — which would read as a person's initials and is not.
+  // from "Taxify Support" — which would read as a person's initials and is not.
   masked.fromSupport = true;
+  // Who actually wrote it, for the support side only. Carried as a separate
+  // field rather than by leaving `name` alone, so the label a customer sees
+  // and the label staff see are the same string with one extra line under it —
+  // and so a screen that forgets to handle it shows less, not more.
+  if (staff && message.name) masked.staffName = message.name;
   return masked;
 }

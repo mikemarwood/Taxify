@@ -141,7 +141,7 @@ function shapeTicket(row, { includeEmail = false, staff = false } = {}) {
     // so it never appeared on screen — but a full name sitting in a JSON
     // payload is a full name anybody who opens devtools has, and "it is not
     // displayed" is not the same as "it is not disclosed".
-    assignedName: staff ? row.assigned_name || null : row.assigned_name ? supportDisplayName(row.assigned_name) : null,
+    assignedName: row.assigned_name ? (staff ? row.assigned_name : supportDisplayName()) : null,
   };
 }
 
@@ -221,8 +221,11 @@ async function messagesFor(ticketId, { token = null, includeNotes = false, staff
     // route written later would not know to.
     .filter((row) => includeNotes || row.author_role !== 'note')
     .map((row) => {
+      // Masked for everybody. Staff get the writer's real name added as a
+      // second field rather than the label left alone, so both sides read the
+      // same "Taxify Support" and only one of them sees who is behind it.
       const shaped = shapeMessage(row, token);
-      return staff ? shaped : maskStaffMessage(shaped);
+      return maskStaffMessage(shaped, { staff });
     });
 }
 
