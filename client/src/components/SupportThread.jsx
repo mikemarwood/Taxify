@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Icon from './Icon.jsx';
 import Avatar from './Avatar.jsx';
@@ -456,9 +456,14 @@ export default function SupportThread({
   const closed = ticket?.status === 'closed';
   const locked = closed || !mayReply;
   const [sending, setSending] = useState(false);
-  // What we last saw, so a reply arriving while the page is open can announce
-  // itself rather than appearing silently.
-  const seen = useRef(messages?.length || 0);
+  // What the thread looked like last time we drew it, so anything that changes
+  // while the page is open can announce itself rather than appearing silently.
+  //
+  // A signature rather than a count. Counting only catches a new message, and
+  // the things somebody sitting on a ticket wants to know about are wider than
+  // that: a reply being edited after it was sent, and the ticket changing
+  // hands or being closed underneath them. All three change this string.
+  const seen = useRef(null);
   // The foot of the conversation, scrolled to on open and whenever something
   // new arrives.
   const foot = useRef(null);
@@ -470,13 +475,31 @@ export default function SupportThread({
     return () => clearInterval(timer);
   }, [onRefresh]);
 
+  const signature = useMemo(
+    () =>
+      [
+        ticket?.status,
+        ticket?.assignedTo ?? '',
+        ...(messages || []).map((m) => `${m.id}:${m.editedAt || ''}:${m.body?.length || 0}`),
+      ].join('|'),
+    [messages, ticket?.status, ticket?.assignedTo]
+  );
+
   useEffect(() => {
-    const count = messages?.length || 0;
-    // Only for messages that arrive after the page has settled — not for the
-    // first load, which would chime every time somebody opened a ticket.
-    if (count > seen.current && seen.current > 0) playInfo();
-    seen.current = count;
-  }, [messages]);
+    // Nothing on the first sight of a thread. seen starts null rather than at
+    // a count, so opening a ticket is silent however many messages are already
+    // in it — a chime every time somebody opens a conversation is a chime
+    // nobody listens to.
+    if (seen.current !== null && seen.current !== signature) playInfo();
+    seen.current = signature;
+  }, [signature]);
+
+  // A different ticket is a different conversation, so the first sight of it is
+  // silent too. Without this the ref carries the last ticket's signature and
+  // switching between two tickets chimes on every switch.
+  useEffect(() => {
+    seen.current = null;
+  }, [ticket?.id]);
 
   // Open a ticket and you are looking at the newest message, not the oldest.
   //
@@ -665,19 +688,21 @@ export default function SupportThread({
             display: 'flex',
             flexDirection: 'column',
             gap: 8,
-            // Sticky rather than fixed: it belongs to the conversation, so it
-            // should stop at the end of it rather than float over whatever
-            // comes after. Sticky needs no ancestor to have an overflow rule —
-            // checked, and none does — or it silently stops working.
-            position: 'sticky',
-            bottom: 0,
-            zIndex: 3,
-            // Its own ground, or the messages show through it as they pass
-            // underneath. The negative margin and matching padding let that
-            // ground reach the edges of the card it sits in.
-            background: 'var(--bg-card)',
-            margin: '0 -4px -4px',
-            padding: '10px 4px 4px',
+            // In the flow, not pinned to the bottom.
+            //
+            // It was sticky, on the reasoning that a reply box within reach is
+            // a reply box that gets used. What that actually did was take a
+            // slice off the bottom of every thread and hold it there: a four-
+            // row textarea plus its buttons is a good part of a phone screen,
+            // and the newest message — the one somebody opened the ticket to
+            // read — sat underneath it.
+            //
+            // It scrolls with the conversation now, which is where it belongs
+            // anyway: the thread ends, and then there is somewhere to reply.
+            // Getting to it is one flick, and the thread already scrolls
+            // itself to the end when it opens.
+            marginTop: 4,
+            paddingTop: 12,
             borderTop: '1px solid var(--border)',
           }}
         >

@@ -56,5 +56,22 @@ export function maskStaffMessage(message, { staff = false } = {}) {
   // and the label staff see are the same string with one extra line under it —
   // and so a screen that forgets to handle it shows less, not more.
   if (staff && message.name) masked.staffName = message.name;
+
+  // A customer does not get our revision history.
+  //
+  // "Edited — see what changed" is right on their own message: it is their
+  // words and their record of changing them. On ours it publishes an
+  // operator's drafting — a figure corrected before sending, a sentence
+  // rewritten to be kinder — as though the first attempt were part of the
+  // answer. What was sent is the answer.
+  //
+  // Removed rather than emptied, for the same reason as the avatar: a route
+  // that later forgets to mask shows something that should not be there,
+  // rather than a blank quietly filling in. Staff keep both, because that is
+  // the record of who changed what.
+  if (!staff) {
+    delete masked.history;
+    delete masked.editedAt;
+  }
   return masked;
 }

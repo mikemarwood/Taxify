@@ -335,7 +335,7 @@ export default function SupportTab() {
     const held = thread?.ticket?.assignedTo ? thread.ticket.assignedName : null;
 
     const ok = await confirm({
-      title: to ? `Pass this to ${to.name}?` : 'Take this ticket?',
+      title: to ? `Pass this to ${to.name}?` : 'Assign this ticket to you?',
       body: to ? (
         <>
           <div style={{ marginBottom: 8 }}>
@@ -357,7 +357,7 @@ export default function SupportTab() {
           <div>You can hand it back at any time.</div>
         </>
       ),
-      confirmLabel: to ? 'Pass it over' : 'Take it',
+      confirmLabel: to ? 'Pass it over' : 'Assign it to me',
       cancelLabel: 'Not now',
     });
     if (!ok) return;
@@ -743,7 +743,7 @@ export default function SupportTab() {
 
               {!thread.ticket.assignedTo && (
                 <button className="btn btn-primary" style={{ fontSize: 12 }} disabled={busy} onClick={() => assign(null)}>
-                  Take it
+                  Assign to me
                 </button>
               )}
 
@@ -794,7 +794,7 @@ export default function SupportTab() {
                   <option value="">Transfer to…</option>
                   {/* Everybody but you.
                       Transferring a ticket to yourself is not a transfer — it
-                      is Take it, which is its own button a few inches away and
+                      is Assign to me, which is its own button a few inches
                       only appears when the ticket is unheld. Two controls
                       doing the same thing under different names is how one of
                       them gets pressed by mistake. */}
@@ -809,7 +809,11 @@ export default function SupportTab() {
               )}
             </div>
 
+            {/* Keyed, so switching tickets is a fresh conversation rather
+                than the same component handed different props — the update
+                chime and the scroll anchor both hold state per thread. */}
             <SupportThread
+              key={thread.ticket.id}
               admin
               ticket={thread.ticket}
               messages={thread.messages}
