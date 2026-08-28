@@ -259,7 +259,10 @@ export default function Admin() {
                       fontSize: 12.5,
                       fontWeight: 600,
                       cursor: 'pointer',
-                      font: 'inherit',
+                      // No `font` shorthand. It resets every font property it
+                      // does not name, so sitting here it threw away both the
+                      // size and the weight two lines above — fontFamily was
+                      // already doing the only job it was wanted for.
                       fontFamily: 'inherit',
                       border: `1px solid ${active ? 'var(--accent)' : 'var(--border)'}`,
                       background: active ? 'var(--accent)' : 'transparent',

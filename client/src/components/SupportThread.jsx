@@ -600,6 +600,15 @@ export default function SupportThread({
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
       <div ref={listRef} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+        {/* A note is not editable.
+
+            It was, on the grounds that whoever wrote one should be able to
+            correct a typo in it. But a note is the working record of what the
+            team thought at the time, and the value of that is that it cannot
+            be tidied up afterwards — an internal note edited after the fact is
+            worth less than one with a typo in it. Deleting your own is still
+            allowed: withdrawing a note entirely is a different act from
+            rewriting one to say something else. */}
         <AnimatePresence initial={false}>
           {(messages || []).map((m) => (
             <Message
@@ -611,11 +620,7 @@ export default function SupportThread({
               // Your own words, and — for a note — your own note. A note was
               // excluded by this test, so whoever wrote one could not correct
               // a typo in it.
-              canEdit={
-                Boolean(onEdit) &&
-                !closed &&
-                (m.role === (admin ? 'support' : 'customer') || (m.role === 'note' && m.authorId === currentUserId))
-              }
+              canEdit={Boolean(onEdit) && !closed && m.role === (admin ? 'support' : 'customer')}
               canDelete={Boolean(onDelete) && !closed && m.role === 'note' && m.authorId === currentUserId}
               onDelete={onDelete}
               onEdit={onEdit}

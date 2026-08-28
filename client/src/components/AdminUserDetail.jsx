@@ -595,23 +595,30 @@ export default function AdminUserDetail({ userId, me, onClose, onChanged, action
                               setLoginDevice(on ? null : key);
                               setShowAllLogins(false);
                             }}
+                            // fontFamily, never the `font` shorthand.
+                            //
+                            // `font: 'inherit'` was set here after fontSize,
+                            // and the shorthand resets every font property it
+                            // does not name — so the size was thrown away and
+                            // these chips came out at body size. Nothing warns
+                            // about it; the declaration simply wins.
                             style={{
                               display: 'inline-flex',
                               alignItems: 'center',
-                              gap: 6,
-                              fontSize: 11.5,
+                              gap: 5,
+                              fontFamily: 'inherit',
+                              fontSize: 11,
                               fontWeight: 600,
-                              padding: '4px 10px',
+                              lineHeight: 1.4,
+                              padding: '3px 8px',
                               borderRadius: 999,
                               cursor: 'pointer',
-                              font: 'inherit',
-                              fontSize: 11.5,
                               background: on ? 'var(--accent-soft)' : 'var(--bg-inset)',
                               border: `1px solid ${on ? 'var(--accent)' : 'var(--border)'}`,
                               color: on ? 'var(--accent)' : 'inherit',
                             }}
                           >
-                            <Icon name={deviceIcon(d.device)} size={12} />
+                            <Icon name={deviceIcon(d.device)} size={11} />
                             {key} · {d.count}
                           </button>
                         );
@@ -908,7 +915,22 @@ function PlanAndBilling({ user, onSaved }) {
   // impossible.
   const trialing = user.subscriptionStatus === 'trialing';
   const paying = user.subscriptionStatus === 'active' || user.subscriptionStatus === 'past_due';
-  const canGrantFree = Boolean(user.accessBypass) || trialing || !paying;
+
+  // Warned about, not refused.
+  //
+  // This used to disable the checkbox whenever Stripe was charging, which
+  // reads as a safety rail and behaves as a wall: the person most likely to
+  // want it is whoever owns the business, on their own account, and their
+  // account is the one most likely to be marked active. Being told "not
+  // available" by your own admin panel, with no way to proceed, is worse than
+  // being told what it will cost you.
+  //
+  // The risk has not changed and is not hidden — the warning below still says
+  // it, and the confirmation repeats it with the amount of the thing at stake:
+  // this does not touch Stripe, so the charge continues until it is cancelled
+  // there. That is a decision an administrator is entitled to make with the
+  // facts in front of them.
+  const chargingWhileFree = paying && !user.accessBypass;
 
   const label = planType === 'business' ? 'Small Business' : 'Individual';
   const dirty =
@@ -958,16 +980,22 @@ function PlanAndBilling({ user, onSaved }) {
         <input
           type="checkbox"
           checked={complimentary}
-          disabled={!canGrantFree}
           onChange={(e) => setComplimentary(e.target.checked)}
           style={{ marginTop: 3 }}
         />
         <span>
           <strong>Free — do not charge for this plan</strong>
-          <span style={{ display: 'block', fontSize: 12, color: 'var(--text-muted)', lineHeight: 1.5 }}>
-            {canGrantFree
-              ? 'Free until you turn it off. Full use of the plan, with nothing to pay and no subscription.'
-              : 'Not available while they are paying. This does not touch Stripe, so switching it on now would give them the plan twice over and keep charging for it — cancel the subscription in Stripe first.'}
+          <span
+            style={{
+              display: 'block',
+              fontSize: 12,
+              lineHeight: 1.5,
+              color: chargingWhileFree && complimentary ? 'var(--red)' : 'var(--text-muted)',
+            }}
+          >
+            {chargingWhileFree && complimentary
+              ? 'They have a live subscription. This does not touch Stripe, so the card keeps being charged until you cancel it there — they would have the plan free and be paying for it at the same time.'
+              : 'Free until you turn it off. Full use of the plan, with nothing to pay and no subscription.'}
           </span>
         </span>
       </label>
@@ -992,6 +1020,25 @@ function PlanAndBilling({ user, onSaved }) {
           body={
             <>
               <div style={{ marginBottom: 10 }}>{user.email} will be on the {label} plan.</div>
+              {/* Repeated here, at the moment of committing, because the
+                  checkbox is a warning somebody has already read past by the
+                  time they reach this button. */}
+              {chargingWhileFree && complimentary && (
+                <div
+                  style={{
+                    marginBottom: 12,
+                    padding: '9px 11px',
+                    borderRadius: 8,
+                    border: '1px solid var(--red)',
+                    background: 'rgba(220, 38, 38, .08)',
+                    fontSize: 12.5,
+                    lineHeight: 1.6,
+                  }}
+                >
+                  <strong>Their subscription is still live.</strong> Marking the plan free does not touch Stripe, so
+                  the card keeps being charged until you cancel it there.
+                </div>
+              )}
               <div style={{ fontSize: 12.5, fontWeight: 700, marginBottom: 5 }}>What they get</div>
               <ul style={{ margin: 0, paddingLeft: 18, fontSize: 12.5, lineHeight: 1.7, color: 'var(--text-muted)' }}>
                 {(planType === 'business'

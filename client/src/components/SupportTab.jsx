@@ -5,6 +5,7 @@ import Avatar from './Avatar.jsx';
 import { useToast } from './Toast.jsx';
 import { useConfirm } from './../lib/ConfirmContext.jsx';
 import { sentenceCaseLive } from '../lib/textCase.js';
+import { onCasedInput } from '../lib/casedInput.js';
 import SupportThread, { StatusPill } from './SupportThread.jsx';
 import { formatDateTime } from '../lib/dates.js';
 import { playInfo } from '../lib/sounds.js';
@@ -886,7 +887,12 @@ export default function SupportTab() {
                       maxLength={5000}
                       placeholder="Internal note — only the support team sees this"
                       value={note}
-                      onChange={(e) => setNote(e.target.value)}
+                      // Sentence capitals as it is typed, like every other
+                      // prose box. sentenceCaseLive leaves whitespace alone
+                      // and never changes the string's length, so a blank line
+                      // between two paragraphs is possible and the caret stays
+                      // where it was put.
+                      onChange={onCasedInput(sentenceCaseLive, setNote)}
                       style={{ resize: 'vertical', fontSize: 12.5, flex: 1 }}
                     />
                     <button

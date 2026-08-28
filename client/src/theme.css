@@ -697,13 +697,17 @@ input[type="date"].input::-webkit-calendar-picker-indicator:hover { opacity: 1; 
   textarea.input { font-size: 16px; }
 }
 
-/* The ticket header and the reply box both stay in view while a long thread
-   scrolls past them. On a phone the app has its own sticky bar across the top,
-   so the header has to start below it rather than under it — sticky does not
-   know about other sticky things, it only knows the offset it is given. */
+/* The ticket header stays in view while a long thread scrolls past it — at a
+   desk, where there is height to spare for it.
+
+   Not on a phone. The app already has its own sticky bar across the top, so
+   this sat under that one and the two together took a third of the screen and
+   held it for the whole conversation. On a screen that small the header is
+   worth reading once at the top and then getting out of the way; what somebody
+   is there for is the messages. */
 .support-sticky-top { position: sticky; top: 0; z-index: 4; }
 @media (max-width: 900px) {
-  .support-sticky-top { top: 56px; }
+  .support-sticky-top { position: static; }
 }
 
 /* The drawer, on a short screen.

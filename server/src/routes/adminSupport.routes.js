@@ -689,7 +689,7 @@ router.post(
         'UPDATE support_tickets SET assigned_to = NULL, assigned_at = NULL, updated_at = NOW() WHERE id = ?',
         [ticket.id]
       );
-      await recordHandover(ticket.id, `${req.user.name || 'Support'} put this back in the queue`);
+      await recordHandover(ticket.id, 'This ticket has been returned to the support queue');
       return res.json({ ok: true, assignedTo: null });
     }
 
@@ -717,18 +717,20 @@ router.post(
       [target, ticket.id]
     );
 
-    // Written into the conversation, so who is dealing with it is part of the
-    // record rather than a field that quietly changed. Both sides read it: a
-    // customer waiting on an answer should be able to see that somebody has
-    // picked it up and who, and the next person on the support side should be
-    // able to see how it got to them.
-    const [named] = await pool.execute('SELECT name FROM users WHERE id = ?', [target]);
-    const who = named[0]?.name || 'a member of the support team';
+    // Written into the conversation, so that a ticket changing hands is part of
+    // the record rather than a field that quietly moved.
+    //
+    // Without names, because the customer reads this line too. It used to say
+    // "Mike Marwood picked this up" and "Jane Smith passed this to Mike
+    // Marwood" — which puts two operators' full names into a stranger's
+    // conversation to convey one fact: somebody has it. Support staff can see
+    // exactly who from the assignee on their own panel, where real names are
+    // shown; the customer does not need it and should not have it.
     await recordHandover(
       ticket.id,
       target === req.user.id
-        ? `${who} picked this up`
-        : `${req.user.name || 'An administrator'} passed this to ${who}`
+        ? 'Taxify Support has accepted this ticket'
+        : 'This ticket has been transferred to another Support Team member'
     );
 
     // Only the person it went to. Telling the whole team about a ticket none of
