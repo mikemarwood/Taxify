@@ -55,6 +55,11 @@ export function toPublicUser(user, mfaMode) {
     accessBypassUntil: user.access_bypass_until || null,
     subscriptionStatus: user.subscription_status || 'trialing',
     trialEndsAt: user.trial_ends_at || null,
+    // How long they have had the account. Used to decide whether somebody has
+    // been here long enough to be asked to recommend the product — asking
+    // after two days is asking them to vouch for something they cannot vouch
+    // for yet.
+    createdAt: user.created_at || null,
     subscriptionCurrentPeriodEnd: user.subscription_current_period_end || null,
     stripeCustomerId: user.stripe_customer_id || null,
     // Whether the plan renews itself. A year bought outright has no

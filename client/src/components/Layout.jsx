@@ -18,6 +18,7 @@ import { formatMoney } from '../lib/money.js';
 import { describeSubscription } from '../lib/subscription.js';
 import { currentPlanType, planLabel as labelForPlan } from '../lib/plans.js';
 import SiteFooter from './SiteFooter.jsx';
+import SharePrompt from './SharePrompt.jsx';
 import { useSupportCounts } from '../lib/useSupportCounts.js';
 import RailScrollbar from './RailScrollbar.jsx';
 import { useBillingAttention } from '../lib/useBillingAttention.js';
@@ -626,6 +627,10 @@ export default function Layout({ children }) {
       >
         {children}
       </motion.main>
+
+      {/* Asked once, late, and only of somebody who has been here a while —
+          see SharePrompt.jsx for the rules it holds itself to. */}
+      <SharePrompt user={user} />
 
       {location.pathname !== '/add' && user?.role !== 'accountant' && !user?.actingAsClient && (
         <motion.div

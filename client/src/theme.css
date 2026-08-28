@@ -1289,3 +1289,47 @@ input[type="date"].input::-webkit-calendar-picker-indicator:hover { opacity: 1; 
   }
   .support-cat-hint { display: none; }
 }
+
+/* The share prompt.
+
+   Bottom-left on a desktop, deliberately: bottom-right is where the Add
+   expense button lives and where a toast lands, and a panel asking for a
+   favour should not sit on top of the control somebody was reaching for.
+
+   Across the foot on a phone, above the safe area, because there is no corner
+   small enough for it there. */
+.share-prompt {
+  position: fixed;
+  left: 20px;
+  bottom: 20px;
+  z-index: 1500;
+  width: 320px;
+  max-width: calc(100vw - 40px);
+  padding: 16px;
+  box-shadow: 0 20px 46px -18px rgba(0, 0, 0, 0.5);
+}
+@media (min-width: 901px) {
+  /* Clear of the navigation rail rather than under it. */
+  .share-prompt { left: calc(232px + 20px); }
+}
+@media (max-width: 560px) {
+  .share-prompt {
+    left: 12px;
+    right: 12px;
+    width: auto;
+    bottom: calc(12px + env(safe-area-inset-bottom));
+  }
+}
+.share-prompt-close {
+  position: absolute;
+  top: 6px;
+  right: 8px;
+  border: 0;
+  background: none;
+  color: var(--text-muted);
+  font-size: 20px;
+  line-height: 1;
+  padding: 4px 6px;
+  cursor: pointer;
+}
+.share-prompt-close:hover { color: var(--text); }

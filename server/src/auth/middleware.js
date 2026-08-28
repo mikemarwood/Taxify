@@ -14,7 +14,7 @@ export const requireAuth = asyncHandler(async (req, res, next) => {
   if (!payload) return res.status(401).json({ error: 'Not authenticated' });
 
   const [rows] = await pool.execute(
-    `SELECT id, email, name, first_name, last_name, date_of_birth, phone, is_admin, is_support, avatar_path,
+    `SELECT id, email, name, first_name, last_name, date_of_birth, phone, is_admin, is_support, avatar_path, created_at,
             otp_enabled, otp_last_prompted_at, role, account_holder_id, plan_type,
             fy_start_month, fy_start_day,
             currency, country, state, business_name, practice_name, activated_at, trial_ends_at,
