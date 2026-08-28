@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { api } from '../lib/api.js';
 import Icon from './Icon.jsx';
 import Avatar from './Avatar.jsx';
@@ -227,7 +228,18 @@ export default function SupportTab() {
   const [total, setTotal] = useState(0);
   const [note, setNote] = useState('');
   const [tickets, setTickets] = useState(null);
-  const [openId, setOpenId] = useState(null);
+  // Opened from a link, where one names a ticket.
+  //
+  // A support notification carries ?ticket=<id> so that pressing it lands on
+  // the conversation rather than on a queue of forty with nothing saying which
+  // one it meant. Read once on mount: after that the panel owns which ticket
+  // is open, and re-reading the parameter would reopen it every time the list
+  // polled.
+  const [searchParams] = useSearchParams();
+  const [openId, setOpenId] = useState(() => {
+    const asked = Number(searchParams.get('ticket'));
+    return Number.isInteger(asked) && asked > 0 ? asked : null;
+  });
   const [thread, setThread] = useState(null);
   const [busy, setBusy] = useState(false);
   // How many were waiting last time, so a new one arriving can be heard rather

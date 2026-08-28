@@ -189,6 +189,57 @@ function ReferralSplit({ data }) {
   );
 }
 
+// Which Android build is being offered right now.
+//
+// It is the one number in this panel that nothing on screen otherwise
+// contradicts when it goes wrong — the APK is on disk and the version is in a
+// file beside it, and the two disagreeing is invisible until somebody's phone
+// stops being told about updates. That happened between versions 7 and 9.
+//
+// Read from the same endpoint the phones read, deliberately: this shows what
+// an app would be told, not what a file on the server says it is.
+function AndroidBuild() {
+  const [build, setBuild] = useState(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    api
+      .get('/app/version')
+      .then(({ data }) => {
+        if (!cancelled) setBuild(data);
+      })
+      .catch(() => {
+        if (!cancelled) setBuild({ unavailable: true });
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  if (!build) return null;
+
+  const size = build.sizeBytes ? `${(build.sizeBytes / 1024 / 1024).toFixed(2)} MB` : null;
+
+  return (
+    <Panel title="Android app" icon="phone">
+      {build.unavailable || !build.available ? (
+        <div style={{ fontSize: 13, color: 'var(--text-muted)', lineHeight: 1.6 }}>
+          No build is being offered. The download button is hidden until an APK is in place.
+        </div>
+      ) : (
+        <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, flexWrap: 'wrap' }}>
+          <span style={{ fontSize: 22, fontWeight: 800, letterSpacing: -0.4 }}>{build.versionName}</span>
+          <span style={{ fontSize: 12.5, color: 'var(--text-muted)' }}>
+            build {build.versionCode}
+            {size ? ` · ${size}` : ''}
+            {build.updatedAt ? ` · ${formatDateShort(build.updatedAt)}` : ''}
+          </span>
+        </div>
+      )}
+    </Panel>
+  );
+}
+
 function DeviceSplit({ devices }) {
   const total = devices.reduce((sum, d) => sum + d.count, 0);
   if (!total) return <div style={{ fontSize: 12.5, color: 'var(--text-muted)' }}>No sign-ins in the last 30 days.</div>;
@@ -360,6 +411,8 @@ export default function AdminStatsTab({ onHowItWorks }) {
       {/* Above the two who-is-here panels: what came in matters more than who
           happens to be logged in, and it was the one thing this page could not
           answer at all. */}
+      <AndroidBuild />
+
       <RecentPayments />
 
       <div style={{ display: 'grid', gap: 12, gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))' }}>

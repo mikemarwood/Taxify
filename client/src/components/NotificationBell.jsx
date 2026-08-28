@@ -343,6 +343,59 @@ export default function NotificationBell({ compact = false }) {
                     </span>
                   </>
                 );
+
+                // Acknowledged and gone, one at a time.
+                //
+                // Clear all was the only way to put anything away, so being
+                // rid of one meant losing the rest — which is how the others
+                // get missed. Removed from the list here rather than waiting
+                // for the next poll, because a row that stays put for a few
+                // seconds after being dismissed reads as a button that did
+                // not work.
+                const acknowledge = (
+                  <button
+                    type="button"
+                    aria-label="Acknowledge and hide"
+                    title="Acknowledge and hide"
+                    onClick={async (e) => {
+                      // The row is a link. Without this the dismissal also
+                      // navigates, which puts somebody on a page they were
+                      // trying to say they had finished with.
+                      e.preventDefault();
+                      e.stopPropagation();
+                      setData((prev) =>
+                        prev
+                          ? {
+                              ...prev,
+                              unread: Math.max(0, prev.unread - (n.read ? 0 : 1)),
+                              notifications: prev.notifications.filter((x) => x.id !== n.id),
+                            }
+                          : prev
+                      );
+                      try {
+                        await api.delete(`/notifications/${n.id}`);
+                      } catch {
+                        // It reappears on the next poll if the server did not
+                        // take it, which says more than a toast inside a
+                        // dropdown that is about to close.
+                      }
+                    }}
+                    style={{
+                      flexShrink: 0,
+                      alignSelf: 'flex-start',
+                      border: 0,
+                      background: 'transparent',
+                      color: 'var(--text-subtle)',
+                      cursor: 'pointer',
+                      fontSize: 15,
+                      lineHeight: 1,
+                      padding: '2px 4px',
+                      marginTop: -2,
+                    }}
+                  >
+                    &times;
+                  </button>
+                );
                 const style = {
                   display: 'flex',
                   alignItems: 'flex-start',
@@ -356,10 +409,12 @@ export default function NotificationBell({ compact = false }) {
                 return n.url ? (
                   <Link key={n.id} to={n.url} onClick={() => setOpen(false)} style={style}>
                     {inner}
+                    {acknowledge}
                   </Link>
                 ) : (
                   <div key={n.id} style={style}>
                     {inner}
+                    {acknowledge}
                   </div>
                 );
               })

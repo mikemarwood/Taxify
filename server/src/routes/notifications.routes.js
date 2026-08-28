@@ -60,6 +60,29 @@ router.post(
 // Marking everything read empties the badge but leaves the panel full, so a
 // list somebody has finished with keeps growing and stops being worth opening.
 // This removes them — their own, and only theirs.
+// One notification, acknowledged and gone.
+//
+// Separate from Clear all, which is the blunt version. Somebody working
+// through a list wants to put away the ones they have dealt with and keep the
+// rest — clearing everything to be rid of one is how the others get missed.
+//
+// Deleted rather than marked read: read already means something here (it
+// controls the unread count and the tint), and a row that is read but still
+// listed is exactly the state this is meant to leave behind.
+router.delete(
+  '/:id',
+  asyncHandler(async (req, res) => {
+    const [result] = await pool.execute('DELETE FROM notifications WHERE id = ? AND user_id = ?', [
+      Number(req.params.id),
+      req.user.id,
+    ]);
+    // Scoped to the caller, so an id belonging to somebody else deletes
+    // nothing and is answered the same as one that never existed — there is
+    // nothing to learn from the difference.
+    res.json({ ok: true, removed: result.affectedRows || 0 });
+  })
+);
+
 router.delete(
   '/',
   asyncHandler(async (req, res) => {

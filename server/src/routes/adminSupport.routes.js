@@ -584,7 +584,10 @@ router.post(
       await notify(holder, {
         title: `${req.user.name || 'An administrator'} started a ticket for you`,
         body: `${reference} — ${subject}`,
-        url: '/admin?tab=support',
+        // Straight to the conversation, not to the queue. Landing on a list of
+        // forty and being left to find the one it was about is most of the
+        // reason a notification gets ignored.
+        url: `/admin?tab=support&ticket=${ticketId}`,
         kind: 'support',
       }).catch(() => {});
     }
@@ -742,7 +745,7 @@ router.post(
         await notify(target, {
           title: `${req.user.name || 'An administrator'} passed you a ticket`,
           body: `${about[0]?.reference} — ${about[0]?.subject}`,
-          url: '/admin?tab=support',
+          url: `/admin?tab=support&ticket=${ticket.id}`,
           kind: 'support',
         });
       } catch (err) {

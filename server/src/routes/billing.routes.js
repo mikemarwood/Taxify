@@ -873,6 +873,22 @@ router.post(
                 : [[null]];
 
               const money = formatMoney((invoice.amount_paid ?? 0) / 100, (invoice.currency || 'aud').toUpperCase());
+
+              // In the bell as well as the inbox. An email is read when
+              // somebody next opens their mail; a notification is there the
+              // moment they next open the panel, which for money arriving is
+              // the sooner of the two more often than not.
+              //
+              // Pointed at the stats tab, which is where the recent payments
+              // list lives — a notification that lands you somewhere you then
+              // have to navigate away from is one you stop pressing.
+              await notifyAdmins({
+                title: `${money} received`,
+                body: who?.name ? `From ${who.name}` : 'A payment has come in',
+                url: '/admin',
+                kind: 'billing',
+              }).catch(() => {});
+
               for (const admin of admins) {
                 try {
                   await sendAdminPaymentEmail(admin.email, {
