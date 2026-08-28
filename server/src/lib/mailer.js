@@ -1264,3 +1264,31 @@ export async function sendAdminPaymentEmail(to, { customerName, customerEmail, a
     `,
   });
 }
+
+// A message written once and sent to everybody in an audience.
+//
+// Goes through sendMail like every other message, so it carries the site's own
+// template rather than being the one plain-text email in the system — and so a
+// change to the header or the footer reaches it too.
+//
+// The body is written as paragraphs and rendered as paragraphs. Somebody typing
+// into a textarea presses Return to mean a new paragraph, and joining those
+// into one block is the difference between a message that reads and a wall.
+export async function sendBroadcastEmail(to, name, { subject, body }) {
+  const paragraphs = String(body || '')
+    .split(/\n{2,}/)
+    .map((p) => p.trim())
+    .filter(Boolean)
+    // Single newlines inside a paragraph become line breaks, so an address or a
+    // short list written on consecutive lines keeps its shape.
+    .map((p) => `<p style="font-size:14px;color:#1f2937;margin:0 0 14px;line-height:1.6;">${escapeHtml(p).replace(/\n/g, '<br>')}</p>`)
+    .join('');
+
+  await sendMail({
+    to,
+    subject,
+    title: subject,
+    heading: `Hi${name ? ` ${escapeHtml(String(name).trim().split(/\s+/)[0])}` : ''},`,
+    bodyHtml: paragraphs,
+  });
+}

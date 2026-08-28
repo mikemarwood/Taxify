@@ -30,6 +30,7 @@ import { IconPicker, ColourPicker, CategoryPreview, SWATCHES } from '../componen
 import Avatar from '../components/Avatar.jsx';
 import AdminUserDetail from '../components/AdminUserDetail.jsx';
 import ViewServer from '../components/ViewServer.jsx';
+import BroadcastTab from '../components/BroadcastTab.jsx';
 import { planLabel } from '../lib/plans.js';
 import { autoFocusFields } from '../lib/device.js';
 
@@ -59,6 +60,7 @@ const TAB_GROUPS = [
       { key: 'stats', label: 'Live stats', icon: 'chart' },
       { key: 'support', label: 'Support', icon: 'mail' },
       { key: 'users', label: 'Users', icon: 'users' },
+      { key: 'broadcast', label: 'Email everyone', icon: 'mail' },
       { key: 'tools', label: 'Tools', icon: 'wrench' },
     ],
   },
@@ -302,6 +304,7 @@ export default function Admin() {
       </div>
 
       {tab === 'stats' && <AdminStatsTab onHowItWorks={() => setTab('how')} />}
+      {tab === 'broadcast' && <BroadcastTab />}
       {tab === 'support' && <SupportTab />}
       {tab === 'tools' && <ToolsTab />}
       {tab === 'how' && <HowItWorksTab />}

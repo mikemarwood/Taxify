@@ -40,11 +40,27 @@ export function safeHttpUrl(value) {
 }
 
 // The markup for the two buttons, or null when there is nothing to show.
+// The address as somebody would write it, not as a URL parser returns it.
+//
+// new URL().toString() adds a trailing slash to a bare origin, so the text
+// offered alongside a share read "https://taxify.mikesapphub.com/" — correct,
+// and not how anybody types or reads their own site's name.
+export function tidyShareUrl(url) {
+  const parsed = safeHttpUrl(url);
+  if (!parsed) return '';
+  return parsed.replace(/\/+$/, '');
+}
+
 export function socialButtonsHtml({ shareUrl, pageUrl }) {
   const target = safeHttpUrl(shareUrl);
   if (!target) return null;
 
   const encoded = encodeURIComponent(target);
+  // What Facebook puts in the box for the person sharing, so the post carries
+  // the address in the words as well as in the link card. Somebody scrolling
+  // past a picture reads the text; the card is what they click if the text
+  // interested them.
+  const quote = encodeURIComponent(tidyShareUrl(target));
   const follow = safeHttpUrl(pageUrl);
 
   // No Like button, and it is not coming back in this form.
@@ -62,7 +78,7 @@ export function socialButtonsHtml({ shareUrl, pageUrl }) {
   // and plain anchors survive both the proxy and its CSP.
   return (
     `<div class="social-row">` +
-    `<a class="social-btn" href="https://www.facebook.com/sharer/sharer.php?u=${encoded}" ` +
+    `<a class="social-btn" href="https://www.facebook.com/sharer/sharer.php?u=${encoded}&quote=${quote}" ` +
     `target="_blank" rel="noopener noreferrer">` +
     `<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" width="15" height="15">` +
     `<path d="M22 12a10 10 0 1 0-11.56 9.88v-6.99H7.9V12h2.54V9.8c0-2.5 1.49-3.89 3.77-3.89 1.09 0 2.24.2 2.24.2v2.46h-1.26c-1.24 0-1.63.77-1.63 1.56V12h2.78l-.45 2.89h-2.33v6.99A10 10 0 0 0 22 12Z"/>` +

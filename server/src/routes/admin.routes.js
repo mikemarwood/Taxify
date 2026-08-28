@@ -5,6 +5,8 @@ import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { userStorageBytes, removeUserFiles } from '../lib/userFiles.js';
+import { AUDIENCES, BATCH_SIZE, BATCH_PAUSE_MS, audienceByKey, batchesOf, broadcastProblem, tidyBroadcast } from '../lib/broadcast.js';
+import { sendBroadcastEmail } from '../lib/mailer.js';
 import { normalisePromoCode, isValidPromoCodeFormat } from '../lib/promoCodes.js';
 import pool, { getSetting, setSetting, getMfaMode } from '../db.js';
 import { sendPlanChangedEmail } from '../lib/mailer.js';
@@ -1329,6 +1331,95 @@ router.patch(
 // Everything the live stats page draws, in one call. One request rather than
 // eight, because the page polls: eight endpoints on a timer is eight times the
 // chance of a half-drawn screen where the counts disagree with the chart.
+// Emailing an audience.
+//
+// Two endpoints on purpose. The first counts and says nothing else, so the
+// screen can show how many people a choice reaches before anybody writes a
+// word — the number is the thing that makes somebody think twice, and it has
+// to be available before the decision, not after it.
+router.get(
+  '/broadcast/audiences',
+  asyncHandler(async (req, res) => {
+    // All four with their counts in one request, rather than one per choice.
+    // Somebody deciding who to write to is comparing the numbers — "412
+    // customers or 38 on trial" is the decision — and fetching them one at a
+    // time makes that comparison something you have to click through.
+    const counts = await Promise.all(
+      AUDIENCES.map(async (audience) => {
+        const [[counted]] = await pool.query(`SELECT COUNT(*) AS n FROM users WHERE ${audience.where}`);
+        return {
+          key: audience.key,
+          label: audience.label,
+          hint: audience.hint,
+          count: Number(counted.n) || 0,
+        };
+      })
+    );
+    res.set('Cache-Control', 'no-store');
+    res.json({ audiences: counts, batchSize: BATCH_SIZE });
+  })
+);
+
+// And the send, which streams its progress.
+//
+// A few hundred emails takes minutes, and a request that simply hangs for
+// minutes is one somebody reloads — which on a send is the worst thing they
+// could do. So the response is written as it goes: a line per batch, ending
+// with a summary. The client shows the count climbing rather than a spinner
+// that says nothing about whether anything is happening.
+router.post(
+  '/broadcast',
+  asyncHandler(async (req, res) => {
+    const problem = broadcastProblem(req.body);
+    if (problem) return res.status(400).json({ error: problem });
+
+    const audience = audienceByKey(req.body.audience);
+    const { subject, body } = tidyBroadcast(req.body);
+
+    const [people] = await pool.query(
+      `SELECT id, email, name FROM users WHERE ${audience.where} ORDER BY id`
+    );
+    if (!people.length) return res.status(400).json({ error: 'Nobody is in that group right now' });
+
+    // Written as it happens rather than collected and returned at the end. If
+    // the connection drops half way, what has already been reported is still
+    // true — and what was already sent has still been sent, which is why the
+    // count of failures is reported rather than the send being retried.
+    res.set('Content-Type', 'application/x-ndjson; charset=utf-8');
+    res.set('Cache-Control', 'no-store');
+    res.write(`${JSON.stringify({ total: people.length, batchSize: BATCH_SIZE })}
+`);
+
+    let sent = 0;
+    const failed = [];
+
+    for (const batch of batchesOf(people)) {
+      // Within a batch they go together; between batches there is a pause. A
+      // few hundred messages handed over in one breath is how a send gets
+      // throttled or deferred, and a deferred send is worse than a slow one
+      // because nobody can tell whether it arrived.
+      await Promise.all(
+        batch.map(async (person) => {
+          try {
+            await sendBroadcastEmail(person.email, person.name, { subject, body });
+            sent += 1;
+          } catch (err) {
+            failed.push({ email: person.email, error: err.message });
+          }
+        })
+      );
+      res.write(`${JSON.stringify({ sent, failed: failed.length })}
+`);
+      await new Promise((resolve) => setTimeout(resolve, BATCH_PAUSE_MS));
+    }
+
+    console.log(`[admin] ${req.user.email} emailed ${sent} of ${people.length} (${audience.key})`);
+    res.write(`${JSON.stringify({ done: true, sent, failed })}
+`);
+    res.end();
+  })
+);
+
 router.get(
   '/stats',
   asyncHandler(async (req, res) => {
