@@ -1398,6 +1398,27 @@ router.get(
       [req.user.id]
     );
 
+    // The tickets themselves, not just the counts.
+    //
+    // Ordered by what needs doing rather than by age: anything waiting on us
+    // first, then anything else still open. A wall display is read to answer
+    // "is there something to pick up", and a list sorted purely by time buries
+    // that under whatever was touched most recently.
+    //
+    // No subject and no customer. A ticket subject is written by somebody
+    // describing their own problem and regularly contains a name, an amount or
+    // an accountant — none of which belongs on a screen in a room. The
+    // reference is what anybody would use to open it anyway.
+    const [tickets] = await pool.query(
+      `SELECT reference, category, status, assigned_to, last_message_at, created_at
+         FROM support_tickets
+        WHERE status <> 'closed'
+        ORDER BY FIELD(status, 'awaiting_support', 'awaiting_customer'),
+                 assigned_to IS NOT NULL,
+                 last_message_at ASC
+        LIMIT 8`
+    );
+
     // Fourteen days of sign-ups, for the chart. Small enough to send every few
     // seconds and long enough to show a shape.
     const [signupDays] = await pool.query(
@@ -1438,6 +1459,13 @@ router.get(
         awaiting: Number(queue.awaiting) || 0,
         open: Number(queue.open) || 0,
         mine: Number(mine.n) || 0,
+        tickets: tickets.map((t) => ({
+          reference: t.reference,
+          category: t.category,
+          status: t.status,
+          assigned: Boolean(t.assigned_to),
+          at: t.last_message_at || t.created_at,
+        })),
       },
       days,
       online: Number(online.count) || 0,

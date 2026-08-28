@@ -30,6 +30,14 @@ const POLL_MS = 5000;
 // perfectly reasonable column values and none of them things to print. They
 // were going out raw, so a wall display carried "plan change · business" in
 // the middle of otherwise finished text.
+// What a ticket is waiting on, in the words somebody standing across the room
+// would use. The stored values are awaiting_support / awaiting_customer, which
+// are correct and read like column names.
+const TICKET_STATE = {
+  awaiting_support: { label: 'Needs a reply', tone: '#fbbf24' },
+  awaiting_customer: { label: 'With the customer', tone: null },
+};
+
 function titleCase(value) {
   return String(value || '')
     .replace(/[_-]+/g, ' ')
@@ -333,6 +341,30 @@ export default function ViewServer({ onClose }) {
               <Bars days={data.days} valueOf={(d) => d.cents} colour="#34d399" format={(v) => money(v)} />
             </Card>
           </div>
+
+          <Card
+            title="Support"
+            aside={
+              data.support.tickets.length
+                ? `${data.support.awaiting} waiting · ${data.support.unassigned} unassigned`
+                : 'Nothing open'
+            }
+          >
+            {data.support.tickets.map((t) => {
+              const state = TICKET_STATE[t.status] || { label: titleCase(t.status), tone: null };
+              return (
+                <Row
+                  key={t.reference}
+                  tone={state.tone}
+                  lead={t.reference}
+                  detail={[titleCase(t.category), state.label, t.assigned ? null : 'Unassigned']
+                    .filter(Boolean)
+                    .join(' · ')}
+                  right={when(t.at)}
+                />
+              );
+            })}
+          </Card>
 
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 'clamp(10px, 1.4vw, 16px)' }}>
             <Card title="Money In" aside={data.payments.length ? undefined : 'Nothing yet'}>
