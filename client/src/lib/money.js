@@ -21,6 +21,36 @@ export function formatAmount(value) {
   return grouped.format(Number.isFinite(n) ? n : 0);
 }
 
+// The symbol a currency is actually written with.
+//
+// Intl defaults to currencyDisplay: 'symbol', which is not the symbol — it is
+// whatever the locale needs to be unambiguous. In en-AU that turns USD into
+// "USD 1,234.50" and EUR into "EUR 1,234.50", because a reader in Australia
+// would otherwise take a bare $ for their own money. Correct, and not what was
+// asked for on a screen that names the currency underneath the figure anyway.
+//
+// 'narrowSymbol' gives $, £, €, kr, ¥. It is a newer option and older Safari
+// throws RangeError on it rather than ignoring it, so the fall-through repeats
+// the format with the default rather than losing the amount entirely.
+function currencyFormatter(code) {
+  try {
+    return new Intl.NumberFormat(undefined, {
+      style: 'currency',
+      currency: code,
+      currencyDisplay: 'narrowSymbol',
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    });
+  } catch {
+    return new Intl.NumberFormat(undefined, {
+      style: 'currency',
+      currency: code,
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    });
+  }
+}
+
 // "$1,234.50", "€1,234.50", "£1,234.50". The symbol used to be a hard-coded
 // dollar sign, which quietly mislabelled every foreign amount in the app.
 export function formatMoney(value, currency) {
@@ -28,12 +58,7 @@ export function formatMoney(value, currency) {
   const safe = Number.isFinite(n) ? n : 0;
   const code = String(currency || baseCurrency).toUpperCase();
   try {
-    return new Intl.NumberFormat(undefined, {
-      style: 'currency',
-      currency: code,
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    }).format(safe);
+    return currencyFormatter(code).format(safe);
   } catch {
     // An unknown code should still print a number rather than throwing.
     return `${code} ${grouped.format(safe)}`;
@@ -150,7 +175,11 @@ export function formatAmountInput(value) {
 export function currencySymbol(code) {
   const currency = String(code || baseCurrency).toUpperCase();
   try {
-    const parts = new Intl.NumberFormat(undefined, { style: 'currency', currency }).formatToParts(0);
+    // Same narrow symbol as formatMoney, so the prefix inside the amount box
+    // and the figure it produces cannot disagree about what a currency looks
+    // like. Without it this returned the three-letter code for everything
+    // except the account's own money.
+    const parts = currencyFormatter(currency).formatToParts(0);
     return parts.find((p) => p.type === 'currency')?.value || currency;
   } catch {
     return currency;

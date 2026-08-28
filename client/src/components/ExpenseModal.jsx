@@ -570,16 +570,34 @@ export default function ExpenseModal({ expense, onClose, onSaved, onDeleted }) {
               >
                 <div style={{ minWidth: 0 }}>
                   <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: 0.6, textTransform: 'uppercase', color: 'var(--text-muted)', marginBottom: 8 }}>
-                    Expense Record · #{expense.id}
+                    {/* The shared entry number, not the row id.
+
+                        expense.id is a per-table auto-increment: expense 14,
+                        trip 14 and an hour worked 14 all exist, so quoting it
+                        at support names one of three things. entryNo is drawn
+                        from the one sequence and names exactly one. The id is
+                        not shown at all — two numbers on a record is an
+                        invitation to quote the wrong one. */}
+                    Expense Record{expense.entryNo ? ` · #${expense.entryNo}` : ''}
                   </div>
                   <h2 style={{ margin: 0, fontSize: 21, lineHeight: 1.3, wordBreak: 'break-word', paddingRight: 8 }}>{expense.itemName}</h2>
                   <div style={{ marginTop: 10 }}>
                     <CategoryBadge category={expense.category} />
                   </div>
                 </div>
-                <div style={{ textAlign: 'right', flexShrink: 0 }}>
-                  <div style={{ fontSize: 24, fontWeight: 800, whiteSpace: 'nowrap' }}>{formatAmount(expense.amount)}</div>
-                  <div style={{ fontSize: 12.5, color: 'var(--text-muted)', fontWeight: 600 }}>{expense.currency || 'AUD'}</div>
+                {/* Clear of the close button, which is pinned to the same
+                    corner and was sitting on top of the figure. */}
+                <div style={{ textAlign: 'right', flexShrink: 0, paddingRight: 34 }}>
+                  {/* formatMoney, not formatAmount: the first gives the money
+                      its own symbol — $, £, €, kr — and the second gives the
+                      digits alone, so the amount read as a bare number with
+                      the code underneath it and nothing saying what it was. */}
+                  <div style={{ fontSize: 24, fontWeight: 800, whiteSpace: 'nowrap' }}>
+                    {formatMoney(expense.amount, expense.currency)}
+                  </div>
+                  <div style={{ fontSize: 12.5, color: 'var(--text-muted)', fontWeight: 600 }}>
+                    {expense.currency || 'AUD'}
+                  </div>
                 </div>
               </div>
 
@@ -588,9 +606,6 @@ export default function ExpenseModal({ expense, onClose, onSaved, onDeleted }) {
                   label="Purchase date"
                   value={formatDateLong(expense.purchaseDate)}
                 />
-                {/* One sequence across expenses, trips and hours, so quoting
-                    a number in a support ticket names exactly one thing. */}
-                {expense.entryNo && <DetailRow label="Entry" value={`#${expense.entryNo}`} />}
                 <DetailRow label="Category" value={expense.category?.name || 'Uncategorised'} />
                 <DetailRow
                   label="Recurring"
