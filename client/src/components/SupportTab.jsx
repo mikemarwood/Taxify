@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { api } from '../lib/api.js';
 import Icon from './Icon.jsx';
 import Avatar from './Avatar.jsx';
@@ -259,6 +259,19 @@ export default function SupportTab() {
         setTickets([]);
       });
   }
+
+  // Stable, because SupportThread keys its eight-second poll on the identity
+  // of what it was handed. An inline arrow is a new function every render, so
+  // the interval was being torn down and rebuilt continuously — it survived
+  // only because the list poll happens to be slower than the thread poll, and
+  // anything that re-rendered this panel faster would have stopped it firing
+  // at all.
+  const refreshThread = useCallback(() => {
+    if (openId) loadThread(openId);
+    // loadThread is redefined each render and deliberately not a dependency:
+    // including it would put the churn straight back.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [openId]);
 
   function loadThread(id) {
     api
@@ -801,7 +814,7 @@ export default function SupportTab() {
               ticket={thread.ticket}
               messages={thread.messages}
               busy={busy}
-              onRefresh={() => loadThread(openId)}
+              onRefresh={refreshThread}
               onEdit={async (message, body) => {
                 const res = await api.patch(`/admin/support/messages/${message.id}`, { message: body });
                 setThread((prev) => ({ ...prev, messages: res.data.messages }));

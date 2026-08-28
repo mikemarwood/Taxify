@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useNavigate, useParams, Link } from 'react-router-dom';
 import { api } from '../lib/api.js';
 import PlanInvoiceNotice from '../components/PlanInvoiceNotice.jsx';
@@ -520,14 +520,22 @@ export function SupportTicket() {
   const toast = useToast();
   const [data, setData] = useState(null);
 
-  function load() {
+  // Stable, because SupportThread polls this every eight seconds and keys its
+  // interval on the identity of the function it was handed. A fresh closure
+  // every render tears that interval down and builds a new one on each state
+  // change — which happens to work while the only state change is the poll
+  // itself, and stops working the moment anything else on the page re-renders
+  // faster than the interval.
+  const load = useCallback(() => {
     api
       .get(`/support/tickets/${id}`)
       .then((res) => setData(res.data))
       .catch((err) => toast(err.message, 'error'));
-  }
+  }, [id, toast]);
 
-  useEffect(load, [id]);
+  useEffect(() => {
+    load();
+  }, [load]);
 
   if (!data) return <div className="card" style={{ padding: 20, fontSize: 13 }}>Loading…</div>;
 
@@ -570,14 +578,17 @@ export function SupportTicketByToken() {
   const [data, setData] = useState(null);
   const [problem, setProblem] = useState('');
 
-  function load() {
+  // Stable for the same reason as the signed-in view above.
+  const load = useCallback(() => {
     api
       .get(`/support/ticket-by-token?token=${encodeURIComponent(token)}`)
       .then((res) => setData(res.data))
       .catch(() => setProblem('That link does not open anything. Check you used the most recent email.'));
-  }
+  }, [token]);
 
-  useEffect(load, [token]);
+  useEffect(() => {
+    load();
+  }, [load]);
 
   if (problem) {
     return (
