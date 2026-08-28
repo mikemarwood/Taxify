@@ -139,7 +139,7 @@ router.get(
     const state = Object.fromEntries(states.map((row) => [row.status, Number(row.n) || 0]));
 
     res.json({
-      tickets: rows.map((r) => shapeTicket(r, { includeEmail: true })),
+      tickets: rows.map((r) => shapeTicket(r, { includeEmail: true, staff: true })),
       total: Number(counted.n) || 0,
       page,
       perPage,
@@ -247,7 +247,7 @@ router.get(
     }
 
     res.json({
-      ticket: shapeTicket(rows[0], { includeEmail: true }),
+      ticket: shapeTicket(rows[0], { includeEmail: true, staff: true }),
       messages: await messagesFor(rows[0].id, { includeNotes: true, staff: true }),
       customer,
       planRequest,

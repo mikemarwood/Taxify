@@ -12,7 +12,7 @@ import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { serveAttachment } from '../lib/serveAttachment.js';
-import { maskStaffMessage } from '../lib/supportIdentity.js';
+import { maskStaffMessage, supportDisplayName } from '../lib/supportIdentity.js';
 import {
   ensureTicketDir,
   ticketDir,
@@ -112,7 +112,13 @@ const router = Router();
 
 // One shape, so the customer's page, the guest's page and the admin list cannot
 // disagree about what a ticket looks like.
-function shapeTicket(row, { includeEmail = false } = {}) {
+// `staff` means this is going to the support side, which sees real names.
+// Anything else is a customer's own view of their ticket, where the person
+// holding it is named the same way their replies are — see supportIdentity.js.
+//
+// The default is the customer's view on purpose: a route added later that
+// forgets to say who is asking gives away less rather than more.
+function shapeTicket(row, { includeEmail = false, staff = false } = {}) {
   return {
     id: row.id,
     reference: row.reference,
@@ -129,7 +135,13 @@ function shapeTicket(row, { includeEmail = false } = {}) {
     avatarUrl: row.user_id && row.avatar_path ? `/api/auth/avatar/${row.user_id}` : null,
     priority: row.priority || 'normal',
     assignedTo: row.assigned_to || null,
-    assignedName: row.assigned_name || null,
+    // Not the operator's real name unless support is asking.
+    //
+    // It was sent to the customer's browser either way. Nothing rendered it,
+    // so it never appeared on screen — but a full name sitting in a JSON
+    // payload is a full name anybody who opens devtools has, and "it is not
+    // displayed" is not the same as "it is not disclosed".
+    assignedName: staff ? row.assigned_name || null : row.assigned_name ? supportDisplayName(row.assigned_name) : null,
   };
 }
 
