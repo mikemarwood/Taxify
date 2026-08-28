@@ -1,6 +1,6 @@
 import mysql from 'mysql2/promise';
 import { INITIAL_DEFAULT_CATEGORIES } from './seed/defaultCategories.js';
-import { backfillEntryNumbers } from './lib/entryNumber.js';
+import { backfillEntryNumbers, FIRST_ENTRY_NUMBER } from './lib/entryNumber.js';
 
 const pool = mysql.createPool({
   host: process.env.DB_HOST || 'localhost',
@@ -1162,13 +1162,16 @@ export async function ensureSchema() {
   await pool.query(`
     CREATE TABLE IF NOT EXISTS entry_numbers (
       id BIGINT UNSIGNED PRIMARY KEY AUTO_INCREMENT
-    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 AUTO_INCREMENT=61320000
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 AUTO_INCREMENT=62000000
   `);
-  // Only ever raises it. A table created before this line existed starts at 1,
-  // and an eight-digit reference that begins with a 3 is not a reference.
-  // Lowering it is not attempted: the numbers already handed out are the ones
-  // customers have quoted.
-  await pool.query(`ALTER TABLE entry_numbers AUTO_INCREMENT = 61320000`);
+  // Only ever raises it, and that is the only direction it can safely go.
+  //
+  // AUTO_INCREMENT cannot be set below the highest value the table already
+  // holds — MariaDB silently keeps the higher one — so this is a floor rather
+  // than an assignment. It moved from 61320000 to 62000000 so that every
+  // reference reads 62xxxxxx; raising works, and the rows already issued below
+  // it are renumbered by backfillEntryNumbers rather than reused.
+  await pool.query(`ALTER TABLE entry_numbers AUTO_INCREMENT = ${FIRST_ENTRY_NUMBER}`);
 
   for (const table of ['expenses', 'vehicle_trips', 'home_office_hours']) {
     await pool.query(`ALTER TABLE ${table} ADD COLUMN IF NOT EXISTS entry_no BIGINT UNSIGNED NULL`);
@@ -1272,7 +1275,7 @@ export async function ensureSchema() {
   // unguarded by a settings flag deliberately: a flag can be set while the
   // work is half done, and this cannot.
   const numbered = await backfillEntryNumbers(pool);
-  if (numbered) console.log(`[db] gave ${numbered} existing entr${numbered === 1 ? 'y' : 'ies'} a number`);
+  if (numbered) console.log(`[db] numbered ${numbered} entr${numbered === 1 ? 'y' : 'ies'}`);
 }
 
 export async function getSetting(key) {
