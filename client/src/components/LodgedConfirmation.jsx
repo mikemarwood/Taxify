@@ -77,28 +77,53 @@ export default function LodgedConfirmation({ title, detail, reference, onDone, o
         )}
       </div>
 
-      {/* The reference, for the one conversation a year where somebody has to
-          name a particular entry. */}
+      {/* The reference, given the weight of the thing it is.
+          
+          It was a small grey chip, which is what you use for a tag rather than
+          for the one piece of information this card exists to hand over: the
+          number that finds this entry again, and the same number printed on
+          the record itself. Labelled, spaced, and in tabular figures so the
+          digits can be read off aloud without losing your place. */}
       {reference && (
-        <span
-          title="The reference for this entry"
+        <div
           style={{
-            fontFamily: 'ui-monospace, monospace',
-            fontWeight: 700,
-            fontSize: 12.5,
-            padding: '3px 10px',
-            borderRadius: 6,
+            width: '100%',
+            maxWidth: 260,
+            padding: '11px 14px',
+            borderRadius: 10,
             background: 'var(--bg-inset)',
             border: '1px solid var(--border)',
           }}
         >
-          #{reference}
-        </span>
+          <div
+            style={{
+              fontSize: 10.5,
+              fontWeight: 700,
+              letterSpacing: 1,
+              textTransform: 'uppercase',
+              color: 'var(--text-muted)',
+            }}
+          >
+            Reference
+          </div>
+          <div
+            style={{
+              marginTop: 3,
+              fontFamily: 'ui-monospace, monospace',
+              fontWeight: 700,
+              fontSize: 19,
+              letterSpacing: 0.6,
+              fontVariantNumeric: 'tabular-nums',
+            }}
+          >
+            #{reference}
+          </div>
+        </div>
       )}
 
       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'center' }}>
         <button type="button" className="btn btn-primary" style={{ fontSize: 13 }} onClick={onDone}>
-          {holding ? 'Go to dashboard' : `Go to dashboard (${left})`}
+          Go to dashboard
         </button>
         {onAgain && (
           <button
@@ -121,6 +146,19 @@ export default function LodgedConfirmation({ title, detail, reference, onDone, o
             would want to stay, and it says what happens next instead of only
             what does not. Three buttons for two decisions is one too many. */}
       </div>
+
+      {/* The countdown, said quietly and underneath rather than counted down
+          inside the button.
+          
+          "Go to dashboard (3)" reads as a deadline on a card somebody is still
+          reading — and the one thing on it worth reading is a reference number
+          they may want to write down. The page still leaves on its own; it
+          just stops appearing to hurry. */}
+      {!holding && left > 0 && (
+        <div style={{ fontSize: 11.5, color: 'var(--text-subtle)' }}>
+          Going to the dashboard in {left} second{left === 1 ? '' : 's'}
+        </div>
+      )}
     </motion.div>
   );
 }

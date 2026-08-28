@@ -723,8 +723,16 @@ export default function Expenses() {
         />
       )}
 
+      {/* Keyed on the expense, so a different one gets a fresh form.
+
+          Without it the panel stays mounted while `expense` changes
+          underneath it, and every useState initialiser in there — the
+          amount, the date, the category — only ever ran for whichever
+          expense was opened first. Opening a second one showed the first
+          one's values, or whatever they had been edited to. */}
       {selectedExpense && (
         <ExpenseModal
+          key={selectedExpense.id}
           expense={selectedExpense}
           onClose={() => setSelectedExpense(null)}
           onSaved={() => {

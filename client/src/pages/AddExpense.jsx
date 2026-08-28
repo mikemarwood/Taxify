@@ -312,7 +312,7 @@ export default function AddExpense() {
       // app that is meant to leave a record — and if a receipt was attached,
       // this is where you find out it actually landed.
       setSaved({
-        id: res.data?.id,
+        entryNo: res.data?.entryNo,
         detail: `${itemName.trim()} — ${formatMoney(amountValue)}. ${
           file ? 'Receipt attached and filed.' : 'No receipt attached.'
         }`,
@@ -863,13 +863,18 @@ export default function AddExpense() {
           A receipt used to get a card with a tick and a silent two-second jump
           to the dashboard; a trip got a line of green text and left you on the
           form wondering whether to press it again. Same act, three answers. */}
+      {/* The reference below is the entry number, which is the number on the
+          record. It was String(id).padStart(5, '0') — the row id, dressed up
+          to look like a reference — so lodging an expense confirmed "003412"
+          while opening that same expense showed "62000002", and neither number
+          could be used to find the other. */}
       <AnimatePresence>
         {saved && (
           <div style={{ marginTop: 18 }}>
             <LodgedConfirmation
               title="Expense lodged"
               detail={saved.detail}
-              reference={saved.id ? String(saved.id).padStart(5, '0') : null}
+              reference={saved.entryNo || null}
               onDone={() => navigate('/')}
               onAgain={startAnother}
               againLabel={saved.againLabel || 'Add another'}

@@ -191,7 +191,7 @@ export function TripForm({ entityId, year, onAdded }) {
       // count. "2 logged" tells somebody how many times they pressed a
       // button, not what is now on their return.
       onAdded?.({
-        id: res.data?.id,
+        entryNo: res.data?.entryNo,
         detail: `${tripKm.toLocaleString()} km in the ${trip.vehicle.trim()}${
           trip.purpose.trim() ? ` — ${trip.purpose.trim()}` : ''
         }.`,
@@ -363,7 +363,7 @@ export function HoursForm({ entityId, year, onAdded }) {
       const logged = toDecimalHours(hours.h, hours.m);
       setHours({ date: hours.date, h: '', m: '', note: '' });
       onAdded?.({
-        id: res.data?.id,
+        entryNo: res.data?.entryNo,
         detail: `${formatHours(logged)} worked from home${
           hours.note.trim() ? ` — ${hours.note.trim()}` : ''
         }.`,

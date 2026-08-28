@@ -10,7 +10,15 @@ import Toggle from './Toggle.jsx';
 import ReceiptLightbox from './ReceiptLightbox.jsx';
 import ReceiptPreview from './ReceiptPreview.jsx';
 import Icon from './Icon.jsx';
-import { formatAmount, formatMoney, parseAmount, amountWhileTyping, amountOnBlur, currencySymbol } from '../lib/money.js';
+import {
+  formatAmount,
+  formatAmountInput,
+  formatMoney,
+  parseAmount,
+  amountWhileTyping,
+  amountOnBlur,
+  currencySymbol,
+} from '../lib/money.js';
 import { currenciesFor } from '../lib/currencies.js';
 import { onDigitKeyDown, playOpen, playClose } from '../lib/sounds.js';
 import { useAuth } from '../lib/AuthContext.jsx';
@@ -95,7 +103,15 @@ export default function ExpenseModal({ expense, onClose, onSaved, onDeleted }) {
   }, [editing, expense.id]);
 
   const [itemName, setItemName] = useState(expense.itemName);
-  const [amount, setAmount] = useState(String(expense.amount));
+  // Opened in the format the field settles to, not a stringified number.
+  //
+  // String(expense.amount) gives "3350.5" — no grouping and one decimal place
+  // — so the box opened showing something the same box would never produce,
+  // and anything that was not a plain finite number arrived as the word it
+  // stringifies to. formatAmountInput gives "3,350.50" and gives '' for
+  // anything it cannot read, which is at least an empty field rather than
+  // "undefined" sitting in one.
+  const [amount, setAmount] = useState(formatAmountInput(expense.amount));
   // The expense's own currency, or the account's — never a hardcoded AUD,
   // which was somebody in Canada opening a new expense already set to the
   // wrong money.
