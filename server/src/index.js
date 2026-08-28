@@ -236,6 +236,49 @@ app.get('/media/ads/:name', (req, res) => {
 
 app.get('/', serveLandingPage);
 
+// Crawl directives for this host.
+//
+// It answered with the landing page — 200, text/html — because the catch-all
+// takes anything it does not recognise. A robots.txt that is HTML is a
+// robots.txt that parses to nothing, so this host had no directives at all.
+//
+// Crawling is allowed rather than refused, deliberately. The canonical on the
+// landing page points at the hub, and that is the signal that settles which of
+// the two addresses ranks — but a crawler has to be allowed to fetch the page
+// to read the canonical in the first place. Blocking it here would leave the
+// duplicate un-deduplicated rather than gone, and would stop Facebook reading
+// the Open Graph tags it scrapes from this host.
+//
+// The sitemap named is the hub's, for the same reason: the hub's addresses are
+// the ones worth listing.
+app.get('/robots.txt', (req, res) => {
+  res.type('text/plain').send(
+    [
+      'User-agent: *',
+      'Allow: /',
+      // Behind a login, so crawling it only spends budget on sign-in forms.
+      'Disallow: /app',
+      'Disallow: /api/',
+      // Somebody else's advertisement and a binary; neither is a search result.
+      'Disallow: /media/ads/',
+      'Disallow: /downloads/',
+      '',
+      'Sitemap: https://mikesapphub.com/sitemap.xml',
+      '',
+    ].join('\n')
+  );
+});
+
+// No sitemap of our own, and a 404 rather than the landing page.
+//
+// A sitemap here would list this host's addresses, which is precisely what the
+// canonical spends its time telling search engines not to index. Saying
+// plainly that there is not one is better than answering with a page of HTML
+// that claims to be XML.
+app.get('/sitemap.xml', (req, res) => {
+  res.status(404).type('text/plain').send('No sitemap here. See https://mikesapphub.com/sitemap.xml\n');
+});
+
 // The old address for it, kept working.
 app.get('/landing', (req, res) => res.redirect(301, '/'));
 
@@ -416,9 +459,21 @@ if (isProd) {
       res.sendFile(path.join(clientDist, 'index.html'));
     });
 
-    // Anything else. A mistyped URL is a visitor, not a 404 — they get the page
-    // that explains what this is.
-    app.get(/^(?!\/api).*/, serveLandingPage);
+    // Anything else. A mistyped URL is a visitor, not a dead end — they get the
+    // page that explains what this is.
+    //
+    // With a 404 status on it, which is the part that was missing. A person
+    // sees the same helpful page either way; a crawler is told the address is
+    // not real. Answering 200 to every path meant one broken link pointing
+    // here produced an unlimited supply of URLs that all returned the landing
+    // page, and a search engine has no way to tell those from the real one.
+    //
+    // res.send keeps a status set beforehand, so this needs nothing from
+    // serveLandingPage itself.
+    app.get(/^(?!\/api).*/, (req, res) => {
+      res.status(404);
+      return serveLandingPage(req, res);
+    });
   }
 }
 
