@@ -1232,3 +1232,56 @@ input[type="date"].input::-webkit-calendar-picker-indicator:hover { opacity: 1; 
   gap: 8px;
   flex-wrap: wrap;
 }
+
+/* The hours control, stacked on a phone.
+
+   One line is right at a desk: a stepper and its buttons side by side read as
+   one control, and stacked they read as two. At 360px it stops being right —
+   the minutes half sat off the right edge behind a scrollbar nobody can see,
+   so the control looked cut off rather than scrollable and half of it could
+   not be reached at all. Hours on one row, minutes on the next. */
+@media (max-width: 560px) {
+  .hours-row {
+    flex-wrap: wrap !important;
+    overflow-x: visible !important;
+    row-gap: 10px !important;
+  }
+  /* Each half takes the full width, so they land one above the other rather
+     than wrapping into a ragged two-and-two. */
+  .hours-row > div { flex: 1 0 100% !important; }
+}
+
+/* The support message box, on a phone.
+
+   Seven rows is right at a desk and wrong on a handset: the box plus the
+   software keyboard is taller than the screen, so the line being typed sat
+   behind the keyboard. Shorter here, and it still grows by dragging if
+   somebody wants the room. */
+@media (max-width: 560px) {
+  .support-message {
+    min-height: 118px !important;
+    height: 118px;
+  }
+}
+
+/* Choosing what a ticket is about, on a phone.
+
+   Seven cards at 210px minimum become one column of seven tall boxes, each
+   with a label and a line of explanation — most of a small screen spent before
+   the form has begun, and the message box pushed somewhere below the fold.
+
+   Two columns, and the hint goes. The labels are already plain enough to
+   choose from ("Billing and plans", "Expenses and receipts"); the hint is
+   there for a first-timer at a desk, not for somebody on a phone who already
+   knows what has gone wrong. */
+@media (max-width: 560px) {
+  .support-cats {
+    grid-template-columns: 1fr 1fr !important;
+    gap: 6px !important;
+  }
+  .support-cats > button {
+    padding: 9px 10px !important;
+    border-radius: 9px !important;
+  }
+  .support-cat-hint { display: none; }
+}

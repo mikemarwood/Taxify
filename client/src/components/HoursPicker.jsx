@@ -75,7 +75,19 @@ export default function HoursPicker({ hours, minutes, onChange, disabled = false
           instead on the rare width where it genuinely will not fit, which is
           better than folding: a stepper and four buttons side by side are one
           thing, and stacked they are two. */}
+      {/* One line on a desktop, two on a phone.
+
+          It was nowrap with a sideways scroll, on the reasoning that a stepper
+          and four buttons side by side are one control and stacked they are
+          two. That holds at a desk. On a 360px screen it does not: the minutes
+          half sat off the right edge behind a scrollbar nobody sees, so the
+          control looked cut off rather than scrollable and half of it was
+          simply unreachable.
+
+          Hours on one row and minutes on the next is the honest answer at that
+          width — see .hours-row in theme.css, which flips it. */}
       <div
+        className="hours-row"
         style={{
           minHeight: CONTROL_HEIGHT,
           display: 'flex',

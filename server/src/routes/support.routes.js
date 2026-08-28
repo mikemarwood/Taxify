@@ -12,7 +12,7 @@ import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { serveAttachment } from '../lib/serveAttachment.js';
-import { maskMessage } from '../lib/supportIdentity.js';
+import { maskStaffMessage } from '../lib/supportIdentity.js';
 import {
   ensureTicketDir,
   ticketDir,
@@ -189,13 +189,14 @@ export async function planRequestFor(ticket) {
   };
 }
 
-// `maskSeed` masks the customer's own messages, for the support side.
+// `staff: true` means this thread is being read by support, who see everyone
+// by name. Anything else is a customer reading their own conversation, and
+// there the people answering are signed Support_Mike with the Taxify mark
+// rather than by full name and photograph — see supportIdentity.js.
 //
-// Passed in rather than worked out here, so the seed that names somebody in
-// the thread is provably the same one that named them in the queue — two
-// places deriving it separately is two places that can drift and show one
-// person under two pseudonyms.
-async function messagesFor(ticketId, { token = null, includeNotes = false, maskSeed = null } = {}) {
+// The default is the customer's view, deliberately. A route added later that
+// forgets to say who is asking hides too much rather than too little.
+async function messagesFor(ticketId, { token = null, includeNotes = false, staff = false } = {}) {
   const [rows] = await pool.execute(
     `SELECT m.*, u.avatar_path FROM support_messages m
        LEFT JOIN users u ON u.id = m.author_user_id
@@ -209,7 +210,7 @@ async function messagesFor(ticketId, { token = null, includeNotes = false, maskS
     .filter((row) => includeNotes || row.author_role !== 'note')
     .map((row) => {
       const shaped = shapeMessage(row, token);
-      return maskSeed ? maskMessage(shaped, maskSeed) : shaped;
+      return staff ? shaped : maskStaffMessage(shaped);
     });
 }
 

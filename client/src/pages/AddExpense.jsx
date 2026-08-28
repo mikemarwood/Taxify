@@ -16,6 +16,7 @@ import { formatMoney, amountWhileTyping, amountOnBlur, parseAmount, currencySymb
 import { useAuth } from '../lib/AuthContext.jsx';
 import { TripForm, HoursForm } from '../components/DeductionForms.jsx';
 import LodgedConfirmation from '../components/LodgedConfirmation.jsx';
+import { currenciesFor } from '../lib/currencies.js';
 
 // The three things this page can add. A receipt is the common one and stays
 // the default; the other two are the deductions that have no receipt to
@@ -26,7 +27,6 @@ const KINDS = [
   { id: 'hours', tab: 'Home office', icon: 'home', heading: 'Add hours worked', blurb: 'Hours worked from home, logged the day you work them.' },
 ];
 
-const CURRENCIES = ['AUD', 'USD', 'NZD', 'GBP', 'EUR'];
 
 // Long enough to say what something was, short enough to stay a line in a
 // list. The amount ceiling is the same one the server enforces.
@@ -48,7 +48,10 @@ export default function AddExpense() {
   const [finalisedYears, setFinalisedYears] = useState([]);
   const [itemName, setItemName] = useState('');
   const [amount, setAmount] = useState('');
-  const [currency, setCurrency] = useState('AUD');
+  // The account's own currency, not a hardcoded AUD — which was somebody in
+  // Canada opening the form already set to the wrong money and having to
+  // change it on every expense.
+  const [currency, setCurrency] = useState(user?.currency || 'AUD');
   const [purchaseDate, setPurchaseDate] = useState(new Date().toISOString().slice(0, 10));
   const [categoryId, setCategoryId] = useState('');
   const [suggestion, setSuggestion] = useState(null);
@@ -482,17 +485,26 @@ export default function AddExpense() {
                 // One style prop. There were two, and JSX keeps the last —
                 // so the padding that made room for the currency symbol was
                 // discarded and the symbol sat against the first digit.
+                // Room for whatever the prefix actually is. currencySymbol
+                // returns the three-letter code for every currency except the
+                // account's own, so a flat 28px was right for "$" and left
+                // "USD" sitting on top of the first digit.
                 style={{
                   flex: 1,
                   minWidth: 0,
-                  paddingLeft: 28,
+                  paddingLeft: 14 + currencySymbol(currency).length * 9,
                   borderColor: amountIssue ? 'var(--red)' : undefined,
                 }}
               />
-              <select className="input" value={currency} onChange={(e) => setCurrency(e.target.value)} style={{ width: 90 }}>
-                {CURRENCIES.map((c) => (
-                  <option key={c} value={c}>
-                    {c}
+              <select
+                className="input"
+                value={currency}
+                onChange={(e) => setCurrency(e.target.value)}
+                style={{ width: 104, flexShrink: 0 }}
+              >
+                {currenciesFor(user?.currency).map((c) => (
+                  <option key={c.code} value={c.code}>
+                    {c.code} — {c.name}
                   </option>
                 ))}
               </select>

@@ -67,8 +67,17 @@ export default function MaintenanceBoundary({ children }) {
         <div
           role="status"
           style={{
-            position: 'sticky',
-            top: 0,
+            // Not sticky.
+            //
+            // It was, so that an administrator could not forget the site was
+            // off — but a bar pinned to the top of the viewport slides over
+            // whatever scrolls under it, and on this page that is the
+            // administration heading and the View Server button beside it. A
+            // banner that hides a control is a worse failure than one that
+            // scrolls away, and the reminder is not lost: it is the first
+            // thing on the page on arrival, and the switch itself sits in a
+            // red-bordered card in Settings.
+            position: 'relative',
             zIndex: 2500,
             display: 'flex',
             alignItems: 'center',

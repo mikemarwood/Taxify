@@ -1,83 +1,54 @@
-import crypto from 'crypto';
+// Who answered a support ticket, as the customer sees it.
+//
+// This file used to do the opposite — hide the customer from support staff —
+// which was a misreading of what was asked for. It is the person answering who
+// wants covering, not the person writing in. A support operator's full name
+// and photograph on every reply is their name and face handed to every
+// stranger who ever emails in, and there is no reason for a customer to have
+// either: they need to know a person answered, that it is the same person as
+// last time, and how to address them.
+//
+// So a reply is signed Support_Mike with the Taxify mark beside it. The first
+// name is kept deliberately — "Support_Mike" is somebody you can thank, and
+// there is nothing to be gained by making it Operator #3.
+//
+// Support staff still see customers by name. They are answering a question
+// about a real account and often have to check they are talking to the person
+// who owns it, and a pseudonym there costs more than it protects.
 
-// Who a support ticket belongs to, kept out of the queue until somebody asks.
-//
-// The reason this is done on the server and not with CSS: anything the server
-// sends, a support operator can read. Hiding a name in the markup while still
-// putting it in the JSON is theatre — it stops nobody who opens devtools, and
-// it is worse than doing nothing because it looks like a protection.
-//
-// What this is actually for is the ordinary case, not the determined one.
-// Somebody working a queue of forty tickets does not need forty customers'
-// names and faces on screen to answer a question about an export failing, and
-// every one of those names is on a screen that gets shoulder-surfed, screen-
-// shared and screenshotted into bug reports. The name is one click away when
-// the job needs it, and that click is recorded.
-//
-// It is not a wall. An administrator can open the user list and read every
-// name in it, and support staff can look somebody up by email to raise a
-// ticket for them. Anybody claiming this makes identity unavailable would be
-// wrong. It makes casual exposure stop being the default.
-
-// Ambiguous characters left out, because these get read down a phone.
-const ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-
-// A stable, meaningless name for one person.
-//
-// Seeded from the account id where there is one, so the same customer reads as
-// the same pseudonym across every ticket they ever raise — which is the thing
-// support actually needs from a name ("this is the person who wrote last
-// week") without being told who they are. A guest has no account, so their
-// ticket id is the seed and the pseudonym lasts as long as the ticket.
-export function pseudonymFor(seed) {
-  if (seed === null || seed === undefined || seed === '') return 'Customer';
-  const digest = crypto.createHash('sha256').update(`taxify-support:${seed}`).digest();
-  let out = '';
-  for (let i = 0; i < 4; i++) out += ALPHABET[digest[i] % ALPHABET.length];
-  return `Customer ${out}`;
+// Everything before the first space, and only the letters. A double-barrelled
+// surname or a middle name is not part of a working name, and anything that is
+// not a letter is dropped so the label can never carry markup.
+export function firstNameOf(fullName) {
+  const first = String(fullName || '').trim().split(/\s+/)[0] || '';
+  const letters = first.replace(/[^\p{L}'-]/gu, '');
+  if (!letters) return '';
+  return letters.charAt(0).toUpperCase() + letters.slice(1);
 }
 
-// A colour for the placeholder avatar, from the same seed, so the row has
-// something to recognise at a glance that is not a face.
-export function pseudonymHue(seed) {
-  if (seed === null || seed === undefined || seed === '') return 210;
-  const digest = crypto.createHash('sha256').update(`taxify-support-hue:${seed}`).digest();
-  return digest[0] % 360;
+// The name a customer sees on a reply from us.
+export function supportDisplayName(fullName) {
+  const first = firstNameOf(fullName);
+  return first ? `Support_${first}` : 'Support';
 }
 
-// Which seed a ticket uses. Exported so the reveal endpoint and the list
-// cannot disagree about who a pseudonym refers to.
-export function seedForTicket(row) {
-  return row?.user_id ? `u${row.user_id}` : `t${row?.id}`;
-}
-
-// Strips the identifying fields out of a shaped ticket and puts the pseudonym
-// in their place.
+// Hides the person behind one message, for the customer's side of a thread.
 //
-// Deliberately deletes rather than blanks: an empty string still tells you
-// there was a field, and a later change that forgets to mask would show up as
-// a name appearing rather than as a blank quietly filling in.
-export function maskTicket(ticket, seed) {
-  const masked = { ...ticket };
-  delete masked.email;
-  delete masked.avatarUrl;
-  masked.who = pseudonymFor(seed);
-  masked.hue = pseudonymHue(seed);
-  masked.identityHidden = true;
-  return masked;
-}
-
-// The same for one message in a thread.
+// Only replies from support and only the display of them: the body is
+// untouched, and an internal note never reaches this because it is filtered
+// out long before, in messagesFor.
 //
-// Only the customer's own messages: a reply from support is signed by the
-// person who wrote it, and hiding staff from each other would stop a handover
-// working while protecting nobody who needs protecting.
-export function maskMessage(message, seed) {
-  if (message.role !== 'customer') return message;
+// avatarUrl is deleted rather than blanked. An empty string still says there
+// was a field, and a route added later that forgets to mask would look like a
+// blank quietly filling in rather than like a face appearing where none should
+// be.
+export function maskStaffMessage(message) {
+  if (!message || message.role !== 'support') return message;
   const masked = { ...message };
   delete masked.avatarUrl;
-  masked.name = pseudonymFor(seed);
-  masked.hue = pseudonymHue(seed);
-  masked.identityHidden = true;
+  masked.name = supportDisplayName(message.name);
+  // The client swaps in the Taxify mark on this, rather than deriving initials
+  // from "Support_Mike" — which would read as a person's initials and is not.
+  masked.fromSupport = true;
   return masked;
 }

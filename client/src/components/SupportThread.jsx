@@ -191,7 +191,21 @@ function Message({ message, canEdit, canDelete, onDelete, onEdit, onPreview }) {
       transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
       style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}
     >
-      <Avatar name={message.name} avatarUrl={message.avatarUrl} hue={message.hue ?? null} size={32} />
+      {/* The Taxify mark for a reply from us, rather than initials taken from
+          "Support_Mike" — those would read as a person's initials and are not
+          one. The customer sees who answered by first name and does not get
+          their surname or their photograph. */}
+      {message.fromSupport ? (
+        <img
+          src="/logo.svg"
+          alt=""
+          width="32"
+          height="32"
+          style={{ borderRadius: 7, flexShrink: 0 }}
+        />
+      ) : (
+        <Avatar name={message.name} avatarUrl={message.avatarUrl} size={32} />
+      )}
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 4 }}>
           <span style={{ fontSize: 13, fontWeight: 700 }}>{message.name || (support ? 'Support' : 'You')}</span>
@@ -451,8 +465,22 @@ export default function SupportThread({
   const first = useRef(true);
   useEffect(() => {
     if (!foot.current || !messages?.length) return;
-    foot.current.scrollIntoView({ block: 'end', behavior: first.current ? 'auto' : 'smooth' });
+
+    // After layout, not during it.
+    //
+    // The effect runs the moment React has written the DOM, which is before
+    // the browser has laid out an attachment thumbnail or a long body — so
+    // scrolling then aims at a position that is about to move, and the thread
+    // settles a few hundred pixels short of the bottom. Two frames: one for
+    // the layout to happen, one to scroll against the result.
+    const behavior = first.current ? 'auto' : 'smooth';
     first.current = false;
+    const frame = requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        foot.current?.scrollIntoView({ block: 'end', behavior });
+      });
+    });
+    return () => cancelAnimationFrame(frame);
     // Keyed on the last message rather than the array: polling hands back a
     // new array every few seconds, and scrolling on each one would drag the
     // page down under somebody reading further up.

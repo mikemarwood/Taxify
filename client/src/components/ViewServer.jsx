@@ -85,6 +85,64 @@ function Big({ label, value, sub, tone }) {
   );
 }
 
+// Fourteen days, as bars.
+//
+// Scaled to the tallest day rather than to a round number, because the shape
+// is the point and a fixed ceiling flattens a quiet fortnight into nothing.
+// Today is marked, so "the last bar is short" reads as a day still in progress
+// rather than as a fall.
+function Bars({ days, valueOf, colour, format }) {
+  const top = Math.max(1, ...days.map(valueOf));
+  return (
+    <div style={{ display: 'flex', alignItems: 'flex-end', gap: 4, height: 96 }}>
+      {days.map((d, i) => {
+        const value = valueOf(d);
+        const last = i === days.length - 1;
+        return (
+          <div
+            key={d.day}
+            title={`${new Date(d.day).toLocaleDateString(undefined, { day: 'numeric', month: 'short' })} — ${format(value)}`}
+            style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', justifyContent: 'flex-end', height: '100%' }}
+          >
+            <div
+              style={{
+                height: `${Math.max(value ? 6 : 2, (value / top) * 100)}%`,
+                borderRadius: 4,
+                background: value ? colour : 'rgba(255,255,255,.10)',
+                // Today is still being filled in, so it is drawn as an outline
+                // rather than as a shortfall.
+                outline: last ? '1px solid rgba(255,255,255,.45)' : 'none',
+                outlineOffset: -1,
+              }}
+            />
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+// A titled box. Same furniture as Feed, without the list.
+function Panel({ title, children }) {
+  return (
+    <div
+      style={{
+        flex: '1 1 340px',
+        minWidth: 0,
+        padding: '18px 20px',
+        borderRadius: 18,
+        background: 'rgba(255,255,255,.045)',
+        border: '1px solid rgba(255,255,255,.10)',
+      }}
+    >
+      <div style={{ fontSize: 13, letterSpacing: 1.2, textTransform: 'uppercase', color: 'rgba(234,241,251,.55)', marginBottom: 12 }}>
+        {title}
+      </div>
+      {children}
+    </div>
+  );
+}
+
 function Feed({ title, icon, rows, empty }) {
   return (
     <div
@@ -214,6 +272,27 @@ export default function ViewServer({ onClose }) {
               value={money(data.takings.monthCents)}
               sub={`${data.accounts.subscribed} subscribed · ${data.accounts.trialing} on trial`}
             />
+            {/* Unassigned is the number that needs somebody to do something,
+                so it is the one on the tile and it turns amber when it is not
+                zero. Held tickets are the quieter figure underneath. */}
+            <Big
+              label="Waiting on us"
+              value={data.support.unassigned}
+              sub={`${data.support.open} open · ${data.support.mine} yours`}
+              tone={data.support.unassigned > 0 ? '#fbbf24' : undefined}
+            />
+          </div>
+
+          {/* The fortnight, so a number has something to be read against. A
+              "3" on its own says nothing; a 3 at the end of a rising fortnight
+              says something. */}
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 'clamp(12px, 1.6vw, 18px)' }}>
+            <Panel title="Sign-ups, 14 days">
+              <Bars days={data.days} valueOf={(d) => d.signups} colour="#8fc0ff" format={(v) => `${v} sign-up${v === 1 ? '' : 's'}`} />
+            </Panel>
+            <Panel title="Taken, 14 days">
+              <Bars days={data.days} valueOf={(d) => d.cents} colour="#34d399" format={(v) => money(v)} />
+            </Panel>
           </div>
 
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 'clamp(12px, 1.6vw, 18px)' }}>

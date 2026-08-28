@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useConfirm } from '../lib/ConfirmContext.jsx';
 import { useLockBodyScroll } from '../lib/useLockBodyScroll.js';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -11,13 +11,13 @@ import ReceiptLightbox from './ReceiptLightbox.jsx';
 import ReceiptPreview from './ReceiptPreview.jsx';
 import Icon from './Icon.jsx';
 import { formatAmount, formatMoney, parseAmount, amountWhileTyping, amountOnBlur, currencySymbol } from '../lib/money.js';
+import { currenciesFor } from '../lib/currencies.js';
 import { onDigitKeyDown, playOpen, playClose } from '../lib/sounds.js';
 import { useAuth } from '../lib/AuthContext.jsx';
 import { useEntities } from '../lib/EntityContext.jsx';
 import { financialYearOf } from '../lib/financialYear.js';
 import { formatDateShort, formatDateLong, todayIso } from '../lib/dates.js';
 
-const CURRENCIES = ['AUD', 'USD', 'NZD', 'GBP', 'EUR'];
 
 function capitalizeWords(str) {
   return str.replace(/(^|\s)([a-z])/g, (m, sep, ch) => sep + ch.toUpperCase());
@@ -81,9 +81,24 @@ export default function ExpenseModal({ expense, onClose, onSaved, onDeleted }) {
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [lightboxOpen, setLightboxOpen] = useState(false);
 
+  // The panel opens at its own top, and goes back there on Edit.
+  //
+  // It scrolls inside itself, and a scroll position survives the switch from
+  // reading an expense to editing it — so pressing Edit on a long one left the
+  // form opened somewhere down its middle, with the heading and the amount
+  // above the fold. Keyed on `editing` as well as the expense, because that
+  // switch replaces the whole contents of the same scrolling box.
+  const panel = useRef(null);
+  useLayoutEffect(() => {
+    if (panel.current) panel.current.scrollTop = 0;
+  }, [editing, expense.id]);
+
   const [itemName, setItemName] = useState(expense.itemName);
   const [amount, setAmount] = useState(String(expense.amount));
-  const [currency, setCurrency] = useState(expense.currency || 'AUD');
+  // The expense's own currency, or the account's — never a hardcoded AUD,
+  // which was somebody in Canada opening a new expense already set to the
+  // wrong money.
+  const [currency, setCurrency] = useState(expense.currency || user?.currency || 'AUD');
   const [purchaseDate, setPurchaseDate] = useState(expense.purchaseDate.slice(0, 10));
   const [categoryId, setCategoryId] = useState(expense.category ? String(expense.category.id) : '');
   const [isRecurring, setIsRecurring] = useState(!!expense.isRecurring);
@@ -234,6 +249,7 @@ export default function ExpenseModal({ expense, onClose, onSaved, onDeleted }) {
           exit={{ opacity: 0, y: 8, scale: 0.97 }}
           transition={{ duration: 0.2, ease: 'easeOut' }}
           className="card"
+          ref={panel}
           style={{
             width: '100%',
             maxWidth: 480,
@@ -325,12 +341,23 @@ export default function ExpenseModal({ expense, onClose, onSaved, onDeleted }) {
                       // thrown away and the "$" sat against the first digit.
                       // Nothing warns about a duplicate prop; the later one
                       // simply wins.
-                      style={{ flex: 1, minWidth: 0, paddingLeft: 28 }}
+                      // Room for whatever the prefix actually is.
+                      //
+                      // currencySymbol returns the three-letter code for every
+                      // currency except the account's own, so a flat 28px was
+                      // right for "$" and left "USD" sitting on top of the
+                      // first digit.
+                      style={{ flex: 1, minWidth: 0, paddingLeft: 14 + currencySymbol(currency).length * 9 }}
                     />
-                    <select className="input" value={currency} onChange={(e) => setCurrency(e.target.value)} style={{ width: 90 }}>
-                      {CURRENCIES.map((c) => (
-                        <option key={c} value={c}>
-                          {c}
+                    <select
+                      className="input"
+                      value={currency}
+                      onChange={(e) => setCurrency(e.target.value)}
+                      style={{ width: 104, flexShrink: 0 }}
+                    >
+                      {currenciesFor(user?.currency).map((c) => (
+                        <option key={c.code} value={c.code}>
+                          {c.code} — {c.name}
                         </option>
                       ))}
                     </select>

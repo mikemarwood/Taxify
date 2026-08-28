@@ -16,7 +16,7 @@ import { onCasedInput } from '../lib/casedInput.js';
 
 function CategoryCards({ categories, value, onChange }) {
   return (
-    <div style={{ display: 'grid', gap: 8, gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))' }}>
+    <div className="support-cats" style={{ display: 'grid', gap: 8, gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))' }}>
       {categories.map((c) => {
         const on = value === c.value;
         return (
@@ -37,7 +37,13 @@ function CategoryCards({ categories, value, onChange }) {
             }}
           >
             <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 2 }}>{c.label}</div>
-            <div style={{ fontSize: 11.5, color: 'var(--text-muted)', lineHeight: 1.45 }}>{c.hint}</div>
+            {/* The hint is the first thing to go on a phone — see
+                .support-cats. Seven cards each carrying a label and a line of
+                explanation is most of a small screen before the form has
+                started. */}
+            <div className="support-cat-hint" style={{ fontSize: 11.5, color: 'var(--text-muted)', lineHeight: 1.45 }}>
+              {c.hint}
+            </div>
           </button>
         );
       })}
@@ -224,7 +230,6 @@ function NewTicket({ user, onRaised }) {
       <div>
         <label className="label">Tell us what happened</label>
         <textarea
-          className="input"
           required
           rows={7}
           maxLength={MESSAGE_MAX}
@@ -237,6 +242,24 @@ function NewTicket({ user, onRaised }) {
           // away. The live pass has already fixed the capitals; the only thing
           // left worth doing is dropping trailing blank space.
           onBlur={() => setMessage(trimTrailing(message))}
+          // Brought into view once the keyboard has finished coming up.
+          //
+          // On a phone this is a seven-row box near the foot of a long form,
+          // so the software keyboard covered it the moment it was tapped and
+          // the words being typed were behind it. The browser scrolls a
+          // focused field into view on its own, but it does that against the
+          // viewport as it was before the keyboard appeared, which is why it
+          // was not enough here. A beat later, against the viewport that
+          // actually exists, it is.
+          //
+          // 'center' rather than 'start': the counter and the attachment
+          // picker underneath belong to this field, and putting its top edge
+          // at the top of the screen pushes both of them off it.
+          onFocus={(e) => {
+            const el = e.currentTarget;
+            setTimeout(() => el.scrollIntoView({ block: 'center', behavior: 'smooth' }), 300);
+          }}
+          className="input support-message"
           style={{ resize: 'vertical', fontSize: 13.5, lineHeight: 1.6 }}
         />
         <Counter value={message} min={MESSAGE_MIN} max={MESSAGE_MAX} />

@@ -1,97 +1,68 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { pseudonymFor, pseudonymHue, seedForTicket, maskTicket, maskMessage } from './supportIdentity.js';
+import { firstNameOf, supportDisplayName, maskStaffMessage } from './supportIdentity.js';
 
-test('the same person reads as the same pseudonym every time', () => {
-  // The property support actually needs from a name: recognising that this is
-  // the person who wrote last week, without being told who they are.
-  assert.equal(pseudonymFor('u42'), pseudonymFor('u42'));
-  assert.notEqual(pseudonymFor('u42'), pseudonymFor('u43'));
+test('a reply is signed with a first name somebody can address', () => {
+  // Not Operator #3. The point is a customer knowing a person answered and
+  // being able to thank them by name — only the surname and the photograph
+  // are worth withholding.
+  assert.equal(supportDisplayName('Mike Marwood'), 'Support_Mike');
+  assert.equal(supportDisplayName('mike'), 'Support_Mike');
 });
 
-test('a pseudonym can be read down a phone', () => {
-  // No 0/O or 1/I, because these get quoted aloud between staff.
-  for (const seed of ['u1', 'u2', 'u999', 't7', 'guest']) {
-    const label = pseudonymFor(seed);
-    assert.match(label, /^Customer [A-Z2-9]{4}$/, label);
-    assert.ok(!/[01OI]/.test(label.slice(9)), label);
+test('only the working name survives', () => {
+  assert.equal(firstNameOf('Anne-Marie Dubois'), 'Anne-Marie');
+  assert.equal(firstNameOf("O'Brien"), "O'Brien");
+  assert.equal(firstNameOf('  jane   smith  '), 'Jane');
+});
+
+test('a name that is not a name does not produce a broken label', () => {
+  // The column is free text and has held an empty string before now. A label
+  // reading "Support_" or "Support_undefined" is worse than no name at all.
+  for (const bad of ['', '   ', null, undefined, '???', '42']) {
+    assert.equal(supportDisplayName(bad), 'Support', JSON.stringify(bad));
   }
 });
 
-test('nothing identifying survives masking a ticket', () => {
-  const shaped = {
-    id: 9,
-    reference: 'TX-1234',
-    subject: 'Export failed',
-    who: 'Jane Smith',
-    email: 'jane@example.com',
-    avatarUrl: '/api/auth/avatar/42',
-    status: 'awaiting_support',
-  };
-  const masked = maskTicket(shaped, 'u42');
-
-  assert.ok(!('email' in masked), 'the address is gone, not blanked');
-  assert.ok(!('avatarUrl' in masked), 'the face is gone, not blanked');
-  assert.equal(masked.who, pseudonymFor('u42'));
-  assert.equal(masked.identityHidden, true);
-
-  // Everything the queue needs to do its job is untouched.
-  assert.equal(masked.subject, 'Export failed');
-  assert.equal(masked.reference, 'TX-1234');
-  assert.equal(masked.status, 'awaiting_support');
-
-  // And the original is not mutated — the caller may still need it to send an
-  // email about the very ticket it just masked for display.
-  assert.equal(shaped.email, 'jane@example.com');
+test('nothing that could carry markup gets into the label', () => {
+  // It is rendered as text, but this is a name from a database going onto a
+  // page a stranger reads, so the characters are limited at the source too.
+  // Asserting the property rather than the exact output: what matters is that
+  // no angle bracket, quote or slash can reach the page, not which letters
+  // survive the stripping.
+  for (const nasty of ['<script>alert(1)</script>', '<b>Mike</b>', 'Mike" onload="x', "Mike'); drop--"]) {
+    const label = supportDisplayName(nasty);
+    // The apostrophe is deliberately not on this list: O'Brien is a name, and
+    // the label is rendered as text where an apostrophe is only an apostrophe.
+    assert.ok(!/[<>"/()&;]/.test(label.replace(/^Support_/, '')), label);
+  }
 });
 
-test('deleted rather than blanked, so a missed mask shows up as a name', () => {
-  // An empty string still says there was a field there, and a later change
-  // that forgets to mask would look like a blank quietly filling in rather
-  // than like a name appearing where none should be.
-  const masked = maskTicket({ who: 'Jane', email: 'j@e.com', avatarUrl: '/x' }, 'u1');
-  assert.equal(Object.prototype.hasOwnProperty.call(masked, 'email'), false);
+test('the face goes, and it goes rather than being blanked', () => {
+  const reply = { role: 'support', name: 'Mike Marwood', avatarUrl: '/api/auth/avatar/1', body: 'Try this.' };
+  const masked = maskStaffMessage(reply);
+
+  assert.equal(masked.name, 'Support_Mike');
   assert.equal(Object.prototype.hasOwnProperty.call(masked, 'avatarUrl'), false);
+  assert.equal(masked.fromSupport, true);
+  // What they wrote is not touched. This hides who, never what.
+  assert.equal(masked.body, 'Try this.');
+  // And the original survives, because the same row is used to send email.
+  assert.equal(reply.name, 'Mike Marwood');
 });
 
-test('only the customer is masked in a thread', () => {
-  // A reply from support is signed by whoever wrote it. Hiding staff from each
-  // other would break a handover and protect nobody who needs protecting.
-  const fromStaff = { role: 'support', name: 'Mike', avatarUrl: '/api/auth/avatar/1' };
-  assert.deepEqual(maskMessage(fromStaff, 'u42'), fromStaff);
-
-  const note = { role: 'note', name: 'Mike' };
-  assert.deepEqual(maskMessage(note, 'u42'), note);
-
-  const fromCustomer = { role: 'customer', name: 'Jane Smith', avatarUrl: '/api/auth/avatar/42' };
-  const masked = maskMessage(fromCustomer, 'u42');
-  assert.equal(masked.name, pseudonymFor('u42'));
-  assert.ok(!('avatarUrl' in masked));
+test('the customer is never masked on their own thread', () => {
+  // They wrote it. Replacing their own name with a pseudonym in their own
+  // conversation would be baffling, and it is the reason the earlier version
+  // of this file was wrong.
+  const mine = { role: 'customer', name: 'Jane Smith', avatarUrl: '/api/auth/avatar/42' };
+  assert.deepEqual(maskStaffMessage(mine), mine);
 });
 
-test('a signed-in customer keeps one pseudonym across their tickets', () => {
-  const first = seedForTicket({ id: 1, user_id: 42 });
-  const second = seedForTicket({ id: 99, user_id: 42 });
-  assert.equal(first, second);
-  assert.equal(pseudonymFor(first), pseudonymFor(second));
-});
-
-test('a guest is seeded from the ticket, because there is no account', () => {
-  const a = seedForTicket({ id: 7, user_id: null });
-  const b = seedForTicket({ id: 8, user_id: null });
-  assert.notEqual(a, b);
-});
-
-test('the hue is stable and in range', () => {
-  for (const seed of ['u1', 'u2', 't3', '']) {
-    const hue = pseudonymHue(seed);
-    assert.ok(Number.isInteger(hue) && hue >= 0 && hue < 360, String(hue));
-    assert.equal(hue, pseudonymHue(seed));
-  }
-});
-
-test('a missing seed does not produce the word undefined on screen', () => {
-  assert.equal(pseudonymFor(null), 'Customer');
-  assert.equal(pseudonymFor(undefined), 'Customer');
-  assert.equal(pseudonymFor(''), 'Customer');
+test('an internal note is passed through untouched', () => {
+  // Notes never reach a customer at all — messagesFor filters them out long
+  // before this. Masking one would only hide a name from the staff who wrote
+  // it for each other.
+  const note = { role: 'note', name: 'Mike Marwood' };
+  assert.deepEqual(maskStaffMessage(note), note);
 });

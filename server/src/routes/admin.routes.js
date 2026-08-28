@@ -1383,9 +1383,63 @@ router.get(
          FROM users WHERE role = 'owner' ORDER BY created_at DESC LIMIT 8`
     );
 
+    // The queue, live. Two numbers rather than a list, because this is read
+    // from across a room: how many nobody has picked up, and how many are
+    // waiting on us at all.
+    const [[queue]] = await pool.query(
+      `SELECT
+         SUM(status <> 'closed' AND assigned_to IS NULL) AS unassigned,
+         SUM(status = 'awaiting_support') AS awaiting,
+         SUM(status <> 'closed') AS open
+       FROM support_tickets`
+    );
+    const [[mine]] = await pool.execute(
+      `SELECT COUNT(*) AS n FROM support_tickets WHERE assigned_to = ? AND status <> 'closed'`,
+      [req.user.id]
+    );
+
+    // Fourteen days of sign-ups, for the chart. Small enough to send every few
+    // seconds and long enough to show a shape.
+    const [signupDays] = await pool.query(
+      `SELECT DATE(created_at) AS day, COUNT(*) AS n
+         FROM users
+        WHERE role = 'owner' AND created_at >= CURDATE() - INTERVAL 13 DAY
+        GROUP BY DATE(created_at) ORDER BY day`
+    );
+    const [takingDays] = await pool.query(
+      `SELECT DATE(paid_at) AS day, COALESCE(SUM(amount_cents), 0) AS cents
+         FROM payments
+        WHERE paid_at >= CURDATE() - INTERVAL 13 DAY
+        GROUP BY DATE(paid_at) ORDER BY day`
+    );
+
+    // Filled to a full fourteen so the chart has no gaps and every render has
+    // the same number of columns — a bar that moves sideways because a quiet
+    // day was skipped is a chart nobody trusts.
+    const days = [];
+    for (let i = 13; i >= 0; i--) {
+      const d = new Date();
+      d.setDate(d.getDate() - i);
+      const key = d.toISOString().slice(0, 10);
+      const signups = signupDays.find((r) => String(r.day).slice(0, 10) === key);
+      const taking = takingDays.find((r) => String(r.day).slice(0, 10) === key);
+      days.push({
+        day: key,
+        signups: Number(signups?.n) || 0,
+        cents: Number(taking?.cents) || 0,
+      });
+    }
+
     res.set('Cache-Control', 'no-store');
     res.json({
       at: new Date().toISOString(),
+      support: {
+        unassigned: Number(queue.unassigned) || 0,
+        awaiting: Number(queue.awaiting) || 0,
+        open: Number(queue.open) || 0,
+        mine: Number(mine.n) || 0,
+      },
+      days,
       online: Number(online.count) || 0,
       activeToday: Number(activeToday.count) || 0,
       signupsToday: Number(signupsToday.count) || 0,
