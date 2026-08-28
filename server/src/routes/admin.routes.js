@@ -1379,7 +1379,7 @@ router.get(
         ORDER BY p.paid_at DESC LIMIT 8`
     );
     const [recentSignups] = await pool.query(
-      `SELECT created_at, country, plan_type, activated_at
+      `SELECT name, created_at, country, plan_type, activated_at
          FROM users WHERE role = 'owner' ORDER BY created_at DESC LIMIT 8`
     );
 
@@ -1463,6 +1463,14 @@ router.get(
         at: p.paid_at,
       })),
       signups: recentSignups.map((u) => ({
+        // Named, at the owner's request.
+        //
+        // Worth being plain about what it changes: this screen is meant to be
+        // cast to a television, so a name here is a customer's name on a wall
+        // for as long as it stays in the last eight sign-ups. The money feed
+        // below is still anonymous, which is the half that would otherwise say
+        // who paid what.
+        name: u.name,
         at: u.created_at,
         country: u.country || null,
         planType: u.plan_type || null,

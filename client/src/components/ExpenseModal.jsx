@@ -353,11 +353,11 @@ export default function ExpenseModal({ expense, onClose, onSaved, onDeleted }) {
                       className="input"
                       value={currency}
                       onChange={(e) => setCurrency(e.target.value)}
-                      style={{ width: 104, flexShrink: 0 }}
+                      style={{ width: 86, flexShrink: 0 }}
                     >
                       {currenciesFor(user?.currency).map((c) => (
                         <option key={c.code} value={c.code}>
-                          {c.code} — {c.name}
+                          {c.code}
                         </option>
                       ))}
                     </select>

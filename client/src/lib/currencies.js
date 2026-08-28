@@ -6,8 +6,11 @@
 // Singapore had an account currency the expense form could not offer, and
 // their own money was not on the list of things they could spend.
 //
-// Codes only would be shorter, but a dropdown reading "SGD" against "HKD"
-// against "SEK" is a memory test. The name is what makes it a choice.
+// The name is carried here but not shown on the expense forms: "AUD" is what
+// people call their money, and "AUD — Australian Dollar" repeated twenty-nine
+// times makes a narrow control wide for no gain. It stays on the record
+// because a screen that does want to spell a currency out should not have to
+// keep its own table to do it.
 export const CURRENCIES = [
   { code: 'AUD', name: 'Australian Dollar', symbol: '$' },
   { code: 'NZD', name: 'New Zealand Dollar', symbol: '$' },

@@ -16,9 +16,11 @@ import { formatMoney } from '../lib/money.js';
 // the feeds — sits at reading size, because that is detail somebody walks over
 // to look at rather than something to be legible from the doorway.
 //
-// No customer names anywhere on it. A screen people walk past is not the place
-// for who paid what; the amount, the plan and the country say how the business
-// is doing without putting a person on a wall.
+// New sign-ups are named; payments are not. That split is deliberate and was
+// asked for: seeing who has just joined is most of the point of watching this,
+// and a name stays on screen only while it is in the last eight. What is kept
+// off it is who paid what — the amount, the plan and the country say how the
+// business is doing without attaching a sum of money to a person on a wall.
 
 const POLL_MS = 5000;
 
@@ -352,8 +354,10 @@ export default function ViewServer({ onClose }) {
                 <Row
                   key={i}
                   tone={u.activated ? undefined : '#fbbf24'}
-                  lead={u.planType ? titleCase(u.planType) : 'No Plan'}
-                  detail={[u.country, u.activated ? null : 'Not activated'].filter(Boolean).join(' · ')}
+                  lead={u.name || 'Unnamed'}
+                  detail={[u.planType && titleCase(u.planType), u.country, u.activated ? null : 'Not activated']
+                    .filter(Boolean)
+                    .join(' · ')}
                   right={when(u.at)}
                 />
               ))}
