@@ -1,25 +1,46 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-  The status bar icon. Android masks these to a flat silhouette, so the colours
-  and the badge are dropped on purpose — anything but white on transparent comes
-  out as a grey blob. The tint in the push payload is what puts the brand colour
-  behind it in the shade.
+  The status bar icon.
+
+  Android masks these to a flat silhouette, so colour and the rounded tile are
+  dropped on purpose — anything but white on transparent comes out as a grey
+  blob. The tint in the push payload is what puts the brand colour behind it in
+  the shade.
+
+  Redrawn from logo.svg rather than approximated. Each bar was written as a
+  rounded-rect path whose straight edge ran the full width, which adds a radius
+  at each end: 57 units wide against the logo's 50, and the lower bar sitting
+  six units right of where the mark puts it.
+
+  Heavier than the logo, deliberately. This renders at 24dp — about a
+  fingernail — in a row of other apps' icons. The logo's 13-unit bars come out
+  as hairlines at that size and the arrowheads close into blobs, so the bars are
+  18 and the heads are wider. It reads as the same mark at the size it is
+  actually seen, which is the only size that matters here.
+
+  Kept within the middle of the viewport, because a notification icon is
+  cropped to a circle and anything near a corner is lost.
 -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="24dp"
     android:height="24dp"
     android:viewportWidth="128"
     android:viewportHeight="128">
+
+    <!-- Money out: bar left, head right. -->
     <path
         android:fillColor="#FFFFFFFF"
-        android:pathData="M30,40 L74,40 A6.5,6.5 0 0 1 74,53 L30,53 A6.5,6.5 0 0 1 30,40 Z" />
+        android:pathData="M35,38 L74,38 A9,9 0 0 1 74,56 L35,56 A9,9 0 0 1 35,38 Z" />
     <path
         android:fillColor="#FFFFFFFF"
-        android:pathData="M74,30 L100,46.5 L74,63 Z" />
+        android:pathData="M70,25 L103,47 L70,69 Z" />
+
+    <!-- Money back: the same shape turned 180 degrees about the centre, which
+         is what makes the mark balanced either way up. -->
     <path
         android:fillColor="#FFFFFFFF"
-        android:pathData="M54,76 L98,76 A6.5,6.5 0 0 1 98,89 L54,89 A6.5,6.5 0 0 1 54,76 Z" />
+        android:pathData="M54,72 L93,72 A9,9 0 0 1 93,90 L54,90 A9,9 0 0 1 54,72 Z" />
     <path
         android:fillColor="#FFFFFFFF"
-        android:pathData="M54,66 L28,82.5 L54,99 Z" />
+        android:pathData="M58,59 L25,81 L58,103 Z" />
 </vector>

@@ -29,6 +29,7 @@ import PushSettingsTab from '../components/PushSettingsTab.jsx';
 import { IconPicker, ColourPicker, CategoryPreview, SWATCHES } from '../components/CategoryPickers.jsx';
 import Avatar from '../components/Avatar.jsx';
 import AdminUserDetail from '../components/AdminUserDetail.jsx';
+import ViewServer from '../components/ViewServer.jsx';
 import { planLabel } from '../lib/plans.js';
 import { autoFocusFields } from '../lib/device.js';
 
@@ -179,6 +180,7 @@ export default function Admin() {
   // worth writing down.
   const fallback = supportOnly ? 'support' : 'stats';
   const [tab, setTabState] = useState(allowed.includes(requested) ? requested : fallback);
+  const [serverView, setServerView] = useState(false);
 
   // Kept in the URL, so the tab survives a refresh and can be linked to.
   function setTab(next) {
@@ -186,10 +188,28 @@ export default function Admin() {
     setSearchParams(next === 'stats' ? {} : { tab: next }, { replace: true });
   }
 
+  if (serverView) return <ViewServer onClose={() => setServerView(false)} />;
+
   return (
     <div style={{ maxWidth: tab === 'stats' || tab === 'support' || tab === 'how' ? 1100 : 760 }}>
-      <h1 style={{ margin: '0 0 4px', fontSize: 26 }}>Administration</h1>
-      <p style={{ color: 'var(--text-muted)', margin: '0 0 24px' }}>Manage user accounts and the default category template.</p>
+      <div style={{ display: 'flex', alignItems: 'flex-start', gap: 16, flexWrap: 'wrap' }}>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <h1 style={{ margin: '0 0 4px', fontSize: 26 }}>Administration</h1>
+          <p style={{ color: 'var(--text-muted)', margin: '0 0 24px' }}>
+            Manage user accounts and the default category template.
+          </p>
+        </div>
+        {/* The wall display. Not a tab, because it is full-screen and meant to
+            be cast or left on a spare monitor rather than read inside the
+            panel — a tab would put the site's own navigation around something
+            designed to be looked at from across a room. */}
+        {!supportOnly && (
+          <button className="btn btn-ghost" style={{ fontSize: 13, gap: 7 }} onClick={() => setServerView(true)}>
+            <Icon name="chart" size={15} />
+            View Server
+          </button>
+        )}
+      </div>
 
       {/* One bordered strip rather than eleven loose pills. The groups are
           separated by a rule, not by a gap somebody has to interpret. */}
@@ -347,6 +367,32 @@ function UsersTab() {
     api.get('/admin/users').then((res) => setUsers(res.data.users));
   }
   useEffect(load, []);
+
+  // Keeps itself up to date, so somebody watching this list sees an account
+  // appear rather than finding out by pressing refresh.
+  //
+  // Fifteen seconds, and paused while a detail panel is open: reloading the
+  // list under an open panel is how a half-read screen changes under somebody
+  // — and the panel holds its own copy of the account anyway, so refreshing
+  // behind it would achieve nothing except making the row jump.
+  //
+  // Paused too when the tab is hidden. A wall of admin screens left open
+  // overnight should not be a query every fifteen seconds each until morning.
+  useEffect(() => {
+    if (detailId) return undefined;
+    const timer = setInterval(() => {
+      if (document.hidden) return;
+      api
+        .get('/admin/users')
+        .then((res) => setUsers(res.data.users))
+        .catch(() => {
+          // A failed poll leaves the list as it was. Replacing a working
+          // screen with an error because one request missed is worse than
+          // showing figures fifteen seconds old.
+        });
+    }, 15000);
+    return () => clearInterval(timer);
+  }, [detailId]);
   // Confirmed by AdminUserDetail before this is called — it can ask in a
   // dialog that looks like the rest of the app, which window.confirm cannot.
   async function viewAs(u) {

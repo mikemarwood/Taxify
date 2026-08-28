@@ -15,6 +15,8 @@ import {
 import { invoicesDir, invoiceFilename, shapeInvoice, isStored, storeInvoicePdf } from '../lib/invoiceStorage.js';
 import { serveAttachment } from '../lib/serveAttachment.js';
 import { publicOrigin, appOrigin } from '../lib/publicOrigin.js';
+import { sendAdminPaymentEmail } from '../lib/mailer.js';
+import { formatMoney } from '../lib/exportMoney.js';
 import { notify, notifyAdmins } from '../lib/notify.js';
 import { planLabel } from '../lib/planLimits.js';
 import { shouldApplyPayment } from '../lib/planRequests.js';
@@ -847,6 +849,50 @@ router.post(
             // Never fail the webhook over bookkeeping. Stripe retries a
             // failure, and a retry would redo the parts that already worked.
             console.error('Could not record the payment', err.message);
+          }
+
+          // Tell whoever runs the place, once.
+          //
+          // Gated on the INSERT IGNORE above having actually inserted, which
+          // is what makes this safe against Stripe's redeliveries: a webhook
+          // arriving twice records one payment and sends one email. Reading
+          // affectedRows rather than trying to remember what has been sent.
+          try {
+            const [[fresh]] = await pool.execute(
+              'SELECT id FROM payments WHERE stripe_invoice_id = ? AND notified_admins_at IS NULL',
+              [invoice.id]
+            );
+            if (fresh) {
+              await pool.execute('UPDATE payments SET notified_admins_at = NOW() WHERE id = ?', [fresh.id]);
+
+              const [admins] = await pool.query(
+                "SELECT email, name FROM users WHERE is_admin = 1 AND activated_at IS NOT NULL"
+              );
+              const [[who]] = owner[0]?.id
+                ? await pool.execute('SELECT name, email FROM users WHERE id = ?', [owner[0].id])
+                : [[null]];
+
+              const money = formatMoney((invoice.amount_paid ?? 0) / 100, (invoice.currency || 'aud').toUpperCase());
+              for (const admin of admins) {
+                try {
+                  await sendAdminPaymentEmail(admin.email, {
+                    customerName: who?.name,
+                    customerEmail: who?.email,
+                    amount: money,
+                    kind: invoice.metadata?.planChangeRequestId ? 'plan_change' : 'subscription',
+                    description: invoice.description || invoice.lines?.data?.[0]?.description || null,
+                    invoiceUrl: invoice.hosted_invoice_url || null,
+                    adminUrl: `${appOrigin()}/admin`,
+                  });
+                } catch (err) {
+                  console.error(`Recorded the payment but could not tell ${admin.email}`, err.message);
+                }
+              }
+            }
+          } catch (err) {
+            // Same rule as the bookkeeping above: an email is never a reason
+            // to make Stripe retry a webhook that otherwise worked.
+            console.error('Could not send the payment notification', err.message);
           }
 
           if (owner[0]?.id) {

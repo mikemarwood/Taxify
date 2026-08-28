@@ -1,6 +1,6 @@
 {
-  "versionCode": 10,
-  "versionName": "1.2.3",
+  "versionCode": 11,
+  "versionName": "1.2.4",
   "minVersionCode": 10,
-  "notes": "Receipts photograph with the rear camera, downloads and exports save to your phone, and there is a proper page when you are offline."
+  "notes": "Trips record where they went, entries have a reference number, and the notification icon is the Taxify mark."
 }

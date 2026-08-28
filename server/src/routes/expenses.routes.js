@@ -21,6 +21,7 @@ import { isKnownCurrency } from '../lib/geoData.js';
 import { suggestCategory } from '../lib/categorySuggest.js';
 import { receiptDirFor, receiptRelDirFor, assertWithin, uniqueFilenameIn } from '../lib/receiptStorage.js';
 import { isFutureDate, FUTURE_DATE_MESSAGE } from '../lib/expenseDate.js';
+import { nextEntryNumber } from '../lib/entryNumber.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const uploadsDir = path.join(__dirname, '..', '..', 'uploads');
@@ -178,7 +179,7 @@ router.get(
     // carries the year restriction as well as whose rows may be read.
     const scope = await expenseScope(req.user);
     const [rows] = await pool.execute(
-      `SELECT e.id, e.user_id, e.item_name, e.amount, e.currency, e.purchase_date, e.receipt_path,
+      `SELECT e.id, e.entry_no, e.user_id, e.item_name, e.amount, e.currency, e.purchase_date, e.receipt_path,
               e.is_recurring, e.frequency, e.notes, e.created_at, e.updated_at, e.auto_generated,
               e.base_amount, e.base_currency, e.fx_rate, e.fx_rate_source, e.business_use_pct,
               creator.name AS created_by_name, editor.name AS updated_by_name,
@@ -196,6 +197,7 @@ router.get(
 
     const expenses = rows.map((r) => ({
       id: r.id,
+      entryNo: r.entry_no,
       // Carried on every row so a combined list can say which books each one is
       // in. Two businesses can each have a Tooling category, and without this
       // they are indistinguishable in a list that shows both.
@@ -361,7 +363,7 @@ router.get(
   asyncHandler(async (req, res) => {
     const visibleUserIds = await getVisibleUserIds(req.user);
     const [rows] = await pool.execute(
-      `SELECT id, item_name, amount, currency, purchase_date FROM expenses
+      `SELECT id, entry_no, item_name, amount, currency, purchase_date FROM expenses
        WHERE user_id IN (${visibleUserIds.map(() => '?').join(',')}) AND auto_generated = 1 AND notified_at IS NULL`,
       visibleUserIds
     );
@@ -376,6 +378,7 @@ router.get(
     res.json({
       expenses: rows.map((r) => ({
         id: r.id,
+        entryNo: r.entry_no,
         itemName: r.item_name,
         amount: Number(r.amount),
         currency: r.currency,
@@ -502,11 +505,13 @@ router.post(
       const recurring = isRecurring === 'true' || isRecurring === true;
       const nextDueDate = recurring ? advanceDate(purchaseDate, frequency) : null;
 
+      // One number across expenses, trips and hours — see entryNumber.js.
+      const entryNo = await nextEntryNumber(pool);
       const [result] = await pool.execute(
         `INSERT INTO expenses (user_id, entity_id, created_by, category_id, item_name, amount, currency, purchase_date,
            receipt_path, is_recurring, frequency, notes, next_due_date,
-           base_currency, base_amount, fx_rate, fx_rate_source, fx_rate_date, business_use_pct)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+           base_currency, base_amount, fx_rate, fx_rate_source, fx_rate_date, business_use_pct, entry_no)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
           req.user.id,
           entityId,
@@ -527,10 +532,11 @@ router.post(
           money.source,
           money.rateDate,
           businessUsePct,
+          entryNo,
         ]
       );
 
-      res.status(201).json({ id: result.insertId });
+      res.status(201).json({ id: result.insertId, entryNo });
     } catch (err) {
       cleanupUpload();
       throw err;

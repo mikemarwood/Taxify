@@ -5,7 +5,7 @@ import { MaintenanceLoginNotice } from '../components/MaintenanceBoundary.jsx';
 import { useAuth } from '../lib/AuthContext.jsx';
 import { autoFocusFields } from '../lib/device.js';
 import { useToast } from '../components/Toast.jsx';
-import { onDigitKeyDown } from '../lib/sounds.js';
+import { onDialpadKeyDown, playSuccess, playError } from '../lib/sounds.js';
 import { api } from '../lib/api.js';
 import Toggle from '../components/Toggle.jsx';
 import Icon from '../components/Icon.jsx';
@@ -135,8 +135,14 @@ export default function Login() {
     setBusy(true);
     try {
       const user = await verifyOtp(otpState.userId, value, publicDevice);
+      // Before the navigation, or the page it plays on is already gone.
+      playSuccess();
       navigate(homePathFor(user));
     } catch (err) {
+      // A refused code is worth hearing as well as reading: the box clears
+      // itself, so without a sound the only evidence of a wrong answer is a
+      // toast in the corner and four digits that vanished.
+      playError();
       if (err.lockedUntil) {
         lockAccount(err.lockedUntil, err.lockedForSeconds);
         setOtpState(null);
@@ -214,7 +220,7 @@ export default function Login() {
               disabled={busy}
               value={code}
               onChange={(e) => onCodeChange(e.target.value)}
-              onKeyDown={onDigitKeyDown}
+              onKeyDown={onDialpadKeyDown}
               style={{ fontSize: 22, letterSpacing: 8, textAlign: 'center' }}
             />
           </div>

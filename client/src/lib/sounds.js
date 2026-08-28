@@ -95,6 +95,39 @@ export function playKeypadBeep() {
   tone(1050, { start: 0, duration: 0.045, type: 'square', peak: 0.04 });
 }
 
+// The real thing: a telephone keypad tone.
+//
+// DTMF is two sine waves at once — one for the row, one for the column — and
+// that pair is why a dialled number sounds like a dialled number rather than
+// like a beep. Entering a code that arrived by text is the one place in this
+// app where somebody is doing something that genuinely is dialling, so it is
+// worth being the actual sound and not an impression of one.
+//
+// Quiet and short. This fires four times in two seconds on a phone that may be
+// held to somebody's face.
+const DTMF_ROW = [697, 770, 852, 941];
+const DTMF_COL = [1209, 1336, 1477];
+const DTMF_GRID = {
+  1: [0, 0], 2: [0, 1], 3: [0, 2],
+  4: [1, 0], 5: [1, 1], 6: [1, 2],
+  7: [2, 0], 8: [2, 1], 9: [2, 2],
+  '*': [3, 0], 0: [3, 1], '#': [3, 2],
+};
+
+export function playDialTone(key) {
+  const cell = DTMF_GRID[key];
+  if (!cell) return;
+  const options = { start: 0, duration: 0.09, peak: 0.035 };
+  tone(DTMF_ROW[cell[0]], options);
+  tone(DTMF_COL[cell[1]], options);
+}
+
+// Attach as onKeyDown on a code field. Only the digits: a backspace that
+// dialled would be telling somebody they had entered something.
+export function onDialpadKeyDown(e) {
+  if (/^[0-9]$/.test(e.key)) playDialTone(e.key);
+}
+
 // Attach as onKeyDown on a numeric input to get a soft ATM-style beep per
 // digit. The decimal point counts: it is part of typing an amount, and a key
 // that stays silent in the middle of a number reads as one that didn't

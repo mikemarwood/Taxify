@@ -7,6 +7,52 @@
 <meta name="description" content="Taxify logs your expenses, sorts them into categories, and builds year-over-year reports — so tax organisation takes minutes, not weekends.">
 <meta name="theme-color" content="#0a0f18">
 
+<!-- Search.
+
+     The canonical is the hub's page, not this file, and that is deliberate:
+     the hub serves this content at its own address and declares that address
+     canonical too. Two URLs claiming to be the original is how a site competes
+     with itself for its own name — one of them has to yield, and it should be
+     the one visitors never see in their address bar.
+
+     The keywords tag is absent on purpose. No engine has used it for well over
+     a decade, and its only effect now is to tell a competitor what you think
+     you rank for. -->
+<link rel="canonical" href="https://mikesapphub.com/apps/taxify">
+<meta name="robots" content="index, follow, max-image-preview:large">
+<meta name="author" content="Mikes App Hub">
+
+<!-- What Google shows beside the result, and what a phone puts on a home
+     screen. The mark is the same file the app and the emails use, so there is
+     one logo rather than four that drift. -->
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
+
+<!-- Structured data: what this page is, in the form a search engine reads
+     without having to infer it from the prose. SoftwareApplication rather than
+     Product, because a subscription to a web app is not a thing in a box, and
+     the free-trial offer is stated as an Offer so the price is not guessed at
+     from whatever number appears first on the page. -->
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "SoftwareApplication",
+  "name": "Taxify",
+  "applicationCategory": "FinanceApplication",
+  "operatingSystem": "Web, Android",
+  "url": "https://mikesapphub.com/apps/taxify",
+  "description": "Taxify logs your expenses, sorts them into categories, and builds year-over-year reports — so tax organisation takes minutes, not weekends.",
+  "image": "https://taxify.mikesapphub.com/media/shot-dashboard.jpg",
+  "publisher": { "@type": "Organization", "name": "Mikes App Hub", "url": "https://mikesapphub.com" },
+  "offers": {
+    "@type": "Offer",
+    "category": "Subscription",
+    "priceCurrency": "AUD",
+    "availability": "https://schema.org/InStock"
+  }
+}
+</script>
+
 <!-- What a share of this link looks like.
      There were none of these, which meant Facebook, Messenger, WhatsApp,
      LinkedIn and every group chat picked a title, a line of text and a picture

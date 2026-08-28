@@ -1,5 +1,6 @@
 import mysql from 'mysql2/promise';
 import { INITIAL_DEFAULT_CATEGORIES } from './seed/defaultCategories.js';
+import { backfillEntryNumbers } from './lib/entryNumber.js';
 
 const pool = mysql.createPool({
   host: process.env.DB_HOST || 'localhost',
@@ -1148,6 +1149,34 @@ export async function ensureSchema() {
     INSERT IGNORE INTO settings (\`key\`, value) VALUES ('mfa_mode', 'optional')
   `);
 
+  // The shared numbering for everything a customer enters.
+  //
+  // An expense, a vehicle trip and an hour worked from home each had their own
+  // auto-increment id, so "number 14" meant three different things depending
+  // on which list you were reading. This table's AUTO_INCREMENT is the one
+  // sequence all three draw from.
+  //
+  // A table rather than a counter in settings, because allocation has to be
+  // atomic: read-add-write hands the same number to two people who save in the
+  // same instant. An INSERT cannot do that.
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS entry_numbers (
+      id BIGINT UNSIGNED PRIMARY KEY AUTO_INCREMENT
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 AUTO_INCREMENT=61320000
+  `);
+  // Only ever raises it. A table created before this line existed starts at 1,
+  // and an eight-digit reference that begins with a 3 is not a reference.
+  // Lowering it is not attempted: the numbers already handed out are the ones
+  // customers have quoted.
+  await pool.query(`ALTER TABLE entry_numbers AUTO_INCREMENT = 61320000`);
+
+  for (const table of ['expenses', 'vehicle_trips', 'home_office_hours']) {
+    await pool.query(`ALTER TABLE ${table} ADD COLUMN IF NOT EXISTS entry_no BIGINT UNSIGNED NULL`);
+    // Unique per table, and unique across them by construction — every number
+    // comes from the one sequence, and a sequence does not repeat.
+    await pool.query(`ALTER TABLE ${table} ADD UNIQUE INDEX IF NOT EXISTS uq_${table}_entry_no (entry_no)`);
+  }
+
   await pool.query(`
     CREATE TABLE IF NOT EXISTS support_identity_reveals (
       id INT PRIMARY KEY AUTO_INCREMENT,
@@ -1216,6 +1245,14 @@ export async function ensureSchema() {
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
   `);
 
+  // Stamped when the administrators have been told about a payment.
+  //
+  // Stripe delivers a webhook more than once, so "have we sent this already"
+  // has to be a fact in the database rather than something the process
+  // remembers — a restart between two deliveries would otherwise send it
+  // twice.
+  await pool.query(`ALTER TABLE payments ADD COLUMN IF NOT EXISTS notified_admins_at DATETIME NULL`);
+
   // One-time backfill: accounts created before the billing system existed are
   // grandfathered onto a fresh trial rather than being treated as unactivated.
   const backfillDone = await getSetting('billing_backfill_done');
@@ -1227,6 +1264,15 @@ export async function ensureSchema() {
     `);
     await setSetting('billing_backfill_done', 'true');
   }
+
+  // Numbers for everything entered before the shared sequence existed.
+  //
+  // Idempotent by its WHERE clause — it only touches rows without a number —
+  // so it runs on every boot and does nothing at all after the first. Left
+  // unguarded by a settings flag deliberately: a flag can be set while the
+  // work is half done, and this cannot.
+  const numbered = await backfillEntryNumbers(pool);
+  if (numbered) console.log(`[db] gave ${numbered} existing entr${numbered === 1 ? 'y' : 'ies'} a number`);
 }
 
 export async function getSetting(key) {

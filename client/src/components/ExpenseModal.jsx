@@ -561,6 +561,9 @@ export default function ExpenseModal({ expense, onClose, onSaved, onDeleted }) {
                   label="Purchase date"
                   value={formatDateLong(expense.purchaseDate)}
                 />
+                {/* One sequence across expenses, trips and hours, so quoting
+                    a number in a support ticket names exactly one thing. */}
+                {expense.entryNo && <DetailRow label="Entry" value={`#${expense.entryNo}`} />}
                 <DetailRow label="Category" value={expense.category?.name || 'Uncategorised'} />
                 <DetailRow
                   label="Recurring"

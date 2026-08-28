@@ -1336,6 +1336,88 @@ router.get(
   })
 );
 
+// The wall display: what is happening right now, small enough to ask for often.
+//
+// Separate from /stats rather than a flag on it, because the two are polled at
+// different rates for different reasons. /stats builds thirty-day series and a
+// device breakdown and is read when somebody opens a page. This is read every
+// few seconds by a screen on a wall, so it holds only things that change on
+// that timescale and nothing that has to be aggregated over a month.
+//
+// No names in the money feed. A screen anybody can see across a room is not
+// the place to put who paid — the amount, the plan and the country say how the
+// business is doing without putting a customer on a wall.
+router.get(
+  '/live',
+  asyncHandler(async (req, res) => {
+    const [[online]] = await pool.query(
+      `SELECT COUNT(*) AS count FROM users WHERE last_seen_at >= NOW() - INTERVAL 5 MINUTE`
+    );
+    const [[signupsToday]] = await pool.query(
+      `SELECT COUNT(*) AS count FROM users WHERE role = 'owner' AND created_at >= CURDATE()`
+    );
+    const [[activeToday]] = await pool.query(
+      `SELECT COUNT(*) AS count FROM users WHERE last_seen_at >= CURDATE()`
+    );
+    const [[totals]] = await pool.query(
+      `SELECT COUNT(*) AS total,
+              SUM(subscription_status = 'active') AS subscribed,
+              SUM(subscription_status = 'trialing') AS trialing
+         FROM users WHERE role = 'owner'`
+    );
+    const [[takingsToday]] = await pool.query(
+      `SELECT COALESCE(SUM(amount_cents), 0) AS cents, COUNT(*) AS n
+         FROM payments WHERE paid_at >= CURDATE()`
+    );
+    const [[takingsMonth]] = await pool.query(
+      `SELECT COALESCE(SUM(amount_cents), 0) AS cents, COUNT(*) AS n
+         FROM payments WHERE paid_at >= DATE_FORMAT(CURDATE(), '%Y-%m-01')`
+    );
+    const [recentPayments] = await pool.query(
+      `SELECT p.amount_cents, p.currency, p.kind, p.paid_at, u.country, u.plan_type
+         FROM payments p LEFT JOIN users u ON u.id = p.user_id
+        ORDER BY p.paid_at DESC LIMIT 8`
+    );
+    const [recentSignups] = await pool.query(
+      `SELECT created_at, country, plan_type, activated_at
+         FROM users WHERE role = 'owner' ORDER BY created_at DESC LIMIT 8`
+    );
+
+    res.set('Cache-Control', 'no-store');
+    res.json({
+      at: new Date().toISOString(),
+      online: Number(online.count) || 0,
+      activeToday: Number(activeToday.count) || 0,
+      signupsToday: Number(signupsToday.count) || 0,
+      accounts: {
+        total: Number(totals.total) || 0,
+        subscribed: Number(totals.subscribed) || 0,
+        trialing: Number(totals.trialing) || 0,
+      },
+      takings: {
+        todayCents: Number(takingsToday.cents) || 0,
+        todayCount: Number(takingsToday.n) || 0,
+        monthCents: Number(takingsMonth.cents) || 0,
+        monthCount: Number(takingsMonth.n) || 0,
+      },
+      payments: recentPayments.map((p) => ({
+        amountCents: Number(p.amount_cents) || 0,
+        currency: p.currency,
+        kind: p.kind,
+        planType: p.plan_type || null,
+        country: p.country || null,
+        at: p.paid_at,
+      })),
+      signups: recentSignups.map((u) => ({
+        at: u.created_at,
+        country: u.country || null,
+        planType: u.plan_type || null,
+        activated: Boolean(u.activated_at),
+      })),
+    });
+  })
+);
+
 
 // ---------------------------------------------------------------------------
 // Plan changes waiting on an administrator.

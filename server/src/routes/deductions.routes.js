@@ -11,6 +11,7 @@ import { titleCase, sentenceCase } from '../lib/text.js';
 import { blockIfFinalised } from '../lib/finalisedYears.js';
 import { entityFor, resolveWriteEntity } from '../lib/entities.js';
 import { ratesFor, vehicleClaim, homeOfficeClaim, RATE_KEYS } from '../lib/deductions.js';
+import { nextEntryNumber } from '../lib/entryNumber.js';
 
 const router = Router();
 router.use(requireAuth, requireActiveAccess);
@@ -62,13 +63,13 @@ router.get(
     const params = entityId ? [userId, financialYear, entityId] : [userId, financialYear];
 
     const [trips] = await pool.execute(
-      `SELECT id, trip_date, vehicle, km, purpose, odo_start, odo_end, start_place, end_place
+      `SELECT id, entry_no, trip_date, vehicle, km, purpose, odo_start, odo_end, start_place, end_place
          FROM vehicle_trips
        WHERE user_id = ? AND financial_year = ?${scope} ORDER BY trip_date DESC, id DESC`,
       params
     );
     const [hours] = await pool.execute(
-      `SELECT id, entry_date, hours, note FROM home_office_hours
+      `SELECT id, entry_no, entry_date, hours, note FROM home_office_hours
        WHERE user_id = ? AND financial_year = ?${scope} ORDER BY entry_date DESC, id DESC`,
       params
     );
@@ -95,6 +96,7 @@ router.get(
         ...vehicle,
         trips: trips.map((t) => ({
           id: t.id,
+          entryNo: t.entry_no,
           date: t.trip_date,
           vehicle: t.vehicle,
           km: Number(t.km),
@@ -111,6 +113,7 @@ router.get(
         ...homeOffice,
         entries: hours.map((h) => ({
           id: h.id,
+          entryNo: h.entry_no,
           date: h.entry_date,
           hours: Number(h.hours),
           note: h.note || '',
@@ -194,11 +197,13 @@ router.post(
     const entityId = await resolveWriteEntity(req.user, ownerOf(req), req.body?.entityId);
     if (!(await assertWritable(req, res, date, entityId))) return;
 
+    // One number across expenses, trips and hours — see entryNumber.js.
+    const tripEntryNo = await nextEntryNumber(pool);
     const [result] = await pool.execute(
       `INSERT INTO vehicle_trips
          (user_id, entity_id, financial_year, trip_date, vehicle, km, purpose, created_by,
-          odo_start, odo_end, start_place, end_place)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          odo_start, odo_end, start_place, end_place, entry_no)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         ownerOf(req),
         entityId,
@@ -212,9 +217,10 @@ router.post(
         trip.odoEnd,
         trip.startPlace,
         trip.endPlace,
+        tripEntryNo,
       ]
     );
-    res.status(201).json({ id: result.insertId });
+    res.status(201).json({ id: result.insertId, entryNo: tripEntryNo });
   })
 );
 
@@ -302,9 +308,12 @@ router.post(
     const entityId = await resolveWriteEntity(req.user, ownerOf(req), req.body?.entityId);
     if (!(await assertWritable(req, res, date, entityId))) return;
 
+    // One number across expenses, trips and hours — see entryNumber.js.
+    const hoursEntryNo = await nextEntryNumber(pool);
     const [result] = await pool.execute(
-      `INSERT INTO home_office_hours (user_id, entity_id, financial_year, entry_date, hours, note, created_by)
-       VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO home_office_hours
+         (user_id, entity_id, financial_year, entry_date, hours, note, created_by, entry_no)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         ownerOf(req),
         entityId,
@@ -313,9 +322,10 @@ router.post(
         worked,
         note ? sentenceCase(note).slice(0, 255) || null : null,
         req.user.id,
+        hoursEntryNo,
       ]
     );
-    res.status(201).json({ id: result.insertId });
+    res.status(201).json({ id: result.insertId, entryNo: hoursEntryNo });
   })
 );
 

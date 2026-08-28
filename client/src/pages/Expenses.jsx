@@ -101,6 +101,20 @@ function DeductionPanel({ title, icon, rows, summary, render, onRemove, onEdit, 
             }}
           >
             <span style={{ width: 78, flexShrink: 0, color: 'var(--text-muted)' }}>{formatDayMonth(row.date)}</span>
+            {/* The same sequence expenses use, so a number quoted at us names
+                one entry rather than one of three. */}
+            {row.entryNo && (
+              <span
+                style={{
+                  flexShrink: 0,
+                  fontSize: 11.5,
+                  color: 'var(--text-subtle)',
+                  fontVariantNumeric: 'tabular-nums',
+                }}
+              >
+                #{row.entryNo}
+              </span>
+            )}
             {render(row)}
             {/* Both controls in one group, pinned right together — otherwise
                 the first to appear takes margin-left:auto and the second sits

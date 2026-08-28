@@ -1226,3 +1226,41 @@ export async function sendSupportClosedEmail(to, name, { reference, subject, cat
     `,
   });
 }
+
+// Money in, to whoever runs the place.
+//
+// Not a receipt — Stripe already sends the customer one of those, and this is
+// not addressed to them. It is the thing an owner wants to see land: somebody
+// paid, this much, for this, and here is who. Sent through sendMail like every
+// other message so it carries the site's own template rather than being the
+// one plain-text email in the system.
+export async function sendAdminPaymentEmail(to, { customerName, customerEmail, amount, kind, description, invoiceUrl, adminUrl }) {
+  const what = kind === 'plan_change' ? 'a plan change' : 'a subscription';
+  await sendMail({
+    to,
+    subject: `${amount} from ${customerName || customerEmail}`,
+    title: 'Payment received',
+    heading: `${amount} has come in for ${what}.`,
+    bodyHtml: `
+      <table role="presentation" cellpadding="0" cellspacing="0" style="width:100%;margin:0 0 18px;border-collapse:collapse;">
+        <tr>
+          <td style="padding:8px 0;font-size:13px;color:#6b7280;width:120px;">Amount</td>
+          <td style="padding:8px 0;font-size:15px;color:#111827;font-weight:700;">${escapeHtml(amount)}</td>
+        </tr>
+        <tr>
+          <td style="padding:8px 0;font-size:13px;color:#6b7280;">Customer</td>
+          <td style="padding:8px 0;font-size:14px;color:#1f2937;">
+            ${escapeHtml(customerName || 'Unnamed account')}<br>
+            <span style="color:#6b7280;">${escapeHtml(customerEmail || 'no address on file')}</span>
+          </td>
+        </tr>
+        <tr>
+          <td style="padding:8px 0;font-size:13px;color:#6b7280;">For</td>
+          <td style="padding:8px 0;font-size:14px;color:#1f2937;">${escapeHtml(description || what)}</td>
+        </tr>
+      </table>
+      ${adminUrl ? button(adminUrl, 'Open the admin panel') : ''}
+      ${invoiceUrl ? `<p style="font-size:13px;color:#6b7280;margin:14px 0 0;">The Stripe invoice: <a href="${escapeHtml(invoiceUrl)}" style="color:#1559b8;">view it</a>.</p>` : ''}
+    `,
+  });
+}
