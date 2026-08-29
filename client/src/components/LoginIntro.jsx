@@ -307,10 +307,14 @@ export default function LoginIntro({ onDone, armed = true, variant = 'cover' }) 
           width: '100%',
           // Never drawn larger than it was made.
           //
-          // The film is 1280 wide; stretched across a full-width window it was
-          // being scaled up by half again, which is most of what "pixelated"
-          // was — an upscale shows every artefact the encoder left behind. In
-          // the pane it is smaller still, which is the sharpest it can look.
+          // The film is 1280 wide and encoded at about 1.4 Mbps, which is not
+          // a lot for animation — flat colour and gradients are what show
+          // blocking first. Stretched across a full-width window it was being
+          // scaled up by half again, and an upscale shows every artefact the
+          // encoder left behind. Held to its own resolution it is as sharp as
+          // the file allows; in the pane it is smaller still, which is sharper
+          // again. Anything beyond this needs a higher-bitrate export of the
+          // same film, not a change here.
           maxWidth: pane ? 620 : 1280,
           // Room left under it for the line below, rather than the two
           // fighting over the same space on a short window.
