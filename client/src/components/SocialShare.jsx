@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { onShareClick } from '../lib/shareWindow.js';
 
 // The Facebook buttons on the sign-in panel.
 //
@@ -60,7 +61,15 @@ export default function SocialShare() {
             A control whose normal appearance depends on a third party's cookie
             state is not a control we can put on a sign-in page. Follow, below,
             is a plain link to the same page and always looks like itself. */}
-        <a className="social-share-btn" href={`https://www.facebook.com/sharer/sharer.php?u=${encoded}&quote=${quote}`} target="_blank" rel="noopener noreferrer">
+        {/* A window rather than a tab. The dialog is two fields and a button,
+            and a full tab for it loses the page somebody was on. */}
+        <a
+          className="social-share-btn"
+          href={`https://www.facebook.com/sharer/sharer.php?u=${encoded}&quote=${quote}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          onClick={onShareClick}
+        >
           <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" width="14" height="14">
             <path d="M22 12a10 10 0 1 0-11.56 9.88v-6.99H7.9V12h2.54V9.8c0-2.5 1.49-3.89 3.77-3.89 1.09 0 2.24.2 2.24.2v2.46h-1.26c-1.24 0-1.63.77-1.63 1.56V12h2.78l-.45 2.89h-2.33v6.99A10 10 0 0 0 22 12Z" />
           </svg>

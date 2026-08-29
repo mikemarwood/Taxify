@@ -1268,6 +1268,33 @@ export async function ensureSchema() {
     await setSetting('billing_backfill_done', 'true');
   }
 
+  // Handover notes written before they stopped naming the operator.
+  //
+  // The wording was fixed at the point it is written, which does nothing for
+  // the ones already stored — a note saying "Mike Marwood picked this up" is a
+  // row, and the customer reading that thread still reads it. Rewritten rather
+  // than left, because the whole point of the change was that an operator's
+  // full name does not belong in a stranger's conversation, and history is not
+  // a reason to keep publishing one.
+  //
+  // Matched on shape rather than on an exact string, since the names in them
+  // differ. Only system rows, so nothing anybody actually wrote is touched.
+  await pool.query(`
+    UPDATE support_messages
+       SET body = 'Taxify Support has accepted this ticket'
+     WHERE author_role = 'system' AND body LIKE '% picked this up'
+  `);
+  await pool.query(`
+    UPDATE support_messages
+       SET body = 'This ticket has been transferred to another Support Team member'
+     WHERE author_role = 'system' AND body LIKE '% passed this to %'
+  `);
+  await pool.query(`
+    UPDATE support_messages
+       SET body = 'This ticket has been returned to the support queue'
+     WHERE author_role = 'system' AND body LIKE '% put this back in the queue'
+  `);
+
   // Numbers for everything entered before the shared sequence existed.
   //
   // Idempotent by its WHERE clause — it only touches rows without a number —

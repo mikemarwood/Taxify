@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { api } from '../lib/api.js';
 import Icon from './Icon.jsx';
+import { onShareClick } from '../lib/shareWindow.js';
 
 // Asking a customer to share the app.
 //
@@ -141,7 +142,10 @@ export default function SharePrompt({ user }) {
               // for confirmation would mean waiting forever and asking again
               // tomorrow — which is exactly the behaviour this is trying not
               // to have.
-              onClick={() => close('shared')}
+              onClick={(e) => {
+                onShareClick(e);
+                close('shared');
+              }}
             >
               <Icon name="globe" size={14} />
               Share on Facebook

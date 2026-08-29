@@ -375,6 +375,42 @@ router.patch(
       return res.status(400).json({ error: 'Enter the end date as a date, or leave it blank for open-ended' });
     }
 
+    // Giving somebody the plan cancels what they were paying for it.
+    //
+    // It used to leave Stripe alone and say so in a warning, which put the
+    // customer in the one state nobody wants: the plan free and the card still
+    // being charged for it, until somebody remembered to go and cancel by
+    // hand. The warning was accurate and it was still the wrong shape — an
+    // administrator marking a plan free means "stop taking their money", and
+    // the panel should do that rather than describe what it has not done.
+    //
+    // At period end, not immediately. They have paid for the time they are in;
+    // cancelling in the middle of it either refunds money nobody asked to
+    // refund or takes away days they bought. cancel_at_period_end stops the
+    // next charge and leaves this one alone, and the webhook writes the status
+    // back when Stripe actually ends it.
+    //
+    // Before the grant is written, deliberately. If Stripe refuses, nothing
+    // has changed and the refusal can be reported — the other order leaves an
+    // account marked free with a live subscription behind it, which is exactly
+    // the state this is meant to prevent.
+    let cancelled = false;
+    let cancelProblem = null;
+    if (comp === true && target.stripe_subscription_id) {
+      try {
+        const stripe = await getStripe();
+        await stripe.subscriptions.update(target.stripe_subscription_id, { cancel_at_period_end: true });
+        cancelled = true;
+      } catch (err) {
+        // Reported, not thrown. An administrator who cannot reach Stripe
+        // should still be able to grant the plan — being unable to stop the
+        // billing is a reason to say so loudly, not a reason to refuse
+        // somebody access they have been given.
+        cancelProblem = err.message;
+        console.error(`Could not cancel ${target.email}'s subscription while granting a free plan`, err.message);
+      }
+    }
+
     if (comp === undefined) {
       await pool.execute('UPDATE users SET plan_type = ? WHERE id = ?', [planType, target.id]);
     } else {
@@ -406,7 +442,11 @@ router.patch(
       }
     }
 
-    res.json({ ok: true, planType });
+    // What happened to their billing, said back rather than assumed. The panel
+    // shows it, because "free plan granted" and "free plan granted but they
+    // are still being charged" are different outcomes and only one of them
+    // needs somebody to go and do something.
+    res.json({ ok: true, planType, subscriptionCancelled: cancelled, cancelProblem });
   })
 );
 

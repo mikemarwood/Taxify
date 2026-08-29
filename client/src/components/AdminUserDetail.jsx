@@ -943,12 +943,21 @@ function PlanAndBilling({ user, onSaved }) {
   async function save() {
     setBusy(true);
     try {
-      await api.patch(`/admin/users/${user.id}/plan`, {
+      const { data } = await api.patch(`/admin/users/${user.id}/plan`, {
         planType,
         complimentary,
         until: null,
       });
-      toast('Plan updated', 'success');
+
+      // Said back, because "free plan granted" and "free plan granted but they
+      // are still being charged" are different outcomes and only one of them
+      // needs somebody to go and do something. A failure to reach Stripe does
+      // not block the grant, so this is the only place it surfaces.
+      if (data?.cancelProblem) {
+        toast(`Plan updated, but their subscription could not be cancelled: ${data.cancelProblem}`, 'error');
+      } else {
+        toast(data?.subscriptionCancelled ? 'Plan updated — subscription cancelled' : 'Plan updated', 'success');
+      }
       onSaved();
     } catch (err) {
       toast(err.message, 'error');
@@ -994,7 +1003,7 @@ function PlanAndBilling({ user, onSaved }) {
             }}
           >
             {chargingWhileFree && complimentary
-              ? 'They have a live subscription. This does not touch Stripe, so the card keeps being charged until you cancel it there — they would have the plan free and be paying for it at the same time.'
+              ? 'They have a live subscription. Applying this cancels it at the end of the period they have already paid for — no refund, no early cut-off, and no charge after that.'
               : 'Free until you turn it off. Full use of the plan, with nothing to pay and no subscription.'}
           </span>
         </span>
@@ -1035,8 +1044,9 @@ function PlanAndBilling({ user, onSaved }) {
                     lineHeight: 1.6,
                   }}
                 >
-                  <strong>Their subscription is still live.</strong> Marking the plan free does not touch Stripe, so
-                  the card keeps being charged until you cancel it there.
+                  <strong>Their subscription will be cancelled.</strong> It stops at the end of the period they have
+                  already paid for, so nothing is refunded and nothing is taken away early — they keep the days they
+                  bought and are not charged again.
                 </div>
               )}
               <div style={{ fontSize: 12.5, fontWeight: 700, marginBottom: 5 }}>What they get</div>
