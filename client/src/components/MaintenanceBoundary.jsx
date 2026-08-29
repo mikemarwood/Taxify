@@ -94,7 +94,7 @@ export default function MaintenanceBoundary({ children }) {
       {notice && staff && (
         <StateBar
           tone={notice.reason === 'technical' ? '#8a4b00' : '#123a6b'}
-          text={`Site off for everyone but you — ${
+          text={`Website is currently turned off to the public — ${
             notice.reason === 'technical' ? 'technical difficulties' : 'maintenance'
           }`}
         />
