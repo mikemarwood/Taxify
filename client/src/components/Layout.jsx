@@ -460,6 +460,53 @@ export default function Layout({ children }) {
             ))}
         </nav>
 
+        {/* The rest of the shop.
+            
+            There was a line about it in the footer at 11px and three quarters
+            opacity, under the copyright, where a link goes to be not clicked.
+            Somebody using Taxify has already bought one thing from us and is
+            the likeliest person to want another, so it is worth a row of its
+            own — at the foot of the navigation, below everything they came
+            here to do, rather than competing with it.
+            
+            A new tab, because it leaves the product: sending somebody out of
+            an app they are working in and taking the page they were on with it
+            is how a link gets regretted. noreferrer as well as noopener —
+            without it the new tab can reach back through window.opener. */}
+        <a
+          href="https://mikesapphub.com"
+          target="_blank"
+          rel="noreferrer"
+          className="nav-item"
+          onClick={playClick}
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 12,
+            margin: '10px 0 0',
+            padding: '8px 12px',
+            borderRadius: 'var(--radius-sm)',
+            textDecoration: 'none',
+            color: 'var(--nav-text)',
+            // A faint plate under it, so it reads as an offer rather than as
+            // one more place in Taxify to go. Sat flat against the rail it
+            // looked like a navigation item that had lost its group. The
+            // hover rule the class carries lifts it from here, so the two
+            // states stay distinct.
+            background: 'rgba(255, 255, 255, 0.05)',
+          }}
+        >
+          <Icon name="globe" size={17} style={{ flexShrink: 0 }} />
+          <span style={{ minWidth: 0, lineHeight: 1.3 }}>
+            <span style={{ display: 'block', fontSize: 13.5, fontWeight: 500 }}>View our other apps</span>
+            <span style={{ display: 'block', fontSize: 11, opacity: 0.65 }}>Mikes App Hub</span>
+          </span>
+          {/* Points out of the app, so it says so. */}
+          <span aria-hidden style={{ marginLeft: 'auto', fontSize: 12, opacity: 0.5 }}>
+            ↗
+          </span>
+        </a>
+
         {/* Pinned to the foot of the rail rather than sitting at the end of it.
             On a phone the nav is taller than the screen, so scrolling alone
             would still leave Log out somewhere below several groups of links.

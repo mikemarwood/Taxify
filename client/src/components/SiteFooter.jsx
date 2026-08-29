@@ -43,14 +43,20 @@ export default function SiteFooter({ tone = 'page', align = 'center', style }) {
         </Link>
       </div>
       <div>© {new Date().getFullYear()} Taxify</div>
-      <div style={{ marginTop: nav ? 1 : 0 }}>
-        More apps at{' '}
-        {/* noreferrer as well as noopener: without it the new tab can reach
-            back through window.opener. */}
-        <a href={HUB} target="_blank" rel="noreferrer" style={{ color: link, fontWeight: 600 }}>
-          Mikes App Hub
-        </a>
-      </div>
+      {/* Not in the rail, where the navigation now carries a proper row for it
+          a few pixels above this — the same link twice inside one glance reads
+          as a mistake, and the small grey one was always the weaker of the
+          two. Everywhere else this is the only mention, so it stays. */}
+      {!nav && (
+        <div>
+          More apps at{' '}
+          {/* noreferrer as well as noopener: without it the new tab can reach
+              back through window.opener. */}
+          <a href={HUB} target="_blank" rel="noreferrer" style={{ color: link, fontWeight: 600 }}>
+            Mikes App Hub
+          </a>
+        </div>
+      )}
     </div>
   );
 }
