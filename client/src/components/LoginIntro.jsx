@@ -144,6 +144,16 @@ export default function LoginIntro({ onDone, armed = true, variant = 'cover' }) 
     if (!playing) return undefined;
 
     rememberSeen();
+
+    // Nothing focused while it plays.
+    //
+    // A focused text field is what makes a browser offer its saved passwords,
+    // and that panel is drawn above the page whatever the page says about
+    // stacking — it appeared as a black box over the film. The sign-in page
+    // holds its own focus back for the same reason; this covers anything else
+    // that had already taken it before this mounted.
+    if (typeof document !== 'undefined') document.activeElement?.blur?.();
+
     const bail = setTimeout(finish, GIVE_UP_MS);
     timers.current.push(bail);
 
