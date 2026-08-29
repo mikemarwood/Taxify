@@ -11,7 +11,6 @@ import Toggle from '../components/Toggle.jsx';
 import Icon from '../components/Icon.jsx';
 import { homePathFor } from '../lib/home.js';
 import AndroidDownloadButton from '../components/AndroidDownloadButton.jsx';
-import LoginIntro, { introAlreadySeen, isAndroidApp } from '../components/LoginIntro.jsx';
 
 function msToClock(ms) {
   const total = Math.max(0, Math.ceil(ms / 1000));
@@ -46,25 +45,6 @@ export default function Login() {
   const [resending, setResending] = useState(false);
   const attemptedRef = useRef(null);
   const codeInputRef = useRef(null);
-  const emailInputRef = useRef(null);
-
-  // Whether the welcome film is still on screen.
-  //
-  // Tracked here because focus has to wait for it. Focusing the email field on
-  // load is what makes the browser offer its saved passwords, and that panel is
-  // browser furniture: it is drawn above the page whatever the page says about
-  // stacking, so it appeared as a black box over the film with no z-index that
-  // could stop it. Nothing here can hide it once it is up — the only fix is not
-  // to ask for it yet.
-  //
-  // Started from the same test the film itself uses, so a customer who has
-  // already seen it gets focus immediately and nothing changes for them.
-  const [introPlaying, setIntroPlaying] = useState(() => !isAndroidApp() && !introAlreadySeen());
-
-  // And focus once it has gone, so the courtesy is deferred rather than lost.
-  useEffect(() => {
-    if (!introPlaying && autoFocusFields && !otpState) emailInputRef.current?.focus();
-  }, [introPlaying, otpState]);
 
   // The deadline is worked out once, where the code is issued, and carried in
   // otpState — this effect only reads it. Computing it here meant every re-run
@@ -288,11 +268,6 @@ export default function Login() {
 
   return (
     <AuthLayout title="Welcome back" subtitle="Log in to keep tracking your deductions.">
-      {/* The welcome film, over this half of the page only — the brand rail
-          stays visible beside it. Disarmed in the Android app, which mounts
-          its own full-window copy at the root. */}
-      <LoginIntro armed={!isAndroidApp()} variant="pane" onDone={() => setIntroPlaying(false)} />
-
       {/* Why this is the only page working, when it is. Login stays open
           during an outage so an admin can get in and turn the site back on;
           without a word of explanation it would look like the outage had
@@ -321,19 +296,13 @@ export default function Login() {
         <div>
           <label className="label">Email</label>
           <input autoComplete="email"
-            ref={emailInputRef}
             className="input"
             type="email"
             required
             // Desktop only. On a phone this summons the keyboard before anybody
             // has decided to type, covering half the screen — which is why the
             // check is shared rather than written out here.
-            //
-            // And not while the welcome film is playing: focus is what makes
-            // the browser offer its saved passwords, and that panel draws over
-            // everything. The effect above focuses the field the moment the
-            // film is done, so nothing is lost — it just waits its turn.
-            autoFocus={autoFocusFields && !introPlaying}
+            autoFocus={autoFocusFields}
             value={email}
             onChange={(e) => {
               setSignInError('');

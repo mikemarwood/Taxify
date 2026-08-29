@@ -7,7 +7,6 @@ import { EntityProvider } from './lib/EntityContext.jsx';
 import { ConfirmProvider } from './lib/ConfirmContext.jsx';
 import { ToastProvider } from './components/Toast.jsx';
 import MaintenanceBoundary from './components/MaintenanceBoundary.jsx';
-import LoginIntro, { isAndroidApp } from './components/LoginIntro.jsx';
 import './theme.css';
 
 // Progress, moved from the boot screen's own timer to the things that
@@ -52,20 +51,6 @@ window.__taxifyBoot.to(45);
 // than a stalled progress bar can.
 setTimeout(() => window.__taxifyBoot?.done(), 10000);
 
-// The app's copy, which covers the window.
-//
-// Only in the app. The launch itself is the moment there, because somebody who
-// stays signed in never sees a sign-in page again, and "on a new install or
-// after an update" is a thing that happens to the app rather than to a page —
-// so it cannot wait for a route and has nothing to sit inside.
-//
-// In a browser it is mounted by the sign-in page instead, inside the pane the
-// form occupies, so the brand rail beside it stays on screen. The two arm on
-// opposite conditions and can never both play.
-function AppIntro() {
-  return <LoginIntro armed={isAndroidApp()} variant="cover" />;
-}
-
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
     {/* Every route in the app is written without the prefix — "/expenses",
@@ -87,10 +72,6 @@ ReactDOM.createRoot(document.getElementById('root')).render(
                   it lets the sign-in page through by path — which is what
                   stops the switch locking out the person who threw it. */}
               <MaintenanceBoundary>
-                {/* The welcome film, in the Android app only — there it
-                    covers the whole window, because a launch can land on any
-                    page. The browser's copy lives on the sign-in page. */}
-                <AppIntro />
                 <App />
               </MaintenanceBoundary>
             </ConfirmProvider>
