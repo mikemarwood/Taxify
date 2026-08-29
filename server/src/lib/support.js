@@ -103,7 +103,20 @@ export function canReply(ticket) {
 
 // Matched to the form, so nothing is accepted there and refused here.
 const MAX_BODY = 5000;
+
+// A first message and a reply are held to different lengths, deliberately.
+//
+// Opening a ticket with "help" gives whoever picks it up nothing to work with
+// and costs a round trip to ask what happened, so twenty characters is a fair
+// ask of somebody describing a problem from scratch.
+//
+// A reply is the opposite case. "Yes", "Thanks", "Tuesday works" and "Fixed,
+// thank you" are complete answers to a question already on the thread, and
+// refusing them makes somebody pad a sentence to satisfy a rule — which wastes
+// their time and tells the reader nothing. Six is enough to catch a stray
+// keypress and nothing more.
 const MIN_BODY = 20;
+const MIN_REPLY = 6;
 const MAX_SUBJECT = 120;
 const MIN_SUBJECT = 6;
 
@@ -115,6 +128,15 @@ export function messageProblem(body) {
   return '';
 }
 
+// A reply on a thread that already has the question on it.
+export function replyProblem(body) {
+  const text = String(body ?? '').trim();
+  if (!text) return 'Write a reply first';
+  if (text.length < MIN_REPLY) return `A little more than that — at least ${MIN_REPLY} characters`;
+  if (text.length > MAX_BODY) return `Messages can be at most ${MAX_BODY} characters`;
+  return '';
+}
+
 export function subjectProblem(subject) {
   const text = String(subject ?? '').trim().replace(/\s+/g, ' ');
   if (text.length < MIN_SUBJECT) return `The subject needs at least ${MIN_SUBJECT} characters`;
@@ -122,4 +144,4 @@ export function subjectProblem(subject) {
   return '';
 }
 
-export { MAX_BODY, MIN_BODY, MAX_SUBJECT, MIN_SUBJECT };
+export { MAX_BODY, MIN_BODY, MIN_REPLY, MAX_SUBJECT, MIN_SUBJECT };

@@ -7,6 +7,7 @@ import {
   canReply,
   isCategory,
   messageProblem,
+  replyProblem,
   subjectProblem,
   hashAccessToken,
   generateAccessToken,
@@ -64,6 +65,23 @@ test('an empty message is refused', () => {
   assert.notEqual(messageProblem('Hello'), '');
   assert.equal(messageProblem('The app will not let me sign in at all today'), '');
   assert.notEqual(messageProblem('a'.repeat(MAX_BODY + 1)), '');
+});
+
+test('a reply is held to a much lower floor than a first message', () => {
+  // The short answers people actually send once a thread is running. Each of
+  // these would be refused as a first message, and each is a whole reply.
+  assert.equal(replyProblem('Yes please'), '');
+  assert.equal(replyProblem('Thanks!'), '');
+  assert.equal(replyProblem('Tuesday works'), '');
+  assert.equal(replyProblem('Fixed, thank you'), '');
+
+  // Still enough of a floor to catch a stray keypress or an empty box.
+  assert.notEqual(replyProblem('   '), '');
+  assert.notEqual(replyProblem('k'), '');
+  assert.notEqual(replyProblem('ok'), '');
+
+  // The ceiling is the same either way — the same column stores both.
+  assert.notEqual(replyProblem('a'.repeat(MAX_BODY + 1)), '');
 });
 
 test('a subject has to say something', () => {

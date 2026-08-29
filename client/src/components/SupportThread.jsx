@@ -116,14 +116,28 @@ function RoleBadge({ role }) {
 }
 
 export const MIN_MESSAGE = 20;
+export const MIN_REPLY = 6;
 export const MAX_MESSAGE = 5000;
 
 // What is wrong with this text, or '' if nothing is. Mirrors messageProblem on
-// the server so the same words come back either way.
-export function messageProblem(body, { note = false } = {}) {
+// the server so the same words come back either way. This is the rule for a
+// first message, which has to describe a problem from scratch.
+export function messageProblem(body) {
   const text = String(body ?? '').trim();
   if (!text) return 'Write a message first';
-  if (!note && text.length < MIN_MESSAGE) return `Tell us a little more — at least ${MIN_MESSAGE} characters`;
+  if (text.length < MIN_MESSAGE) return `Tell us a little more — at least ${MIN_MESSAGE} characters`;
+  if (text.length > MAX_MESSAGE) return `Messages can be at most ${MAX_MESSAGE} characters`;
+  return '';
+}
+
+// And the rule for a reply, which is answering a question already on the
+// thread. "Yes" and "Tuesday works" are whole answers; padding them out to
+// twenty characters helps nobody. Internal notes have no floor at all — a note
+// saying "refunded" is doing its job.
+export function replyProblem(body, { note = false } = {}) {
+  const text = String(body ?? '').trim();
+  if (!text) return 'Write a reply first';
+  if (!note && text.length < MIN_REPLY) return `A little more than that — at least ${MIN_REPLY} characters`;
   if (text.length > MAX_MESSAGE) return `Messages can be at most ${MAX_MESSAGE} characters`;
   return '';
 }
@@ -136,7 +150,7 @@ function Message({ message, canEdit, canDelete, onDelete, onEdit, onPreview }) {
 
   const trimmed = draft.trim();
   const changed = trimmed !== message.body.trim();
-  const problem = messageProblem(draft, { note: message.role === 'note' });
+  const problem = replyProblem(draft, { note: message.role === 'note' });
 
   async function save() {
     const next = trimmed;
@@ -767,16 +781,16 @@ export default function SupportThread({
             <button
               className="btn btn-primary"
               style={{ fontSize: 13 }}
-              disabled={Boolean(messageProblem(draft)) || sending || busy}
+              disabled={Boolean(replyProblem(draft)) || sending || busy}
               onClick={send}
             >
               {sending && <span className="spinner" />}
               Send reply
             </button>
 
-            <span style={{ fontSize: 11.5, color: draft.trim() && messageProblem(draft) ? 'var(--red)' : 'var(--text-muted)' }}>
-              {draft.trim() && messageProblem(draft)
-                ? messageProblem(draft)
+            <span style={{ fontSize: 11.5, color: draft.trim() && replyProblem(draft) ? 'var(--red)' : 'var(--text-muted)' }}>
+              {draft.trim() && replyProblem(draft)
+                ? replyProblem(draft)
                 : admin
                 ? 'They are emailed as soon as you send this.'
                 : 'We will email you as soon as we reply.'}

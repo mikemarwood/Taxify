@@ -33,6 +33,7 @@ import {
   statusAfterReply,
   canReply,
   messageProblem,
+  replyProblem,
   subjectProblem,
 } from '../lib/support.js';
 import {
@@ -689,7 +690,7 @@ async function editMessage(req, res, message, ticket, { includeNotes = false } =
       ? String(req.body?.message ?? '').trim()
         ? ''
         : 'Write the note first'
-      : messageProblem(req.body?.message);
+      : replyProblem(req.body?.message);
   if (problem) return res.status(400).json({ error: problem });
 
   if (ticket.status === 'closed') {
@@ -725,7 +726,9 @@ function parseHistory(value) {
 // One handler for both ways in, because the rules about replying are the same
 // either way and writing them twice is how they end up different.
 async function addReply(req, res, ticket, role, token = null) {
-  const bodyIssue = messageProblem(req.body?.message);
+  // The reply rule, not the first-message one — a thread already carries the
+  // question, so "Yes" and "Tuesday works" are complete answers.
+  const bodyIssue = replyProblem(req.body?.message);
   if (bodyIssue) return res.status(400).json({ error: bodyIssue });
 
   if (!canReply(ticket)) {
