@@ -43,6 +43,9 @@ export default function AuthSplit({ aside, children }) {
       <section
         className="auth-content"
         style={{
+          // Positioned, so the welcome film can fill this half and leave the
+          // brand rail beside it alone. See LoginIntro.jsx.
+          position: 'relative',
           // Paper against the navy, so the halves read as chrome and content
           // rather than as one flat surface.
           background: 'var(--bg-card)',

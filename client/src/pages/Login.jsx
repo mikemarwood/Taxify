@@ -11,6 +11,7 @@ import Toggle from '../components/Toggle.jsx';
 import Icon from '../components/Icon.jsx';
 import { homePathFor } from '../lib/home.js';
 import AndroidDownloadButton from '../components/AndroidDownloadButton.jsx';
+import LoginIntro, { isAndroidApp } from '../components/LoginIntro.jsx';
 
 function msToClock(ms) {
   const total = Math.max(0, Math.ceil(ms / 1000));
@@ -268,6 +269,11 @@ export default function Login() {
 
   return (
     <AuthLayout title="Welcome back" subtitle="Log in to keep tracking your deductions.">
+      {/* The welcome film, over this half of the page only — the brand rail
+          stays visible beside it. Disarmed in the Android app, which mounts
+          its own full-window copy at the root. */}
+      <LoginIntro armed={!isAndroidApp()} variant="pane" />
+
       {/* Why this is the only page working, when it is. Login stays open
           during an outage so an admin can get in and turn the site back on;
           without a word of explanation it would look like the outage had
