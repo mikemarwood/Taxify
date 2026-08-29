@@ -424,27 +424,6 @@ function UsersTab() {
     }
   }
 
-  // The confirmation, and the typing of the email that goes with it, happen
-  // in AdminUserDetail. The email still has to be typed — it is the only check
-  // that the row being deleted is the row that was meant, and a mis-click
-  // cannot pass it.
-  async function deleteUser(u) {
-    try {
-      const res = await api.delete(`/admin/users/${u.id}`);
-      const extra = res.data?.deletedDependents
-        ? ` and ${res.data.deletedDependents} linked login${res.data.deletedDependents === 1 ? '' : 's'}`
-        : '';
-      toast(`Deleted ${u.email}${extra}`, 'success');
-      load();
-      // Reported back so the detail panel closes rather than reloading an
-      // account that no longer exists.
-      return true;
-    } catch (err) {
-      toast(err.message, 'error');
-      return false;
-    }
-  }
-
   // What each filter means, in one place, so the count on a chip and the rows
   // it shows can never disagree.
   const FILTERS = [
@@ -703,7 +682,7 @@ function UsersTab() {
           me={me}
           onClose={() => setDetailId(null)}
           onChanged={load}
-          actions={{ viewAs, deleteUser }}
+          actions={{ viewAs }}
         />
       )}
     </div>

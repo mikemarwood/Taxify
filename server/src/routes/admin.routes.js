@@ -4,7 +4,7 @@ import crypto from 'crypto';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import { userStorageBytes, removeUserFiles } from '../lib/userFiles.js';
+import { userStorageBytes } from '../lib/userFiles.js';
 import { AUDIENCES, BATCH_SIZE, BATCH_PAUSE_MS, audienceByKey, batchesOf, broadcastProblem, tidyBroadcast } from '../lib/broadcast.js';
 import { sendBroadcastEmail } from '../lib/mailer.js';
 import { normalisePromoCode, isValidPromoCodeFormat } from '../lib/promoCodes.js';
@@ -20,7 +20,6 @@ import { getSignupPlans, getStripe, getStripeConfig, planTypeForPriceId, REQUIRE
 import { canTransition } from '../lib/planRequests.js';
 import { publicOrigin } from '../lib/publicOrigin.js';
 import { asyncHandler } from '../lib/asyncHandler.js';
-import { accountTeardownStatements, describeTeardownFailure } from '../lib/accountTeardown.js';
 import { readSocialSettings, writeSocialSettings } from '../lib/socialSettings.js';
 import { readMaintenanceSettings, writeMaintenanceSettings } from '../lib/maintenanceSettings.js';
 import multer from 'multer';
@@ -42,7 +41,6 @@ import {
   saveSmtpConfig,
   sendTestEmail,
   diagnoseSmtp,
-  sendAccountantAccessEndedEmail,
 } from '../lib/mailer.js';
 import { getStripeAdminSettings, saveStripeAdminSettings, getStripeSecretKeyForMode } from '../lib/stripe.js';
 import { isFinancialYearLabel } from '../lib/financialYear.js';
@@ -235,109 +233,6 @@ router.patch(
     }
 
     res.json({ ok: true });
-  })
-);
-
-// Removes an account and everything belonging to it. Most of it cascades from
-// the foreign keys; the tables that hang off a set of books have to be named
-// and cleared in order, because they reference entities(id) with RESTRICT —
-// see accountTeardown.js for why that is worth keeping. The uploaded files are
-// deleted here since nothing in the database owns them.
-//
-// Admins are refused outright rather than guarded by a confirmation: an admin
-// account is the one that can undo mistakes, and losing the last one locks
-// everybody out of the panel permanently.
-router.delete(
-  '/users/:id',
-  asyncHandler(async (req, res) => {
-    const targetId = Number(req.params.id);
-    if (targetId === req.user.id) return res.status(400).json({ error: "You can't delete your own account" });
-
-    const [rows] = await pool.execute(
-      'SELECT id, email, name, is_admin, avatar_path FROM users WHERE id = ?',
-      [targetId]
-    );
-    const target = rows[0];
-    if (!target) return res.status(404).json({ error: 'User not found' });
-
-    // Read before the transaction removes the rows. Support attachments live
-    // under the ticket, so once the tickets are gone there is nothing left to
-    // say which directories on disk belonged to this account.
-    const [ownTickets] = await pool.execute('SELECT id FROM support_tickets WHERE user_id = ?', [targetId]);
-    const targetTicketIds = ownTickets.map((t) => t.id);
-    if (target.is_admin) {
-      return res.status(400).json({ error: 'Administrator accounts can’t be deleted here — remove admin first' });
-    }
-
-    // Sub-users hang off this account and go with it. Accountants do not —
-    // their login is their own and may act for other people, so only their
-    // assignment to this client disappears, by foreign key cascade.
-    const [dependents] = await pool.execute('SELECT id, avatar_path FROM users WHERE account_holder_id = ?', [targetId]);
-
-    // Read before the delete, because the cascade takes the assignments with
-    // it. A client is about to disappear from these people's lists, and until
-    // now that happened in complete silence.
-    const [accountants] = await pool.execute(
-      `SELECT u.email, u.name FROM accountant_assignments a
-       JOIN users u ON u.id = a.accountant_user_id
-       WHERE a.owner_user_id = ?`,
-      [targetId]
-    );
-
-    // In one transaction, so a failure half way through leaves the account
-    // whole rather than stripped of its expenses and still logging in.
-    const conn = await pool.getConnection();
-    try {
-      await conn.beginTransaction();
-      for (const statement of accountTeardownStatements([targetId, ...dependents.map((d) => d.id)])) {
-        await conn.query(statement);
-      }
-      await conn.commit();
-    } catch (err) {
-      await conn.rollback();
-      const explained = describeTeardownFailure(err);
-      if (explained) {
-        console.error(`[admin] teardown of ${target.email} blocked — ${err.sqlMessage || err.message}`);
-        return res.status(409).json({ error: explained });
-      }
-      throw err;
-    } finally {
-      conn.release();
-    }
-
-    for (const who of accountants) {
-      try {
-        await sendAccountantAccessEndedEmail(who.email, who.name, target.name || target.email, 'account_closed');
-      } catch (err) {
-        console.error(`Deleted the account but could not tell ${who.email}`, err.message);
-      }
-    }
-
-    // Everything, through the same list the figure on screen was built from.
-    //
-    // This removed <uploads>/<id> and nothing else, so every deleted account
-    // left its avatar behind in the shared avatars folder and its support
-    // attachments under their ticket directories: files belonging to nobody,
-    // with nothing left pointing at them and no way to find them again.
-    const toClear = [
-      { id: targetId, avatarPath: target.avatar_path, ticketIds: targetTicketIds },
-      // A dependent login has its own avatar. Its tickets, if any, were raised
-      // against its own id and are gone with the same cascade.
-      ...dependents.map((d) => ({ id: d.id, avatarPath: d.avatar_path, ticketIds: [] })),
-    ];
-    for (const who of toClear) {
-      const failed = removeUserFiles(uploadsDir, {
-        userId: who.id,
-        avatarPath: who.avatarPath,
-        ticketIds: who.ticketIds,
-      });
-      for (const f of failed) {
-        console.error(`Removed user ${who.id} but could not delete ${f.path}:`, f.error);
-      }
-    }
-
-    console.log(`[admin] ${req.user.email} deleted account ${target.email} (${dependents.length} dependent login(s))`);
-    res.json({ ok: true, deletedDependents: dependents.length });
   })
 );
 
@@ -930,12 +825,59 @@ router.patch(
   })
 );
 
+// Putting the counter back to nothing.
+//
+// max_uses is checked against used_count, so a code capped at fifty stops
+// working on the fiftieth account and there was no way to give it another
+// fifty except by editing the cap upwards — which loses the cap, and loses any
+// record of what the original run was.
+//
+// Only the counter. The expiry date is a separate field and is edited as one,
+// and promo_redeemed_at on each account is deliberately untouched: that is
+// what stops one customer taking the same discount twice, and resetting a code
+// for a new campaign is not a decision to re-discount everybody who has
+// already had it.
+router.post(
+  '/promo-codes/:id/reset',
+  asyncHandler(async (req, res) => {
+    const [result] = await pool.execute('UPDATE promo_codes SET used_count = 0 WHERE id = ?', [req.params.id]);
+    if (result.affectedRows === 0) return res.status(404).json({ error: 'Promo code not found' });
+    res.json({ ok: true });
+  })
+);
+
 router.delete(
   '/promo-codes/:id',
   asyncHandler(async (req, res) => {
-    const [result] = await pool.execute('DELETE FROM promo_codes WHERE id = ?', [req.params.id]);
-    if (result.affectedRows === 0) return res.status(404).json({ error: 'Promo code not found' });
-    res.json({ ok: true });
+    // Read first, because the code is what the accounts holding it are keyed
+    // on and the row is about to be gone.
+    const [rows] = await pool.execute('SELECT code FROM promo_codes WHERE id = ?', [req.params.id]);
+    const code = rows[0]?.code;
+    if (!code) return res.status(404).json({ error: 'Promo code not found' });
+
+    await pool.execute('DELETE FROM promo_codes WHERE id = ?', [req.params.id]);
+
+    // And off the accounts still waiting to spend it.
+    //
+    // users.promo_code is a plain column, not a foreign key, so deleting a
+    // code left it written on every account that had typed it: nothing would
+    // ever discount them, the plans page would go on naming a code that no
+    // longer exists, and — since one promo per account is the rule — they
+    // could not enter a real one in its place. A deleted code should leave
+    // nothing behind.
+    //
+    // Only the ones who have not spent it. An account with promo_redeemed_at
+    // set has already had the discount on a real invoice, and that pairing is
+    // the record of it; clearing the code there would also invite them to type
+    // a fresh one, which pendingPromoFor would then refuse on the redemption
+    // date they still carry. Better to leave a used code where it is than to
+    // offer a box that cannot work.
+    const [freed] = await pool.execute(
+      'UPDATE users SET promo_code = NULL WHERE promo_code = ? AND promo_redeemed_at IS NULL',
+      [code]
+    );
+
+    res.json({ ok: true, clearedFrom: freed.affectedRows || 0 });
   })
 );
 

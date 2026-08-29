@@ -800,33 +800,20 @@ export default function AdminUserDetail({ userId, me, onClose, onChanged, action
                 </div>
                 )}
 
+                {/* An account that never opened its activation link has no
+                    session to stand in — there is nothing to look at and
+                    nothing it could show you. */}
                 <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                   {!isSelf && (
-                    <>
-                      {/* An account that never opened its activation link has
-                          no session to stand in — there is nothing to look at
-                          and nothing it could show you. */}
-                      <button
-                        className="btn btn-ghost"
-                        style={{ fontSize: 12.5 }}
-                        disabled={!u.active}
-                        title={u.active ? undefined : 'This account has never been activated'}
-                        onClick={() => setDialog('viewAs')}
-                      >
-                        View as this user
-                      </button>
-                      {/* Admins are never deletable — losing the last one locks
-                          everyone out of this panel for good. */}
-                      {!u.isAdmin && (
-                        <button
-                          className="btn btn-ghost"
-                          style={{ fontSize: 12.5, color: 'var(--red)' }}
-                          onClick={() => setDialog('delete')}
-                        >
-                          Delete account
-                        </button>
-                      )}
-                    </>
+                    <button
+                      className="btn btn-ghost"
+                      style={{ fontSize: 12.5 }}
+                      disabled={!u.active}
+                      title={u.active ? undefined : 'This account has never been activated'}
+                      onClick={() => setDialog('viewAs')}
+                    >
+                      View as this user
+                    </button>
                   )}
                 </div>
                 {!u.active && !isSelf && (
@@ -841,9 +828,9 @@ export default function AdminUserDetail({ userId, me, onClose, onChanged, action
         </motion.div>
       </motion.div>
 
-      {/* The confirmations. Both were window.confirm, which cannot be styled,
-          looks like a browser warning rather than something this app said, and
-          on a phone is a system sheet with no relationship to the page. */}
+      {/* Not window.confirm, which cannot be styled, looks like a browser
+          warning rather than something this app said, and on a phone is a
+          system sheet with no relationship to the page. */}
       <ConfirmDialog
         open={dialog === 'viewAs'}
         title={`View Taxify as ${u?.name || 'this user'}?`}
@@ -859,30 +846,6 @@ export default function AdminUserDetail({ userId, me, onClose, onChanged, action
           } finally {
             setActing(false);
             setDialog(NO_DIALOG);
-          }
-        }}
-      />
-
-      <ConfirmDialog
-        open={dialog === 'delete'}
-        tone="danger"
-        title="Delete this account?"
-        body={`Everything belonging to ${u?.email || 'this account'} is removed: expenses, categories, receipts and documents.`}
-        detail={`${formatBytes(u?.storageBytes)} of files will be deleted from disk. There is no undo, and no copy kept.`}
-        confirmLabel="Delete permanently"
-        requireText={u?.email}
-        dismissOnBackdrop={false}
-        busy={acting}
-        onCancel={() => setDialog(NO_DIALOG)}
-        onConfirm={async () => {
-          setActing(true);
-          try {
-            const deleted = await actions.deleteUser(u);
-            setDialog(NO_DIALOG);
-            if (deleted) onClose();
-            else refresh();
-          } finally {
-            setActing(false);
           }
         }}
       />

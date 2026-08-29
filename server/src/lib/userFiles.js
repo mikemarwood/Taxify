@@ -86,20 +86,3 @@ export function userStorageBytes(uploadsRoot, options) {
     0
   );
 }
-
-// Removes the lot, and reports rather than throws.
-//
-// One unremovable file must not stop the rest going: the account row is
-// already gone by the time this runs, so abandoning half way would leave
-// files belonging to nobody with nothing left pointing at them.
-export function removeUserFiles(uploadsRoot, options) {
-  const failed = [];
-  for (const entry of userFilePaths(uploadsRoot, options)) {
-    try {
-      fs.rmSync(entry.path, { recursive: true, force: true });
-    } catch (err) {
-      failed.push({ path: entry.path, error: err.message });
-    }
-  }
-  return failed;
-}

@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
-import { avatarFile, directorySize, userFilePaths, userStorageBytes, removeUserFiles } from './userFiles.js';
+import { avatarFile, directorySize, userFilePaths, userStorageBytes } from './userFiles.js';
 
 function scratch() {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'taxify-userfiles-'));
@@ -35,27 +35,6 @@ test('an account with nothing is nothing, not an error', () => {
   assert.equal(directorySize(path.join(dir, 'nope')), 0);
 });
 
-test('deleting takes all three, not just the receipts', () => {
-  const { dir, write } = scratch();
-  write('7/receipts/FY2025-2026/fuel/receipt.jpg', 10);
-  write('avatars/7-abc.png', 10);
-  write('support/12/12-0.png', 10);
-  // Another account's files, to prove the blast radius stops where it should.
-  write('8/receipts/keep.jpg', 10);
-  write('avatars/8-zzz.png', 10);
-  write('support/13/13-0.png', 10);
-
-  const failed = removeUserFiles(dir, { userId: 7, avatarPath: '7-abc.png', ticketIds: [12] });
-  assert.deepEqual(failed, []);
-
-  assert.equal(fs.existsSync(path.join(dir, '7')), false);
-  assert.equal(fs.existsSync(path.join(dir, 'avatars', '7-abc.png')), false);
-  assert.equal(fs.existsSync(path.join(dir, 'support', '12')), false);
-
-  assert.ok(fs.existsSync(path.join(dir, '8', 'receipts', 'keep.jpg')));
-  assert.ok(fs.existsSync(path.join(dir, 'avatars', '8-zzz.png')));
-  assert.ok(fs.existsSync(path.join(dir, 'support', '13')));
-});
 
 test('the count and the delete walk the same list', () => {
   // They used to be separate code, which is how one of them ended up knowing

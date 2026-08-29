@@ -110,11 +110,51 @@ export default function PromoCodesTab() {
     }
   }
 
-  async function remove(promo) {
-    if (!(await confirm({ tone: 'danger', title: `Delete ${promo.code}?`, body: 'Accounts that already used it are unaffected.', confirmLabel: 'Delete' }))) return;
+  // The counter back to nothing, so a spent code can run again.
+  //
+  // Confirmed because it is not visibly destructive and reads as tidying up:
+  // pressing it on a live code silently gives away another run of discounts,
+  // and the number that says how many have gone is the number it erases. The
+  // dialog states both halves — what comes back, and what does not.
+  async function resetUses(promo) {
+    const ok = await confirm({
+      title: `Reset the count on ${promo.code}?`,
+      body:
+        `It has been used ${promo.usedCount} time${promo.usedCount === 1 ? '' : 's'}` +
+        (promo.maxUses ? ` of ${promo.maxUses}` : '') +
+        '. The count goes back to zero and the code can be used again from the start. ' +
+        'Anyone who has already had the discount cannot take it a second time, and the expiry date is not changed.',
+      confirmLabel: 'Reset the count',
+    });
+    if (!ok) return;
     try {
-      await api.delete(`/admin/promo-codes/${promo.id}`);
-      toast(`${promo.code} deleted`, 'success');
+      await api.post(`/admin/promo-codes/${promo.id}/reset`, {});
+      toast(`${promo.code} is back to zero uses`, 'success');
+      load();
+    } catch (err) {
+      toast(err.message, 'error');
+    }
+  }
+
+  async function remove(promo) {
+    if (
+      !(await confirm({
+        tone: 'danger',
+        title: `Delete ${promo.code}?`,
+        body:
+          'It comes off any account still waiting to use it, so nobody is left holding a code that cannot work. ' +
+          'Accounts that already had the discount are unaffected.',
+        confirmLabel: 'Delete',
+      }))
+    )
+      return;
+    try {
+      const res = await api.delete(`/admin/promo-codes/${promo.id}`);
+      const freed = res.data?.clearedFrom || 0;
+      toast(
+        freed ? `${promo.code} deleted and taken off ${freed} account${freed === 1 ? '' : 's'}` : `${promo.code} deleted`,
+        'success'
+      );
       load();
     } catch (err) {
       toast(err.message, 'error');
@@ -310,6 +350,15 @@ export default function PromoCodesTab() {
                 onClick={() => showUsers(p)}
               >
                 Who used it
+              </button>
+              <button
+                className="btn btn-ghost"
+                style={{ fontSize: 12, padding: '6px 12px' }}
+                disabled={!p.usedCount}
+                title={p.usedCount ? 'Put the used count back to zero' : 'Nothing to reset — it has never been used'}
+                onClick={() => resetUses(p)}
+              >
+                Reset count
               </button>
               <button className="btn btn-ghost" style={{ fontSize: 12, padding: '6px 12px' }} onClick={() => toggle(p)}>
                 {p.active ? 'Disable' : 'Enable'}
