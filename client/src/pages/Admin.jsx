@@ -60,7 +60,7 @@ const TAB_GROUPS = [
       { key: 'stats', label: 'Live stats', icon: 'chart' },
       { key: 'support', label: 'Support', icon: 'mail' },
       { key: 'users', label: 'Users', icon: 'users' },
-      { key: 'broadcast', label: 'Email everyone', icon: 'mail' },
+      { key: 'broadcast', label: 'Email users', icon: 'mail' },
       { key: 'tools', label: 'Tools', icon: 'wrench' },
     ],
   },
@@ -189,6 +189,19 @@ export default function Admin() {
     setTabState(next);
     setSearchParams(next === 'stats' ? {} : { tab: next }, { replace: true });
   }
+
+  // The URL is what decides which tab is showing, not just what it started as.
+  //
+  // Administration in the sidebar points at /admin with no ?tab=, so clicking
+  // it from a tab you are already on used to do nothing visible: the route did
+  // not change component, the state initialiser had already run, and you were
+  // left on Promo codes with a URL that said Live stats. Following the
+  // parameter here makes that button mean what it looks like it means, and
+  // makes Back between tabs work as well.
+  useEffect(() => {
+    const next = allowed.includes(requested) ? requested : fallback;
+    setTabState((current) => (current === next ? current : next));
+  }, [requested, fallback, allowed]);
 
   if (serverView) return <ViewServer onClose={() => setServerView(false)} />;
 

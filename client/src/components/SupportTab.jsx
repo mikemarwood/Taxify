@@ -404,7 +404,7 @@ export default function SupportTab() {
     if (closing) {
       const ok = await confirm({
         title: 'Close this ticket?',
-        body: 'Nobody can reply until it is opened again. They are emailed to say it is closed, and how to reopen it.',
+        body: 'Nobody can reply until you open it again. They are emailed to say it is closed, and asked to raise a new one if they still need help.',
         confirmLabel: 'Close ticket',
       });
       if (!ok) return;

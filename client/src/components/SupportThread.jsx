@@ -451,7 +451,6 @@ export default function SupportThread({
   onRefresh,
   busy,
   admin = false,
-  onReopen,
   // On the support side, whether this ticket is yours to answer. Undefined
   // everywhere else, which reads as yes — a customer is always allowed to
   // reply to their own conversation.
@@ -642,14 +641,6 @@ export default function SupportThread({
           ))}
         </AnimatePresence>
 
-        {/* The anchor, with room under it.
-            
-            block:'end' puts this element's bottom edge at the bottom of the
-            scroller, which lands the last message flush against it with the
-            reply box out of sight. The margin is what leaves the last line
-            clear of the edge instead of touching it. */}
-        <span ref={foot} aria-hidden style={{ display: 'block', scrollMarginBottom: 160 }} />
-
         <ImageLightbox
           open={Boolean(preview)}
           src={preview?.url || ''}
@@ -679,27 +670,8 @@ export default function SupportThread({
             ? 'Take this ticket to reply to it.'
             : admin
             ? 'This request is closed. Reopen it to reply.'
-            : 'This request has been closed.'}
+            : 'This request has been closed. Raise a new one if you need anything else.'}
 
-          {/* The notice used to say "let us know and we will reopen it" with no
-              way to do either. Saying that and offering nothing is worse than
-              saying nothing. */}
-          {!admin && closed && onReopen && (
-            <button
-              className="btn btn-primary"
-              style={{ fontSize: 12.5, marginLeft: 'auto' }}
-              disabled={busy}
-              onClick={async () => {
-                try {
-                  await onReopen();
-                } catch (err) {
-                  toast(err?.message || 'That did not work — please try again', 'error');
-                }
-              }}
-            >
-              Ask us to look again
-            </button>
-          )}
         </div>
       ) : (
         <div
@@ -798,6 +770,20 @@ export default function SupportThread({
           </div>
         </div>
       )}
+
+      {/* The anchor, below everything.
+          
+          It sat at the end of the message list, which put the reply box out of
+          sight on open: block:'end' lands the anchor's bottom edge on the
+          bottom of the scroller, and everything after the anchor is below the
+          fold. Opening a ticket to read the last message and then having to
+          scroll again to answer it is one motion too many, and the box you are
+          being asked to type in is the thing that should be in front of you.
+          
+          So it moved to the foot of the whole component, past the composer.
+          The small margin is what keeps the Send button clear of the edge
+          rather than touching it. */}
+      <span ref={foot} aria-hidden style={{ display: 'block', scrollMarginBottom: 24 }} />
     </div>
   );
 }

@@ -1531,10 +1531,15 @@ router.get(
 
     // The tickets themselves, not just the counts.
     //
-    // Ordered by what needs doing rather than by age: anything waiting on us
-    // first, then anything else still open. A wall display is read to answer
-    // "is there something to pick up", and a list sorted purely by time buries
-    // that under whatever was touched most recently.
+    // Only the ones waiting on us: a ticket somebody has just raised, and one
+    // where the customer has come back. Closed ones are gone, and so are the
+    // ones sitting on awaiting_customer — we have answered those and the ball
+    // is not ours. A wall display is read to answer "is there something to
+    // pick up", and padding it with work already done makes the answer harder
+    // to reach, not easier.
+    //
+    // Unpicked first, then oldest, which is the order somebody would work
+    // them in.
     //
     // No subject and no customer. A ticket subject is written by somebody
     // describing their own problem and regularly contains a name, an amount or
@@ -1543,10 +1548,8 @@ router.get(
     const [tickets] = await pool.query(
       `SELECT reference, category, status, assigned_to, last_message_at, created_at
          FROM support_tickets
-        WHERE status <> 'closed'
-        ORDER BY FIELD(status, 'awaiting_support', 'awaiting_customer'),
-                 assigned_to IS NOT NULL,
-                 last_message_at ASC
+        WHERE status = 'awaiting_support'
+        ORDER BY assigned_to IS NOT NULL, last_message_at ASC
         LIMIT 8`
     );
 

@@ -6,6 +6,7 @@ import { usePlanChange } from '../lib/usePlanChange.js';
 import { useBillingAttention } from '../lib/useBillingAttention.js';
 import { currentPlanType } from '../lib/plans.js';
 import PlanChangeDialog from './PlanChangeDialog.jsx';
+import PromoPanel from './PromoPanel.jsx';
 import Icon from './Icon.jsx';
 
 // Both plans in full, with the current one marked. Prices come from Stripe
@@ -35,6 +36,32 @@ export default function PlanComparison({ user, onChoose, chooseLabel, refreshKey
       .catch(() => setPlans([]));
   }, []);
 
+  // The promo code on this account, and what it takes off each plan.
+  //
+  // Fetched alongside the prices rather than folded into /auth/plans, because
+  // that route is public — it draws the cards on the sign-up page, where there
+  // is no account yet to have a code on. Failing quietly leaves the cards
+  // showing the full price, which is the truth if we cannot read the discount.
+  const [promoState, setPromoState] = useState(null);
+  useEffect(() => {
+    let alive = true;
+    api
+      .get('/billing/promo')
+      .then((res) => alive && setPromoState(res.data))
+      .catch(() => alive && setPromoState(null));
+    return () => {
+      alive = false;
+    };
+  }, [refreshKey]);
+
+  // What this plan actually costs once the code is taken off, or null when
+  // nothing comes off it.
+  function discountFor(planType) {
+    const row = promoState?.plans?.find((p) => p.planType === planType);
+    const off = row?.discountedPerYear;
+    return off === null || off === undefined || off === row?.amountPerYear ? null : off;
+  }
+
   // The caller bumps this after lodging one, so the card flips straight away
   // rather than at the next tick.
   useEffect(() => {
@@ -56,6 +83,9 @@ export default function PlanComparison({ user, onChoose, chooseLabel, refreshKey
 
   return (
     <>
+    {/* Above the cards, because it changes what every one of them costs. */}
+    <PromoPanel state={promoState} onChange={setPromoState} />
+
     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: 14, marginTop: 4 }}>
       {plans.map((plan) => {
         // Through the shared resolver, not a raw ===. A NULL plan_type used to
@@ -158,10 +188,30 @@ export default function PlanComparison({ user, onChoose, chooseLabel, refreshKey
               <div style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 8, flex: 1 }}>
                 <span style={{ fontWeight: 700, fontSize: 15 }}>{plan.name}</span>
 
-                <div style={{ display: 'flex', alignItems: 'baseline', gap: 6 }}>
-                  <span style={{ fontSize: 24, fontWeight: 800 }}>{money(plan.amountPerYear, plan.currency)}</span>
-                  <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>per year</span>
-                </div>
+                {/* The discounted figure is the big one and the full price is
+                    struck through beside it. The other way round — full price
+                    large, discount in small print — is how somebody decides
+                    against a plan on a number they were never going to pay. */}
+                {(() => {
+                  const off = discountFor(plan.planType);
+                  return (
+                    <div style={{ display: 'flex', alignItems: 'baseline', gap: 6, flexWrap: 'wrap' }}>
+                      <span style={{ fontSize: 24, fontWeight: 800 }}>
+                        {money(off ?? plan.amountPerYear, plan.currency)}
+                      </span>
+                      {off !== null && (
+                        <span
+                          style={{ fontSize: 14, color: 'var(--text-muted)', textDecoration: 'line-through' }}
+                        >
+                          {money(plan.amountPerYear, plan.currency)}
+                        </span>
+                      )}
+                      <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>
+                        {off !== null ? 'first year, then full price' : 'per year'}
+                      </span>
+                    </div>
+                  );
+                })()}
 
                 <span style={{ fontSize: 12.5, color: 'var(--text-muted)', lineHeight: 1.5 }}>{plan.tagline}</span>
 

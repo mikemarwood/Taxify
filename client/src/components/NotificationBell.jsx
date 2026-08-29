@@ -194,6 +194,34 @@ export default function NotificationBell({ compact = false }) {
     }
   }
 
+  // Done with this one — gone from the list and gone from the server.
+  //
+  // Both ways of finishing with a notice come through here: the × beside it,
+  // and following it to whatever it is about. Acting on a notice is the
+  // clearest possible statement that you have dealt with it, and finding it
+  // still waiting when you come back is how a list that nobody trusts starts.
+  //
+  // Removed from the list here rather than waiting for the next poll, because
+  // a row that stays put for a few seconds after being dismissed reads as a
+  // button that did not work.
+  async function dismiss(n) {
+    setData((prev) =>
+      prev
+        ? {
+            ...prev,
+            unread: Math.max(0, prev.unread - (n.read ? 0 : 1)),
+            notifications: prev.notifications.filter((x) => x.id !== n.id),
+          }
+        : prev
+    );
+    try {
+      await api.delete(`/notifications/${n.id}`);
+    } catch {
+      // It reappears on the next poll if the server did not take it, which
+      // says more than a toast inside a dropdown that is about to close.
+    }
+  }
+
   return (
     <div ref={ref} style={{ position: 'relative' }}>
       <button
@@ -348,37 +376,19 @@ export default function NotificationBell({ compact = false }) {
                 //
                 // Clear all was the only way to put anything away, so being
                 // rid of one meant losing the rest — which is how the others
-                // get missed. Removed from the list here rather than waiting
-                // for the next poll, because a row that stays put for a few
-                // seconds after being dismissed reads as a button that did
-                // not work.
+                // get missed.
                 const acknowledge = (
                   <button
                     type="button"
-                    aria-label="Acknowledge and hide"
-                    title="Acknowledge and hide"
-                    onClick={async (e) => {
+                    aria-label="Acknowledge and remove"
+                    title="Acknowledge and remove"
+                    onClick={(e) => {
                       // The row is a link. Without this the dismissal also
                       // navigates, which puts somebody on a page they were
                       // trying to say they had finished with.
                       e.preventDefault();
                       e.stopPropagation();
-                      setData((prev) =>
-                        prev
-                          ? {
-                              ...prev,
-                              unread: Math.max(0, prev.unread - (n.read ? 0 : 1)),
-                              notifications: prev.notifications.filter((x) => x.id !== n.id),
-                            }
-                          : prev
-                      );
-                      try {
-                        await api.delete(`/notifications/${n.id}`);
-                      } catch {
-                        // It reappears on the next poll if the server did not
-                        // take it, which says more than a toast inside a
-                        // dropdown that is about to close.
-                      }
+                      dismiss(n);
                     }}
                     style={{
                       flexShrink: 0,
@@ -407,7 +417,15 @@ export default function NotificationBell({ compact = false }) {
                   background: n.read ? 'transparent' : 'var(--accent-soft)',
                 };
                 return n.url ? (
-                  <Link key={n.id} to={n.url} onClick={() => setOpen(false)} style={style}>
+                  <Link
+                    key={n.id}
+                    to={n.url}
+                    onClick={() => {
+                      setOpen(false);
+                      dismiss(n);
+                    }}
+                    style={style}
+                  >
                     {inner}
                     {acknowledge}
                   </Link>

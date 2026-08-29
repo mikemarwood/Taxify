@@ -1218,8 +1218,8 @@ export async function sendSupportClosedEmail(to, name, { reference, subject, cat
     bodyHtml: `
       ${ticketHeader(reference, subject, category)}
       <p style="font-size:14px;color:#1f2937;margin:0 0 16px;line-height:1.55;">
-        The conversation stays on your account and you can still read it. If it was not sorted, open it again from that
-        page and tell us — no need to start a new one.
+        The conversation stays on your account and you can still read it. If it was not sorted, or anything else comes
+        up, raise a new request and we will pick it up from there.
       </p>
       ${button(url, 'View the conversation')}
       ${linkFallback(url)}

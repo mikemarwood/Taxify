@@ -86,7 +86,7 @@ const FLOWS = [
       { label: 'Ticket raised', detail: 'With a reference they can quote', file: 'support.routes.js' },
       { label: 'Somebody takes it', detail: 'Only the holder can reply', file: 'adminSupport.routes.js' },
       { label: 'Replies both ways', detail: 'Emailed, but never quoting what was written', file: 'mailer.js' },
-      { label: 'Closed', detail: 'Reopenable by either side', file: 'support.routes.js' },
+      { label: 'Closed', detail: 'Only support can open it again', file: 'support.routes.js' },
     ],
     rule: 'The reference is never the row id. “Ticket 3” tells a customer they are the third person ever to write in.',
   },

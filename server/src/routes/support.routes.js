@@ -400,75 +400,6 @@ router.patch(
   })
 );
 
-// Asking for a closed one to be opened again.
-//
-// The closed notice tells somebody to say if it is not resolved, and until now
-// there was no way for them to — replying is blocked, so their only route back
-// was raising a second ticket about the first, which is exactly what that
-// wording exists to prevent.
-async function reopenTicket(req, res, ticket, token = null) {
-  if (ticket.status !== 'closed') return res.status(409).json({ error: 'That one is already open' });
-
-  await pool.execute(
-    `UPDATE support_tickets SET status = 'awaiting_support', closed_at = NULL, closed_by = NULL,
-       last_message_at = NOW(), updated_at = NOW(), support_read_at = NULL WHERE id = ?`,
-    [ticket.id]
-  );
-
-  const note = String(req.body?.message || '').trim().slice(0, 5000);
-  await pool.execute(
-    `INSERT INTO support_messages (ticket_id, author_user_id, author_role, author_name, body)
-     VALUES (?, ?, 'customer', ?, ?)`,
-    [
-      ticket.id,
-      req.user?.id || null,
-      ticket.user_id ? ticket.name : ticket.guest_name,
-      note || 'Asked for this to be looked at again.',
-    ]
-  );
-
-  // Back to whoever was dealing with it, or the whole team if nobody was.
-  try {
-    const body = `${ticket.reference} — ${ticket.subject}`;
-    if (ticket.assigned_to) {
-      await notify(ticket.assigned_to, { title: 'A closed ticket was reopened', body, url: '/admin?tab=support', kind: 'support' });
-    } else {
-      await notifyAdmins({ title: 'A closed ticket was reopened', body, url: '/admin?tab=support', kind: 'support' });
-    }
-  } catch (err) {
-    console.error('Could not announce the reopen', err);
-  }
-
-  res.json({ ok: true, status: 'awaiting_support', messages: await messagesFor(ticket.id, { token }) });
-}
-
-router.post(
-  '/tickets/:id/reopen',
-  requireAuth,
-  asyncHandler(async (req, res) => {
-    const [rows] = await pool.execute(
-      `SELECT t.*, u.name FROM support_tickets t LEFT JOIN users u ON u.id = t.user_id
-        WHERE t.id = ? AND t.user_id = ?`,
-      [req.params.id, req.user.id]
-    );
-    if (!rows[0]) return res.status(404).json({ error: 'Not found' });
-    return reopenTicket(req, res, rows[0]);
-  })
-);
-
-router.post(
-  '/reopen-by-token',
-  asyncHandler(async (req, res) => {
-    const [rows] = await pool.execute(
-      `SELECT t.*, u.name FROM support_tickets t LEFT JOIN users u ON u.id = t.user_id
-        WHERE t.access_token_hash = ?`,
-      [hashAccessToken(req.body?.token || '')]
-    );
-    if (!rows[0]) return res.status(404).json({ error: 'invalid' });
-    return reopenTicket(req, res, rows[0], req.body.token);
-  })
-);
-
 // The numbers behind the badges in the navigation. One call, because the
 // sidebar asks for both and three separate polls would be three times the work
 // for the same answer.
@@ -732,7 +663,7 @@ async function addReply(req, res, ticket, role, token = null) {
   if (bodyIssue) return res.status(400).json({ error: bodyIssue });
 
   if (!canReply(ticket)) {
-    return res.status(409).json({ error: 'This ticket is closed. Ask us to open it again if it is not sorted.' });
+    return res.status(409).json({ error: 'This ticket is closed. Raise a new one if you still need help.' });
   }
 
   const name = role === 'support' ? req.user?.name || 'Support' : ticket.user_id ? ticket.name : ticket.guest_name;

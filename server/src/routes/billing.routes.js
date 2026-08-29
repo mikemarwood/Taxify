@@ -21,7 +21,16 @@ import { notify, notifyAdmins } from '../lib/notify.js';
 import { planLabel } from '../lib/planLimits.js';
 import { shouldApplyPayment } from '../lib/planRequests.js';
 import { generateReference } from '../lib/support.js';
-import { pendingPromoFor, stripeCouponFor } from '../lib/promoCodes.js';
+import {
+  applyDiscount,
+  evaluatePromoCode,
+  normalisePromoCode,
+  pendingPromoFor,
+  recordPromoRedemption,
+  stripeCouponFor,
+  toPublicPromo,
+} from '../lib/promoCodes.js';
+import { getSignupPlans } from '../lib/stripe.js';
 
 const uploadsDir = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', '..', 'uploads');
 
@@ -72,6 +81,141 @@ const OUTSTANDING = `
   OR (r.status = 'pending' AND (t.id IS NULL OR t.status <> 'closed'))
 `;
 
+
+// The promo code on this account, and what it is worth.
+//
+// A code typed at registration was written to the account and then never
+// mentioned again: the plans page quoted the full price, so somebody who had
+// been given twenty per cent off had no way to tell whether it had been taken
+// or lost. The discount was real — checkout applied it — but nobody could see
+// that until the Stripe page, which is far too late to be reassured by.
+//
+// Priced against both plans rather than one, because a code can be scoped to a
+// plan and the answer to "what does this save me" differs per card. A plan the
+// code does not apply to comes back with a null discount, which is the honest
+// answer and what the card needs to know to say nothing.
+async function promoState(userId) {
+  const [rows] = await pool.execute('SELECT promo_code, promo_redeemed_at FROM users WHERE id = ?', [userId]);
+  const held = rows[0]?.promo_code || null;
+  const redeemedAt = rows[0]?.promo_redeemed_at || null;
+  const plans = await getSignupPlans();
+
+  if (!held) return { promo: null, redeemed: false, plans: plans.map(planPricing) };
+
+  const [promos] = await pool.execute('SELECT * FROM promo_codes WHERE code = ?', [held]);
+  const promo = promos[0];
+  // Held on the account but gone from the table, which happens when a code is
+  // deleted. Reported as held with nothing off, rather than as no code at all,
+  // so somebody is not invited to type a second one they cannot have.
+  if (!promo) return { promo: { code: held }, redeemed: Boolean(redeemedAt), usable: false, plans: plans.map(planPricing) };
+
+  const usable =
+    !redeemedAt &&
+    Boolean(promo.active) &&
+    !(promo.expires_at && new Date(promo.expires_at) < new Date()) &&
+    !(promo.max_uses !== null && promo.used_count >= promo.max_uses);
+
+  return {
+    promo: toPublicPromo(promo),
+    redeemed: Boolean(redeemedAt),
+    usable,
+    plans: plans.map((plan) => {
+      const applies = usable && (!promo.plan_type || promo.plan_type === plan.planType);
+      return {
+        ...planPricing(plan),
+        discountedPerYear: applies ? applyDiscount(promo, plan.amountPerYear) : null,
+      };
+    }),
+  };
+}
+
+function planPricing(plan) {
+  return {
+    planType: plan.planType,
+    name: plan.name,
+    currency: plan.currency,
+    amountPerYear: plan.amountPerYear,
+    discountedPerYear: null,
+  };
+}
+
+// The account holder's own, and only theirs. An accountant sitting inside a
+// client's books is not the person who pays for them, and req.user under that
+// session is not the person whose discount this would be.
+router.get(
+  '/promo',
+  requireAuth,
+  requireAccountOwner,
+  asyncHandler(async (req, res) => {
+    res.json(await promoState(req.user.id));
+  })
+);
+
+// Adding one after the fact.
+//
+// The code box was only on the registration form, so somebody who was sent a
+// code the week after they signed up had nowhere to type it. This is that box,
+// and the account holder's alone: a promo discounts the account's own
+// subscription, and an accountant with access to somebody's books is not the
+// person who pays for them.
+//
+// One per account, whether or not it has been spent. A second code would have
+// to either replace the first — quietly taking away a discount somebody was
+// promised — or stack, which is a decision about money that nobody has made.
+// Refusing plainly is the only version of this that cannot go wrong, and the
+// message says which code is already on the account so it is clear nothing was
+// lost.
+router.post(
+  '/promo',
+  requireAuth,
+  requireAccountOwner,
+  asyncHandler(async (req, res) => {
+    const [rows] = await pool.execute('SELECT promo_code, plan_type FROM users WHERE id = ?', [req.user.id]);
+    const held = rows[0]?.promo_code || null;
+    if (held) {
+      return res.status(409).json({ error: `This account already has promo code ${held} on it.` });
+    }
+
+    const code = normalisePromoCode(req.body?.code);
+    if (!code) return res.status(400).json({ error: 'Enter a promo code' });
+
+    // Checked against every plan, not just the one they are on. A code scoped
+    // to Small Business is a perfectly good code for somebody about to choose
+    // Small Business, and refusing it because their account still says
+    // Individual would be refusing it for the plan they are leaving.
+    const plans = await getSignupPlans();
+    let accepted = null;
+    let reason = 'Invalid promo code';
+    for (const plan of plans) {
+      const result = await evaluatePromoCode(code, plan.planType, plan.amountPerYear);
+      if (result.ok) {
+        accepted = result;
+        break;
+      }
+      reason = result.reason;
+    }
+    if (!accepted) return res.status(400).json({ error: reason });
+
+    // Written only if nothing has been written since we looked. Two tabs, two
+    // codes, and the first one in wins — rather than the second quietly
+    // replacing it.
+    const [written] = await pool.execute(
+      'UPDATE users SET promo_code = ? WHERE id = ? AND promo_code IS NULL',
+      [code, req.user.id]
+    );
+    if (!written.affectedRows) {
+      return res.status(409).json({ error: 'This account already has a promo code on it.' });
+    }
+
+    // Counted the same as a code typed on the sign-up form, because max_uses
+    // means "how many accounts may have this" and an account that took the
+    // code late is still an account that took it. Left uncounted, a code
+    // capped at fifty could be claimed by any number of existing customers.
+    await recordPromoRedemption(code);
+
+    res.json(await promoState(req.user.id));
+  })
+);
 
 router.post(
   '/checkout',
