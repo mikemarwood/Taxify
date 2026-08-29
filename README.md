@@ -122,7 +122,10 @@ always point at the same file, so releasing is just:
 1. Bump `versionCode`/`versionName` in `client/android/app/build.gradle`
 2. Bump the matching values in `server/src/app-version.json`, **and** `appendUserAgent` in
    `client/capacitor.config.json` (`TaxifyAndroid/<versionCode>`) — that string is how a running app
-   knows which build it is, so an update prompt that never appears is almost always this step missed
+   knows which build it is, so an update prompt that never appears is almost always this step missed.
+   `npm run build` (client) now runs `ops/check-app-version.mjs`, which refuses to build when the
+   three disagree — this step was documented and still drifted six releases behind, and a check is
+   worth more than a warning
 3. Build + sign the release APK in Android Studio
 4. Copy it to `client/public/downloads/taxify.apk` (overwrite)
 5. `npm run build` (client) and deploy as usual — both the button and in-app checker pick it up automatically, and `/downloads/*` is served with `Cache-Control: no-store` so nothing caches a stale build.

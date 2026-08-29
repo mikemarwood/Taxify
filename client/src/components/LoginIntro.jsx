@@ -19,6 +19,10 @@ import { createPortal } from 'react-dom';
 // element itself takes no pointer events, the browser's own controls are off,
 // and the context menu that offers Download and Playback speed is refused. The
 // only way through it is to wait, and it is short.
+//
+// It plays with sound where the device permits it. That is not everywhere —
+// see the play attempt below — so nothing in the film may depend on being
+// heard.
 
 const SEEN_KEY = 'taxify.intro.seen';
 
@@ -125,12 +129,28 @@ export default function LoginIntro({ onDone, armed = true }) {
     const bail = setTimeout(finish, GIVE_UP_MS);
     timers.current.push(bail);
 
-    // Muted, because that is the only kind of autoplay a browser allows
-    // without a gesture, and a sign-in page that makes a noise at somebody is
-    // worse than a silent one. Played explicitly as well as declared, since
-    // the attribute alone is not always enough on a page that has just loaded.
+    // With sound if the device will allow it, silently if it will not.
+    //
+    // A browser refuses to autoplay audio at somebody who has not asked for
+    // it, and loading a page is not asking — so an unmuted play() is rejected
+    // outright on a first visit, which would mean no film at all rather than a
+    // quiet one. Chrome relaxes this once a site has enough of a history with
+    // the person, and the Android WebView allows it because Capacitor turns
+    // the gesture requirement off, so unmuted is worth attempting rather than
+    // assuming.
+    //
+    // Attempted first, then retried muted on the rejection. The order matters:
+    // muting after a successful unmuted start would silence the one case this
+    // is for, and the retry is what guarantees the film plays either way.
     const video = videoRef.current;
-    video?.play?.().catch(() => finish());
+    if (!video) return undefined;
+
+    video.muted = false;
+    video.volume = 1;
+    video.play().catch(() => {
+      video.muted = true;
+      video.play().catch(finish);
+    });
 
     const list = timers.current;
     return () => {
@@ -165,11 +185,17 @@ export default function LoginIntro({ onDone, armed = true }) {
       }}
       onContextMenu={(e) => e.preventDefault()}
     >
+      {/* No autoPlay and no muted attribute.
+          
+          Both are set by the effect above instead, so there is exactly one
+          attempt sequence. Declaring autoPlay muted here would have the
+          browser start it silently before the effect ran, and unmuting a video
+          that is already playing without a gesture behind it is refused by
+          some browsers by pausing it — which is the one outcome worse than
+          either sound or silence. */}
       <video
         ref={videoRef}
         src="/media/intro.mp4"
-        autoPlay
-        muted
         playsInline
         preload="auto"
         disablePictureInPicture

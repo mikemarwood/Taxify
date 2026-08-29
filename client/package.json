@@ -1,11 +1,11 @@
 {
   "name": "taxify-client",
   "private": true,
-  "version": "1.1.0",
+  "version": "1.1.1",
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "node scripts/check-imports.mjs && node scripts/check-undefined.mjs && vite build",
+    "build": "node scripts/check-imports.mjs && node scripts/check-undefined.mjs && node ../ops/check-app-version.mjs && vite build",
     "check-imports": "node scripts/check-imports.mjs",
     "check-undefined": "node scripts/check-undefined.mjs",
     "preview": "vite preview"
