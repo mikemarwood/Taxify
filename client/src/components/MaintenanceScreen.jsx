@@ -89,13 +89,22 @@ export default function MaintenanceScreen({ notice, onCleared }) {
         textAlign: 'center',
       }}
     >
-      <img
-        src="/logo.svg"
-        alt="Taxify"
-        width="66"
-        height="66"
-        style={{ borderRadius: 13.5, boxShadow: '0 12px 34px -12px rgba(0, 0, 0, .6)' }}
-      />
+      {/* The name beside the mark, not implied by it.
+          
+          A lone icon on a dark screen with no navigation and no address bar
+          worth reading is a page that does not say whose it is — and this is
+          exactly the page somebody lands on when they are already unsure
+          whether the problem is them or us. */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 13 }}>
+        <img
+          src="/logo.svg"
+          alt=""
+          width="52"
+          height="52"
+          style={{ borderRadius: 11, boxShadow: '0 12px 34px -12px rgba(0, 0, 0, .6)' }}
+        />
+        <span style={{ fontSize: 27, fontWeight: 800, letterSpacing: -0.6 }}>Taxify</span>
+      </div>
 
       <motion.div
         initial={{ opacity: 0, y: 10 }}
@@ -157,13 +166,6 @@ export default function MaintenanceScreen({ notice, onCleared }) {
             Still down. This page checks by itself every half a minute, so you can leave it open.
           </span>
         )}
-
-        <span style={{ fontSize: 12.5, color: 'rgba(234,241,251,.5)', marginTop: 6 }}>
-          Need us?{' '}
-          <a href="mailto:support@mikesapphub.com" style={{ color: 'rgba(234,241,251,.78)' }}>
-            support@mikesapphub.com
-          </a>
-        </span>
       </motion.div>
     </div>
   );

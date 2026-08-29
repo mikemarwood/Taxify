@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { api } from '../lib/api.js';
 import Icon from './Icon.jsx';
@@ -99,17 +100,29 @@ export default function SharePrompt({ user }) {
   const encoded = encodeURIComponent(config.shareUrl);
   const quote = encodeURIComponent(String(config.shareUrl).replace(/\/+$/, ''));
 
-  return (
+  return createPortal(
     <AnimatePresence>
       {open && (
         <motion.div
-          initial={{ opacity: 0, y: 16, scale: 0.98 }}
+          className="share-prompt-backdrop"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.2 }}
+          // Pressing beside it is the same as Not now. An easy no is what
+          // earns the right to be in the middle of the screen.
+          onClick={() => close('dismissed')}
+        >
+        <motion.div
+          initial={{ opacity: 0, y: 12, scale: 0.97 }}
           animate={{ opacity: 1, y: 0, scale: 1 }}
-          exit={{ opacity: 0, y: 16, scale: 0.98 }}
+          exit={{ opacity: 0, y: 12, scale: 0.97 }}
           transition={{ duration: 0.28, ease: [0.16, 1, 0.3, 1] }}
           role="dialog"
+          aria-modal="true"
           aria-label="Share Taxify"
           className="card share-prompt"
+          onClick={(e) => e.stopPropagation()}
         >
           <button
             type="button"
@@ -169,7 +182,9 @@ export default function SharePrompt({ user }) {
             </button>
           </div>
         </motion.div>
+        </motion.div>
       )}
-    </AnimatePresence>
+    </AnimatePresence>,
+    document.body
   );
 }

@@ -49,6 +49,34 @@ export default function MaintenanceBoundary({ children }) {
 
   const cleared = useCallback(() => setNotice(null), []);
 
+  // Sign-ups being shut is the other switch that is invisible from the inside.
+  //
+  // It is set once, in a panel nobody opens daily, and then the site looks
+  // perfectly normal to everybody who already has an account — including the
+  // person who closed them. Weeks of no new customers is not a thing to
+  // discover from the figures.
+  //
+  // Admins only, not support staff: whether the shop is open is a decision
+  // only an administrator can make or unmake, and a bar about a switch you
+  // cannot reach is noise.
+  const [signupsShut, setSignupsShut] = useState(false);
+  useEffect(() => {
+    if (!user?.isAdmin) return undefined;
+    let cancelled = false;
+    api
+      .get('/auth/signup-options')
+      .then(({ data }) => {
+        if (!cancelled) setSignupsShut(data?.registrationEnabled === false);
+      })
+      .catch(() => {
+        // Same reasoning as above: a failed request is not evidence of
+        // anything, and a wrong banner is worse than no banner.
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [user?.isAdmin]);
+
   // The sign-in page always renders.
   //
   // Otherwise this is a way to lock yourself out of your own site: the switch
@@ -64,45 +92,66 @@ export default function MaintenanceBoundary({ children }) {
           outcome here is leaving the site switched off and not realising. It
           looks normal from the inside — an admin is never refused. */}
       {notice && staff && (
-        <div
-          role="status"
-          style={{
-            // Not sticky.
-            //
-            // It was, so that an administrator could not forget the site was
-            // off — but a bar pinned to the top of the viewport slides over
-            // whatever scrolls under it, and on this page that is the
-            // administration heading and the View Server button beside it. A
-            // banner that hides a control is a worse failure than one that
-            // scrolls away, and the reminder is not lost: it is the first
-            // thing on the page on arrival, and the switch itself sits in a
-            // red-bordered card in Settings.
-            position: 'relative',
-            zIndex: 2500,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            flexWrap: 'wrap',
-            gap: '4px 10px',
-            padding: '9px 16px',
-            background: notice.reason === 'technical' ? '#8a4b00' : '#123a6b',
-            color: '#fff',
-            fontSize: 13,
-            fontWeight: 600,
-            textAlign: 'center',
-          }}
-        >
-          <span>
-            The site is switched off for everyone but you —{' '}
-            {notice.reason === 'technical' ? 'technical difficulties' : 'maintenance'}.
-          </span>
-          <a href="/app/admin" style={{ color: '#fff', textDecoration: 'underline' }}>
-            Turn it back on
-          </a>
-        </div>
+        <StateBar
+          tone={notice.reason === 'technical' ? '#8a4b00' : '#123a6b'}
+          text={`Site off for everyone but you — ${
+            notice.reason === 'technical' ? 'technical difficulties' : 'maintenance'
+          }`}
+        />
       )}
+
+      {signupsShut && <StateBar tone="#6b3b12" text="Sign-ups are closed — nobody new can create an account" />}
+
       {children}
     </>
+  );
+}
+
+// One line, and small enough to be one line on a phone.
+//
+// It carried a "Turn it back on" link, which was the wrong shape for a
+// standing reminder: it sat beside the sentence competing for the same row, so
+// on a narrow screen the bar wrapped to two lines and took a chunk out of a
+// viewport that had none to spare. The switch is one tap away in Settings and
+// is a decision, not something to put a shortcut to in a bar somebody reads
+// twenty times a day.
+//
+// Not sticky. It was, so that an administrator could not forget — but a bar
+// pinned to the top of the viewport slides over whatever scrolls under it, and
+// on the admin page that is the heading and the View Server button beside it.
+// A banner that hides a control is a worse failure than one that scrolls away.
+function StateBar({ tone, text }) {
+  return (
+    <div
+      role="status"
+      style={{
+        position: 'relative',
+        zIndex: 2500,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        // One line, cut short rather than wrapped. Two lines of banner on a
+        // phone is a tenth of the screen spent saying something the reader
+        // already knows.
+        gap: 8,
+        padding: '5px 12px',
+        background: tone,
+        color: '#fff',
+        fontSize: 12,
+        fontWeight: 600,
+        textAlign: 'center',
+        lineHeight: 1.35,
+        whiteSpace: 'nowrap',
+        overflow: 'hidden',
+        textOverflow: 'ellipsis',
+      }}
+    >
+      {/* Titled as well as truncated, so the half a narrow screen cuts off is
+          still readable rather than merely gone. */}
+      <span style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis' }} title={text}>
+        {text}
+      </span>
+    </div>
   );
 }
 

@@ -1292,33 +1292,34 @@ input[type="date"].input::-webkit-calendar-picker-indicator:hover { opacity: 1; 
 
 /* The share prompt.
 
-   Bottom-left on a desktop, deliberately: bottom-right is where the Add
-   expense button lives and where a toast lands, and a panel asking for a
-   favour should not sit on top of the control somebody was reaching for.
+   In the middle, in front of everything, on its own dimmed backdrop.
 
-   Across the foot on a phone, above the safe area, because there is no corner
-   small enough for it there. */
-.share-prompt {
+   It used to tuck itself into the bottom-left corner, clear of the navigation
+   rail and clear of the Add expense button — polite, and almost entirely
+   ignored. A panel in a corner reads as furniture: it is in the part of the
+   screen the eye has learnt to skip, and the whole ask here is one press from
+   somebody who is mid-task and has no reason to look down there.
+
+   So it is a dialog now. It asks once, it is easy to refuse, and it is never
+   shown again to anybody who answers either way — see SharePrompt.jsx for the
+   rules. Something asked once and then never again can afford to be in front
+   of you; it is the things that come back that must not be. */
+.share-prompt-backdrop {
   position: fixed;
-  left: 20px;
-  bottom: 20px;
-  z-index: 1500;
-  width: 320px;
-  max-width: calc(100vw - 40px);
-  padding: 16px;
-  box-shadow: 0 20px 46px -18px rgba(0, 0, 0, 0.5);
+  inset: 0;
+  z-index: 3100;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background: rgba(9, 14, 24, 0.55);
+  backdrop-filter: blur(2px);
 }
-@media (min-width: 901px) {
-  /* Clear of the navigation rail rather than under it. */
-  .share-prompt { left: calc(232px + 20px); }
-}
-@media (max-width: 560px) {
-  .share-prompt {
-    left: 12px;
-    right: 12px;
-    width: auto;
-    bottom: calc(12px + env(safe-area-inset-bottom));
-  }
+.share-prompt {
+  position: relative;
+  width: 340px;
+  max-width: 100%;
+  padding: 18px;
+  box-shadow: 0 26px 60px -20px rgba(0, 0, 0, 0.6);
 }
 .share-prompt-close {
   position: absolute;

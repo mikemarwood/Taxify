@@ -1,12 +1,13 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
-import { BrowserRouter } from 'react-router-dom';
+import { BrowserRouter, useLocation } from 'react-router-dom';
 import App from './App.jsx';
 import { AuthProvider } from './lib/AuthContext.jsx';
 import { EntityProvider } from './lib/EntityContext.jsx';
 import { ConfirmProvider } from './lib/ConfirmContext.jsx';
 import { ToastProvider } from './components/Toast.jsx';
 import MaintenanceBoundary from './components/MaintenanceBoundary.jsx';
+import LoginIntro, { isAndroidApp } from './components/LoginIntro.jsx';
 import './theme.css';
 
 // Progress, moved from the boot screen's own timer to the things that
@@ -51,6 +52,19 @@ window.__taxifyBoot.to(45);
 // than a stalled progress bar can.
 setTimeout(() => window.__taxifyBoot?.done(), 10000);
 
+// When the film is allowed to play.
+//
+// In a browser: the sign-in page, which is where a new customer arrives, and
+// nowhere else — nobody wants ten seconds of animation in front of the expense
+// they were halfway through. In the Android app: the launch itself, because
+// somebody who stays signed in never sees sign-in again, and "on a new install
+// or after an update" is a thing that happens to the app rather than to a
+// page.
+function IntroGate() {
+  const { pathname } = useLocation();
+  return <LoginIntro armed={isAndroidApp() || pathname === '/login'} />;
+}
+
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
     {/* Every route in the app is written without the prefix — "/expenses",
@@ -72,6 +86,11 @@ ReactDOM.createRoot(document.getElementById('root')).render(
                   it lets the sign-in page through by path — which is what
                   stops the switch locking out the person who threw it. */}
               <MaintenanceBoundary>
+                {/* The welcome film. Above everything and outside every page,
+                    because it covers the app rather than sitting inside one
+                    screen of it — and inside the router, because in a browser
+                    it waits for the sign-in page. */}
+                <IntroGate />
                 <App />
               </MaintenanceBoundary>
             </ConfirmProvider>
