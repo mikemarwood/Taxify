@@ -40,10 +40,10 @@ const SEEN_KEY = 'taxify.intro.seen';
 // How long to hold on the closing frame before handing over the page.
 //
 // The film ends on its title, and cutting to a login form on the same frame it
-// lands reads as an interruption rather than an ending. Four seconds is long
+// lands reads as an interruption rather than an ending. Three seconds is long
 // enough to read what it finishes on and short enough that nobody wonders
-// whether it has hung.
-const HOLD_MS = 4000;
+// whether it has hung — four made the pause itself noticeable.
+const HOLD_MS = 3000;
 
 // A ceiling on the whole thing, in case `ended` never arrives — a stalled
 // download, a codec the device will not decode, a tab backgrounded at the
@@ -262,6 +262,25 @@ export default function LoginIntro({ onDone, armed = true, variant = 'cover' }) 
       }}
       onContextMenu={(e) => e.preventDefault()}
     >
+      {/* Whose film this is, above it.
+          
+          The film opens on its own artwork rather than on a name, so without
+          this the pane is an unlabelled moving rectangle for the first few
+          seconds — and in the pane the brand rail is off to the side rather
+          than above, so nothing overhead was saying it. It also gives the
+          stage a top edge to sit under, which is what makes the three parts
+          read as one panel instead of a video with captions. */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 11, flexShrink: 0 }}>
+        <img
+          src="/logo.svg"
+          alt=""
+          width={30}
+          height={30}
+          style={{ borderRadius: 7, boxShadow: pane ? 'none' : '0 8px 22px -10px rgba(0, 0, 0, .6)' }}
+        />
+        <span style={{ fontSize: 21, fontWeight: 800, letterSpacing: -0.5 }}>Taxify</span>
+      </div>
+
       {/* No autoPlay and no muted attribute.
           
           Both are set by the effect above instead, so there is exactly one
@@ -286,10 +305,16 @@ export default function LoginIntro({ onDone, armed = true, variant = 'cover' }) 
         onError={finish}
         style={{
           width: '100%',
-          maxWidth: 620,
+          // Never drawn larger than it was made.
+          //
+          // The film is 1280 wide; stretched across a full-width window it was
+          // being scaled up by half again, which is most of what "pixelated"
+          // was — an upscale shows every artefact the encoder left behind. In
+          // the pane it is smaller still, which is the sharpest it can look.
+          maxWidth: pane ? 620 : 1280,
           // Room left under it for the line below, rather than the two
           // fighting over the same space on a short window.
-          maxHeight: '68%',
+          maxHeight: '62%',
           minHeight: 0,
           flex: '0 1 auto',
           // Contained rather than cropped: it is a title card, and cropping a
