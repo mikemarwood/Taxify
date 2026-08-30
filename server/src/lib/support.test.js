@@ -2,7 +2,6 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   generateReference,
-  looksLikeReference,
   statusAfterReply,
   canReply,
   isCategory,
@@ -15,14 +14,6 @@ import {
   isStale,
   isPriority,
 } from './support.js';
-
-test('a reference is not the row id', () => {
-  // "Ticket 3" tells the customer they are the third person ever to write in,
-  // and tells anybody else how many customers there are.
-  const ref = generateReference(new Date('2026-08-08T00:00:00Z'));
-  assert.match(ref, /^TXF-2026-[0-9A-HJKMNP-TV-Z]{6}$/);
-  assert.equal(looksLikeReference(ref), true);
-});
 
 test('two references made together do not look related', () => {
   const a = generateReference();

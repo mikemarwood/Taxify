@@ -1,6 +1,10 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { FIRST_ENTRY_NUMBER, NUMBERED_TABLES, orderForNumbering, formatEntryNumber } from './entryNumber.js';
+import {
+  FIRST_ENTRY_NUMBER,
+  NUMBERED_TABLES,
+  orderForNumbering,
+} from './entryNumber.js';
 
 test('every reference is eight digits beginning 62', () => {
   assert.equal(FIRST_ENTRY_NUMBER, 62000000);
@@ -75,11 +79,3 @@ test('a missing or unreadable date sorts first rather than throwing', () => {
   assert.equal(ordered[0].id, 1);
 });
 
-test('a number is shown with a hash and nothing else', () => {
-  assert.equal(formatEntryNumber(62000000), '#62000000');
-  // Never "#null" or "#undefined" on a row entered before numbering existed
-  // and not yet backfilled.
-  assert.equal(formatEntryNumber(null), null);
-  assert.equal(formatEntryNumber(undefined), null);
-  assert.equal(formatEntryNumber(''), null);
-});

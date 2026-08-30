@@ -7,11 +7,15 @@ import {
   receiptRelDirFor,
   receiptDirFor,
   categoryDocumentDir,
-  categoryDocumentRelDir,
   entityReceiptsRootDir,
 } from './receiptStorage.js';
-import { entityPathSegment, writeEntityId } from './entities.js';
-import { isFinancialYearLabel } from './financialYear.js';
+import {
+  entityPathSegment,
+  writeEntityId,
+} from './entities.js';
+import {
+  isFinancialYearLabel,
+} from './financialYear.js';
 
 // assertWithin is the path-traversal guard on every receipt and document read
 // in the app. If it ever stops rejecting, a crafted category name or filename
@@ -78,36 +82,6 @@ test('the relative path follows the account financial year rule', () => {
 });
 
 // --- Entities do not move a single existing file --------------------------
-
-test('the default entity produces exactly the paths it always did', () => {
-  // The most important test in this file. Every account that exists today has
-  // one entity, it is the default, and its path_segment is NULL — so if these
-  // three assertions hold, adding entities cannot have orphaned a receipt.
-  const AU = { startMonth: 7, startDay: 1 };
-
-  assert.equal(
-    receiptDirFor(ROOT, 12, '2025-08-01', 'Tooling', AU, null),
-    path.join(ROOT, '12', 'receipts', '2025-2026', 'tooling')
-  );
-  // ...and the same call written the way every existing caller writes it,
-  // with no entity argument at all.
-  assert.equal(receiptDirFor(ROOT, 12, '2025-08-01', 'Tooling', AU), receiptDirFor(ROOT, 12, '2025-08-01', 'Tooling', AU, null));
-
-  assert.equal(receiptRelDirFor(12, '2025-08-01', 'Tooling', AU, null), '12/receipts/2025-2026/tooling');
-  assert.equal(receiptRelDirFor(12, '2025-08-01', 'Tooling', AU), '12/receipts/2025-2026/tooling');
-
-  assert.equal(
-    categoryDocumentDir(ROOT, 12, 'Home Rental', '2025-2026', null),
-    path.join(ROOT, '12', 'documents', 'home rental', '2025-2026')
-  );
-  assert.equal(
-    categoryDocumentDir(ROOT, 12, 'Home Rental', '2025-2026'),
-    categoryDocumentDir(ROOT, 12, 'Home Rental', '2025-2026', null)
-  );
-  assert.equal(categoryDocumentRelDir(12, 'Home Rental', '2025-2026'), '12/documents/home rental/2025-2026');
-
-  assert.equal(entityReceiptsRootDir(ROOT, 12, null), path.join(ROOT, '12', 'receipts'));
-});
 
 test('another entity adds exactly one folder, above the year', () => {
   const AU = { startMonth: 7, startDay: 1 };

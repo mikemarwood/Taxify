@@ -131,14 +131,6 @@ export function categoryDocumentDir(uploadsRoot, userId, categoryName, financial
   return financialYear ? path.join(base, financialYear) : base;
 }
 
-export function categoryDocumentRelDir(userId, categoryName, financialYear, entitySegment = null) {
-  const segment = entityToFolderSegment(entitySegment);
-  const parts = [sanitizeSegment(userId, 'user'), DOCUMENTS_SEGMENT];
-  if (segment) parts.push(segment);
-  parts.push(categoryToFolderSegment(categoryName));
-  if (financialYear) parts.push(financialYear);
-  return parts.join('/');
-}
 
 // "2024-2025". Anything else is refused rather than sanitised — these come
 // from the client and become a directory name.

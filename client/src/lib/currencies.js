@@ -43,7 +43,7 @@ export const CURRENCIES = [
   { code: 'FJD', name: 'Fijian Dollar', symbol: '$' },
 ];
 
-export const CURRENCY_CODES = CURRENCIES.map((c) => c.code);
+
 
 // The account's own currency first, then the rest.
 //

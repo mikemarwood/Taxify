@@ -109,8 +109,3 @@ export async function backfillEntryNumbers(executor) {
   return pending.length;
 }
 
-// How it is shown. One place, so three screens cannot format it three ways.
-export function formatEntryNumber(value) {
-  if (value === null || value === undefined || value === '') return null;
-  return `#${value}`;
-}

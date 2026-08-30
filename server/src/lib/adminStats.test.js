@@ -1,27 +1,19 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { changeBetween, fillDays } from './adminStats.js';
+import {
+  fillDays,
+} from './adminStats.js';
 
 // The same local-date rule fillDays uses. toISOString() is UTC, which is a day
 // out for most of the day in Australia — the bug these tests caught.
 function isoDayLocal(d = new Date()) {
   return [d.getFullYear(), String(d.getMonth() + 1).padStart(2, '0'), String(d.getDate()).padStart(2, '0')].join('-');
 }
-import { shouldTouch, resetPresenceThrottle, ONLINE_WINDOW_MINUTES } from './presence.js';
-
-test('growth from nothing is reported as new, not as a percentage', () => {
-  // The naive version divides by the previous period and puts "+Infinity%" on
-  // an admin page the first week anybody signs up.
-  assert.deepEqual(changeBetween(4, 0), { direction: 'up', percent: null });
-});
-
-test('nothing to nothing is flat rather than a division by zero', () => {
-  assert.deepEqual(changeBetween(0, 0), { direction: 'flat', percent: 0 });
-});
-
-test('a fall is reported as down, with the size of the fall', () => {
-  assert.deepEqual(changeBetween(5, 10), { direction: 'down', percent: -50 });
-});
+import {
+  shouldTouch,
+  resetPresenceThrottle,
+  ONLINE_WINDOW_MINUTES,
+} from './presence.js';
 
 test('the chart gets a row for every day, including the ones with nothing in them', () => {
   // SQL only returns days that have rows. Without the gaps filled the chart

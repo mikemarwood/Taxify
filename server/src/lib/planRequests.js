@@ -27,27 +27,15 @@ export function canTransition(from, to) {
   return Boolean(ALLOWED[from]?.includes(to));
 }
 
-// Still waiting on somebody. Used to stop a second request being opened while
-// one is live — two invoices for the same move is the worst outcome here.
-export function isOpen(status) {
-  return status === 'pending' || status === 'invoiced';
-}
-
+// Whether a request is still live is asked in SQL, in billing.routes.js —
+// see OUTSTANDING there, which also has to reason about whether the ticket
+// behind it is closed. A boolean helper here could not answer that, and
+// nothing called it.
 export const MAX_INVOICE_AMOUNT = 100000;
 
-// Returns a message, or '' when the amount is fine.
-export function amountProblem(value) {
-  const amount = Number(value);
-  if (!Number.isFinite(amount)) return 'Enter the amount to charge';
-  if (amount <= 0) return 'Enter the amount to charge';
-  // Stripe works in cents, so anything finer than one is silently rounded and
-  // the invoice would not say what was typed.
-  if (Math.round(amount * 100) !== Number((amount * 100).toFixed(4))) {
-    return 'Amounts can have at most two decimal places';
-  }
-  if (amount > MAX_INVOICE_AMOUNT) return 'That amount is too large';
-  return '';
-}
+// There was an amountProblem here, for an invoice amount an administrator
+// typed. They do not type one any more — the figure is Stripe's published
+// price for the plan being moved to, so there is nothing left to validate.
 
 // Whether a Stripe invoice.paid event should be acted on.
 //

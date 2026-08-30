@@ -1180,30 +1180,16 @@ export async function ensureSchema() {
     await pool.query(`ALTER TABLE ${table} ADD UNIQUE INDEX IF NOT EXISTS uq_${table}_entry_no (entry_no)`);
   }
 
-  await pool.query(`
-    CREATE TABLE IF NOT EXISTS support_identity_reveals (
-      id INT PRIMARY KEY AUTO_INCREMENT,
-      ticket_id INT NOT NULL,
-      staff_user_id INT NOT NULL,
-      revealed_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-      KEY idx_reveal_ticket (ticket_id),
-      KEY idx_reveal_staff (staff_user_id, revealed_at),
-      FOREIGN KEY (ticket_id) REFERENCES support_tickets(id) ON DELETE CASCADE,
-      FOREIGN KEY (staff_user_id) REFERENCES users(id) ON DELETE CASCADE
-    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
-  `);
+  // support_identity_reveals is dropped, not created.
+  //
+  // It was the audit trail for a support queue that showed customers under a
+  // pseudonym and made a member of staff ask before seeing the real name. That
+  // design was built the wrong way round and was reversed: staff see the
+  // customer, and it is the staff member who is concealed — every reply comes
+  // from "Taxify Support". There is nothing left to reveal, so nothing to
+  // record, and the table has never held a row.
+  await pool.query('DROP TABLE IF EXISTS support_identity_reveals');
 
-  // Every time somebody on the team asks who a ticket belongs to.
-  //
-  // The support queue shows a pseudonym rather than a customer's name and
-  // face; the name is one request away when the job needs it, and this is what
-  // makes that request cost something. Without it, hiding the name would be a
-  // speed bump nobody could audit — and a protection nobody can check is not a
-  // protection, it is a claim.
-  //
-  // Not unique on (ticket, staff): the interesting question is how often, not
-  // whether. Cascades on both sides, so deleting a ticket or an account takes
-  // its trail with it rather than leaving rows pointing at nothing.
   await pool.query(`
     CREATE TABLE IF NOT EXISTS sent_reminders (
       id INT PRIMARY KEY AUTO_INCREMENT,

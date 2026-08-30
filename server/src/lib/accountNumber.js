@@ -21,9 +21,6 @@ export function generateAccountNumber() {
   return String(randomInt(MIN, MAX + 1));
 }
 
-export function isAccountNumber(value) {
-  return /^[1-9]\d{7}$/.test(String(value ?? ''));
-}
 
 // Retries on the unique key rather than checking first. At eight digits a
 // collision is rare, and asking the database "is this taken" before inserting

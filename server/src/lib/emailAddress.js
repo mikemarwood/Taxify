@@ -12,13 +12,6 @@
 // mailbox exists, and the only proof of that is a link arriving at it.
 export const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 
-export function looksLikeEmail(value) {
-  return EMAIL_PATTERN.test(String(value || '').trim());
-}
-
-// The form the database holds and every comparison uses. Addresses are matched
-// exactly in SQL, so a stray capital or a trailing space is a lookup that finds
-// nothing for a reason nobody can see.
-export function normaliseEmail(value) {
-  return String(value || '').trim().toLowerCase();
-}
+// Only the pattern is exported. Two wrappers sat here — looksLikeEmail and
+// normaliseEmail — and every caller reached past them for the regex and did
+// its own trim and lower-case, so they were an API nobody adopted.

@@ -220,4 +220,4 @@ export async function collectStats() {
   };
 }
 
-export { change as changeBetween, fillDays };
+export { fillDays };

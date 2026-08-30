@@ -3,7 +3,6 @@ import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import AuthLayout from './AuthLayout.jsx';
 import { api } from '../lib/api.js';
 import PasswordFields, { isStrongPassword } from '../components/PasswordFields.jsx';
-import { nameProblem, companyProblem } from '../lib/inviteFields.js';
 import { useAuth } from '../lib/AuthContext.jsx';
 import Icon from '../components/Icon.jsx';
 import { useToast } from '../components/Toast.jsx';
@@ -75,33 +74,20 @@ export default function AcceptInvite() {
   const [checking, setChecking] = useState(true);
   const [problem, setProblem] = useState(null);
 
-  const [firstName, setFirstName] = useState('');
-  const [lastName, setLastName] = useState('');
-  const [practiceName, setPracticeName] = useState('');
-  const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [busy, setBusy] = useState(false);
 
-  // Only complained about once something has been typed, so an untouched
-  // form is not covered in red before anyone has done anything wrong.
-  const firstProblem = firstName.trim() ? nameProblem(firstName, 'First name') : '';
-  const lastProblem = lastName.trim() ? nameProblem(lastName, 'Last name') : '';
-  const practiceProblem = practiceName.trim() ? companyProblem(practiceName) : '';
   const passwordsMatch = password.length > 0 && password === confirmPassword;
 
-  const canSubmit =
-    !nameProblem(firstName, 'First name') &&
-    !nameProblem(lastName, 'Last name') &&
-    // Required here, unlike on the invitation, where the client may not know
-    // the firm's name. The server refuses anything shorter than two either way.
-    Boolean(practiceName.trim()) &&
-    !practiceProblem &&
-    isStrongPassword(password) &&
-    passwordsMatch &&
-    !busy;
-
-  // The family flow has no name or practice fields — only the password pair.
+  // Only the password pair is asked for here.
+  //
+  // There were name, practice and phone fields once, back when this page was
+  // where an invitation was accepted. That moved to the client list — a token
+  // proves an email reached a mailbox and nothing more, so taking sight of
+  // somebody's tax records now needs a sign-in as well — and the fields went
+  // with it. Their state, their validation and the rule module behind them sat
+  // here afterwards, filled in from the server's reply and read by nothing.
   const canSubmitFamily = isStrongPassword(password) && passwordsMatch && !busy;
 
   // An accountant invitation is a row of its own; a family one is not. A 404
@@ -116,18 +102,6 @@ export default function AcceptInvite() {
       .get(`/auth/accountant-invite/check?token=${encodeURIComponent(token)}`)
       .then((res) => {
         setInvite(res.data);
-        // The parts if the client typed them, otherwise split the one name
-        // older invitations carry. Fixed either way — see the note on the
-        // fields themselves.
-        if (res.data.firstName || res.data.lastName) {
-          setFirstName(res.data.firstName || '');
-          setLastName(res.data.lastName || '');
-        } else {
-          const [first = '', ...rest] = String(res.data.name || '').split(' ');
-          setFirstName(first);
-          setLastName(rest.join(' '));
-        }
-        if (res.data.practiceName) setPracticeName(res.data.practiceName);
       })
       .catch((err) => {
         if (err.message === 'expired' || err.message === 'already_accepted') setProblem(err.message);

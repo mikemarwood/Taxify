@@ -42,9 +42,6 @@ export function generateReference(now = new Date()) {
   return `TXF-${year}-${block}`;
 }
 
-export function looksLikeReference(value) {
-  return /^TXF-\d{4}-[0-9A-HJKMNP-TV-Z]{6}$/.test(String(value || '').trim().toUpperCase());
-}
 
 // The link a guest reads their ticket through. Same shape as every other token
 // here: the plain value goes in the email and only the hash is stored, so the
