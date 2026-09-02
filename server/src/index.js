@@ -18,6 +18,7 @@ import exportRoutes from './routes/export.routes.js';
 import taxYearRoutes from './routes/taxYears.routes.js';
 import deductionRoutes from './routes/deductions.routes.js';
 import notificationRoutes from './routes/notifications.routes.js';
+import analyticsRoutes from './routes/analytics.routes.js';
 import entityRoutes from './routes/entities.routes.js';
 import { AD_SLOTS, adFile, posterFile, adsPresent, faststartExistingAds } from './lib/landingAds.js';
 import { cutEmptyAdSlots } from './lib/landingAdsHtml.js';
@@ -338,6 +339,15 @@ app.get('/api/social', async (req, res) => {
     res.json({ enabled: false });
   }
 });
+
+// Measurement sits in front of the gate, deliberately.
+//
+// Everything else here is a feature and should stop when the site is switched
+// off. This writes one row and answers with an image, and the landing page
+// stays up during an outage — putting it behind the gate would mean the
+// marketing page grows a broken image icon exactly when somebody has taken the
+// app down to fix something.
+app.use('/api/analytics', analyticsRoutes);
 
 // The gate, in front of every API router rather than inside them. A route that
 // forgot to opt in would be a hole in the middle of an outage, and the list of

@@ -30,6 +30,7 @@ import { IconPicker, ColourPicker, CategoryPreview, SWATCHES } from '../componen
 import Avatar from '../components/Avatar.jsx';
 import AdminUserDetail from '../components/AdminUserDetail.jsx';
 import ViewServer from '../components/ViewServer.jsx';
+import AnalyticsTab from '../components/AnalyticsTab.jsx';
 import BroadcastTab from '../components/BroadcastTab.jsx';
 import { planLabel } from '../lib/plans.js';
 import { autoFocusFields } from '../lib/device.js';
@@ -58,6 +59,7 @@ const TAB_GROUPS = [
     title: 'Day to day',
     tabs: [
       { key: 'stats', label: 'Live stats', icon: 'chart' },
+      { key: 'analytics', label: 'Traffic', icon: 'globe' },
       { key: 'support', label: 'Support', icon: 'mail' },
       { key: 'users', label: 'Users', icon: 'users' },
       { key: 'broadcast', label: 'Email users', icon: 'mail' },
@@ -206,7 +208,7 @@ export default function Admin() {
   if (serverView) return <ViewServer onClose={() => setServerView(false)} />;
 
   return (
-    <div style={{ maxWidth: tab === 'stats' || tab === 'support' || tab === 'how' ? 1100 : 760 }}>
+    <div style={{ maxWidth: tab === 'stats' || tab === 'support' || tab === 'how' || tab === 'analytics' ? 1100 : 760 }}>
       <div style={{ display: 'flex', alignItems: 'flex-start', gap: 16, flexWrap: 'wrap' }}>
         <div style={{ flex: 1, minWidth: 0 }}>
           <h1 style={{ margin: '0 0 4px', fontSize: 26 }}>Administration</h1>
@@ -317,6 +319,7 @@ export default function Admin() {
       </div>
 
       {tab === 'stats' && <AdminStatsTab onHowItWorks={() => setTab('how')} />}
+      {tab === 'analytics' && <AnalyticsTab />}
       {tab === 'broadcast' && <BroadcastTab />}
       {tab === 'support' && <SupportTab />}
       {tab === 'tools' && <ToolsTab />}

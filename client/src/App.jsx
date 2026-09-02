@@ -3,6 +3,7 @@ import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from './lib/AuthContext.jsx';
 import { useEntities } from './lib/EntityContext.jsx';
 import { homePathFor } from './lib/home.js';
+import { trackView } from './lib/analytics.js';
 import Layout from './components/Layout.jsx';
 import ErrorBoundary from './components/ErrorBoundary.jsx';
 import StartupScreen from './components/StartupScreen.jsx';
@@ -195,9 +196,23 @@ function ScrollToTop() {
   return null;
 }
 
+// One view per navigation, reported after the page has settled.
+//
+// Alongside ScrollToTop rather than inside it: they both watch the pathname,
+// but one is about what the reader sees and the other is about what we record,
+// and a scroll helper that also phones home is a helper nobody expects to.
+function TrackViews() {
+  const { pathname } = useLocation();
+  useEffect(() => {
+    trackView(pathname);
+  }, [pathname]);
+  return null;
+}
+
 export default function App() {
   return (
     <>
+      <TrackViews />
     <ScrollToTop />
     <Routes>
       <Route path="/login" element={<PublicOnly><Login /></PublicOnly>} />

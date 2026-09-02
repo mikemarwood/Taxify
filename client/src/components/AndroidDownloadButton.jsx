@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { api } from '../lib/api.js';
+import { trackClick } from '../lib/analytics.js';
 import Icon from './Icon.jsx';
 import { formatDateShort } from '../lib/dates.js';
 
@@ -67,7 +68,14 @@ export default function AndroidDownloadButton({ variant = 'button' }) {
     if (!android) {
       e.preventDefault();
       setNotAndroid(true);
+      // Recorded separately, because it is a different thing to know: this is
+      // somebody who wanted the app and could not have it, which is the
+      // strongest signal there is for whether an iPhone build is worth
+      // building.
+      trackClick('download_apk_blocked', 'Not an Android device');
+      return;
     }
+    trackClick('download_apk', version?.versionName ? `Android ${version.versionName}` : 'Android');
   }
 
   const button = (

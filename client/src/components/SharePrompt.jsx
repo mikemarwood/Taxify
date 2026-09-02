@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { api } from '../lib/api.js';
 import Icon from './Icon.jsx';
 import { onShareClick } from '../lib/shareWindow.js';
+import { trackClick } from '../lib/analytics.js';
 
 // Asking a customer to share the app.
 //
@@ -109,9 +110,6 @@ export default function SharePrompt({ user }) {
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           transition={{ duration: 0.2 }}
-          // Pressing beside it is the same as Not now. An easy no is what
-          // earns the right to be in the middle of the screen.
-          onClick={() => close('dismissed')}
         >
         <motion.div
           initial={{ opacity: 0, y: 12, scale: 0.97 }}
@@ -122,31 +120,47 @@ export default function SharePrompt({ user }) {
           aria-modal="true"
           aria-label="Share Taxify"
           className="card share-prompt"
-          onClick={(e) => e.stopPropagation()}
         >
+          {/* Closed by the cross or by Not now, and by nothing else.
+              
+              Pressing beside it used to dismiss it. That reads as generous
+              until you watch somebody do it: this appears over a page they
+              were already working on, so the next click they make anywhere on
+              that page lands on the backdrop and puts the thing away before
+              they have read a word of it. Asked once and never again means the
+              one ask is spent, and a stray click should not be what spends
+              it. */}
           <button
             type="button"
-            aria-label="No thanks"
+            aria-label="Close"
             onClick={() => close('dismissed')}
             className="share-prompt-close"
           >
             &times;
           </button>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: 11, marginBottom: 10 }}>
-            <img src="/logo.svg" alt="" width="34" height="34" style={{ borderRadius: 7, flexShrink: 0 }} />
-            <div style={{ minWidth: 0 }}>
-              <div style={{ fontWeight: 700, fontSize: 14.5 }}>Know somebody with a shoebox?</div>
-              <div style={{ fontSize: 12.5, color: 'var(--text-muted)', lineHeight: 1.5 }}>
-                A share is the only advertising we do.
-              </div>
+          {/* The mark on its own plate above the words rather than beside
+              them. Beside them it was a 34px logo competing with a 14px line
+              of type at the same weight, and the panel read as a notification
+              — the shape people have learnt to dismiss without reading. */}
+          <div className="share-prompt-crest">
+            <img src="/logo.svg" alt="" width="30" height="30" />
+          </div>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 7, marginBottom: 16 }}>
+            <div style={{ fontWeight: 700, fontSize: 17, letterSpacing: -0.3, lineHeight: 1.3 }}>
+              Know somebody with a shoebox?
+            </div>
+            <div style={{ fontSize: 13, color: 'var(--text-muted)', lineHeight: 1.55 }}>
+              A share is the only advertising we do — no budget, no billboards. If Taxify has saved you an
+              afternoon, telling one person is what keeps it going.
             </div>
           </div>
 
-          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
             <a
-              className="btn btn-primary"
-              style={{ fontSize: 12.5, gap: 7 }}
+              className="btn btn-primary share-prompt-cta"
+              style={{ gap: 8 }}
               href={`https://www.facebook.com/sharer/sharer.php?u=${encoded}&quote=${quote}`}
               target="_blank"
               rel="noopener noreferrer"
@@ -156,28 +170,36 @@ export default function SharePrompt({ user }) {
               // tomorrow — which is exactly the behaviour this is trying not
               // to have.
               onClick={(e) => {
+                trackClick('share', 'Facebook — prompt');
                 onShareClick(e);
                 close('shared');
               }}
             >
-              <Icon name="globe" size={14} />
+              <Icon name="globe" size={15} />
               Share on Facebook
             </a>
 
+            {/* Stacked, not in a row. Three buttons side by side at 12.5px
+                gave all three the same weight and wrapped raggedly at the
+                panel's width; down the page the ask is unmistakably first and
+                the way out is unmistakably last. */}
             {config.pageUrl && (
               <a
-                className="btn btn-ghost"
-                style={{ fontSize: 12.5 }}
+                className="btn btn-ghost share-prompt-cta"
                 href={config.pageUrl}
                 target="_blank"
                 rel="noopener noreferrer"
                 onClick={() => close('followed')}
               >
-                Follow us
+                Follow us instead
               </a>
             )}
 
-            <button type="button" className="btn btn-ghost" style={{ fontSize: 12.5 }} onClick={() => close('dismissed')}>
+            <button
+              type="button"
+              className="share-prompt-no"
+              onClick={() => close('dismissed')}
+            >
               Not now
             </button>
           </div>

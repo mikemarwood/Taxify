@@ -1815,8 +1815,60 @@
 
 
 
+  <!-- Counting a visit, twice over, because this page is served two ways.
+
+       Read at taxify.mikesapphub.com it is this file and scripts run. Read at
+       mikesapphub.com/apps/taxify it is proxied, and the proxy strips every
+       <script> from the page and serves it under a policy that only allows
+       connections back to the hub — so on that copy nothing here executes and
+       no request could be made even if it did.
+
+       What the proxy leaves alone, and rewrites to an absolute URL for us, is
+       an image. So the image below is the measurement that always works, and
+       the script after it is the measurement that can do more: it records
+       which button was pressed, which an <img> cannot.
+
+       The image is last in the document and carries no layout, so nothing on
+       the page waits for it. Absolute rather than relative because on the hub
+       copy a relative path would point at the hub, which does not serve it. -->
+  <img src="https://taxify.mikesapphub.com/api/analytics/px.gif?s=landing&e=view&p=/"
+       alt="" width="1" height="1" style="position:absolute;width:1px;height:1px;opacity:0;pointer-events:none" />
+
   <script>
     document.getElementById('year').textContent = new Date().getFullYear();
+
+    // Which button, on the copy of this page where scripts run.
+    //
+    // sendBeacon rather than fetch: every one of these is on a link that is
+    // about to navigate away, and an ordinary request is cancelled when the
+    // page unloads — which would lose exactly the clicks worth counting.
+    (function () {
+      var API = 'https://taxify.mikesapphub.com/api/analytics/event';
+      function tell(event, label) {
+        try {
+          var body = JSON.stringify({
+            surface: 'landing', event: event, label: label,
+            path: location.pathname, url: location.href, referrer: document.referrer || ''
+          });
+          if (navigator.sendBeacon) {
+            navigator.sendBeacon(API, new Blob([body], { type: 'application/json' }));
+          } else {
+            fetch(API, { method: 'POST', headers: { 'Content-Type': 'application/json' },
+                         body: body, keepalive: true, credentials: 'include' }).catch(function () {});
+          }
+        } catch (e) { /* Never let counting a click stop the click. */ }
+      }
+
+      document.addEventListener('click', function (e) {
+        var a = e.target.closest && e.target.closest('a');
+        if (!a || !a.getAttribute('href')) return;
+        var href = a.getAttribute('href');
+        if (href.indexOf('/app/') !== -1) tell('start_trial', a.textContent.trim().slice(0, 60));
+        else if (href.indexOf('/downloads/') !== -1) tell('download_apk', 'Android APK');
+        else if (href.indexOf('facebook.com') !== -1) tell('social', 'Facebook');
+        else if (href.charAt(0) !== '#') tell('outbound', href.slice(0, 60));
+      }, true);
+    })();
   </script>
 </body>
 </html>

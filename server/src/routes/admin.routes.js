@@ -16,6 +16,7 @@ import { signViewAsToken, cookieOptions, COOKIE_NAME } from '../auth/jwt.js';
 import { toPublicUser } from '../auth/publicUser.js';
 import { computeAccessLocked } from '../auth/access.js';
 import { collectStats } from '../lib/adminStats.js';
+import { fillDays } from '../lib/analytics.js';
 import { getSignupPlans, getStripe, getStripeConfig, planTypeForPriceId, REQUIRED_WEBHOOK_EVENTS } from '../lib/stripe.js';
 import { canTransition } from '../lib/planRequests.js';
 import { publicOrigin } from '../lib/publicOrigin.js';
@@ -76,6 +77,17 @@ router.get(
               -- Active filter takes as "runs for ever" — right by accident
               -- today, wrong the moment somebody lapses.
               u.subscription_current_period_end,
+              -- Which plan they are on.
+              --
+              -- This was missing, so every row arrived with planType undefined
+              -- and the whole page quietly agreed on the wrong answer: the
+              -- Individual filter tested `!== 'business'`, which undefined
+              -- passes, so every owner counted as Individual and Small
+              -- Business counted nobody; the badge asked planLabel for a label
+              -- for undefined and got Individual as its fallback. One missing
+              -- column, three symptoms, and nothing on screen that looked like
+              -- an error.
+              u.plan_type,
               u.role, u.account_holder_id, holder.name AS holder_name,
               (SELECT COUNT(*) FROM expenses e WHERE e.user_id = u.id) AS expense_count
        FROM users u
@@ -113,6 +125,7 @@ router.get(
         accessBypass: !!u.access_bypass,
         accessBypassUntil: u.access_bypass_until,
         subscriptionCurrentPeriodEnd: u.subscription_current_period_end,
+        planType: u.plan_type || null,
         // Removing a family member is an administrator's job — neither of the
         // two can remove the other — so the panel has to be able to tell one
         // apart from an account holder at a glance.
@@ -1406,6 +1419,179 @@ router.get(
   '/stats',
   asyncHandler(async (req, res) => {
     res.json(await collectStats());
+  })
+);
+
+// Traffic, for the period asked for.
+//
+// One endpoint rather than several, because every panel on the page is a
+// different grouping of the same rows over the same range — asking six times
+// would be six scans of the same index for one screen.
+//
+// The comparison against the period before is what makes any of it mean
+// anything: two hundred views is neither good nor bad, and two hundred against
+// ninety last week is.
+router.get(
+  '/analytics',
+  asyncHandler(async (req, res) => {
+    const allowed = [7, 14, 30, 90];
+    const days = allowed.includes(Number(req.query.days)) ? Number(req.query.days) : 30;
+    // 'all', 'landing' or 'app'. The two surfaces answer different questions —
+    // one is whether anybody is arriving, the other is what they do once they
+    // have — and mixing them hides both.
+    const surface = req.query.surface === 'landing' || req.query.surface === 'app' ? req.query.surface : null;
+    const where = surface ? 'AND surface = ?' : '';
+    const args = (extra = []) => (surface ? [...extra, surface] : extra);
+
+    const [[totals]] = await pool.execute(
+      `SELECT COUNT(*) AS views,
+              COUNT(DISTINCT visitor) AS visitors,
+              SUM(is_new = 1) AS new_visitors,
+              SUM(event <> 'view') AS clicks
+         FROM page_events
+        WHERE at >= NOW() - INTERVAL ? DAY ${where}`,
+      args([days])
+    );
+
+    // The same numbers for the period immediately before this one, so each can
+    // be shown as a movement rather than a bare figure.
+    const [[before]] = await pool.execute(
+      `SELECT COUNT(*) AS views,
+              COUNT(DISTINCT visitor) AS visitors,
+              SUM(is_new = 1) AS new_visitors,
+              SUM(event <> 'view') AS clicks
+         FROM page_events
+        WHERE at >= NOW() - INTERVAL ? DAY AND at < NOW() - INTERVAL ? DAY ${where}`,
+      args([days * 2, days])
+    );
+
+    const [series] = await pool.execute(
+      `SELECT DATE(at) AS day,
+              COUNT(*) AS views,
+              COUNT(DISTINCT visitor) AS visitors
+         FROM page_events
+        WHERE at >= CURDATE() - INTERVAL ? DAY ${where}
+        GROUP BY DATE(at) ORDER BY day`,
+      args([days - 1])
+    );
+
+    // Where they came from, by name rather than by kind — "Facebook" is
+    // actionable and "social" is not. Kind rides along so the panel can colour
+    // by channel.
+    const [sources] = await pool.execute(
+      `SELECT referrer_kind AS kind, referrer_name AS name, COUNT(*) AS views,
+              COUNT(DISTINCT visitor) AS visitors
+         FROM page_events
+        WHERE at >= NOW() - INTERVAL ? DAY AND referrer_kind <> 'internal' ${where}
+        GROUP BY referrer_kind, referrer_name
+        ORDER BY views DESC LIMIT 12`,
+      args([days])
+    );
+
+    const [pages] = await pool.execute(
+      `SELECT path, COUNT(*) AS views, COUNT(DISTINCT visitor) AS visitors
+         FROM page_events
+        WHERE at >= NOW() - INTERVAL ? DAY AND event = 'view' ${where}
+        GROUP BY path ORDER BY views DESC LIMIT 12`,
+      args([days])
+    );
+
+    // Everything that is not a page view: the buttons. This is the half of the
+    // picture that says whether arriving turned into doing anything.
+    const [clicks] = await pool.execute(
+      `SELECT event, label, COUNT(*) AS n, COUNT(DISTINCT visitor) AS visitors
+         FROM page_events
+        WHERE at >= NOW() - INTERVAL ? DAY AND event <> 'view' ${where}
+        GROUP BY event, label ORDER BY n DESC LIMIT 12`,
+      args([days])
+    );
+
+    const [countries] = await pool.execute(
+      `SELECT country, COUNT(*) AS views, COUNT(DISTINCT visitor) AS visitors
+         FROM page_events
+        WHERE at >= NOW() - INTERVAL ? DAY ${where}
+        GROUP BY country ORDER BY views DESC LIMIT 12`,
+      args([days])
+    );
+
+    const [devices] = await pool.execute(
+      `SELECT device, COUNT(*) AS views FROM page_events
+        WHERE at >= NOW() - INTERVAL ? DAY ${where}
+        GROUP BY device ORDER BY views DESC`,
+      args([days])
+    );
+
+    const [campaigns] = await pool.execute(
+      `SELECT utm_source AS source, utm_medium AS medium, utm_campaign AS campaign,
+              COUNT(*) AS views, COUNT(DISTINCT visitor) AS visitors
+         FROM page_events
+        WHERE at >= NOW() - INTERVAL ? DAY AND utm_source IS NOT NULL ${where}
+        GROUP BY utm_source, utm_medium, utm_campaign
+        ORDER BY views DESC LIMIT 10`,
+      args([days])
+    );
+
+    // How many visitors came back, and how often. The whole reason a visitor
+    // cookie exists — a hundred views from a hundred people is a different
+    // business from a hundred views from ten.
+    const [[returning]] = await pool.execute(
+      `SELECT COUNT(*) AS repeat_visitors FROM (
+         SELECT visitor FROM page_events
+          WHERE at >= NOW() - INTERVAL ? DAY AND visitor IS NOT NULL ${where}
+          GROUP BY visitor HAVING COUNT(DISTINCT DATE(at)) > 1
+       ) AS r`,
+      args([days])
+    );
+
+    const [busiest] = await pool.execute(
+      `SELECT HOUR(at) AS hour, COUNT(*) AS views FROM page_events
+        WHERE at >= NOW() - INTERVAL ? DAY ${where}
+        GROUP BY HOUR(at) ORDER BY hour`,
+      args([days])
+    );
+
+    const n = (v) => Number(v) || 0;
+    res.set('Cache-Control', 'no-store');
+    res.json({
+      days,
+      surface: surface || 'all',
+      totals: {
+        views: n(totals.views),
+        visitors: n(totals.visitors),
+        newVisitors: n(totals.new_visitors),
+        clicks: n(totals.clicks),
+        repeatVisitors: n(returning.repeat_visitors),
+      },
+      previous: {
+        views: n(before.views),
+        visitors: n(before.visitors),
+        newVisitors: n(before.new_visitors),
+        clicks: n(before.clicks),
+      },
+      // Both figures off one filled run of days. Built twice inside a map it
+      // was rebuilding the whole series once per day in it.
+      series: (() => {
+        const views = fillDays(series, days, { value: 'views' });
+        const visitors = fillDays(series, days, { value: 'visitors' });
+        return views.map((d, i) => ({ day: d.day, views: d.value, visitors: visitors[i].value }));
+      })(),
+      sources: sources.map((r) => ({ kind: r.kind, name: r.name, views: n(r.views), visitors: n(r.visitors) })),
+      pages: pages.map((r) => ({ path: r.path, views: n(r.views), visitors: n(r.visitors) })),
+      clicks: clicks.map((r) => ({ event: r.event, label: r.label, count: n(r.n), visitors: n(r.visitors) })),
+      countries: countries.map((r) => ({ code: r.country, views: n(r.views), visitors: n(r.visitors) })),
+      devices: devices.map((r) => ({ device: r.device, views: n(r.views) })),
+      campaigns: campaigns.map((r) => ({
+        source: r.source,
+        medium: r.medium,
+        campaign: r.campaign,
+        views: n(r.views),
+        visitors: n(r.visitors),
+      })),
+      hours: Array.from({ length: 24 }, (_, h) => ({
+        hour: h,
+        views: n(busiest.find((b) => Number(b.hour) === h)?.views),
+      })),
+    });
   })
 );
 
