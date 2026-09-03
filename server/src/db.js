@@ -1221,6 +1221,7 @@ export async function ensureSchema() {
       utm_medium VARCHAR(60) NULL,
       utm_campaign VARCHAR(60) NULL,
       country CHAR(2) NULL,
+      country_source VARCHAR(8) NULL,
       device VARCHAR(16) NULL,
       platform VARCHAR(16) NULL,
       browser VARCHAR(20) NULL,
@@ -1239,6 +1240,9 @@ export async function ensureSchema() {
   // answers — how did last month compare, where are people coming from — are
   // all inside a year. Keeping five years of raw rows to answer none of them
   // is how a table nobody looks at becomes the biggest one in the database.
+  // Added after the table, for anybody whose database already has it.
+  await pool.query('ALTER TABLE page_events ADD COLUMN IF NOT EXISTS country_source VARCHAR(8) NULL');
+
   await pool.query('DELETE FROM page_events WHERE at < NOW() - INTERVAL 365 DAY');
 
   await pool.query(`

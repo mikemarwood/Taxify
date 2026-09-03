@@ -167,6 +167,30 @@ export function countryFrom(headers = {}) {
   return code;
 }
 
+// A country from the browser's own regional setting, as a last resort.
+//
+// Why this exists: the network-level country is a header the thing in front of
+// the server has to add, and nginx without a GeoIP module adds nothing — so on
+// a plain setup every single visit files as Unknown, which is true and useless.
+//
+// Accept-Language carries a region subtag on most browsers: "en-AU" is
+// somebody whose machine is set to Australian English. That is a weaker claim
+// than an IP lookup — a British expat in Sydney may still send en-GB — so it
+// is recorded with its source rather than passed off as the same thing.
+//
+// Only the region half is read. A bare "en" says nothing about where anybody
+// is and must not be turned into a country.
+export function countryFromLocale(acceptLanguage) {
+  const raw = String(acceptLanguage || '').trim();
+  if (!raw) return null;
+  for (const part of raw.split(',')) {
+    const tag = part.split(';')[0].trim();
+    const match = /^[A-Za-z]{2,3}-(?:[A-Za-z]{4}-)?([A-Za-z]{2})$/.exec(tag);
+    if (match) return match[1].toUpperCase();
+  }
+  return null;
+}
+
 // A run of days with no gaps, so a chart has the same number of columns every
 // time it is drawn. A missing day is a zero, not an absence — a line that
 // skips Sunday is a line that lies about Monday.

@@ -476,7 +476,22 @@ export default function AnalyticsTab() {
 
   const t = data.totals;
   const p = data.previous;
-  const everything = surface === 'all';
+
+  // How much of the country panel is measured and how much is inferred.
+  //
+  // Three sources of very different confidence land in one column, so the
+  // panel says which. Without this the map reads as fact when most of it may
+  // be a browser's language setting.
+  const src = data.countrySources || {};
+  const placed = (src.header || 0) + (src.account || 0) + (src.locale || 0);
+  const countryConfidence =
+    placed === 0
+      ? undefined
+      : src.locale === placed
+      ? 'From browser settings'
+      : src.locale
+      ? `${Math.round((src.locale / placed) * 100)}% from browser settings`
+      : 'Measured';
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
@@ -563,14 +578,16 @@ export default function AnalyticsTab() {
           />
         </Panel>
 
-        <Panel title="Countries" aside={everything ? undefined : SURFACES.find((s) => s.key === surface)?.label}>
+        <Panel title="Countries" aside={countryConfidence}>
           <BarList
             rows={(data.countries || []).map((r) => ({
               key: r.code || 'unknown',
               label: r.code ? COUNTRY_NAMES[r.code] || r.code : 'Unknown',
               value: r.views,
               secondary: r.visitors,
-              title: r.code ? undefined : 'No country header reached the server for these',
+              title: r.code
+                ? undefined
+                : 'Nothing on this visit said where it came from — no network country, no account, no regional setting',
             }))}
             empty="Nothing recorded yet."
           />
@@ -635,9 +652,10 @@ export default function AnalyticsTab() {
           Crawlers and link previews are dropped before anything is recorded, so these are people rather than robots.
           Visitors are counted with a cookie of ours: read through the hub&rsquo;s copy of the landing page that cookie
           is third-party and most browsers refuse it, so those visits count as first-time every time and the real
-          number of people is a little lower than it looks. Countries come from a header the server in front of us has
-          to supply — when it does not, the visit is filed as Unknown rather than guessed at. Rows older than a year
-          are deleted.
+          number of people is a little lower than it looks. Countries are taken from the network where the server in
+          front of us supplies one, otherwise from the signed-in account, otherwise from the region in the
+          browser&rsquo;s language setting — which is a fair guess and not a measurement, so the panel says how much of
+          it is which. For the real thing, nginx needs its GeoIP module. Rows older than a year are deleted.
         </div>
       </div>
     </div>

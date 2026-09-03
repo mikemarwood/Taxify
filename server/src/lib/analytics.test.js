@@ -5,6 +5,7 @@ import {
   changeBetween,
   classifyReferrer,
   countryFrom,
+  countryFromLocale,
   fillDays,
   isBot,
   normalisePath,
@@ -85,6 +86,23 @@ test('an unknown country stays unknown', () => {
   assert.equal(countryFrom({ 'cf-ipcountry': 'XX' }), null);
   assert.equal(countryFrom({ 'cf-ipcountry': 'T1' }), null);
   assert.equal(countryFrom({ 'cf-ipcountry': 'Australia' }), null);
+});
+
+test('the regional setting stands in when nothing else knows where they are', () => {
+  assert.equal(countryFromLocale('en-AU,en;q=0.9'), 'AU');
+  assert.equal(countryFromLocale('en-GB'), 'GB');
+  assert.equal(countryFromLocale('fr-CA,fr;q=0.8,en;q=0.6'), 'CA');
+  // A script subtag sits between the language and the region.
+  assert.equal(countryFromLocale('zh-Hans-CN'), 'CN');
+
+  // A bare language says nothing about where anybody is, and turning it into
+  // a country would be inventing the answer this whole function exists to
+  // avoid inventing.
+  assert.equal(countryFromLocale('en'), null);
+  assert.equal(countryFromLocale('en,fr'), null);
+  assert.equal(countryFromLocale(''), null);
+  assert.equal(countryFromLocale(null), null);
+  assert.equal(countryFromLocale('*'), null);
 });
 
 test('a quiet day is a zero, not a missing column', () => {

@@ -65,6 +65,13 @@ router.use(requireAuth, requireAdmin);
 
 const PALETTE = ['#8b5cf6', '#06b6d4', '#f59e0b', '#ec4899', '#10b981', '#3b82f6', '#a1a1aa', '#ef4444', '#eab308', '#14b8a6'];
 
+// Every account, for the users tab.
+//
+// A cautionary note about the SELECT below, because it cost an outage: it is a
+// template literal, so a backtick anywhere inside it — including inside a SQL
+// comment — ends the string. A comment here once quoted a JavaScript
+// expression in backticks, which truncated the query mid-word and left the
+// route throwing on every call. Comments in this file's SQL use plain quotes.
 router.get(
   '/users',
   asyncHandler(async (req, res) => {
@@ -77,16 +84,9 @@ router.get(
               -- Active filter takes as "runs for ever" — right by accident
               -- today, wrong the moment somebody lapses.
               u.subscription_current_period_end,
-              -- Which plan they are on.
-              --
-              -- This was missing, so every row arrived with planType undefined
-              -- and the whole page quietly agreed on the wrong answer: the
-              -- Individual filter tested `!== 'business'`, which undefined
-              -- passes, so every owner counted as Individual and Small
-              -- Business counted nobody; the badge asked planLabel for a label
-              -- for undefined and got Individual as its fallback. One missing
-              -- column, three symptoms, and nothing on screen that looked like
-              -- an error.
+              -- Which plan they are on. Missing until recently, which made
+              -- every owner read as Individual on the filters and the badge.
+              -- See the note above the route for what that cost.
               u.plan_type,
               u.role, u.account_holder_id, holder.name AS holder_name,
               (SELECT COUNT(*) FROM expenses e WHERE e.user_id = u.id) AS expense_count
@@ -1514,6 +1514,17 @@ router.get(
       args([days])
     );
 
+    // How each of those countries was arrived at, so the panel can say how
+    // much of the map is measured and how much is inferred from a browser
+    // setting. Three sources of very different confidence go into one column;
+    // reporting the mix is what stops the column being read as one thing.
+    const [countrySources] = await pool.execute(
+      `SELECT country_source AS source, COUNT(*) AS views FROM page_events
+        WHERE at >= NOW() - INTERVAL ? DAY AND country IS NOT NULL ${where}
+        GROUP BY country_source`,
+      args([days])
+    );
+
     const [devices] = await pool.execute(
       `SELECT device, COUNT(*) AS views FROM page_events
         WHERE at >= NOW() - INTERVAL ? DAY ${where}
@@ -1579,6 +1590,7 @@ router.get(
       pages: pages.map((r) => ({ path: r.path, views: n(r.views), visitors: n(r.visitors) })),
       clicks: clicks.map((r) => ({ event: r.event, label: r.label, count: n(r.n), visitors: n(r.visitors) })),
       countries: countries.map((r) => ({ code: r.country, views: n(r.views), visitors: n(r.visitors) })),
+      countrySources: countrySources.reduce((acc, r) => ({ ...acc, [r.source || 'none']: n(r.views) }), {}),
       devices: devices.map((r) => ({ device: r.device, views: n(r.views) })),
       campaigns: campaigns.map((r) => ({
         source: r.source,

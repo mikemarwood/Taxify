@@ -4,7 +4,15 @@ import pool from '../db.js';
 import { asyncHandler } from '../lib/asyncHandler.js';
 import { optionalAuth } from '../auth/middleware.js';
 import { describeUserAgent } from '../lib/deviceInfo.js';
-import { campaignFrom, classifyReferrer, countryFrom, isBot, normalisePath } from '../lib/analytics.js';
+import {
+  campaignFrom,
+  classifyReferrer,
+  countryFrom,
+  countryFromLocale,
+  isBot,
+  normalisePath,
+} from '../lib/analytics.js';
+import { countryByName } from '../lib/geoData.js';
 
 const router = Router();
 
@@ -58,6 +66,37 @@ function visitorFrom(req, res) {
 // row is refused. Nothing here is ever rendered as HTML, but a table that
 // takes whatever it is handed is a table that eventually holds something it
 // should not.
+// Where this visit came from, and how confidently we know.
+//
+// Three sources, best first, and the answer carries which one it was — because
+// they are not the same claim and a chart that mixes them silently is one that
+// gets quoted as fact.
+//
+//   header  a country the network worked out from the IP. The real answer, and
+//           the one that needs nothing from the visitor — but it only exists
+//           if whatever sits in front of this server adds it. Plain nginx does
+//           not, which is why everything read Unknown.
+//
+//   account the country on the signed-in account. Exact, because they typed
+//           it, and only available once somebody has signed in.
+//
+//   locale  the region in the browser's language setting. A guess: en-AU is
+//           usually somebody in Australia and sometimes an Australian abroad.
+//           Better than nothing and clearly labelled as the weakest of the
+//           three.
+function countryOf(req) {
+  const header = countryFrom(req.headers);
+  if (header) return { code: header, source: 'header' };
+
+  const account = req.user?.country ? countryByName(req.user.country) : null;
+  if (account) return { code: account.code, source: 'account' };
+
+  const locale = countryFromLocale(req.headers['accept-language']);
+  if (locale) return { code: locale, source: 'locale' };
+
+  return { code: null, source: null };
+}
+
 async function record(req, res, body) {
   const userAgent = req.headers['user-agent'];
   // Silently ignored rather than refused. A crawler that gets a 400 tries
@@ -72,12 +111,13 @@ async function record(req, res, body) {
   const referrer = classifyReferrer(body.referrer || req.headers.referer || '');
   const utm = campaignFrom(body.url || '');
   const ua = describeUserAgent(userAgent);
+  const where = countryOf(req);
 
   await pool.execute(
     `INSERT INTO page_events
        (surface, event, path, label, visitor, is_new, referrer_kind, referrer_name,
-        utm_source, utm_medium, utm_campaign, country, device, platform, browser, user_id)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        utm_source, utm_medium, utm_campaign, country, country_source, device, platform, browser, user_id)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       surface,
       event,
@@ -90,7 +130,8 @@ async function record(req, res, body) {
       utm.source,
       utm.medium,
       utm.campaign,
-      countryFrom(req.headers),
+      where.code,
+      where.source,
       ua.device,
       ua.platform,
       ua.browser,
@@ -124,6 +165,9 @@ router.post(
 // feature, which is the wrong way round.
 router.get(
   '/px.gif',
+  // Same as the beacon: a signed-in visitor reading the landing page can have
+  // their own country used rather than being guessed at from a locale.
+  optionalAuth,
   asyncHandler(async (req, res) => {
     try {
       await record(req, res, {
