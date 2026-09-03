@@ -31,6 +31,7 @@ import {
   toPublicPromo,
 } from '../lib/promoCodes.js';
 import { getSignupPlans } from '../lib/stripe.js';
+import { invoiceIsOurs } from '../lib/stripeOwnership.js';
 
 const uploadsDir = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', '..', 'uploads');
 
@@ -301,6 +302,10 @@ router.post(
       ...(payOnce ? { customer_creation: req.user.stripeCustomerId ? undefined : 'always' } : {}),
       client_reference_id: String(req.user.id),
       metadata: {
+        // Stamped on everything we create, so an event can be identified as
+        // ours without having to recognise a price id. Prices get replaced;
+        // this does not. See stripeOwnership.js.
+        app: 'taxify',
         userId: String(req.user.id),
         planType,
         billing: payOnce ? 'once' : 'auto',
@@ -968,6 +973,29 @@ router.post(
         const customerId = typeof invoice.customer === 'string' ? invoice.customer : invoice.customer?.id;
         if (customerId) {
           const [owner] = await pool.execute('SELECT id FROM users WHERE stripe_customer_id = ?', [customerId]);
+
+          // Is this even ours?
+          //
+          // Several products share one Stripe account, and Stripe delivers
+          // every event on an account to every endpoint registered against it.
+          // So this fired for payments taken by other apps — and the code
+          // below writes the row with `owner[0]?.id ?? null`, which happily
+          // records a stranger's money against nobody and then emails the
+          // administrators to say a payment had come in.
+          //
+          // Identified positively rather than by excluding unknown customers,
+          // because an unknown customer is also what a genuine first payment
+          // looks like in the seconds before checkout.session.completed writes
+          // the customer id down. See stripeOwnership.js for the three
+          // signals.
+          const mine = invoiceIsOurs(invoice, {
+            config: await getStripeConfig(),
+            knownCustomer: Boolean(owner[0]),
+          });
+          if (!mine.ours) {
+            console.log(`[stripe] ignoring invoice ${invoice.id} — not a Taxify sale`);
+            break;
+          }
 
           // Written down as it happens, so the admin panel can answer "what
           // came in this week" without calling Stripe and paging through
