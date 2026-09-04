@@ -915,7 +915,16 @@
      matters because the hub proxy strips every script from this page. */
   .rotate-ask { display: none; }
   @media (max-width: 640px) and (orientation: portrait) {
-    .lightbox:target figure,
+    /* Not .lightbox-tall.
+    
+       This hides the picture so the "turn your phone" panel can take its
+       place, which is right for the three screenshots — they are far wider
+       than they are tall and unreadable held upright. It was wrong for the
+       poster, which is portrait and already the shape of a phone held
+       normally: it has no rotate panel to show instead, so Enlarge poster
+       opened a black screen with a close button on it and nothing else.
+       Desktop and tablet were fine, which is exactly how it stayed hidden. */
+    .lightbox:target:not(.lightbox-tall) figure,
     .lightbox:target .shotbox-step,
     .lightbox:target .shotbox-bar { display: none; }
     .rotate-ask {
