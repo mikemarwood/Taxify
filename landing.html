@@ -458,81 +458,6 @@
   .hero-zoom:hover { border-color: var(--blue); background: rgba(59, 130, 246, .12); }
   .hero-zoom:focus-visible { outline: 2px solid var(--blue); outline-offset: 3px; }
 
-  .flow { margin: 0 0 clamp(48px, 8vw, 88px); }
-  .flow-track {
-    display: grid;
-    /* Five across when there is room, and a single column on a phone — where a
-       vertical list of steps is easier to follow than a squeezed row anyway. */
-    grid-template-columns: repeat(5, 1fr);
-    gap: 12px;
-    align-items: stretch;
-  }
-  .flow-step {
-    position: relative;
-    padding: 20px 16px;
-    border-radius: 14px;
-    border: 1px solid var(--border);
-    background: var(--bg-card);
-    text-align: center;
-  }
-  /* The arrow between steps. Drawn on the box rather than as its own element,
-     so it cannot end up orphaned on a wrapped row. */
-  .flow-step::after {
-    content: '';
-    position: absolute;
-    top: 50%;
-    right: -12px;
-    width: 12px;
-    height: 2px;
-    background: linear-gradient(90deg, var(--blue), var(--cyan));
-    transform: translateY(-50%);
-  }
-  .flow-step:last-child::after { display: none; }
-  /* One colour per doer, not one colour for all five.
-     Every icon was the same blue on the same blue-to-cyan wash, so the row
-     read as five copies of one card. The tint now says who is doing the step
-     — you for the first two, Taxify for the middle two, your accountant for
-     the last — which is the whole argument of the section and was being
-     carried by the caption alone. Grouped rather than rotated: an arbitrary
-     five-colour sequence would look decorated instead of organised. */
-  .flow-icon {
-    --tint: 59, 130, 246;
-    width: 42px;
-    height: 42px;
-    margin: 0 auto 12px;
-    border-radius: 12px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    background: linear-gradient(135deg, rgba(var(--tint), 0.20), rgba(var(--tint), 0.07));
-    color: rgb(var(--tint));
-  }
-  .flow-step.by-taxify .flow-icon { --tint: 16, 185, 129; }
-  .flow-step.by-accountant .flow-icon { --tint: 139, 122, 246; }
-  .flow-num {
-    display: inline-block;
-    font-size: 10.5px;
-    font-weight: 800;
-    letter-spacing: 0.7px;
-    text-transform: uppercase;
-    color: var(--text-muted);
-    margin-bottom: 5px;
-  }
-  .flow-title { font-size: 14px; font-weight: 700; margin-bottom: 5px; }
-  .flow-text { font-size: 12.5px; color: var(--text-muted); line-height: 1.5; }
-  @media (max-width: 860px) {
-    .flow-track { grid-template-columns: 1fr; }
-    /* Pointing down now, so the connector moves to the bottom edge. */
-    .flow-step::after {
-      top: auto;
-      right: 50%;
-      bottom: -12px;
-      width: 2px;
-      height: 12px;
-      transform: translateX(50%);
-      background: linear-gradient(180deg, var(--blue), var(--cyan));
-    }
-  }
 
   /* A sentence and a button, not a pill inside a pill.
      This was a bordered bar with a green pill sitting inside it, and nested
@@ -1341,12 +1266,28 @@
          to sign in to an account they have not made yet. -->
     <section class="poster-hero" aria-label="Taxify">
       <figure class="poster-figure">
+        <!-- One file, and deliberately no srcset.
+
+             There was one, and it is exactly what stopped this image loading.
+             The hub proxies this page and rewrites image URLs to absolute — but
+             it treats the whole srcset attribute as a single URL, so it
+             percent-encoded the spaces inside it and produced one malformed
+             candidate:
+
+               srcset="…/ad-poster.jpg%201100w,%20/media/ad-poster-full.jpg%201700w"
+
+             A srcset that parses to a candidate wins over src, so the browser
+             asked for that address, got nothing, and drew a blank — while the
+             lightbox copy below, which has no srcset, loaded perfectly. That
+             difference is the whole symptom.
+
+             1400px wide covers a desktop hero at 1x and a phone at 2x, which
+             is every case this page has. Two sizes were never worth much here;
+             they are worth nothing at all if one of them cannot load. -->
         <img
           src="/media/ad-poster.jpg"
-          srcset="/media/ad-poster.jpg 1100w, /media/ad-poster-full.jpg 1700w"
-          sizes="(max-width: 900px) 92vw, 42vw"
           alt="Taxify: digitise your tax receipts and keep track of your expenses. Snap and save a photo of any receipt, track work and business expenses, manage rental income, and export everything come tax time."
-          width="1100" height="1502" fetchpriority="high" decoding="async">
+          width="1400" height="1911" fetchpriority="high" decoding="async">
         <!-- Print-sized small print, opened flat. Same :target lightbox the
              screenshots use — no script, which matters because the hub strips
              every one of them from its copy of this page. -->
@@ -1459,44 +1400,6 @@
     </section>
 
 
-    <section class="flow" aria-label="How Taxify works">
-      <div class="section-head">
-        <h2>From the counter to your accountant</h2>
-        <p>Five steps, and you only do the first two.</p>
-      </div>
-      <div class="flow-track">
-        <div class="flow-step by-you">
-          <div class="flow-icon"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4Z"/><path d="M3 6h18"/><path d="M16 10a4 4 0 0 1-8 0"/></svg></div>
-          <div class="flow-num">Step 1 &middot; you</div>
-          <div class="flow-title">You buy something</div>
-          <div class="flow-text">A tool, fuel, materials — anything you can claim.</div>
-        </div>
-        <div class="flow-step by-you">
-          <div class="flow-icon"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3Z"/><circle cx="12" cy="13" r="3"/></svg></div>
-          <div class="flow-num">Step 2 &middot; you</div>
-          <div class="flow-title">Photograph the receipt</div>
-          <div class="flow-text">One tap on your phone, before it goes in your pocket.</div>
-        </div>
-        <div class="flow-step by-taxify">
-          <div class="flow-icon"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.7-.9L9.6 3.9A2 2 0 0 0 7.9 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/><path d="M12 10v6M9 13h6"/></svg></div>
-          <div class="flow-num">Step 3 &middot; Taxify</div>
-          <div class="flow-title">Taxify files it</div>
-          <div class="flow-text">Into the right category, the right year and the right set of books.</div>
-        </div>
-        <div class="flow-step by-taxify">
-          <div class="flow-icon"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 3v18h18"/><path d="M7 15l4-4 3 3 5-6"/></svg></div>
-          <div class="flow-num">Step 4 &middot; Taxify</div>
-          <div class="flow-title">Your totals keep themselves</div>
-          <div class="flow-text">Reports, year-on-year comparisons and your vehicle and home-office claims.</div>
-        </div>
-        <div class="flow-step by-accountant">
-          <div class="flow-icon"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/></svg></div>
-          <div class="flow-num">Step 5 &middot; accountant</div>
-          <div class="flow-title">Your accountant takes it from there</div>
-          <div class="flow-text">A read-only look, or let them lodge for you — for the years you choose, then it closes on its own.</div>
-        </div>
-      </div>
-    </section>
 
     <section class="shots-wrap" aria-label="How the process works">
       <div class="section-head">
