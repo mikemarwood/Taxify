@@ -264,8 +264,8 @@
        full-height block measured in vh is always taller than what is actually
        on screen and the bottom of it is cut off by the browser's own bars. */
     min-height: calc(100svh - 96px);
-    padding: clamp(12px, 2vw, 28px) 0 clamp(28px, 4vw, 44px);
-    margin-bottom: clamp(30px, 6vw, 72px);
+    padding: clamp(12px, 2vw, 28px) 0 clamp(14px, 2vw, 20px);
+    margin-bottom: clamp(10px, 1.6vw, 20px);
   }
   /* min-width: 0 on both columns.
      A grid item defaults to min-width:auto, which means it refuses to shrink
@@ -1291,9 +1291,9 @@
         <!-- Print-sized small print, opened flat. Same :target lightbox the
              screenshots use — no script, which matters because the hub strips
              every one of them from its copy of this page. -->
-        <a class="poster-open" href="#poster" aria-label="Open the poster full size">
+        <a class="poster-open" href="#poster" aria-label="Enlarge the poster">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5M8 11h6M11 8v6"/></svg>
-          Read it full size
+          Enlarge poster
         </a>
       </figure>
 
