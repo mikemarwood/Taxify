@@ -463,8 +463,8 @@ router.post(
 //
 // Swapping the price on a live subscription keeps its renewal date, and Stripe
 // prorates: it credits the unused part of what they have and charges the used
-// part of what they are moving to. Somebody four months into a $79 year moving
-// to $149 pays the difference for the eight months left, not $149 — and their
+// part of what they are moving to. Somebody four months into a $49 year moving
+// to $99 pays the difference for the eight months left, not $99 — and their
 // renewal date does not move.
 //
 // Asking Stripe rather than doing the arithmetic here matters, because Stripe
