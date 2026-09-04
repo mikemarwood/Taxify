@@ -244,7 +244,134 @@
 
   /* The product picture sits directly under the hero, so the hero stops
      reserving a section-sized gap beneath itself — the two are one thought. */
-  .hero { text-align: center; padding: clamp(40px, 8vw, 96px) 0 clamp(22px, 4vw, 34px); margin-bottom: clamp(18px, 3vw, 30px) !important; }
+
+  /* The poster, first, and the whole of it on one screen.
+
+     The advertisement says in one picture what the rest of this page spends a
+     thousand words on, so it opens the page — and the only thing set beside it
+     is the one decision a reader can make here, which is whether to start.
+
+     Sized by height rather than by width. It is a print poster in portrait,
+     and a portrait image laid out by width overflows a landscape screen
+     immediately; constraining the height is what keeps the whole thing on the
+     first screen, which is the point of putting it there. */
+  .poster-hero {
+    display: grid;
+    grid-template-columns: auto minmax(300px, 1fr);
+    gap: clamp(26px, 5vw, 64px);
+    align-items: center;
+    /* svh, not vh: on a phone vh is the tallest the viewport ever gets, so a
+       full-height block measured in vh is always taller than what is actually
+       on screen and the bottom of it is cut off by the browser's own bars. */
+    min-height: calc(100svh - 96px);
+    padding: clamp(12px, 2vw, 28px) 0 clamp(28px, 4vw, 44px);
+    margin-bottom: clamp(30px, 6vw, 72px);
+  }
+  /* min-width: 0 on both columns.
+     A grid item defaults to min-width:auto, which means it refuses to shrink
+     below its contents' intrinsic width — and the poster's intrinsic width is
+     1100px. On a phone that pushed the single column out to 428px inside a
+     412px viewport, so the whole page overflowed sideways and every line in it
+     was clipped at the right edge. The image's own max-width:100% cannot help,
+     because the column had already been sized around it. */
+  .poster-figure { margin: 0; min-width: 0; display: flex; flex-direction: column; align-items: center; gap: 12px; }
+  .poster-figure img {
+    display: block;
+    width: auto;
+    max-width: 100%;
+    max-height: min(72svh, 730px);
+    height: auto;
+    border-radius: 14px;
+    box-shadow: 0 30px 70px -28px rgba(4, 12, 28, .75), 0 0 0 1px rgba(255, 255, 255, .06);
+  }
+  /* The small print on a poster is print-sized, and at the height this is
+     drawn at it can be seen but not read. One press opens it flat.
+
+     Underneath rather than laid over the artwork: overlaid in the only corner
+     it fits, it covered the QR code and the address — putting a control on top
+     of the two things the poster exists to hand somebody. */
+  .poster-open {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    padding: 7px 14px;
+    border-radius: 999px;
+    font-size: 12.5px;
+    font-weight: 600;
+    text-decoration: none;
+    color: var(--text-muted);
+    background: rgba(255, 255, 255, .04);
+    border: 1px solid var(--border);
+  }
+  .poster-open:hover { color: var(--text); border-color: var(--blue); }
+
+  .poster-copy { text-align: left; min-width: 0; }
+  .poster-copy h1 {
+    font-size: clamp(30px, 4.2vw, 52px);
+    line-height: 1.08;
+    letter-spacing: -1.2px;
+    margin: 0 0 16px;
+    text-wrap: balance;
+  }
+  .poster-copy .lede { margin: 0 0 26px; max-width: 46ch; }
+  .poster-cta {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 17px;
+    padding: 15px 30px;
+  }
+  /* Deliberately not a flex row.
+     It was, and a flex container makes its one run of text a single item that
+     cannot wrap — so on a narrow screen the line ran straight off the right
+     edge instead of folding onto a second one. Plain text wraps. */
+  .poster-terms {
+    margin: 14px 0 0;
+    font-size: 13.5px;
+    line-height: 1.6;
+    color: var(--text-muted);
+  }
+  .poster-terms b { color: var(--text); font-weight: 700; }
+  .poster-points {
+    list-style: none;
+    margin: 26px 0 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 9px;
+  }
+  .poster-points li { display: flex; align-items: flex-start; gap: 10px; font-size: 14.5px; }
+  .poster-points svg { flex-shrink: 0; margin-top: 2px; color: var(--blue); }
+
+  /* Stacked, poster first, and still one screenful.
+     The poster gives up height here so the button underneath it is on screen
+     without scrolling — an advertisement nobody can act on is a picture. */
+  @media (max-width: 900px) {
+    .poster-hero {
+      grid-template-columns: 1fr;
+      gap: 18px;
+      text-align: center;
+      min-height: calc(100svh - 80px);
+      /* Centred as one block rather than spread down the screen. A grid with
+         a tall minimum pushes its rows apart, which left the poster at the top
+         and the button near the fold with a hole between them. */
+      align-content: center;
+      padding-top: 6px;
+    }
+    .poster-figure img { max-height: 44svh; }
+    .poster-copy { text-align: center; }
+    .poster-copy h1 { font-size: clamp(23px, 5.8vw, 31px); margin-bottom: 14px; letter-spacing: -0.7px; }
+    .poster-copy .lede { display: none; }
+    .poster-points { display: none; }
+    .poster-terms { margin-top: 11px; }
+    .poster-cta { font-size: 16px; padding: 14px 26px; }
+  }
+  /* A short landscape phone has no room for a portrait poster and a button.
+     The poster goes; the offer stays, because the offer is the point. */
+  @media (max-height: 480px) and (max-width: 900px) {
+    .poster-figure { display: none; }
+    .poster-hero { min-height: 0; }
+  }
   .badge {
     display: inline-flex;
     align-items: center;
@@ -330,8 +457,6 @@
   .hero-zoom svg { color: var(--blue); flex-shrink: 0; }
   .hero-zoom:hover { border-color: var(--blue); background: rgba(59, 130, 246, .12); }
   .hero-zoom:focus-visible { outline: 2px solid var(--blue); outline-offset: 3px; }
-  .hero-actions { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
-  .hero-note { font-size: 12.5px; color: var(--text-muted); margin-top: 18px; }
 
   .flow { margin: 0 0 clamp(48px, 8vw, 88px); }
   .flow-track {
@@ -539,6 +664,11 @@
     backdrop-filter: blur(3px);
   }
   .lightbox:target { display: flex; }
+  /* A portrait picture in a landscape window is bounded by height, not width —
+     the shared rule below sizes figures for the wide screenshots and would let
+     this one run off the top and bottom of the screen. */
+  .lightbox-tall figure { max-width: none; }
+  .lightbox-tall figure img { width: auto; max-width: 92vw; max-height: 92svh; }
   /* The picture arrives rather than appearing.
      Each screen is its own :target, so stepping to the next one shows a fresh
      element — which means this runs on every step and the three read as a
@@ -1194,16 +1324,54 @@
   </div>
 
   <main class="lp">
-    <section class="hero">
-      <h1>Track every deduction, cleanly and simply.</h1>
-      <p class="lede">Be smart — keep your receipts in the cloud, not in a shoebox. Paper fades, tears and goes missing; a photograph does not. Tax time gets simpler and easier.</p>
-      <!-- No button here. Open Taxify is in the header, on screen at the same
-           moment and never scrolls away — two primary buttons a few inches
-           apart, both going to the same place, is one of them asking to be
-           read twice. The one at the foot of the page stays: by then the
-           header is long gone. -->
-      <p class="hero-note">Fast, simple and effective · Works on any device</p>
-      <p class="hero-note" style="margin-top: 6px;">14-day free trial · No credit card required</p>
+    <!-- The advertisement, first, and the offer beside it.
+
+         This is the poster that goes on a noticeboard, and it earns the top of
+         the page for the same reason it works on one: it says what Taxify is
+         in a single glance, which no amount of prose above the fold has ever
+         managed. Everything below it is the argument; this is the picture.
+
+         Beside it sits the one decision a reader can make here. A poster with
+         nothing to press is a picture, so the trial is offered in the same
+         breath — with what it costs said plainly next to it rather than
+         waiting at the bottom of the page.
+
+         It points at /app/register, not /app/login. A button that says start
+         your free trial and lands somebody on a password form is asking them
+         to sign in to an account they have not made yet. -->
+    <section class="poster-hero" aria-label="Taxify">
+      <figure class="poster-figure">
+        <img
+          src="/media/ad-poster.jpg"
+          srcset="/media/ad-poster.jpg 1100w, /media/ad-poster-full.jpg 1700w"
+          sizes="(max-width: 900px) 92vw, 42vw"
+          alt="Taxify: digitise your tax receipts and keep track of your expenses. Snap and save a photo of any receipt, track work and business expenses, manage rental income, and export everything come tax time."
+          width="1100" height="1502" fetchpriority="high" decoding="async">
+        <!-- Print-sized small print, opened flat. Same :target lightbox the
+             screenshots use — no script, which matters because the hub strips
+             every one of them from its copy of this page. -->
+        <a class="poster-open" href="#poster" aria-label="Open the poster full size">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5M8 11h6M11 8v6"/></svg>
+          Read it full size
+        </a>
+      </figure>
+
+      <div class="poster-copy">
+        <h1>Track every deduction, cleanly and simply.</h1>
+        <p class="lede">Be smart — keep your receipts in the cloud, not in a shoebox. Paper fades, tears and goes missing; a photograph does not. Tax time gets simpler and easier.</p>
+
+        <a class="btn btn-primary poster-cta" href="https://taxify.mikesapphub.com/app/register">
+          Start your free trial
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h13M13 6l6 6-6 6"/></svg>
+        </a>
+        <p class="poster-terms"><b>14 days free</b> · No credit card required · Cancel any time</p>
+
+        <ul class="poster-points">
+          <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6L9 17l-5-5"/></svg>Photograph a receipt and it files itself — right category, right tax year</li>
+          <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6L9 17l-5-5"/></svg>Personal, business and rental expenses, never mixed up</li>
+          <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6L9 17l-5-5"/></svg>Hand your accountant the whole year in one file</li>
+        </ul>
+      </div>
     </section>
 
     <!-- The product, once, at the top, before a word of argument.
@@ -1740,6 +1908,19 @@
        entry per step, which is the right trade — Back walks you back through
        the screenshots the way you would expect it to.
   -->
+  <!-- The poster, flat and full size.
+
+       No rotate-ask on this one, unlike the screenshots below it: those are
+       far wider than they are tall and need a turned phone to be read at all.
+       A portrait poster is already the shape of a phone held normally, so
+       asking somebody to turn it would make it smaller. -->
+  <div class="lightbox lightbox-tall" id="poster" role="dialog" aria-label="The Taxify poster">
+    <a class="shotbox-close" href="#" aria-label="Close" title="Close">&times;</a>
+    <figure>
+      <img src="/media/ad-poster-full.jpg" alt="Taxify: digitise your tax receipts and keep track of your expenses. Snap and save, track expenses, home rentals, and ready for tax time." width="1700" height="2321" loading="lazy" decoding="async">
+    </figure>
+  </div>
+
   <div class="lightbox" id="shot-1" role="dialog" aria-label="Dashboard">
     <a class="shotbox-close" href="#" aria-label="Close" title="Close">&times;</a>
     <div class="rotate-ask">
