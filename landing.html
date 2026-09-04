@@ -258,7 +258,7 @@
   .poster-hero {
     display: grid;
     grid-template-columns: auto minmax(300px, 1fr);
-    gap: clamp(26px, 5vw, 64px);
+    gap: clamp(22px, 3.4vw, 46px);
     align-items: center;
     /* svh, not vh: on a phone vh is the tallest the viewport ever gets, so a
        full-height block measured in vh is always taller than what is actually
@@ -345,13 +345,24 @@
 
   .poster-copy { text-align: left; min-width: 0; }
   .poster-copy h1 {
-    font-size: clamp(30px, 4.2vw, 52px);
-    line-height: 1.08;
-    letter-spacing: -1.2px;
-    margin: 0 0 16px;
+    font-size: clamp(29px, 3.8vw, 46px);
+    line-height: 1.06;
+    letter-spacing: -1.1px;
+    margin: 0 0 10px;
     text-wrap: balance;
   }
-  .poster-copy .lede { margin: 0 0 26px; max-width: 46ch; }
+  /* The answer to the question above it: same weight, a step down in size, and
+     the brand blue so the two read as one thought rather than as a heading
+     followed by a sentence. */
+  .poster-answer {
+    margin: 0 0 18px;
+    font-size: clamp(20px, 2.5vw, 30px);
+    font-weight: 800;
+    line-height: 1.15;
+    letter-spacing: -0.6px;
+    color: var(--blue);
+  }
+  .poster-copy .lede { margin: 0 0 26px; max-width: 52ch; }
   .poster-cta {
     display: inline-flex;
     align-items: center;
@@ -398,7 +409,8 @@
     }
     .poster-figure img { max-height: 44svh; }
     .poster-copy { text-align: center; }
-    .poster-copy h1 { font-size: clamp(23px, 5.8vw, 31px); margin-bottom: 14px; letter-spacing: -0.7px; }
+    .poster-copy h1 { font-size: clamp(21px, 5.2vw, 28px); margin-bottom: 6px; letter-spacing: -0.6px; }
+    .poster-answer { font-size: clamp(17px, 4.4vw, 22px); margin-bottom: 12px; }
     .poster-copy .lede { display: none; }
     .poster-points { display: none; }
     .poster-terms { margin-top: 11px; }
@@ -1120,43 +1132,11 @@
   .plan-card { padding: 28px; position: relative; border: 1px solid var(--border); }
   .plan-card.highlight { border-color: var(--violet); box-shadow: 0 0 0 1px var(--violet); }
 
-  /* The cards are buttons, because they behave like a choice. Reset first —
-     a <button> brings its own font, colour and alignment. */
-  button.plan-card {
-    font: inherit;
-    color: inherit;
-    text-align: left;
-    width: 100%;
-    background: var(--bg-card);
-    cursor: pointer;
-    transition: transform 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
-  }
-  button.plan-card:hover { transform: translateY(-2px); border-color: var(--violet); }
-  button.plan-card:focus-visible { outline: 2px solid var(--violet); outline-offset: 3px; }
-  button.plan-card[aria-pressed='true'] {
-    border-color: var(--violet);
-    box-shadow: 0 0 0 2px var(--violet);
-    transform: translateY(-2px);
-  }
-  /* Dimming the one you did not pick is what makes the choice read as a
-     choice rather than as two cards that happen to look different. */
-  .plans-grid[data-chosen] button.plan-card[aria-pressed='false'] { opacity: 0.62; }
-  /* "Most popular" stops shouting once a choice has been made.
-     .highlight paints the same violet border and ring that marks the selected
-     card, so choosing Individual left Small Business still ringed and both
-     cards looked picked. The recommendation matters before you decide and is
-     noise afterwards — the badge on the card goes on saying it in words. */
-  .plans-grid[data-chosen] button.plan-card.highlight[aria-pressed='false'] {
-    border-color: var(--border);
-    box-shadow: none;
-  }
-  .plan-chosen { display: none; font-size: 12px; font-weight: 700; color: var(--violet); margin-top: 14px; }
-  button.plan-card[aria-pressed='true'] .plan-chosen { display: block; }
 
   @media (prefers-reduced-motion: reduce) {
-    button.plan-card, button.plan-card:hover { transition: none; transform: none; }
     /* The sheen stops; the frame keeps its branded ground. */
     .ad-video { animation: none; }
+    .poster-link, .poster-link:hover { transition: none; transform: none; }
   }
   .plan-badge {
     position: absolute;
@@ -1340,12 +1320,19 @@
       </figure>
 
       <div class="poster-copy">
-        <!-- The three beats are bound with non-breaking spaces so a line can
-             break between the sentences but never inside one. Balanced wrapping
-             alone put "Snap" at the end of a line and "it." at the start of the
-             next, which reads as a stumble in the one part of the headline that
-             is meant to land like three taps. -->
-        <h1>Still keeping receipts in the ute? Snap&nbsp;it. Store&nbsp;it. Sorted.</h1>
+        <!-- The question, then the answer under it.
+
+             They were one heading and it read badly: sixty characters at
+             display size wrapped to four narrow lines, and the three beats —
+             which only work as three taps — were broken across them wherever
+             the line happened to end. Split, the question gets the size and
+             the answer gets its own line and cannot be broken up.
+
+             Non-breaking spaces still hold each beat together, because on a
+             phone even this short line has to wrap somewhere and it must never
+             be between "Snap" and "it." -->
+        <h1>Still keeping receipts in the ute?</h1>
+        <p class="poster-answer">Snap&nbsp;it. Store&nbsp;it. Sorted.</p>
         <p class="lede">Photograph your receipts and Taxify keeps your work expenses organised and ready for tax time.</p>
 
         <a class="btn btn-primary poster-cta" href="https://taxify.mikesapphub.com/app/register">
@@ -1586,7 +1573,7 @@
         <p>Both plans start with the same 14-day free trial, and there is no card to enter until you have decided. One payment a year, cancel whenever you like. No per-receipt fees, no upsells, no add-ons.</p>
       </div>
       <div class="plans-grid" id="plans">
-        <button type="button" class="card plan-card" aria-pressed="false" data-plan="individual">
+        <div class="card plan-card">
           <div class="plan-name">Individual</div>
           <div class="plan-price"><span class="amount" data-price="individual">$49</span><span class="period">/year</span></div>
           <div class="plan-per" data-per="individual">about $0.94 a week</div>
@@ -1598,9 +1585,8 @@
             <li><span class="check">✓</span><span>Every year side by side, exported in one click</span></li>
             <li><span class="check">✓</span><span>Read-only accountant access, revoked whenever you like</span></li>
           </ul>
-          <div class="plan-chosen">Selected — start your free trial below</div>
-        </button>
-        <button type="button" class="card plan-card highlight" aria-pressed="false" data-plan="business">
+        </div>
+        <div class="card plan-card highlight">
           <div class="plan-badge">MOST POPULAR</div>
           <div class="plan-name">Small Business</div>
           <div class="plan-price"><span class="amount" data-price="business">$99</span><span class="period">/year</span></div>
@@ -1613,8 +1599,7 @@
             <li><span class="check">✓</span><span>Separate totals for each — no untangling at tax time</span></li>
             <li><span class="check">✓</span><span>Read-only accountant access, revoked whenever you like</span></li>
           </ul>
-          <div class="plan-chosen">Selected — start your free trial below</div>
-        </button>
+        </div>
       </div>
     </section>
 
@@ -1793,55 +1778,15 @@
     })();
   </script>
 
-  <script>
-    // Picking a plan here carries through to signup, so nobody has to make the
-    // same decision twice. Clicking the chosen one again clears it — a choice
-    // you cannot undo is a trap.
-    (function () {
-      var grid = document.getElementById('plans');
-      var cta = document.getElementById('cta');
-      if (!grid || !cta) return;
+  <!-- The plan cards used to be buttons: pressing one marked it and rewrote
+       the call to action below so the choice carried through to signing up.
+       They are plain panels now, by request.
 
-      var cards = grid.querySelectorAll('.plan-card');
-      var labels = { individual: 'Continue to Taxify — Individual', business: 'Continue to Taxify — Small Business' };
-
-      function choose(plan) {
-        cards.forEach(function (card) {
-          card.setAttribute('aria-pressed', String(card.dataset.plan === plan));
-        });
-        if (plan) {
-          grid.setAttribute('data-chosen', plan);
-          cta.textContent = labels[plan];
-          // Always absolute to Taxify, never relative.
-          //
-          // taxifyUrl() returns a bare path whenever it decides the current
-          // host already is Taxify — which is right for ordinary links, and
-          // wrong here. Served inside Mikes App Hub, any path it hands back
-          // resolves against the hub, so choosing a plan sent people to a
-          // registration page on the wrong site. Signing up is the one
-          // destination on this page that has no correct relative form.
-          cta.href = signInUrl();
-        } else {
-          grid.removeAttribute('data-chosen');
-          cta.textContent = 'Continue to Taxify';
-          cta.href = signInUrl();
-        }
-      }
-
-      // Choosing a plan marks it and nothing else. Navigating on the same
-      // click meant a card could not be compared against the other one without
-      // leaving the page — you pressed it to read it and were taken away.
-      //
-      // The button below carries the choice: its label and its link both follow
-      // the selection, so the decision is still only one press away.
-      cards.forEach(function (card) {
-        card.addEventListener('click', function () {
-          var already = card.getAttribute('aria-pressed') === 'true';
-          choose(already ? null : card.dataset.plan);
-        });
-      });
-    })();
-  </script>
+       Worth knowing why it costs nothing here: the hub strips every script
+       from its copy of this page, and that copy is what a real browser is
+       served — so on the page anybody actually reads, those buttons already
+       did nothing at all. A control that looks pressable and is not is worse
+       than a panel that never claimed to be. -->
 
 
   
