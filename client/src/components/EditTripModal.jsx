@@ -6,6 +6,7 @@ import { onCasedInput } from '../lib/casedInput.js';
 import { sentenceCaseLive, titleCaseLive } from '../lib/textCase.js';
 import { kmWhileTyping, parseKm } from '../lib/deductionInput.js';
 import { todayIso } from '../lib/dates.js';
+import DateField from './DateField.jsx';
 
 // Correcting a trip that is already logged.
 //
@@ -149,14 +150,7 @@ export default function EditTripModal({ trip, onClose, onSaved }) {
         <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
           <div style={{ flex: '1 1 160px', minWidth: 0 }}>
             <label className="label">Date</label>
-            <input
-              className="input"
-              type="date"
-              required
-              max={todayIso()}
-              value={date}
-              onChange={(e) => setDate(e.target.value)}
-            />
+            <DateField required max={todayIso()} value={date} onChange={setDate} />
           </div>
           <div style={{ flex: '1 1 160px', minWidth: 0 }}>
             <label className="label">Vehicle</label>

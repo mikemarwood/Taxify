@@ -11,6 +11,7 @@ import { useToast } from '../components/Toast.jsx';
 import { playClick, playError, playSuccess } from '../lib/sounds.js';
 import { financialYearSpan } from '../lib/financialYear.js';
 import { autoFocusFields } from '../lib/device.js';
+import DateField from '../components/DateField.jsx';
 
 // What has been filled in so far, kept for the length of the tab.
 //
@@ -625,14 +626,13 @@ export default function Register() {
                     />
                   </Field>
                   <Field label="Date of birth" required error={errors.dateOfBirth} hint="You need to be 16 or over">
-                    <input
-                      type="date"
-                      className="input"
+                    <DateField
+                      required
                       value={dateOfBirth}
                       max={LATEST_DOB}
                       min={EARLIEST_DOB}
-                      onChange={(e) => setDateOfBirth(e.target.value)}
-                      autoComplete="bday"
+                      onChange={setDateOfBirth}
+                      placeholder="Choose your date of birth"
                     />
                   </Field>
                   <Field label="Phone number" error={errors.phone} hint="Optional" span>

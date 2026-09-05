@@ -364,6 +364,14 @@ const PATHS = {
       <path d="M12 7v5.2l3.2 1.9" />
     </>
   ),
+  calendar: (
+    <>
+      <rect x="3" y="5" width="18" height="16" rx="2.5" />
+      <path d="M3 10h18M8 3v4M16 3v4" />
+    </>
+  ),
+  'chevron-left': <path d="M15 5l-7 7 7 7" />,
+  'chevron-right': <path d="M9 5l7 7-7 7" />,
 };
 
 export default function Icon({ name, size = 16, strokeWidth = 1.7, style, title, ...rest }) {

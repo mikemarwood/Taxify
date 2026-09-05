@@ -10,6 +10,7 @@ import { financialYearRange, financialYearOf } from '../lib/financialYear.js';
 import { todayIso } from '../lib/dates.js';
 import { earliestOpenDate, dateIsClosed } from '../lib/openDates.js';
 import HoursPicker from './HoursPicker.jsx';
+import DateField from './DateField.jsx';
 
 // The two things you can claim without a receipt, as forms that go anywhere.
 //
@@ -209,14 +210,12 @@ export function TripForm({ entityId, year, onAdded }) {
     <form onSubmit={submit} className="deduction-form" style={ROW}>
       <div style={{ flex: '1 1 165px', minWidth: 165 }}>
         <label className="label">Date</label>
-        <input
-          className="input"
-          type="date"
+        <DateField
           required
           min={bounds.min}
           max={bounds.max}
           value={trip.date}
-          onChange={(e) => setTrip({ ...trip, date: e.target.value })}
+          onChange={(next) => setTrip({ ...trip, date: next })}
         />
         <FiledInto date={trip.date} rule={user?.financialYearRule} />
       </div>
@@ -381,14 +380,12 @@ export function HoursForm({ entityId, year, onAdded }) {
     <form onSubmit={submit} className="deduction-form" style={ROW}>
       <div style={{ flex: '1 1 165px', minWidth: 165 }}>
         <label className="label">Date</label>
-        <input
-          className="input"
-          type="date"
+        <DateField
           required
           min={bounds.min}
           max={bounds.max}
           value={hours.date}
-          onChange={(e) => setHours({ ...hours, date: e.target.value })}
+          onChange={(next) => setHours({ ...hours, date: next })}
         />
         <FiledInto date={hours.date} rule={user?.financialYearRule} />
       </div>

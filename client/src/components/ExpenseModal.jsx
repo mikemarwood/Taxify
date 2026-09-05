@@ -26,6 +26,7 @@ import { useEntities } from '../lib/EntityContext.jsx';
 import { financialYearOf } from '../lib/financialYear.js';
 import { formatDateShort, formatDateLong, todayIso } from '../lib/dates.js';
 import { onCasedInput } from '../lib/casedInput.js';
+import DateField from './DateField.jsx';
 
 
 function capitalizeWords(str) {
@@ -392,14 +393,7 @@ export default function ExpenseModal({ expense, onClose, onSaved, onDeleted }) {
                       todayIso() rather than toISOString(), which converts to
                       UTC first and would refuse today until mid-morning in
                       Australia. */}
-                  <input
-                    className="input"
-                    required
-                    type="date"
-                    max={todayIso()}
-                    value={purchaseDate}
-                    onChange={(e) => setPurchaseDate(e.target.value)}
-                  />
+                  <DateField required max={todayIso()} value={purchaseDate} onChange={setPurchaseDate} />
                 </div>
               </div>
               {showSwitcher && (

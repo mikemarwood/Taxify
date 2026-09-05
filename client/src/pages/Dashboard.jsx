@@ -18,6 +18,7 @@ import { describeSubscription, toneColor } from '../lib/subscription.js';
 import { formatDayMonth } from '../lib/dates.js';
 import Amount from '../components/Amount.jsx';
 import UnconvertedNotice from '../components/UnconvertedNotice.jsx';
+import DateField from '../components/DateField.jsx';
 
 const COLLAPSED_ROW_COUNT = 8;
 
@@ -345,9 +346,9 @@ export default function Dashboard() {
       {showDateRange && (
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14, flexWrap: 'wrap' }}>
           <label className="label" style={{ margin: 0 }}>From</label>
-          <input type="date" className="input" value={fromDate} onChange={(e) => setFromDate(e.target.value)} style={{ width: 160 }} />
+          <div style={{ width: 172 }}><DateField value={fromDate} onChange={setFromDate} max={toDate || undefined} placeholder="Any date" /></div>
           <label className="label" style={{ margin: 0 }}>To</label>
-          <input type="date" className="input" value={toDate} onChange={(e) => setToDate(e.target.value)} style={{ width: 160 }} />
+          <div style={{ width: 172 }}><DateField value={toDate} onChange={setToDate} min={fromDate || undefined} placeholder="Any date" /></div>
           {(fromDate || toDate) && (
             <button
               className="btn btn-ghost"

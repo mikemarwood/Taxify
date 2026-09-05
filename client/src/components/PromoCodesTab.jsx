@@ -40,6 +40,7 @@ function today() {
 import { useToast } from './Toast.jsx';
 import { SkeletonList } from './Skeletons.jsx';
 import { useConfirm } from '../lib/ConfirmContext.jsx';
+import DateField from './DateField.jsx';
 
 // Promo codes applied during sign-up. Codes are always upper case — the field
 // forces it, so a code printed on a flyer matches whatever someone types in.
@@ -247,12 +248,11 @@ export default function PromoCodesTab() {
             {/* A code that expired before it was made is not a code. The
                 picker refuses yesterday rather than accepting it and having
                 the code silently never work. */}
-            <input
-              className="input"
-              type="date"
+            <DateField
               min={today()}
               value={form.expiresAt}
-              onChange={(e) => set('expiresAt', e.target.value)}
+              onChange={(next) => set('expiresAt', next)}
+              placeholder="No expiry"
             />
           </div>
         </div>

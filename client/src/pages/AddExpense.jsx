@@ -18,6 +18,7 @@ import { TripForm, HoursForm } from '../components/DeductionForms.jsx';
 import LodgedConfirmation from '../components/LodgedConfirmation.jsx';
 import { currenciesFor } from '../lib/currencies.js';
 import { onCasedInput } from '../lib/casedInput.js';
+import DateField from '../components/DateField.jsx';
 
 // The three things this page can add. A receipt is the common one and stays
 // the default; the other two are the deductions that have no receipt to
@@ -679,14 +680,12 @@ export default function AddExpense() {
             {/* Not into a year that has been finalised. The picker's floor is
                 the day after the last closed year ends; dateIsClosed catches a
                 closed year with an open one after it, which min cannot say. */}
-            <input
-              className="input"
+            <DateField
               required
-              type="date"
               min={earliestOpenDate(finalisedYears, user?.financialYearRule)}
               max={todayIso()}
               value={purchaseDate}
-              onChange={(e) => setPurchaseDate(e.target.value)}
+              onChange={setPurchaseDate}
             />
             {/* Which year it lands in, said before it is saved.
                 A date can be any date — last July is an ordinary thing to enter

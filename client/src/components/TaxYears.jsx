@@ -13,6 +13,7 @@ import { claimable } from '../lib/money.js';
 import { useConfirm } from '../lib/ConfirmContext.jsx';
 import { onCasedInput } from '../lib/casedInput.js';
 import { autoFocusFields } from '../lib/device.js';
+import DateField from './DateField.jsx';
 
 function formatWhen(value) {
   if (!value) return null;
@@ -689,13 +690,10 @@ export default function TaxYears({ years, spendByYear, expenses, onFinalisedChan
                           <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'flex-end' }}>
                             <div style={{ width: 150 }}>
                               <label className="label">Date</label>
-                              <input
-                                className="input"
-                                type="date"
-                                autoFocus={autoFocusFields}
+                              <DateField
                                 min={todayIso()}
                                 value={booking.date}
-                                onChange={(e) => setBooking((b) => ({ ...b, date: e.target.value }))}
+                                onChange={(next) => setBooking((b) => ({ ...b, date: next }))}
                               />
                             </div>
                             {/* Wide enough for "09:00 AM" and the clock button

@@ -53,6 +53,7 @@ import { financialYearSpan } from '../lib/financialYear.js';
 import { formatDateLong, formatDateTime, formatDeadline } from '../lib/dates.js';
 import { describeSubscription, toneColor } from '../lib/subscription.js';
 import { useConfirm } from '../lib/ConfirmContext.jsx';
+import DateField from '../components/DateField.jsx';
 
 const MAX_AVATAR_BYTES = 10 * 1024 * 1024;
 
@@ -1895,14 +1896,7 @@ export default function Account() {
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
           <div>
             <label className="label">Date of birth</label>
-            <input autoComplete="bday"
-              className="input"
-              type="date"
-              max={LATEST_DOB}
-              min={EARLIEST_DOB}
-              value={dateOfBirth}
-              onChange={(e) => setDateOfBirth(e.target.value)}
-            />
+            <DateField max={LATEST_DOB} min={EARLIEST_DOB} value={dateOfBirth} onChange={setDateOfBirth} />
             <div style={{ fontSize: 11.5, color: 'var(--text-muted)', marginTop: 5 }}>You need to be 16 or over</div>
           </div>
           <div>
