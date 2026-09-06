@@ -1633,6 +1633,28 @@ router.get(
       [days]
     );
 
+    // The same two steps again, without the join.
+    //
+    // The funnel counts only people we watched arrive, which is right for a
+    // funnel and useless for telling two very different zeros apart. "Opened
+    // the sign-up form: 0" can mean nobody opened it, or it can mean plenty of
+    // people opened it and none of them could be tied to a landing view —
+    // which is what happens when the visitor cookie is refused, as it is on
+    // the hub's own copy of the page where ours is third-party.
+    //
+    // Reported alongside, so the panel can say which of the two it is looking
+    // at instead of leaving somebody to conclude their button is broken.
+    const [[opened]] = await pool.execute(
+      `SELECT COUNT(DISTINCT visitor) AS n FROM page_events
+        WHERE event = 'register_step' AND visitor IS NOT NULL AND at >= NOW() - INTERVAL ? DAY`,
+      [days]
+    );
+    const [[completed]] = await pool.execute(
+      `SELECT COUNT(DISTINCT visitor) AS n FROM page_events
+        WHERE event = 'signup' AND visitor IS NOT NULL AND at >= NOW() - INTERVAL ? DAY`,
+      [days]
+    );
+
     const n = (v) => Number(v) || 0;
     res.set('Cache-Control', 'no-store');
     res.json({
@@ -1668,6 +1690,9 @@ router.get(
         pressed: n(funnel.pressed),
         registered: n(funnel.registered),
         signedUpWithoutLanding: n(direct.n),
+        // Everybody, joined or not.
+        openedAnywhere: n(opened.n),
+        registeredAnywhere: n(completed.n),
       },
       registerSteps: registerSteps.reduce((acc, r) => ({ ...acc, [r.step]: n(r.visitors) }), {}),
       devices: devices.map((r) => ({ device: r.device, views: n(r.views) })),

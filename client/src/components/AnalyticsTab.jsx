@@ -205,6 +205,36 @@ function Funnel({ funnel }) {
         );
       })}
 
+      {/* A zero that needs explaining.
+          
+          The steps above count only people we watched arrive, so "opened the
+          form: 0" has two very different causes: nobody opened it, or plenty
+          did and none of them could be tied to a landing view. The second is
+          what happens when the visitor cookie is refused — on the hub's copy
+          of the landing page it is third-party and browsers drop it. Saying
+          which one this is stops somebody concluding their button is broken
+          when it is not. */}
+      {funnel.pressed === 0 && funnel.openedAnywhere > 0 && (
+        <div
+          style={{
+            fontSize: 12,
+            color: 'var(--text-muted)',
+            lineHeight: 1.6,
+            padding: '10px 12px',
+            borderRadius: 'var(--radius)',
+            border: '1px solid var(--amber)',
+            background: 'var(--bg-subtle)',
+          }}
+        >
+          <b style={{ color: 'var(--text)' }}>
+            {tidyNumber(funnel.openedAnywhere)} did open the sign-up form
+          </b>{' '}
+          in this period — but none of them could be matched to a landing page view, so the step above reads nought.
+          That is what happens when the cookie joining the two is refused, which it is on the hub&rsquo;s copy of the
+          landing page, where it counts as third-party. The panel below counts them regardless of any of this.
+        </div>
+      )}
+
       {funnel.signedUpWithoutLanding > 0 && (
         <div style={{ fontSize: 11.5, color: 'var(--text-subtle)', lineHeight: 1.6, paddingTop: 2 }}>
           {tidyNumber(funnel.signedUpWithoutLanding)} more registered without being seen on the landing page first —
@@ -229,11 +259,12 @@ function Funnel({ funnel }) {
 // subtraction between them.
 function RegisterSteps({ steps, finished }) {
   const rows = REGISTER_STEPS.map((s) => ({ key: s.key, label: s.label, value: steps[s.key] || 0 }));
-  const top = Math.max(1, rows[0].value);
-  if (!rows[0].value) {
+  const top = Math.max(1, ...rows.map((r) => r.value));
+  if (!top || !rows.some((r) => r.value)) {
     return (
       <div style={{ fontSize: 12.5, color: 'var(--text-subtle)', lineHeight: 1.6 }}>
-        Nobody has opened the sign-up form in this period.
+        Nobody has opened the sign-up form in this period. This counts everybody who reaches the form, however they
+        got to it, so it does not depend on their visit being tied to a landing page view.
       </div>
     );
   }
@@ -712,11 +743,15 @@ export default function AnalyticsTab() {
         </Panel>
       )}
 
-      {data.registerSteps && Object.keys(data.registerSteps).length > 0 && (
-        <Panel title="Where sign-ups stop" aside="People who reached each step" wide>
-          <RegisterSteps steps={data.registerSteps} finished={data.funnel?.registered ?? 0} />
-        </Panel>
-      )}
+      {/* Always shown, even at nought. This is the panel that answers "how far
+          did they get", and hiding it when the answer is "nobody started"
+          hides the answer. */}
+      <Panel title="Where sign-ups stop" aside="People who reached each step" wide>
+        <RegisterSteps
+          steps={data.registerSteps || {}}
+          finished={data.funnel?.registeredAnywhere ?? 0}
+        />
+      </Panel>
 
       <Panel title="Views and visitors" aside={`Last ${data.days} days`} wide>
         <TrendChart series={data.series} />
