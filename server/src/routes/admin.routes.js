@@ -1561,7 +1561,15 @@ router.get(
       args([days])
     );
 
-    // The funnel: arrived, pressed, registered.
+    // The funnel: arrived, opened the form, registered.
+    //
+    // The middle step is "reached the sign-up form", not "pressed the button
+    // on the landing page". There are two ways in — the trial button and the
+    // Create one link under the sign-in form — and a funnel that counts one of
+    // them reports half the interest. Both end up on the same form, and the
+    // form says when it has been reached, so the step covers each route
+    // without having to know which was taken. Where they came from is a
+    // separate question, answered by the presses panel.
     //
     // Sequential, not three separate totals. The question worth answering is
     // "of the people who landed, how many pressed the button, and of those how
@@ -1581,10 +1589,10 @@ router.get(
       `SELECT
          COUNT(*) AS landed,
          SUM(EXISTS (SELECT 1 FROM page_events c
-                      WHERE c.visitor = v.visitor AND c.event = 'start_trial' AND c.${window})) AS pressed,
+                      WHERE c.visitor = v.visitor AND c.event = 'register_step' AND c.${window})) AS pressed,
          SUM(
            EXISTS (SELECT 1 FROM page_events c
-                    WHERE c.visitor = v.visitor AND c.event = 'start_trial' AND c.${window})
+                    WHERE c.visitor = v.visitor AND c.event = 'register_step' AND c.${window})
            AND
            EXISTS (SELECT 1 FROM page_events s
                     WHERE s.visitor = v.visitor AND s.event = 'signup' AND s.${window})
@@ -1604,6 +1612,25 @@ router.get(
           AND (visitor IS NULL OR visitor NOT IN (
                 SELECT visitor FROM page_events
                  WHERE surface = 'landing' AND event = 'view' AND visitor IS NOT NULL AND ${window}))`
+    );
+
+    // How far people got through the sign-up form.
+    //
+    // Counted as "reached this step", which falls monotonically — anybody on
+    // step four passed steps one to three — so the series is itself a funnel
+    // and the loss between two steps is the subtraction. Distinct visitors,
+    // because somebody stepping back to fix a typo has not reached a step
+    // twice.
+    //
+    // The label is the step's key rather than its heading: headings are copy
+    // and get reworded, and rewording one must not orphan a month of rows.
+    const [registerSteps] = await pool.execute(
+      `SELECT label AS step, COUNT(DISTINCT visitor) AS visitors
+         FROM page_events
+        WHERE event = 'register_step' AND label IS NOT NULL AND visitor IS NOT NULL
+          AND at >= NOW() - INTERVAL ? DAY
+        GROUP BY label`,
+      [days]
     );
 
     const n = (v) => Number(v) || 0;
@@ -1642,6 +1669,7 @@ router.get(
         registered: n(funnel.registered),
         signedUpWithoutLanding: n(direct.n),
       },
+      registerSteps: registerSteps.reduce((acc, r) => ({ ...acc, [r.step]: n(r.visitors) }), {}),
       devices: devices.map((r) => ({ device: r.device, views: n(r.views) })),
       campaigns: campaigns.map((r) => ({
         source: r.source,

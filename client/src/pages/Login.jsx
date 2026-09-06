@@ -7,6 +7,7 @@ import { autoFocusFields } from '../lib/device.js';
 import { useToast } from '../components/Toast.jsx';
 import { onDialpadKeyDown, playSuccess, playError } from '../lib/sounds.js';
 import { api } from '../lib/api.js';
+import { trackClick } from '../lib/analytics.js';
 import Toggle from '../components/Toggle.jsx';
 import Icon from '../components/Icon.jsx';
 import { homePathFor } from '../lib/home.js';
@@ -333,7 +334,18 @@ export default function Login() {
         </button>
       </form>
       <p style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 20, textAlign: 'center' }}>
-        No account yet? <Link to="/register" style={{ color: 'var(--blue)', fontWeight: 600 }}>Create one</Link>
+        {/* Counted the same as the landing page's button. Somebody who arrives
+            at sign-in and decides to make an account has done exactly what the
+            trial button asks for, and a funnel that only counts one of the two
+            routes in reports half the interest. */}
+        No account yet?{' '}
+        <Link
+          to="/register"
+          style={{ color: 'var(--blue)', fontWeight: 600 }}
+          onClick={() => trackClick('start_trial', 'Create account, from sign-in')}
+        >
+          Create one
+        </Link>
       </p>
 
       {/* Reachable without signing in, deliberately: somebody stuck on this

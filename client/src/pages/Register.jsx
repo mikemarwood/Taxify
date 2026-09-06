@@ -12,6 +12,8 @@ import { playClick, playError, playSuccess } from '../lib/sounds.js';
 import { financialYearSpan } from '../lib/financialYear.js';
 import { autoFocusFields } from '../lib/device.js';
 import DateField from '../components/DateField.jsx';
+import { REGISTER_STEPS } from '../lib/registerSteps.js';
+import { trackClick } from '../lib/analytics.js';
 
 // What has been filled in so far, kept for the length of the tab.
 //
@@ -70,13 +72,9 @@ function money(cents, currency) {
   }).format(cents / 100);
 }
 
-const STEPS = [
-  { key: 'you', label: 'About you', icon: 'users' },
-  { key: 'where', label: 'Where you are', icon: 'globe' },
-  { key: 'email', label: 'Your email', icon: 'mail' },
-  { key: 'plan', label: 'Choose a plan', icon: 'tag' },
-  { key: 'finish', label: 'Finish up', icon: 'check-circle' },
-];
+// The list lives in lib/registerSteps.js, because the traffic panel reports how
+// far people get through these and the two must not drift apart.
+const STEPS = REGISTER_STEPS;
 
 function Field({ label, hint, error, required, children, span }) {
   return (
@@ -354,6 +352,25 @@ export default function Register() {
     setDirection(next > step ? 1 : -1);
     setStep(next);
   }
+
+  // How far somebody got, recorded as they get there.
+  //
+  // One row the first time each step is reached and never again, so a step is
+  // counted once however many times it is revisited — somebody stepping back
+  // to correct a typo has not reached it twice.
+  //
+  // The whole form is one page as far as the browser is concerned, so nothing
+  // else on this page can see the difference between somebody who left on
+  // "About you" and somebody who left on "Choose a plan". Those are different
+  // problems: the first is a form nobody wants to start, the second is a price
+  // nobody wants to pay.
+  const reached = useRef(new Set());
+  useEffect(() => {
+    const key = STEPS[step]?.key;
+    if (!key || reached.current.has(key)) return;
+    reached.current.add(key);
+    trackClick('register_step', key);
+  }, [step]);
 
   async function applyPromo() {
     const code = promoCode.trim().toUpperCase();

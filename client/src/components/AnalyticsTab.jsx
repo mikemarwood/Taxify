@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { api } from '../lib/api.js';
 import Icon from './Icon.jsx';
 import { SkeletonList } from './Skeletons.jsx';
+import { REGISTER_STEPS } from '../lib/registerSteps.js';
 
 // Traffic, for whoever is deciding where to spend the next hour.
 //
@@ -142,7 +143,7 @@ function Tile({ label, value, now, before, hint }) {
 function Funnel({ funnel }) {
   const steps = [
     { key: 'landed', label: 'Saw the landing page', value: funnel.landed },
-    { key: 'pressed', label: 'Pressed Start your free trial', value: funnel.pressed },
+    { key: 'pressed', label: 'Opened the sign-up form', value: funnel.pressed },
     { key: 'registered', label: 'Finished registering', value: funnel.registered },
   ];
   const top = Math.max(1, funnel.landed);
@@ -197,7 +198,7 @@ function Funnel({ funnel }) {
             </div>
             {previous !== null && lost > 0 && (
               <div style={{ fontSize: 11.5, color: 'var(--text-subtle)', marginTop: 4 }}>
-                {tidyNumber(lost)} {i === 1 ? 'never pressed it' : 'started and did not finish'}
+                {tidyNumber(lost)} {i === 1 ? 'never started' : 'started and did not finish'}
               </div>
             )}
           </div>
@@ -211,6 +212,83 @@ function Funnel({ funnel }) {
           folded in, so the steps above stay a sequence.
         </div>
       )}
+    </div>
+  );
+}
+
+// Where the sign-up form loses people.
+//
+// The form is five steps on one page, so nothing else can tell somebody who
+// left on "About you" from somebody who left on "Choose a plan" — and those
+// are different problems. The first is a form nobody wants to start; the
+// second is a price nobody wants to pay. One is fixed by shortening a form and
+// the other is not fixed by shortening anything.
+//
+// Reaching a step is monotonic — anybody on step four passed steps one to
+// three — so the series is a funnel and the loss between two rows is the
+// subtraction between them.
+function RegisterSteps({ steps, finished }) {
+  const rows = REGISTER_STEPS.map((s) => ({ key: s.key, label: s.label, value: steps[s.key] || 0 }));
+  const top = Math.max(1, rows[0].value);
+  if (!rows[0].value) {
+    return (
+      <div style={{ fontSize: 12.5, color: 'var(--text-subtle)', lineHeight: 1.6 }}>
+        Nobody has opened the sign-up form in this period.
+      </div>
+    );
+  }
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 11 }}>
+      {rows.map((row, i) => {
+        // What the next thing is that they had to do. For the last step that
+        // is finishing, so the drop is measured against sign-ups rather than
+        // against a step that does not exist.
+        const next = i < rows.length - 1 ? rows[i + 1].value : finished;
+        const lost = Math.max(0, row.value - next);
+        return (
+          <div key={row.key}>
+            <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, marginBottom: 4 }}>
+              <span style={{ fontSize: 12.5, color: 'var(--text-subtle)', fontVariantNumeric: 'tabular-nums' }}>
+                {i + 1}
+              </span>
+              <span style={{ fontSize: 12.5 }}>{row.label}</span>
+              <span style={{ flex: 1 }} />
+              <span style={{ fontSize: 13, fontWeight: 700, fontVariantNumeric: 'tabular-nums' }}>
+                {tidyNumber(row.value)}
+              </span>
+              {lost > 0 && (
+                <span
+                  style={{
+                    fontSize: 11.5,
+                    fontWeight: 700,
+                    color: 'var(--red)',
+                    fontVariantNumeric: 'tabular-nums',
+                    minWidth: 62,
+                    textAlign: 'right',
+                  }}
+                  title={`${lost} got this far and no further`}
+                >
+                  −{tidyNumber(lost)}
+                </span>
+              )}
+            </div>
+            <div style={{ height: 7, borderRadius: 4, background: 'var(--bg-inset)', overflow: 'hidden' }}>
+              <div
+                style={{
+                  width: `${Math.max(row.value ? 1.5 : 0, (row.value / top) * 100)}%`,
+                  height: '100%',
+                  borderRadius: 4,
+                  background: VIEWS,
+                }}
+              />
+            </div>
+          </div>
+        );
+      })}
+      <div style={{ fontSize: 11.5, color: 'var(--text-subtle)', lineHeight: 1.6, paddingTop: 2 }}>
+        The figure beside each step is how many people reached it. The red number is how many got that far and no
+        further — the step they were looking at when they gave up.
+      </div>
     </div>
   );
 }
@@ -631,6 +709,12 @@ export default function AnalyticsTab() {
       {data.funnel && (
         <Panel title="Landing page to sign-up" aside={`Last ${data.days} days`} wide>
           <Funnel funnel={data.funnel} />
+        </Panel>
+      )}
+
+      {data.registerSteps && Object.keys(data.registerSteps).length > 0 && (
+        <Panel title="Where sign-ups stop" aside="People who reached each step" wide>
+          <RegisterSteps steps={data.registerSteps} finished={data.funnel?.registered ?? 0} />
         </Panel>
       )}
 
