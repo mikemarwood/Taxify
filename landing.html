@@ -1908,16 +1908,23 @@
 
   <!-- Counting a visit, twice over, because this page is served two ways.
 
-       Read at taxify.mikesapphub.com it is this file and scripts run. Read at
-       mikesapphub.com/apps/taxify it is proxied, and the proxy strips every
-       <script> from the page and serves it under a policy that only allows
-       connections back to the hub — so on that copy nothing here executes and
-       no request could be made even if it did.
+       Never write a script tag, opening or closing, in a comment on this page
+       — not even as prose. The hub strips scripts with a pattern rather than a
+       parser, so the words in this very comment used to match one: it cut from
+       here to the next real closing tag and left a 28KB block of English where
+       JavaScript should have been. Everything below it stopped running, which
+       is why the year, the live prices and the click beacon all went quiet at
+       once. Say "script tag" in words, as this paragraph now does.
+
+       Read at taxify.mikesapphub.com it is this file. Read at
+       mikesapphub.com/apps/taxify it is proxied, the proxy removes scripts,
+       and its policy only allows connections back to the hub — so on that copy
+       nothing here executes and no request could be made even if it did.
 
        What the proxy leaves alone, and rewrites to an absolute URL for us, is
        an image. So the image below is the measurement that always works, and
        the script after it is the measurement that can do more: it records
-       which button was pressed, which an <img> cannot.
+       which button was pressed, which an image cannot.
 
        The image is last in the document and carries no layout, so nothing on
        the page waits for it. Absolute rather than relative because on the hub
