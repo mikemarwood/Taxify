@@ -19,6 +19,7 @@ import taxYearRoutes from './routes/taxYears.routes.js';
 import deductionRoutes from './routes/deductions.routes.js';
 import notificationRoutes from './routes/notifications.routes.js';
 import analyticsRoutes from './routes/analytics.routes.js';
+import { recordPageEvent } from './lib/pageEvents.js';
 import entityRoutes from './routes/entities.routes.js';
 import { AD_SLOTS, adFile, posterFile, adsPresent, faststartExistingAds } from './lib/landingAds.js';
 import { cutEmptyAdSlots } from './lib/landingAdsHtml.js';
@@ -348,6 +349,49 @@ app.get('/api/social', async (req, res) => {
 // marketing page grows a broken image icon exactly when somebody has taken the
 // app down to fix something.
 app.use('/api/analytics', analyticsRoutes);
+
+// Counting a press on a page that cannot run scripts.
+//
+// The landing page is served from the hub's copy of itself, and the proxy
+// strips every <script> from it. So the click beacon written into that page
+// never runs for a real visitor: the pixel records that somebody arrived, and
+// nothing at all records that they pressed Start your free trial. Which is the
+// one step in the middle of the funnel — arrive, press, register — and the one
+// that says whether the button is being ignored or the form is losing people.
+//
+// A link through us fixes it with no JavaScript anywhere: the button points
+// here, this writes the row, and the browser is sent on. One extra hop, no
+// render blocked, and it works identically on the hub's copy and ours.
+//
+// Not under /api, because this is a place somebody goes rather than something
+// a page calls. In front of the maintenance gate for the same reason the pixel
+// is: the marketing page stays up during an outage and its buttons should
+// still go somewhere.
+const GO_DESTINATIONS = {
+  trial: { path: '/app/register', event: 'start_trial', label: 'Start your free trial' },
+  login: { path: '/app/login', event: 'open_app', label: 'Log in' },
+  app: { path: '/app/login', event: 'open_app', label: 'Open Taxify' },
+};
+
+app.get('/go/:what', async (req, res) => {
+  const to = GO_DESTINATIONS[String(req.params.what || '').toLowerCase()];
+  // An unknown name goes to the app rather than to an error. This is a link
+  // somebody pressed on a marketing page; the worst outcome is a dead end.
+  const destination = to || GO_DESTINATIONS.app;
+
+  await recordPageEvent(req, res, {
+    surface: 'landing',
+    event: destination.event,
+    label: destination.label,
+    path: '/',
+    referrer: req.headers.referer || '',
+    url: req.originalUrl,
+  });
+
+  // Never cached. A cached 302 would count the first press and no others.
+  res.set('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0');
+  res.redirect(302, destination.path);
+});
 
 // The gate, in front of every API router rather than inside them. A route that
 // forgot to opt in would be a hole in the middle of an outage, and the list of

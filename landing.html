@@ -1278,6 +1278,12 @@
   <main class="lp">
     <!-- The advertisement, first, and the offer beside it.
 
+         The buttons point at /go/trial rather than straight at the app. That
+         hop is what counts the press: the proxy strips every script from this
+         page, so nothing in it can report a click, and without the middle step
+         the funnel cannot tell a button being ignored from a form losing
+         people. See index.js.
+
          This is the poster that goes on a noticeboard, and it earns the top of
          the page for the same reason it works on one: it says what Taxify is
          in a single glance, which no amount of prose above the fold has ever
@@ -1344,7 +1350,7 @@
         <p class="poster-answer">Snap&nbsp;it. Store&nbsp;it. Sorted.</p>
         <p class="lede">Photograph your receipts and Taxify keeps your work expenses organised and ready for tax time.</p>
 
-        <a class="btn btn-primary poster-cta" href="https://taxify.mikesapphub.com/app/register">
+        <a class="btn btn-primary poster-cta" href="https://taxify.mikesapphub.com/go/trial">
           Start your free trial
           <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h13M13 6l6 6-6 6"/></svg>
         </a>
@@ -1615,7 +1621,7 @@
     <section class="card cta-card">
       <h2>Ready to stop losing receipts?</h2>
       <p>Start your 14-day free trial and have your first expense logged before your coffee's cold.</p>
-      <a href="https://taxify.mikesapphub.com/app/login" class="btn btn-primary btn-lg" id="cta">Continue to Taxify</a>
+      <a href="https://taxify.mikesapphub.com/go/trial" class="btn btn-primary btn-lg" id="cta">Continue to Taxify</a>
     </section>
     <!--REVIEWS-START-->
     <!-- Customer reviews.
@@ -1894,7 +1900,7 @@
       <h3>The app is Android only</h3>
       <p>There is no iPhone version yet, and this page cannot install one on the device you are reading it on.</p>
       <p>You are not missing anything though. Taxify runs in the browser on any phone, tablet or computer &mdash; the same account, the same books, nothing to install. The app is a convenience, not the product.</p>
-      <a class="btn btn-primary" href="https://taxify.mikesapphub.com/app/login">Open Taxify in this browser</a>
+      <a class="btn btn-primary" href="https://taxify.mikesapphub.com/go/app">Open Taxify in this browser</a>
     </div>
   </div>
 

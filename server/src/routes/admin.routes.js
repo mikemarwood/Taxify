@@ -1561,6 +1561,51 @@ router.get(
       args([days])
     );
 
+    // The funnel: arrived, pressed, registered.
+    //
+    // Sequential, not three separate totals. The question worth answering is
+    // "of the people who landed, how many pressed the button, and of those how
+    // many finished" — three independent counts cannot tell a button being
+    // ignored from a form losing people, which is the entire reason to look.
+    //
+    // Written as EXISTS against the same table rather than as CTEs, because
+    // this has to run on whatever MariaDB the server happens to have.
+    //
+    // Only visitors we can follow. A visit with no cookie — a browser that
+    // refused it, or the hub's own copy of the page where ours is third-party
+    // — is counted in the totals above but cannot be joined to a later step,
+    // and quietly including it here would make every rate look worse than it
+    // is. The panel reports how many were left out.
+    const window = `at >= NOW() - INTERVAL ${days} DAY`;
+    const [[funnel]] = await pool.query(
+      `SELECT
+         COUNT(*) AS landed,
+         SUM(EXISTS (SELECT 1 FROM page_events c
+                      WHERE c.visitor = v.visitor AND c.event = 'start_trial' AND c.${window})) AS pressed,
+         SUM(
+           EXISTS (SELECT 1 FROM page_events c
+                    WHERE c.visitor = v.visitor AND c.event = 'start_trial' AND c.${window})
+           AND
+           EXISTS (SELECT 1 FROM page_events s
+                    WHERE s.visitor = v.visitor AND s.event = 'signup' AND s.${window})
+         ) AS registered
+       FROM (
+         SELECT DISTINCT visitor FROM page_events
+          WHERE surface = 'landing' AND event = 'view' AND visitor IS NOT NULL AND ${window}
+       ) AS v`
+    );
+
+    // Sign-ups by anybody we never saw arrive — somebody who went straight to
+    // the app, or whose cookie was refused. Reported rather than folded in, so
+    // the funnel stays a funnel and the total still adds up.
+    const [[direct]] = await pool.query(
+      `SELECT COUNT(DISTINCT visitor) AS n FROM page_events
+        WHERE event = 'signup' AND ${window}
+          AND (visitor IS NULL OR visitor NOT IN (
+                SELECT visitor FROM page_events
+                 WHERE surface = 'landing' AND event = 'view' AND visitor IS NOT NULL AND ${window}))`
+    );
+
     const n = (v) => Number(v) || 0;
     res.set('Cache-Control', 'no-store');
     res.json({
@@ -1591,6 +1636,12 @@ router.get(
       clicks: clicks.map((r) => ({ event: r.event, label: r.label, count: n(r.n), visitors: n(r.visitors) })),
       countries: countries.map((r) => ({ code: r.country, views: n(r.views), visitors: n(r.visitors) })),
       countrySources: countrySources.reduce((acc, r) => ({ ...acc, [r.source || 'none']: n(r.views) }), {}),
+      funnel: {
+        landed: n(funnel.landed),
+        pressed: n(funnel.pressed),
+        registered: n(funnel.registered),
+        signedUpWithoutLanding: n(direct.n),
+      },
       devices: devices.map((r) => ({ device: r.device, views: n(r.views) })),
       campaigns: campaigns.map((r) => ({
         source: r.source,

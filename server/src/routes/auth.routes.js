@@ -61,6 +61,7 @@ import { createCaptcha, verifyCaptcha } from '../lib/captcha.js';
 import { assignAccountNumber } from '../lib/accountNumber.js';
 import { getSignupPlans } from '../lib/stripe.js';
 import { evaluatePromoCode, recordPromoRedemption } from '../lib/promoCodes.js';
+import { recordPageEvent } from '../lib/pageEvents.js';
 import { publicOrigin, appOrigin } from '../lib/publicOrigin.js';
 import { currentMaintenanceNotice } from '../lib/maintenanceSettings.js';
 
@@ -454,6 +455,23 @@ router.post(
     }
 
     if (finalPromo) await recordPromoRedemption(finalPromo);
+
+    // The end of the funnel, written where it actually happened.
+    //
+    // Recorded here rather than from the page that submitted the form, for two
+    // reasons. It cannot be blocked, and it cannot be wrong: this line only
+    // runs when a row exists in users, so "registered" means registered rather
+    // than "reached the thank-you screen". And the visitor cookie set when
+    // they first saw the landing page is sent with this request — same host —
+    // so the sign-up joins up with the arrival and the press that came before
+    // it, which is what makes a funnel a funnel rather than three counts.
+    await recordPageEvent(req, res, {
+      surface: 'app',
+      event: 'signup',
+      label: finalPlanType === 'business' ? 'Small Business' : 'Individual',
+      path: '/register',
+      userId,
+    });
 
     const activationUrl = `${appOrigin()}/activate?token=${token}`;
     try {

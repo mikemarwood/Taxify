@@ -131,6 +131,90 @@ function Tile({ label, value, now, before, hint }) {
   );
 }
 
+// Arrived, pressed, registered — and where the people went who did not.
+//
+// A bar per step against the first, so the shape of the drop is visible before
+// any number is read, and the loss between steps named in words underneath.
+// The whole point is to tell one failure from the other: nobody pressing the
+// button is a landing page problem, and everybody pressing it and not
+// finishing is a sign-up form problem, and the two have nothing to do with
+// each other.
+function Funnel({ funnel }) {
+  const steps = [
+    { key: 'landed', label: 'Saw the landing page', value: funnel.landed },
+    { key: 'pressed', label: 'Pressed Start your free trial', value: funnel.pressed },
+    { key: 'registered', label: 'Finished registering', value: funnel.registered },
+  ];
+  const top = Math.max(1, funnel.landed);
+
+  if (!funnel.landed) {
+    return (
+      <div style={{ fontSize: 12.5, color: 'var(--text-subtle)', lineHeight: 1.6 }}>
+        Nothing yet for this period. The steps are recorded from the moment somebody loads the landing page, so this
+        fills in as people arrive.
+      </div>
+    );
+  }
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 13 }}>
+      {steps.map((step, i) => {
+        const previous = i === 0 ? null : steps[i - 1].value;
+        const rate = previous ? Math.round((step.value / previous) * 1000) / 10 : null;
+        const lost = previous ? previous - step.value : 0;
+        return (
+          <div key={step.key}>
+            <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, marginBottom: 5 }}>
+              <span style={{ fontSize: 12.5 }}>{step.label}</span>
+              <span style={{ flex: 1 }} />
+              <span style={{ fontSize: 15, fontWeight: 800, fontVariantNumeric: 'tabular-nums' }}>
+                {tidyNumber(step.value)}
+              </span>
+              {rate !== null && (
+                <span
+                  style={{
+                    fontSize: 11.5,
+                    fontWeight: 700,
+                    color: 'var(--text-muted)',
+                    fontVariantNumeric: 'tabular-nums',
+                    minWidth: 46,
+                    textAlign: 'right',
+                  }}
+                >
+                  {rate}%
+                </span>
+              )}
+            </div>
+            <div style={{ height: 10, borderRadius: 5, background: 'var(--bg-inset)', overflow: 'hidden' }}>
+              <div
+                style={{
+                  width: `${Math.max(step.value ? 1.5 : 0, (step.value / top) * 100)}%`,
+                  height: '100%',
+                  borderRadius: 5,
+                  background: VIEWS,
+                }}
+              />
+            </div>
+            {previous !== null && lost > 0 && (
+              <div style={{ fontSize: 11.5, color: 'var(--text-subtle)', marginTop: 4 }}>
+                {tidyNumber(lost)} {i === 1 ? 'never pressed it' : 'started and did not finish'}
+              </div>
+            )}
+          </div>
+        );
+      })}
+
+      {funnel.signedUpWithoutLanding > 0 && (
+        <div style={{ fontSize: 11.5, color: 'var(--text-subtle)', lineHeight: 1.6, paddingTop: 2 }}>
+          {tidyNumber(funnel.signedUpWithoutLanding)} more registered without being seen on the landing page first —
+          straight to the app, or a browser that refused the cookie that joins the steps up. Counted here rather than
+          folded in, so the steps above stay a sequence.
+        </div>
+      )}
+    </div>
+  );
+}
+
 function Panel({ title, aside, children, wide = false }) {
   return (
     <section
@@ -541,6 +625,14 @@ export default function AnalyticsTab() {
         <Tile label="Came back" value={tidyNumber(t.repeatVisitors)} hint="On more than one day" />
         <Tile label="Presses" value={tidyNumber(t.clicks)} now={t.clicks} before={p.clicks} hint="Buttons and links" />
       </div>
+
+      {/* Before the charts. It is the question the rest of the page exists to
+          support: did any of this turn into a customer. */}
+      {data.funnel && (
+        <Panel title="Landing page to sign-up" aside={`Last ${data.days} days`} wide>
+          <Funnel funnel={data.funnel} />
+        </Panel>
+      )}
 
       <Panel title="Views and visitors" aside={`Last ${data.days} days`} wide>
         <TrendChart series={data.series} />
