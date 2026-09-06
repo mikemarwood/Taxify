@@ -69,10 +69,14 @@ function tidyNumber(n) {
 function Movement({ now, before }) {
   const a = Number(now) || 0;
   const b = Number(before) || 0;
-  if (b === 0) {
-    if (a === 0) return null;
-    return <span style={{ fontSize: 11.5, fontWeight: 700, color: 'var(--emerald)' }}>New</span>;
-  }
+  // Nothing to compare against.
+  //
+  // This used to say "New", which put the same green word on every tile on the
+  // page for as long as measurement was younger than the period being shown —
+  // five badges carrying no information and crowding out the figures they sat
+  // beside. The page says once, underneath, that there is no earlier period
+  // yet; a tile with nothing to add says nothing.
+  if (b === 0) return null;
   const pct = Math.round(((a - b) / b) * 1000) / 10;
   const flat = Math.abs(pct) < 0.05;
   const up = pct > 0;
@@ -141,6 +145,24 @@ function Tile({ label, value, now, before, hint }) {
 // finishing is a sign-up form problem, and the two have nothing to do with
 // each other.
 function Funnel({ funnel }) {
+  // The whole panel in one sentence, before any of it has to be decoded.
+  //
+  // Bars and percentages answer "how much"; they do not answer "so what". A
+  // line of plain English does, and it is the thing somebody glancing at this
+  // page for five seconds actually reads.
+  const summary = (() => {
+    const { landed, pressed, registered } = funnel;
+    if (!landed) return null;
+    const people = `${tidyNumber(landed)} ${landed === 1 ? 'person' : 'people'}`;
+    if (!pressed) return `${people} came to the landing page. None of them opened the sign-up form.`;
+    if (!registered) {
+      return `${people} came to the landing page, ${tidyNumber(pressed)} opened the sign-up form, and none finished it.`;
+    }
+    return `${people} came to the landing page, ${tidyNumber(pressed)} opened the sign-up form, and ${tidyNumber(
+      registered
+    )} finished — ${Math.round((registered / landed) * 1000) / 10}% of everybody who arrived.`;
+  })();
+
   const steps = [
     { key: 'landed', label: 'Saw the landing page', value: funnel.landed },
     { key: 'pressed', label: 'Opened the sign-up form', value: funnel.pressed },
@@ -159,6 +181,9 @@ function Funnel({ funnel }) {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 13 }}>
+      {summary && (
+        <p style={{ margin: '0 0 2px', fontSize: 13.5, lineHeight: 1.6, color: 'var(--text)' }}>{summary}</p>
+      )}
       {steps.map((step, i) => {
         const previous = i === 0 ? null : steps[i - 1].value;
         const rate = previous ? Math.round((step.value / previous) * 1000) / 10 : null;
@@ -291,19 +316,30 @@ function RegisterSteps({ steps, finished }) {
                 <span
                   style={{
                     fontSize: 11.5,
-                    fontWeight: 700,
+                    fontWeight: 600,
                     color: 'var(--red)',
-                    fontVariantNumeric: 'tabular-nums',
-                    minWidth: 62,
-                    textAlign: 'right',
+                    whiteSpace: 'nowrap',
                   }}
-                  title={`${lost} got this far and no further`}
                 >
-                  −{tidyNumber(lost)}
+                  {/* In words, not as a bare minus number. "−1" beside a "1"
+                      reads as arithmetic somebody has to do; "1 stopped here"
+                      is the finding itself. */}
+                  {tidyNumber(lost)} stopped here
                 </span>
               )}
             </div>
-            <div style={{ height: 7, borderRadius: 4, background: 'var(--bg-inset)', overflow: 'hidden' }}>
+            <div
+              style={{
+                height: 7,
+                borderRadius: 4,
+                background: 'var(--bg-inset)',
+                overflow: 'hidden',
+                // A step nobody has reached is drawn faintly rather than as an
+                // empty bar at full strength — five identical grey tracks read
+                // as a broken chart rather than as "nobody got this far".
+                opacity: row.value ? 1 : 0.5,
+              }}
+            >
               <div
                 style={{
                   width: `${Math.max(row.value ? 1.5 : 0, (row.value / top) * 100)}%`,
@@ -317,8 +353,8 @@ function RegisterSteps({ steps, finished }) {
         );
       })}
       <div style={{ fontSize: 11.5, color: 'var(--text-subtle)', lineHeight: 1.6, paddingTop: 2 }}>
-        The figure beside each step is how many people reached it. The red number is how many got that far and no
-        further — the step they were looking at when they gave up.
+        The number beside each step is how many people reached it, so it falls as you go down. Where it falls, the red
+        note says how many were looking at that step when they gave up — that is the one to fix first.
       </div>
     </div>
   );
@@ -675,6 +711,9 @@ export default function AnalyticsTab() {
   // Three sources of very different confidence land in one column, so the
   // panel says which. Without this the map reads as fact when most of it may
   // be a browser's language setting.
+  // Whether the period before this one holds anything at all.
+  const noComparison = !p.views && !p.visitors && !p.clicks;
+
   const src = data.countrySources || {};
   const placed = (src.header || 0) + (src.account || 0) + (src.locale || 0);
   const countryConfidence =
@@ -722,8 +761,18 @@ export default function AnalyticsTab() {
       </div>
 
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10 }}>
-        <Tile label="Views" value={tidyNumber(t.views)} now={t.views} before={p.views} />
-        <Tile label="Visitors" value={tidyNumber(t.visitors)} now={t.visitors} before={p.visitors} />
+        {/* Every tile says what its word means. "Views" and "Visitors" are
+            not the same number and the difference is the interesting part —
+            without a line of explanation somebody reads the larger one and
+            thinks it is people. */}
+        <Tile label="Views" value={tidyNumber(t.views)} now={t.views} before={p.views} hint="Pages opened" />
+        <Tile
+          label="Visitors"
+          value={tidyNumber(t.visitors)}
+          now={t.visitors}
+          before={p.visitors}
+          hint="People, counted once each"
+        />
         <Tile
           label="First time"
           value={tidyNumber(t.newVisitors)}
@@ -734,6 +783,19 @@ export default function AnalyticsTab() {
         <Tile label="Came back" value={tidyNumber(t.repeatVisitors)} hint="On more than one day" />
         <Tile label="Presses" value={tidyNumber(t.clicks)} now={t.clicks} before={p.clicks} hint="Buttons and links" />
       </div>
+
+      {/* Said once, quietly, instead of a green "New" on every tile.
+          
+          The comparison is against the period immediately before this one, and
+          for as long as measurement is younger than the period being shown
+          there is no such period — which is a fact about the figures, not
+          about the business, and belongs in one line rather than five badges. */}
+      {noComparison && (
+        <div style={{ fontSize: 12, color: 'var(--text-subtle)', marginTop: -4, lineHeight: 1.6 }}>
+          Nothing to compare against yet — there is no earlier {data.days}-day period on record, so no tile shows a
+          rise or a fall. It will once measurement has been running longer than the range you are looking at.
+        </div>
+      )}
 
       {/* Before the charts. It is the question the rest of the page exists to
           support: did any of this turn into a customer. */}
