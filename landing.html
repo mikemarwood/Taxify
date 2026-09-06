@@ -1932,6 +1932,28 @@
   <img src="https://taxify.mikesapphub.com/api/analytics/px.gif?s=landing&e=view&p=/"
        alt="" width="1" height="1" style="position:absolute;width:1px;height:1px;opacity:0;pointer-events:none" />
 
+  <!-- Meta Pixel, as an image rather than as the snippet Meta hands out.
+
+       The snippet is a script that loads another script, and neither survives
+       here: the hub removes ours and keeps its own, which was checked against
+       what production actually serves rather than assumed. Meta's own fallback
+       for that case is this image, which it wraps in a noscript block — and a
+       noscript block is exactly wrong for us, because it renders only when
+       JavaScript is switched off. Our scripts are missing while JavaScript is
+       perfectly well on, so the fallback would render for nobody. Out of the
+       noscript block it fires for everybody.
+
+       What this costs: no advanced matching, no deduplication against a
+       server-side event, and no custom events from this page. What it buys: a
+       PageView from every real visitor, which is what an ad needs to attribute
+       a click. The events that matter for optimisation are raised in the app,
+       where the pixel is a real one.
+
+       No parameters beyond the id and the event, so nothing about the visitor
+       leaves with it. -->
+  <img src="https://www.facebook.com/tr?id=957172023312324&amp;ev=PageView&amp;noscript=1"
+       alt="" width="1" height="1" style="position:absolute;width:1px;height:1px;opacity:0;pointer-events:none" />
+
   <script>
     document.getElementById('year').textContent = new Date().getFullYear();
 

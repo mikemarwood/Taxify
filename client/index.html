@@ -32,6 +32,50 @@
          pages that will answer with a sign-in form. The landing page is what
          should rank; it says so with its own canonical. -->
     <meta name="robots" content="noindex, nofollow" />
+
+    <!-- Meta Pixel.
+
+         Here rather than in the React bundle so a PageView is recorded when the
+         document loads, before the app has mounted. Route changes inside the
+         app are not reported: this is a single page, Meta counts the one load,
+         and firing a PageView per screen would inflate every figure it feeds.
+
+         autoConfig is switched off, deliberately and before init.
+
+         Left on, the pixel reads the page for itself: it watches button presses
+         and form submissions and sends back the values of fields it decides
+         look like contact details. On this domain those fields are somebody's
+         name, email, date of birth and phone number, and further in they are
+         expense amounts and receipt details. None of that is Meta's to have,
+         and none of it is needed to know that a trial started. Off, the pixel
+         reports only the events written by hand — a PageView here and a
+         CompleteRegistration on the line after an account is created, neither
+         carrying a parameter.
+
+         The id is public by nature; it is visible in this page to anybody who
+         looks, and identifies the ad account rather than granting access to
+         it. -->
+    <script>
+      !(function (f, b, e, v, n, t, s) {
+        if (f.fbq) return;
+        n = f.fbq = function () {
+          n.callMethod ? n.callMethod.apply(n, arguments) : n.queue.push(arguments);
+        };
+        if (!f._fbq) f._fbq = n;
+        n.push = n;
+        n.loaded = !0;
+        n.version = '2.0';
+        n.queue = [];
+        t = b.createElement(e);
+        t.async = !0;
+        t.src = v;
+        s = b.getElementsByTagName(e)[0];
+        s.parentNode.insertBefore(t, s);
+      })(window, document, 'script', 'https://connect.facebook.net/en_US/fbevents.js');
+      fbq('set', 'autoConfig', false, '957172023312324');
+      fbq('init', '957172023312324');
+      fbq('track', 'PageView');
+    </script>
   </head>
   <body>
     <!-- What fills the gap between this file arriving and React starting.

@@ -99,23 +99,44 @@ export default function Privacy() {
               expense leaves the server.
             </>,
             <>
+              <strong>Meta (Facebook)</strong> — a measurement pixel runs on our landing page and inside the app so we
+              can tell how many people who saw an advertisement went on to open an account. Meta is told two things
+              and no more: that a page was viewed, and that a registration was completed. Neither carries your name,
+              your email address, or anything you have typed. The pixel&rsquo;s automatic collection is switched off,
+              which is what stops it reading form fields for itself. Meta will still see your IP address and browser,
+              as any site you visit does, and handles that under its own privacy policy.
+            </>,
+            <>
               <strong>An accountant you invite</strong>. See section 7.
             </>,
           ]}
         />
         <P>
-          We do not sell personal information, we do not share it for advertising, and we will not hand it to anyone
-          else unless the law requires it.
+          We do not sell personal information, and we will not hand it to anyone else unless the law requires it.
+        </P>
+        <P>
+          Nothing you enter into Taxify is used for advertising. Not a receipt, not an expense, not an amount, not a
+          category, not a document, and not a password. The advertising measurement described above knows that
+          somebody arrived and that somebody registered; it is never told what they went on to record.
         </P>
       </Section>
 
       <Section n={5} title="Cookies">
         <P>
-          One cookie, and it exists so you stay signed in. It holds a signed token, is marked HTTP-only so no script
-          can read it, and is sent only to Taxify. Ticking “this is a shared device” at sign-in makes it disappear
-          when you close the browser instead of lasting 30 days.
+          <strong>Signing in.</strong> One cookie, and it exists so you stay signed in. It holds a signed token, is
+          marked HTTP-only so no script can read it, and is sent only to Taxify. Ticking “this is a shared device” at
+          sign-in makes it disappear when you close the browser instead of lasting 30 days.
         </P>
-        <P>There are no analytics cookies, no advertising cookies, and no third-party trackers on any page.</P>
+        <P>
+          <strong>Counting visits.</strong> A second cookie of ours holds a random number and nothing else — no name,
+          no account, nothing that identifies you. It is what lets us count a returning reader as one person rather
+          than two, and see how far people get through the sign-up form. It is ours alone, is never sent anywhere
+          else, and lasts a year.
+        </P>
+        <P>
+          <strong>Advertising.</strong> Meta&rsquo;s measurement pixel sets its own cookies, as described in section 4.
+          They belong to Meta rather than to us, and Meta&rsquo;s own policy governs them.
+        </P>
       </Section>
 
       <Section n={6} title="Where it is kept, and for how long">

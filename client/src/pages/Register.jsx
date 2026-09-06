@@ -14,6 +14,7 @@ import { autoFocusFields } from '../lib/device.js';
 import DateField from '../components/DateField.jsx';
 import { REGISTER_STEPS } from '../lib/registerSteps.js';
 import { trackClick } from '../lib/analytics.js';
+import { reportRegistration } from '../lib/metaPixel.js';
 
 // What has been filled in so far, kept for the length of the tab.
 //
@@ -412,6 +413,14 @@ export default function Register() {
       playSuccess();
       clearDraft();
       setPendingEmail(email.trim().toLowerCase());
+      // After the account exists, and only then.
+      //
+      // Not when the form is opened and not when Sign up is pressed: register
+      // throws on a duplicate email, a failed captcha or a rejected field, and
+      // any of those would otherwise be reported to Meta as a new customer.
+      // This line is only reached when the call came back clean, which means a
+      // row in users. Fires once — see metaPixel.js.
+      reportRegistration();
     } catch (err) {
       playError();
       // Under the sum, not in the corner. Somebody who has just typed a number
