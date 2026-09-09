@@ -23,6 +23,7 @@ import { recordPageEvent } from './lib/pageEvents.js';
 import entityRoutes from './routes/entities.routes.js';
 import { AD_SLOTS, adFile, posterFile, adsPresent, faststartExistingAds } from './lib/landingAds.js';
 import { cutEmptyAdSlots } from './lib/landingAdsHtml.js';
+import { injectLandingScript } from './lib/landingScript.js';
 import { injectLandingSocial } from './lib/landingSocial.js';
 import { landingSocialConfig } from './lib/socialSettings.js';
 import { injectAppDownload, isAndroidAgent } from './lib/landingAppDownload.js';
@@ -142,10 +143,16 @@ function apkOffer(req) {
 }
 
 async function withLandingExtras(html, req) {
-  return injectLandingReviews(
-    injectAppDownload(
-      injectLandingSocial(withLandingAds(html), await landingSocialConfig()),
-      apkOffer(req)
+  // Outermost, so it is added to the finished document — and, more to the
+  // point, added after the hub has stripped every script the page came with.
+  // See landingScript.js: this is the only route by which JavaScript reaches
+  // the landing page at all.
+  return injectLandingScript(
+    injectLandingReviews(
+      injectAppDownload(
+        injectLandingSocial(withLandingAds(html), await landingSocialConfig()),
+        apkOffer(req)
+      )
     )
   );
 }
