@@ -45,7 +45,7 @@ import {
   sendAccountantInviteAcceptedEmail,
   sendAccountantAccessEndedEmail,
 } from '../lib/mailer.js';
-import { notify } from '../lib/notify.js';
+import { notify, notifyAdmins } from '../lib/notify.js';
 import { parseBookGrant } from '../auth/accountantBooks.js';
 import { ACTIVATION_TOKEN_DAYS, generateActivationToken } from '../auth/activationToken.js';
 import {
@@ -472,6 +472,39 @@ router.post(
       path: '/register',
       userId,
     });
+
+    // Tell whoever runs the place, on their phone.
+    //
+    // notifyAdmins records a notification against every administrator and
+    // pushes it to whatever Android devices they have registered, so this is
+    // one call rather than two — see notify.js.
+    //
+    // Here rather than at activation, deliberately. This fires when the
+    // account is created, which is the moment somebody decided to try Taxify;
+    // waiting for them to open the activation email would mean never hearing
+    // about the ones who did not, and those are the ones worth chasing.
+    //
+    // Wrapped, because it must not be able to fail a registration that has
+    // already succeeded. The row exists by now — an administrator missing a
+    // notification is an inconvenience, and a customer being told their
+    // sign-up failed after it worked is not.
+    try {
+      const who = [first, last].filter(Boolean).join(' ') || normalizedEmail;
+      await notifyAdmins({
+        title: `${who} signed up`,
+        body: [
+          asAccountant ? 'Accountant' : finalPlanType === 'business' ? 'Small Business' : 'Individual',
+          matchedCountry?.name,
+          finalPromo ? `promo ${finalPromo}` : null,
+        ]
+          .filter(Boolean)
+          .join(' · '),
+        url: `/admin?tab=users&user=${userId}`,
+        kind: 'individual',
+      });
+    } catch (err) {
+      console.error('Registered but could not tell the admins', err.message);
+    }
 
     const activationUrl = `${appOrigin()}/activate?token=${token}`;
     try {

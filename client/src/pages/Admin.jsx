@@ -381,9 +381,31 @@ function UsersTab() {
   const navigate = useNavigate();
   const toast = useToast();
   const [users, setUsers] = useState(null);
-  const [detailId, setDetailId] = useState(null);
+  // ?user=<id> opens that account straight away.
+  //
+  // The notification an administrator gets when somebody signs up links here,
+  // and a link that lands on a list of every account and leaves you to find
+  // the one it was about is barely a link at all.
+  const [userParams, setUserParams] = useSearchParams();
+  const [detailId, setDetailId] = useState(() => {
+    const id = Number(userParams.get('user'));
+    return Number.isInteger(id) && id > 0 ? id : null;
+  });
   const [filter, setFilter] = useState('all');
   const [search, setSearch] = useState('');
+
+  // Closing takes the id out of the address, so a refresh does not reopen the
+  // panel somebody has just shut. The tab is written back with it, because the
+  // page above keeps its own tab there and dropping it would send a reload to
+  // Live stats.
+  function closeDetail() {
+    setDetailId(null);
+    if (userParams.get('user')) {
+      const next = new URLSearchParams(userParams);
+      next.delete('user');
+      setUserParams(next, { replace: true });
+    }
+  }
 
   function load() {
     api.get('/admin/users').then((res) => setUsers(res.data.users));
@@ -683,7 +705,7 @@ function UsersTab() {
         <AdminUserDetail
           userId={detailId}
           me={me}
-          onClose={() => setDetailId(null)}
+          onClose={closeDetail}
           onChanged={load}
           actions={{ viewAs }}
         />
