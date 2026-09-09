@@ -1927,10 +1927,20 @@
        which button was pressed, which an image cannot.
 
        The image is last in the document and carries no layout, so nothing on
-       the page waits for it. Absolute rather than relative because on the hub
-       copy a relative path would point at the hub, which does not serve it. -->
+       the page waits for it. The URL is absolute rather than relative because
+       on the hub copy a relative path would point at the hub, which does not
+       serve it.
+
+       Pinned with position:fixed at 0,0 rather than left absolute with no
+       coordinates. Absolute with no top or left keeps an element's static
+       position, which for these is the very bottom of the document — so the
+       last thing in the page was a pair of elements that arrive after
+       everything else and sit below the footer. Fixed at the origin takes them
+       out of the flow completely: they cannot be the bottom of anything, they
+       cannot be a scroll target, and they cannot shift a line of the page as
+       they load. -->
   <img src="https://taxify.mikesapphub.com/api/analytics/px.gif?s=landing&e=view&p=/"
-       alt="" width="1" height="1" style="position:absolute;width:1px;height:1px;opacity:0;pointer-events:none" />
+       alt="" width="1" height="1" style="position:fixed;top:0;left:0;width:1px;height:1px;opacity:0;pointer-events:none" />
 
   <!-- Meta Pixel, as an image rather than as the snippet Meta hands out.
 
@@ -1952,7 +1962,7 @@
        No parameters beyond the id and the event, so nothing about the visitor
        leaves with it. -->
   <img src="https://www.facebook.com/tr?id=957172023312324&amp;ev=PageView&amp;noscript=1"
-       alt="" width="1" height="1" style="position:absolute;width:1px;height:1px;opacity:0;pointer-events:none" />
+       alt="" width="1" height="1" style="position:fixed;top:0;left:0;width:1px;height:1px;opacity:0;pointer-events:none" />
 
   <script>
     document.getElementById('year').textContent = new Date().getFullYear();
