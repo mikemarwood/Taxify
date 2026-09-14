@@ -10,7 +10,7 @@
   },
   "android": {
     "backgroundColor": "#0a0f18",
-    "appendUserAgent": "TaxifyAndroid/11"
+    "appendUserAgent": "TaxifyAndroid/12 Play"
   },
   "plugins": {
     "SplashScreen": {

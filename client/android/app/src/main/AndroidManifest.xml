@@ -123,7 +123,23 @@
 
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
-    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
+
+    <!--
+      REQUEST_INSTALL_PACKAGES is gone, and it had to be.
+
+      It was here so the app could install its own updates: the download button
+      fetched a new APK from our own server and handed it to the system
+      installer, which needs this permission from Android 8 onwards. That is
+      the right design for an app somebody sideloads from a website, and it is
+      not allowed on Google Play twice over. Play restricts this permission to
+      apps whose core purpose is installing other apps — a file manager, a
+      store — and a tax app asking for it is refused. And distributing your own
+      updates outside Play is a Device and Network Abuse violation in its own
+      right, permission or no permission.
+
+      Play is the update channel now. It does this job, it does it in the
+      background, and it does not need a permission to do it.
+    -->
 
     <!--
       CAMERA, having deliberately not been declared until now.
