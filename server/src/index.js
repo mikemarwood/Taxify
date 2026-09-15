@@ -95,6 +95,8 @@ if (!isProd) {
 const HUB_ORIGIN = process.env.APPHUB_ORIGIN || 'https://mikesapphub.com';
 const APPHUB_PRODUCT_SLUG = process.env.APPHUB_PRODUCT_SLUG || 'taxify';
 const LANDING_HTML_PATH = path.join(__dirname, '..', '..', 'landing.html');
+// A redesign, parked where it can be looked at before it replaces anything.
+const LANDING_PREVIEW_PATH = path.join(__dirname, '..', '..', 'landing2.html');
 
 // The advertisement slots, cut out of the page when they are empty.
 //
@@ -244,6 +246,32 @@ app.get('/media/ads/:name', (req, res) => {
 });
 
 app.get('/', serveLandingPage);
+
+// The next landing page, at /landing2, until somebody decides it is the
+// landing page.
+//
+// Served from the file rather than through the hub, which is the point: the
+// hub holds the old page and would hand that back instead. So this is the new
+// file plus the same injections the real one gets — the advertisement films,
+// the Facebook buttons, the Android download button and the little script —
+// which is as close to the finished thing as it can be while still being a
+// draft.
+//
+// noindex, and not merely by politeness. Two addresses serving nearly the same
+// marketing copy is how a site competes with itself for its own words, and a
+// draft should never be the copy that wins.
+app.get('/landing2', async (req, res) => {
+  try {
+    const file = await fs.promises.readFile(LANDING_PREVIEW_PATH, 'utf8');
+    res.set('Content-Type', 'text/html; charset=utf-8');
+    res.set('X-Robots-Tag', 'noindex, nofollow');
+    res.set('Cache-Control', 'no-store');
+    res.send(await withLandingExtras(file, req));
+  } catch (err) {
+    console.error('[landing2] could not be served:', err.message);
+    res.status(404).type('text/plain').send('No draft landing page is in place.');
+  }
+});
 
 // Crawl directives for this host.
 //

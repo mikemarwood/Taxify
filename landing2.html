@@ -1,0 +1,920 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Taxify — Snap your receipts, sorted for tax time</title>
+<meta name="description" content="Photograph a receipt and Taxify files it — right category, right tax year. Work, business and rental expenses organised and ready for tax time. 14-day free trial, no credit card required.">
+<meta name="theme-color" content="#081428">
+
+<!-- Search.
+
+     The canonical points at the hub, not here. This page is served from two
+     addresses — taxify.mikesapphub.com and mikesapphub.com/apps/taxify — and
+     without this they compete with each other for the same words. -->
+<link rel="canonical" href="https://mikesapphub.com/apps/taxify">
+<meta name="robots" content="index, follow, max-image-preview:large">
+<meta name="author" content="Mikes App Hub">
+
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
+
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "SoftwareApplication",
+  "name": "Taxify",
+  "applicationCategory": "FinanceApplication",
+  "operatingSystem": "Web, Android",
+  "url": "https://mikesapphub.com/apps/taxify",
+  "description": "Photograph a receipt and Taxify files it — right category, right tax year. Work, business and rental expenses organised and ready for tax time, with a 14-day free trial and no credit card required.",
+  "image": "https://taxify.mikesapphub.com/media/shot-dashboard.jpg",
+  "publisher": { "@type": "Organization", "name": "Mikes App Hub", "url": "https://mikesapphub.com" },
+  "offers": [
+    { "@type": "Offer", "name": "Individual", "price": "49", "priceCurrency": "AUD", "category": "Subscription" },
+    { "@type": "Offer", "name": "Small Business", "price": "99", "priceCurrency": "AUD", "category": "Subscription" }
+  ]
+}
+</script>
+
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Taxify">
+<meta property="og:url" content="https://taxify.mikesapphub.com/">
+<meta property="og:title" content="Tax receipts. Sorted.">
+<meta property="og:description" content="Photograph a receipt and Taxify files it — right category, right tax year. Come tax time the whole year is already added up. 14-day free trial, no card needed.">
+<meta property="og:image" content="https://taxify.mikesapphub.com/media/advertisement.jpg">
+<meta property="og:image:width" content="1024">
+<meta property="og:image:height" content="1536">
+<meta property="og:image:alt" content="Taxify — keep your receipts in the cloud, ready for tax time">
+<meta property="og:locale" content="en_AU">
+<meta name="twitter:card" content="summary_large_image">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@500;600;700;800&family=Inter:wght@400;500;600;700&family=Caveat:wght@500;600&display=swap" rel="stylesheet">
+
+<style>
+  /* Light, not dark.
+
+     The page was navy top to bottom. This keeps navy for the two moments that
+     want weight — the opening and the closing ask — and puts everything
+     between them on white, where a page explaining a tax product belongs. */
+  :root {
+    --ink: #0f1b2d;
+    --body: #4c5a70;
+    --faint: #7b8798;
+    --blue: #1a7cf0;
+    --blue-deep: #0b5fd0;
+    --blue-soft: #e9f2fd;
+    --navy-1: #081428;
+    --navy-2: #12305a;
+    --line: #e3e9f2;
+    --paper: #ffffff;
+    --shadow-card: 0 1px 2px rgba(15, 27, 45, .05), 0 8px 24px -14px rgba(15, 27, 45, .18);
+  }
+
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; }
+  @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+
+  body {
+    margin: 0;
+    background: var(--paper);
+    color: var(--ink);
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    font-size: 16px;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+    /* Nothing on this page may scroll sideways. Clip rather than hidden, so a
+       position:fixed child is not trapped by a new containing block. */
+    overflow-x: clip;
+  }
+  img, svg, video { max-width: 100%; }
+
+  /* One gutter, set once. Every section inherits it, so no section can end up
+     with content against the edge of a phone. */
+  .wrap { max-width: 1120px; margin: 0 auto; padding: 0 clamp(16px, 4vw, 40px); }
+
+  h1, h2, h3, .brand-name, .btn, .step-name, .plan-price, .plan-name, .dash-brand, .dash-hello {
+    font-family: 'Poppins', 'Inter', -apple-system, 'Segoe UI', Roboto, sans-serif;
+  }
+
+  /* Handwriting.
+
+     Three of these, and they are the one informal thing on the page — an aside
+     in the margin rather than another heading. A real fallback stack, because
+     a script face that quietly becomes Arial reads as a mistake. */
+  .note {
+    font-family: 'Caveat', 'Segoe Script', 'Bradley Hand', cursive;
+    font-size: clamp(18px, 2vw, 25px);
+    line-height: 1.25;
+    color: var(--ink);
+  }
+  .note-swoosh { display: block; width: 116px; max-width: 100%; height: 9px; margin-top: 4px; }
+  .note-swoosh path { fill: none; stroke: var(--blue); stroke-width: 3.4; stroke-linecap: round; }
+
+  /* ---- Buttons ----
+     44px minimum height everywhere: a target smaller than a fingertip is a
+     target missed, and every one of these is the only thing to press. */
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 9px;
+    min-height: 44px;
+    padding: 12px 26px;
+    border-radius: 999px;
+    background: var(--blue);
+    color: #fff;
+    font-size: 15px;
+    font-weight: 600;
+    text-decoration: none;
+    border: 0;
+    cursor: pointer;
+    transition: background .15s ease, transform .15s ease;
+  }
+  .btn:hover { background: var(--blue-deep); transform: translateY(-1px); }
+  .btn:focus-visible { outline: 3px solid #9cc8fa; outline-offset: 2px; }
+  @media (prefers-reduced-motion: reduce) { .btn { transition: none; } .btn:hover { transform: none; } }
+  .btn-sm { min-height: 38px; padding: 8px 17px; font-size: 13.5px; }
+  .btn-full { width: 100%; }
+  .btn-note { font-size: 12.5px; color: var(--faint); margin: 9px 0 0; }
+
+  /* ---- Top bar ----
+     A div, never a <header>. The hub deletes header, footer and several nav
+     class names outright from the copy it serves, and this bar disappeared
+     with them the first time it was marked up honestly. */
+  .lp-topbar { background: var(--navy-1); position: relative; z-index: 3; }
+  .lp-topbar .wrap {
+    display: flex;
+    align-items: center;
+    gap: 14px 20px;
+    flex-wrap: wrap;
+    padding-top: 14px;
+    padding-bottom: 14px;
+  }
+  .brand { display: flex; align-items: center; gap: 11px; text-decoration: none; flex-shrink: 0; }
+  .brand img { width: 34px; height: 34px; border-radius: 8px; }
+  .brand-name { display: block; font-size: 21px; font-weight: 700; color: #fff; line-height: 1.05; letter-spacing: -.3px; }
+  .brand-sub { display: block; font-size: 10.5px; color: #9db4d4; letter-spacing: .3px; }
+  .topnav { display: flex; gap: clamp(14px, 2.2vw, 26px); margin-left: auto; flex-wrap: wrap; }
+  .topnav a { color: #cfdcef; text-decoration: none; font-size: 14px; font-weight: 500; }
+  .topnav a:hover, .topnav a:focus-visible { color: #fff; }
+  .topnav a.on { color: #4d9ffb; }
+  .lp-topbar .btn { margin-left: auto; }
+  .topnav ~ .btn { margin-left: 0; }
+  /* The links go before the button does. Below this width they would wrap to a
+     second row and push the one thing worth pressing off the first screen. */
+  @media (max-width: 980px) { .topnav { display: none; } }
+
+  /* ---- Hero ---- */
+  .hero {
+    background:
+      radial-gradient(120% 130% at 78% 18%, rgba(26,124,240,.34) 0%, rgba(26,124,240,0) 58%),
+      linear-gradient(160deg, var(--navy-1) 0%, var(--navy-2) 62%, #0b1e3a 100%);
+    color: #fff;
+    position: relative;
+    overflow: hidden;
+  }
+  .hero .wrap {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1.05fr);
+    gap: clamp(22px, 4vw, 56px);
+    align-items: center;
+    padding-top: clamp(32px, 5vw, 62px);
+    padding-bottom: 24px;
+  }
+  .hero h1 {
+    margin: 0 0 10px;
+    font-size: clamp(34px, 6.4vw, 60px);
+    line-height: 1.02;
+    letter-spacing: -1.6px;
+    font-weight: 800;
+    text-wrap: balance;
+  }
+  .hero h1 span { color: #4d9ffb; display: block; }
+  .hero h2 { margin: 0 0 14px; font-size: clamp(18px, 2.4vw, 27px); font-weight: 700; letter-spacing: -.5px; }
+  .hero p { margin: 0 0 22px; color: #c3d3e8; font-size: 15.5px; max-width: 42ch; }
+
+  /* Stacked below 860px, copy first. The phones are the illustration; the
+     sentence and the button are the point, and on a phone they go first. */
+  @media (max-width: 860px) {
+    .hero .wrap { grid-template-columns: 1fr; text-align: center; }
+    .hero p { margin-left: auto; margin-right: auto; }
+    .hero .btn { margin-inline: auto; }
+  }
+
+  .hero-note { position: absolute; right: 2.5%; bottom: 26%; text-align: center; color: #fff; }
+  /* Hidden wherever it would sit on top of the phones rather than beside them. */
+  @media (max-width: 1140px) { .hero-note { display: none; } }
+
+  /* Two phones, drawn rather than photographed.
+
+     The mock-up shows a hand holding a phone. That photograph does not exist,
+     and a stand-in photograph of somebody else's hand is worse than none — so
+     these are built: a receipt on the left, the app's confirmation on the
+     right, and an arrow between them carrying the argument of the whole page. */
+  .phones { display: flex; align-items: center; justify-content: center; gap: clamp(6px, 2vw, 26px); }
+  .phone {
+    width: clamp(118px, 17vw, 196px);
+    aspect-ratio: 9 / 18.6;
+    border-radius: 22px;
+    background: #10161f;
+    padding: 6px;
+    box-shadow: 0 30px 60px -22px rgba(0, 0, 0, .75), 0 0 0 1px rgba(255, 255, 255, .09);
+    flex-shrink: 0;
+  }
+  .phone-screen {
+    width: 100%; height: 100%;
+    border-radius: 16px;
+    background: #fff;
+    /* The hero sets colour: #fff on everything inside it, and these screens are
+       white. Without this the merchant and the amount were white on white —
+       present in the markup, invisible on the page, and only the lines that
+       happened to set a colour of their own showed up. */
+    color: var(--ink);
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    position: relative;
+  }
+  .phone-notch {
+    position: absolute; top: 5px; left: 50%; transform: translateX(-50%);
+    width: 34%; height: 8px; border-radius: 999px; background: #10161f;
+  }
+  .arrow-between { flex-shrink: 0; color: #fff; opacity: .9; width: clamp(26px, 4vw, 46px); height: auto; }
+
+  /* The receipt. Ruled lines rather than invented words: at this size a
+     receipt is a shape, and the shape is what says receipt. */
+  .receipt { background: #efece6; flex: 1; padding: 18px 9px 9px; display: flex; flex-direction: column; gap: clamp(3px, .6vw, 5px); min-height: 0; }
+  .receipt-name { font-family: 'Poppins', sans-serif; font-weight: 700; font-size: clamp(9px, 1.1vw, 13px); letter-spacing: 1px; color: #1c1c1c; text-align: center; margin-bottom: 3px; }
+  .receipt-rule { height: 4px; background: repeating-linear-gradient(90deg, #b9b3a7 0 7px, transparent 7px 11px); border-radius: 2px; flex-shrink: 0; }
+  .receipt-rule.short { width: 62%; }
+  .receipt-total { margin-top: auto; font-family: 'Poppins', sans-serif; font-weight: 700; font-size: clamp(11px, 1.3vw, 15px); color: #16202e; text-align: right; }
+  .phone-shutter { height: clamp(30px, 4vw, 44px); background: #0d1116; display: grid; place-items: center; flex-shrink: 0; }
+  .phone-shutter span { width: 20px; height: 20px; border-radius: 50%; background: #fff; box-shadow: 0 0 0 3px #0d1116, 0 0 0 5px #fff; }
+
+  /* The right phone: the same purchase, already filed. */
+  .app-top { background: #fff; padding: 14px 8px 7px; text-align: center; border-bottom: 1px solid #eef1f6; flex-shrink: 0; }
+  .app-top b { font-family: 'Poppins', sans-serif; font-size: clamp(10px, 1.1vw, 13px); color: var(--ink); }
+  .app-body { flex: 1; padding: 10px 8px; display: flex; flex-direction: column; align-items: center; gap: clamp(4px, .7vw, 7px); text-align: center; background: #fff; min-height: 0; }
+  .app-merchant { font-family: 'Poppins', sans-serif; font-weight: 700; font-size: clamp(10px, 1.1vw, 13px); }
+  .app-date { font-size: clamp(7.5px, .85vw, 10px); color: var(--faint); }
+  .app-amount { font-family: 'Poppins', sans-serif; font-weight: 700; font-size: clamp(14px, 1.8vw, 20px); letter-spacing: -.5px; }
+  .app-tag { font-size: clamp(7px, .82vw, 9.5px); background: var(--blue-soft); color: var(--blue-deep); border-radius: 999px; padding: 3px 8px; font-weight: 600; }
+  .app-tick { width: clamp(24px, 3vw, 34px); height: clamp(24px, 3vw, 34px); border-radius: 50%; background: #16a34a; display: grid; place-items: center; }
+  .app-tick svg { width: 60%; height: 60%; }
+  .app-saved { font-size: clamp(8px, .92vw, 10.5px); font-weight: 700; color: #16a34a; }
+  .app-ready { font-size: clamp(7px, .82vw, 9.5px); color: var(--faint); }
+
+  /* ---- Trust strip ---- */
+  .trust { border-top: 1px solid rgba(255,255,255,.1); background: rgba(0,0,0,.22); }
+  .trust .wrap { display: flex; flex-wrap: wrap; justify-content: center; gap: 12px clamp(16px, 4vw, 48px); padding-top: 13px; padding-bottom: 13px; }
+  @media (min-width: 861px) { .trust .wrap { justify-content: flex-start; } }
+  .trust span { display: inline-flex; align-items: center; gap: 8px; color: #d5e2f2; font-size: 13.5px; font-weight: 500; }
+  .trust svg { color: #4d9ffb; flex-shrink: 0; }
+
+  /* ---- Section furniture ---- */
+  .section { padding: clamp(40px, 7vw, 86px) 0; }
+  .section-flush { padding-top: 0; }
+  .section-head { text-align: center; margin-bottom: clamp(26px, 4vw, 44px); }
+  .section-head h2 { margin: 0 0 8px; font-size: clamp(23px, 3.4vw, 36px); font-weight: 700; letter-spacing: -.9px; text-wrap: balance; }
+  .section-head p { margin: 0; color: var(--body); font-size: 16px; }
+
+  /* ---- How Taxify Works ---- */
+  .works-row { display: flex; align-items: flex-start; justify-content: center; gap: clamp(14px, 2vw, 26px); flex-wrap: wrap; }
+  .step { display: flex; align-items: flex-start; gap: 12px; max-width: 250px; }
+  .step-n {
+    width: 30px; height: 30px; border-radius: 50%;
+    background: var(--blue); color: #fff;
+    font-family: 'Poppins', sans-serif; font-weight: 600; font-size: 14px;
+    display: grid; place-items: center; flex-shrink: 0;
+  }
+  .step-body { text-align: center; }
+  .step-art { width: 72px; height: 72px; margin: 0 auto 10px; border-radius: 16px; background: var(--blue-soft); display: grid; place-items: center; color: var(--blue); }
+  .step-name { font-size: 17px; font-weight: 700; margin: 0 0 4px; }
+  .step-body p { margin: 0; font-size: 14px; color: var(--body); }
+  .works-arrow { color: #bcc9db; margin-top: 46px; flex-shrink: 0; }
+  @media (max-width: 900px) { .works-arrow { display: none; } .step { max-width: 300px; } }
+  .works-note { margin-top: 32px; text-align: center; }
+
+  /* ---- See where your money went ---- */
+  .money { background: var(--blue-soft); }
+  .money .wrap { display: grid; grid-template-columns: minmax(0, .85fr) minmax(0, 1.15fr); gap: clamp(26px, 4vw, 52px); align-items: center; }
+  @media (max-width: 900px) { .money .wrap { grid-template-columns: 1fr; } }
+  .money h2 { margin: 0; font-size: clamp(22px, 3.2vw, 34px); font-weight: 700; letter-spacing: -.9px; line-height: 1.16; text-wrap: balance; }
+  .money h2 span { color: var(--blue); display: block; }
+  .money-copy > p { color: var(--body); margin: 14px 0 20px; max-width: 44ch; }
+  .ticks { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 11px; }
+  .ticks li { display: flex; align-items: flex-start; gap: 11px; font-size: 14.5px; }
+  .ticks svg { flex-shrink: 0; margin-top: 1px; }
+
+  /* A laptop, drawn. Same reasoning as the phones: the screenshot exists, the
+     photograph of a laptop on a desk does not. */
+  .laptop { width: 100%; min-width: 0; }
+  .laptop-lid { background: #1b2430; border-radius: 12px 12px 4px 4px; padding: 8px 8px 0; box-shadow: 0 26px 50px -24px rgba(8, 20, 40, .55); }
+  .laptop-screen { border-radius: 6px; overflow: hidden; display: flex; background: #fff; aspect-ratio: 16 / 10; }
+  .laptop-base { height: 11px; border-radius: 0 0 11px 11px; background: linear-gradient(180deg, #c9d2de, #98a6b8); position: relative; }
+  .laptop-base::after { content: ''; position: absolute; left: 50%; top: 0; transform: translateX(-50%); width: 14%; height: 4px; border-radius: 0 0 5px 5px; background: #7e8ea3; }
+
+  /* Everything inside the screen is sized in cqw — container query units —
+     against the laptop itself. The whole mock-up then scales as one object
+     from a 320px phone to a desktop, instead of the text staying put while
+     the frame shrinks around it. */
+  .laptop-screen { container-type: inline-size; }
+  .dash-side { width: 26%; background: #0f2744; padding: 2.2cqw 1.6cqw; display: flex; flex-direction: column; gap: 1.1cqw; }
+  .dash-brand { display: flex; align-items: center; gap: 1.2cqw; color: #fff; font-weight: 600; font-size: 2.1cqw; margin-bottom: .6cqw; }
+  .dash-brand i { width: 2.4cqw; height: 2.4cqw; border-radius: .6cqw; background: var(--blue); display: block; flex-shrink: 0; }
+  .dash-link { font-size: 1.7cqw; color: #9db4d4; padding: .6cqw 1cqw; border-radius: .8cqw; }
+  .dash-link.on { background: rgba(255,255,255,.12); color: #fff; }
+  .dash-main { flex: 1; background: #f5f8fc; padding: 1.9cqw; display: flex; flex-direction: column; gap: 1.4cqw; min-width: 0; }
+  .dash-hello { font-size: 2cqw; font-weight: 600; }
+  .dash-tiles { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1cqw; }
+  .dash-tile { background: #fff; border: 1px solid #e6ecf4; border-radius: 1cqw; padding: 1cqw; min-width: 0; }
+  .dash-tile b { display: block; font-family: 'Poppins', sans-serif; font-size: 2cqw; letter-spacing: -.3px; }
+  .dash-tile span { font-size: 1.35cqw; color: var(--faint); }
+  .dash-panels { display: grid; grid-template-columns: 1fr 1fr; gap: 1cqw; flex: 1; min-height: 0; }
+  .dash-panel { background: #fff; border: 1px solid #e6ecf4; border-radius: 1cqw; padding: 1.2cqw; display: flex; flex-direction: column; min-width: 0; }
+  .dash-panel h4 { margin: 0 0 1cqw; font-size: 1.5cqw; font-family: 'Poppins', sans-serif; font-weight: 600; }
+  .dash-donut { width: 9cqw; height: 9cqw; border-radius: 50%; background: conic-gradient(#1a7cf0 0 28%, #5aa9f7 28% 50%, #94c6fb 50% 68%, #2f6fd0 68% 80%, #cfe1f8 80% 100%); display: grid; place-items: center; margin: auto; }
+  .dash-donut::after { content: ''; width: 4.6cqw; height: 4.6cqw; border-radius: 50%; background: #fff; }
+  .dash-bars { display: flex; align-items: flex-end; gap: .45cqw; height: 9cqw; margin-top: auto; }
+  .dash-bars i { flex: 1; background: #9cc8fa; border-radius: .3cqw; display: block; }
+  .dash-bars i.tall { background: var(--blue); }
+
+  /* ---- Feature cards ---- */
+  .feature-grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 14px; }
+  @media (max-width: 1040px) { .feature-grid { grid-template-columns: repeat(3, 1fr); } }
+  @media (max-width: 640px) { .feature-grid { grid-template-columns: repeat(2, 1fr); gap: 11px; } }
+  @media (max-width: 380px) { .feature-grid { grid-template-columns: 1fr; } }
+  .feature { background: #fbfcfe; border: 1px solid var(--line); border-radius: 12px; padding: 18px 13px; text-align: center; }
+  .feature svg { color: var(--blue); margin-bottom: 9px; }
+  .feature h3 { margin: 0 0 6px; font-size: 13.5px; font-weight: 700; letter-spacing: -.2px; }
+  .feature p { margin: 0; font-size: 12.5px; color: var(--body); line-height: 1.5; }
+
+  /* ---- Three showcase cards ---- */
+  .showcase { display: grid; grid-template-columns: 1.15fr 1.15fr .95fr; gap: 16px; }
+  @media (max-width: 980px) { .showcase { grid-template-columns: 1fr 1fr; } }
+  @media (max-width: 680px) { .showcase { grid-template-columns: 1fr; } }
+  .show {
+    position: relative;
+    border-radius: 14px;
+    overflow: hidden;
+    min-height: 208px;
+    padding: clamp(18px, 3vw, 26px);
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    color: #fff;
+    background: linear-gradient(135deg, #0b1e3a, #12305a);
+  }
+  .show img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+  .show::after { content: ''; position: absolute; inset: 0; background: linear-gradient(90deg, rgba(8,20,40,.95) 0%, rgba(8,20,40,.74) 54%, rgba(8,20,40,.34) 100%); }
+  .show > * { position: relative; z-index: 1; }
+  .show h3 { margin: 0 0 9px; font-size: clamp(17px, 2vw, 21px); font-weight: 700; letter-spacing: -.5px; line-height: 1.2; max-width: 16ch; }
+  .show p { margin: 0; font-size: 13.5px; color: #c9d8ec; max-width: 28ch; }
+  .show-swoosh { width: 74px; height: 8px; margin-top: 12px; }
+  .show-swoosh path { fill: none; stroke: #4d9ffb; stroke-width: 3.2; stroke-linecap: round; }
+  .show-files { display: flex; gap: 10px; margin-top: 14px; flex-wrap: wrap; }
+  .show-files span { width: 42px; height: 42px; border-radius: 9px; display: grid; place-items: center; font-family: 'Poppins', sans-serif; font-weight: 700; font-size: 10px; color: #fff; }
+  .f-xls { background: #18794e; } .f-pdf { background: #c0392b; } .f-zip { background: #2a7fd4; }
+
+  /* ---- Advertisement films ---- */
+  .ads-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(290px, 100%), 1fr)); gap: 18px; }
+  .ad-frame { border-radius: 12px; overflow: hidden; background: #0b1524; box-shadow: var(--shadow-card); }
+  .ad-video { display: block; width: 100%; height: auto; }
+
+  /* ---- Devices line ---- */
+  .devices-line { display: flex; align-items: center; justify-content: center; gap: 10px; flex-wrap: wrap; color: var(--body); font-size: 14px; text-align: center; margin: 0; }
+  .devices-get { display: inline-flex; align-items: center; gap: 7px; min-height: 44px; color: var(--blue); font-weight: 600; text-decoration: none; }
+
+  /* ---- Pricing ---- */
+  .pricing .wrap { display: grid; grid-template-columns: minmax(0, .8fr) minmax(0, 1fr) minmax(0, 1fr) auto; gap: clamp(18px, 3vw, 34px); align-items: center; }
+  @media (max-width: 1040px) {
+    .pricing .wrap { grid-template-columns: 1fr 1fr; }
+    .pricing-lead, .pricing-note { grid-column: 1 / -1; text-align: center; }
+    .pricing-note .note-swoosh { margin-inline: auto; }
+  }
+  @media (max-width: 640px) { .pricing .wrap { grid-template-columns: 1fr; } }
+  .pricing-lead h2 { margin: 0 0 8px; font-size: clamp(21px, 2.8vw, 29px); font-weight: 700; letter-spacing: -.8px; text-wrap: balance; }
+  .pricing-lead p { margin: 0; color: var(--body); }
+  .plan { background: #fff; border: 1px solid var(--line); border-radius: 14px; padding: 20px; box-shadow: var(--shadow-card); }
+  .plan-name { font-weight: 700; font-size: 15px; margin-bottom: 4px; }
+  .plan-price { font-size: clamp(30px, 3.6vw, 34px); font-weight: 800; letter-spacing: -1.4px; }
+  .plan-price em { font-style: normal; font-size: 15px; font-weight: 500; color: var(--faint); letter-spacing: 0; }
+  .plan-per { font-size: 11.5px; color: var(--faint); margin-bottom: 13px; }
+  .plan ul { list-style: none; margin: 0 0 16px; padding: 0; display: flex; flex-direction: column; gap: 7px; }
+  .plan li { display: flex; align-items: flex-start; gap: 8px; font-size: 13px; color: var(--body); }
+  .plan li svg { flex-shrink: 0; margin-top: 3px; color: var(--blue); }
+
+  /* ---- Closing ask ---- */
+  .closing {
+    background:
+      radial-gradient(90% 120% at 76% 30%, rgba(255,166,77,.2) 0%, rgba(255,166,77,0) 55%),
+      linear-gradient(170deg, #0a1b33 0%, #12305a 55%, #0a1b33 100%);
+    color: #fff;
+  }
+  .closing .wrap { display: grid; grid-template-columns: auto 1fr auto; gap: clamp(20px, 4vw, 44px); align-items: center; padding-top: 40px; padding-bottom: 40px; }
+  @media (max-width: 980px) { .closing .wrap { grid-template-columns: 1fr; text-align: center; justify-items: center; } }
+  .closing h2 { margin: 0 0 4px; font-size: clamp(19px, 2.6vw, 27px); font-weight: 700; letter-spacing: -.6px; text-wrap: balance; }
+  .closing h2 span { color: #4d9ffb; }
+  .closing-mid { text-align: center; }
+
+  /* ---- Footer ---- */
+  .lp-footer { background: #061020; color: #7f8ca0; }
+  .lp-footer .wrap { display: flex; flex-wrap: wrap; gap: 10px 26px; align-items: center; padding-top: 18px; padding-bottom: 18px; font-size: 13px; }
+  .lp-links { margin-left: auto; display: flex; gap: 20px; flex-wrap: wrap; }
+  .lp-footer a { color: #9dabc0; text-decoration: none; }
+  .lp-footer a:hover, .lp-footer a:focus-visible { color: #fff; }
+  @media (max-width: 640px) { .lp-links { margin-left: 0; } }
+
+  /* ---- The Android panel, opened by the download button ---- */
+  .sheet { position: fixed; inset: 0; z-index: 2000; display: none; align-items: center; justify-content: center; padding: 20px; background: rgba(6, 12, 22, .86); overflow-y: auto; }
+  .sheet:target { display: flex; }
+  .sheet-card { background: #fff; border-radius: 16px; padding: clamp(20px, 5vw, 28px); max-width: 420px; text-align: center; }
+  .sheet-card h3 { margin: 0 0 10px; font-size: 19px; font-weight: 700; }
+  .sheet-card p { margin: 0 0 12px; font-size: 14px; color: var(--body); }
+  .sheet-close { position: absolute; top: 14px; right: 18px; color: #fff; font-size: 32px; text-decoration: none; line-height: 1; padding: 6px 10px; }
+
+  .social-row { display: flex; justify-content: center; gap: 12px; flex-wrap: wrap; }
+</style>
+</head>
+<body>
+
+  <!-- A div, not a header element. The hub strips header, footer and the common
+       nav class names out of the copy it serves, and this bar vanished with
+       them the first time it was written honestly. -->
+  <div class="lp-topbar">
+    <div class="wrap">
+      <a class="brand" href="/">
+        <img src="/logo.svg" alt="" width="34" height="34">
+        <span>
+          <span class="brand-name">Taxify</span>
+          <span class="brand-sub">Receipts. Sorted.</span>
+        </span>
+      </a>
+      <nav class="topnav" aria-label="Sections of this page">
+        <a href="#how">How It Works</a>
+        <a href="#features">Features</a>
+        <a href="#pricing">Pricing</a>
+        <a href="#tradies">For Tradies</a>
+        <a href="#rentals">For Rentals</a>
+        <a class="on" href="https://taxify.mikesapphub.com/app/support">Help</a>
+      </nav>
+      <a class="btn btn-sm" href="https://taxify.mikesapphub.com/go/trial">Start Free for 14 Days</a>
+    </div>
+  </div>
+
+  <main class="lp">
+
+    <section class="hero">
+      <div class="wrap">
+        <div>
+          <h1>Tax receipts.<span>Sorted.</span></h1>
+          <h2>Snap it. Store it. Done.</h2>
+          <p>Photograph your receipts and Taxify keeps your expenses organised, categorised and ready for tax time.</p>
+          <!-- Every button here goes through /go/trial. That hop is what counts
+               the press: the hub strips scripts, so nothing in the page itself
+               can report a click. See index.js. -->
+          <a class="btn" href="https://taxify.mikesapphub.com/go/trial">
+            Start Free for 14 Days
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h13M13 6l6 6-6 6"/></svg>
+          </a>
+          <p class="btn-note">No credit card required.</p>
+        </div>
+
+        <div class="phones">
+          <div class="phone">
+            <div class="phone-screen">
+              <span class="phone-notch"></span>
+              <div class="receipt">
+                <div class="receipt-name">BUNNINGS</div>
+                <div class="receipt-rule"></div>
+                <div class="receipt-rule short"></div>
+                <div class="receipt-rule"></div>
+                <div class="receipt-rule short"></div>
+                <div class="receipt-rule"></div>
+                <div class="receipt-rule short"></div>
+                <div class="receipt-rule"></div>
+                <div class="receipt-total">$56.90</div>
+              </div>
+              <div class="phone-shutter"><span></span></div>
+            </div>
+          </div>
+
+          <svg class="arrow-between" viewBox="0 0 48 28" fill="none" aria-hidden="true">
+            <path d="M2 19C12 6 26 4 38 10" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"/>
+            <path d="M30 6.5L40 10.5L35.5 19" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+
+          <div class="phone">
+            <div class="phone-screen">
+              <div class="app-top"><b>Taxify</b></div>
+              <div class="app-body">
+                <span class="app-merchant">Bunnings</span>
+                <span class="app-date">12 May 2026</span>
+                <span class="app-amount">$56.90</span>
+                <span class="app-tag">Tools &amp; Equipment</span>
+                <span class="app-tick">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6L9 17l-5-5"/></svg>
+                </span>
+                <span class="app-saved">Saved &amp; Categorised</span>
+                <span class="app-ready">Ready for tax time!</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="hero-note note">
+        &ldquo;Snap it.<br>Sorted.&rdquo;
+        <svg class="note-swoosh" viewBox="0 0 116 9" aria-hidden="true"><path d="M3 6C28 1.6 78 1.6 113 4.6"/></svg>
+      </div>
+
+      <div class="trust">
+        <div class="wrap">
+          <span>
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l8 3v6c0 5-3.4 8.4-8 9-4.6-.6-8-4-8-9V6z"/></svg>
+            14 Days Free
+          </span>
+          <span>
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="5" width="20" height="14" rx="2.5"/><path d="M2 10h20"/></svg>
+            No Credit Card
+          </span>
+          <span>
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8"/></svg>
+            Works on Any Device
+          </span>
+          <span>
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 15c3-5 6-5 9 0s6 5 9 0"/></svg>
+            Australian Tax Years
+          </span>
+        </div>
+      </div>
+    </section>
+
+    <section class="section" id="how">
+      <div class="wrap">
+        <div class="section-head">
+          <h2>How Taxify Works</h2>
+          <p>3 simple steps to stress-free tax time.</p>
+        </div>
+        <div class="works-row">
+          <div class="step">
+            <span class="step-n">1</span>
+            <div class="step-body">
+              <span class="step-art">
+                <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14.5 4h-5L7 7H4a2 2 0 00-2 2v9a2 2 0 002 2h16a2 2 0 002-2V9a2 2 0 00-2-2h-3z"/><circle cx="12" cy="13" r="3.2"/></svg>
+              </span>
+              <h3 class="step-name">Snap</h3>
+              <p>Photograph your receipt before it disappears.</p>
+            </div>
+          </div>
+
+          <svg class="works-arrow" width="30" height="14" viewBox="0 0 30 14" fill="none" aria-hidden="true"><path d="M1 7h26M22 2l6 5-6 5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+
+          <div class="step">
+            <span class="step-n">2</span>
+            <div class="step-body">
+              <span class="step-art">
+                <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 2h8l4 4v16H6z"/><path d="M9 11h6M9 15h6"/></svg>
+              </span>
+              <h3 class="step-name">Taxify Sorts It</h3>
+              <p>Stored and categorised automatically.</p>
+            </div>
+          </div>
+
+          <svg class="works-arrow" width="30" height="14" viewBox="0 0 30 14" fill="none" aria-hidden="true"><path d="M1 7h26M22 2l6 5-6 5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+
+          <div class="step">
+            <span class="step-n">3</span>
+            <div class="step-body">
+              <span class="step-art">
+                <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 7a2 2 0 012-2h5l2 2h7a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2z"/></svg>
+              </span>
+              <h3 class="step-name">Tax Time</h3>
+              <p>Export your entire year in one click.</p>
+            </div>
+          </div>
+        </div>
+        <p class="works-note note">&ldquo;Less time on paperwork. More time for what matters.&rdquo;</p>
+      </div>
+    </section>
+
+    <section class="section money">
+      <div class="wrap">
+        <div class="money-copy">
+          <h2>See where your money went.<span>Not where you think it went.</span></h2>
+          <p>Get a clear view of your spending with simple graphs, categories and reports.</p>
+          <ul class="ticks">
+            <li><svg width="19" height="19" viewBox="0 0 24 24" fill="#1a7cf0" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M17 9l-6.2 6.2L7 11.4" stroke="#fff" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>Track expenses by category</li>
+            <li><svg width="19" height="19" viewBox="0 0 24 24" fill="#1a7cf0" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M17 9l-6.2 6.2L7 11.4" stroke="#fff" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>View totals for each tax year</li>
+            <li><svg width="19" height="19" viewBox="0 0 24 24" fill="#1a7cf0" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M17 9l-6.2 6.2L7 11.4" stroke="#fff" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>Keep personal, business and rentals separate</li>
+            <li><svg width="19" height="19" viewBox="0 0 24 24" fill="#1a7cf0" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M17 9l-6.2 6.2L7 11.4" stroke="#fff" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>Export everything for your accountant</li>
+          </ul>
+        </div>
+
+        <div class="laptop">
+          <div class="laptop-lid">
+            <div class="laptop-screen">
+              <div class="dash-side">
+                <span class="dash-brand"><i></i>Taxify</span>
+                <span class="dash-link on">Dashboard</span>
+                <span class="dash-link">Receipts</span>
+                <span class="dash-link">Categories</span>
+                <span class="dash-link">Properties</span>
+                <span class="dash-link">Reports</span>
+                <span class="dash-link">Settings</span>
+              </div>
+              <div class="dash-main">
+                <span class="dash-hello">Good morning!</span>
+                <div class="dash-tiles">
+                  <div class="dash-tile"><span>Total Expenses</span><b>$12,584</b></div>
+                  <div class="dash-tile"><span>Receipts</span><b>248</b></div>
+                  <div class="dash-tile"><span>This Month</span><b>$1,230</b></div>
+                  <div class="dash-tile"><span>Tax Year</span><b>2025-26</b></div>
+                </div>
+                <div class="dash-panels">
+                  <div class="dash-panel">
+                    <h4>Expenses by Category</h4>
+                    <div class="dash-donut"></div>
+                  </div>
+                  <div class="dash-panel">
+                    <h4>Monthly Expenses</h4>
+                    <div class="dash-bars">
+                      <i style="height:26%"></i><i style="height:38%"></i><i style="height:30%"></i>
+                      <i style="height:52%"></i><i style="height:44%"></i><i style="height:62%"></i>
+                      <i style="height:48%"></i><i style="height:70%"></i><i class="tall" style="height:96%"></i>
+                      <i style="height:58%"></i><i style="height:66%"></i><i style="height:50%"></i>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="laptop-base"></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section" id="features">
+      <div class="wrap">
+        <div class="section-head">
+          <h2>Everything you need, all in one place.</h2>
+        </div>
+        <div class="feature-grid">
+          <div class="feature">
+            <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14.5 4h-5L7 7H4a2 2 0 00-2 2v9a2 2 0 002 2h16a2 2 0 002-2V9a2 2 0 00-2-2h-3z"/><circle cx="12" cy="13" r="3.2"/></svg>
+            <h3>Snap &amp; Store</h3>
+            <p>Photograph receipts before they disappear.</p>
+          </div>
+          <div class="feature">
+            <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l1.9 4.6 4.6 1.9-4.6 1.9L12 16l-1.9-4.6L5.5 9.5l4.6-1.9z"/><path d="M18 15l.8 2 2 .8-2 .8-.8 2-.8-2-2-.8 2-.8z"/></svg>
+            <h3>Automatic Organisation</h3>
+            <p>Date, category and tax year organised for you.</p>
+          </div>
+          <div class="feature">
+            <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg>
+            <h3>Track Your Spending</h3>
+            <p>See exactly where your money goes.</p>
+          </div>
+          <div class="feature">
+            <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 11l9-7 9 7"/><path d="M5 10v10h14V10"/></svg>
+            <h3>Rental Properties</h3>
+            <p>Keep property expenses and documents organised.</p>
+          </div>
+          <div class="feature">
+            <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="7" width="20" height="13" rx="2"/><path d="M9 7V5a2 2 0 012-2h2a2 2 0 012 2v2"/></svg>
+            <h3>Personal + Business</h3>
+            <p>Keep personal and business expenses separate.</p>
+          </div>
+          <div class="feature">
+            <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 10a6 6 0 00-11.5-2A4.5 4.5 0 007 17h11a4 4 0 000-7z"/><path d="M12 12v5M9.5 14.5L12 17l2.5-2.5"/></svg>
+            <h3>One-Click Tax Export</h3>
+            <p>Export the entire year for your accountant.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section section-flush" id="tradies">
+      <div class="wrap">
+        <div class="showcase">
+          <!-- Two of these three want a photograph that does not exist yet — a
+               tradie at a ute, and a rental property. They are laid out for
+               one: drop a file in as the first child and the gradient stops
+               showing. Until then the words carry the card, which beats a
+               stock photograph of somebody else's business. -->
+          <div class="show">
+            <h3>Your receipts shouldn&rsquo;t live in the centre console.</h3>
+            <p>Built for Australian tradies, contractors and small businesses.</p>
+            <svg class="show-swoosh" viewBox="0 0 74 8" aria-hidden="true"><path d="M2 5.4C18 2 52 2 72 4.4"/></svg>
+          </div>
+
+          <div class="show" id="rentals">
+            <h3>Keep your rental property expenses organised.</h3>
+            <p>Track all your property costs in one place.</p>
+            <svg class="show-swoosh" viewBox="0 0 74 8" aria-hidden="true"><path d="M2 5.4C18 2 52 2 72 4.4"/></svg>
+          </div>
+
+          <div class="show">
+            <h3>Make tax time easy for your accountant.</h3>
+            <p>Export a ZIP file with your spreadsheet, PDFs and receipts.</p>
+            <div class="show-files">
+              <span class="f-xls">XLS</span>
+              <span class="f-pdf">PDF</span>
+              <span class="f-zip">ZIP</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!--ADS-START-->
+    <!-- The advertisement films.
+
+         Uploaded from Administration → Landing page, not deployed. An
+         advertisement is the thing most likely to need replacing at short
+         notice, and needing a deploy to swap one means it does not get
+         swapped.
+
+         Everything between ADS-START and ADS-END is removed by the server when
+         neither slot has a file, and each SLOT block goes on its own when that
+         one is empty — so this is never a broken player, and one film on its
+         own is a single centred frame rather than a gap. -->
+    <section class="section section-flush" aria-label="Watch Taxify">
+      <div class="wrap">
+        <div class="ads-grid">
+          <!--SLOT:ad-1-->
+          <div class="ad-frame">
+            <video class="ad-video" controls playsinline preload="metadata" controlslist="nodownload noplaybackrate" disablepictureinpicture poster="/media/ads/ad-1-poster">
+              <source src="/media/ads/ad-1" type="video/mp4">
+            </video>
+          </div>
+          <!--/SLOT:ad-1-->
+          <!--SLOT:ad-2-->
+          <div class="ad-frame">
+            <video class="ad-video" controls playsinline preload="metadata" controlslist="nodownload noplaybackrate" disablepictureinpicture poster="/media/ads/ad-2-poster">
+              <source src="/media/ads/ad-2" type="video/mp4">
+            </video>
+          </div>
+          <!--/SLOT:ad-2-->
+        </div>
+      </div>
+    </section>
+    <!--ADS-END-->
+
+    <section class="section section-flush" aria-label="Where Taxify runs">
+      <div class="wrap">
+        <p class="devices-line">Runs in the browser on your phone, tablet or computer &mdash; nothing to install.</p>
+        <!-- Filled in by the server, the only thing here that knows what you
+             are reading this on: a download on Android, and everywhere else the
+             same button opening the panel that explains why not. The page
+             cannot work this out for itself. See landingAppDownload.js. -->
+        <p class="devices-line" style="margin-top:8px">
+          <!--APPDL-START--><!--APPDL-END-->
+        </p>
+      </div>
+    </section>
+
+    <section class="section section-flush pricing" id="pricing">
+      <div class="wrap">
+        <div class="pricing-lead">
+          <h2>Simple, transparent pricing.</h2>
+          <p>Great value. No hidden fees.</p>
+        </div>
+
+        <!-- The figures here are the fallback. The live ones come from Stripe,
+             fetched by the script the server injects after the hub has
+             finished stripping this page — see landingScript.js. -->
+        <div class="plan">
+          <div class="plan-name">Individual</div>
+          <div class="plan-price"><span data-price="individual">$49</span> <em>/ year</em></div>
+          <div class="plan-per" data-per="individual">That&rsquo;s about $0.94 per week.</div>
+          <ul>
+            <li><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6L9 17l-5-5"/></svg>Personal use</li>
+            <li><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6L9 17l-5-5"/></svg>Track your expenses</li>
+            <li><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6L9 17l-5-5"/></svg>Stay organised at tax time</li>
+          </ul>
+          <a class="btn btn-full" href="https://taxify.mikesapphub.com/go/trial">Start Free for 14 Days</a>
+        </div>
+
+        <div class="plan">
+          <div class="plan-name">Small Business</div>
+          <div class="plan-price"><span data-price="business">$99</span> <em>/ year</em></div>
+          <div class="plan-per" data-per="business">That&rsquo;s about $1.90 per week.</div>
+          <ul>
+            <li><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6L9 17l-5-5"/></svg>Everything in Individual</li>
+            <li><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6L9 17l-5-5"/></svg>Multiple properties</li>
+            <li><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6L9 17l-5-5"/></svg>Business expense tracking</li>
+            <li><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6L9 17l-5-5"/></svg>Built for tradies and small businesses</li>
+          </ul>
+          <a class="btn btn-full" href="https://taxify.mikesapphub.com/go/trial">Start Free for 14 Days</a>
+        </div>
+
+        <p class="pricing-note note">
+          &ldquo;A small investment<br>for a much<br>easier tax time.&rdquo;
+          <svg class="note-swoosh" viewBox="0 0 116 9" aria-hidden="true"><path d="M3 6C28 1.6 78 1.6 113 4.6"/></svg>
+        </p>
+      </div>
+    </section>
+
+    <!--REVIEWS-START-->
+    <!-- Customer reviews.
+
+         Nothing here yet, deliberately: the server removes everything between
+         these two markers until there is a real quote to put in, so the page
+         never carries invented praise. Add one as a block with class="review"
+         and the section appears. -->
+    <!--REVIEWS-EMPTY-->
+    <!--REVIEWS-END-->
+
+    <section class="closing">
+      <div class="wrap">
+        <a class="brand" href="/">
+          <img src="/logo.svg" alt="" width="40" height="40">
+          <span>
+            <span class="brand-name" style="font-size:25px">Taxify</span>
+            <span class="brand-sub">Receipts. Sorted.</span>
+          </span>
+        </a>
+
+        <div class="closing-mid">
+          <h2>Stop chasing receipts at tax time.<br><span>Start organising them today.</span></h2>
+          <a class="btn" style="margin-top:12px" href="https://taxify.mikesapphub.com/go/trial">
+            Start Free for 14 Days
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h13M13 6l6 6-6 6"/></svg>
+          </a>
+          <p class="btn-note" style="color:#9db4d4">No credit card required.</p>
+        </div>
+
+        <p class="note" style="color:#fff; text-align:center; margin:0">
+          &ldquo;More freedom<br>for what you love.&rdquo;
+          <svg class="note-swoosh" viewBox="0 0 116 9" aria-hidden="true"><path d="M3 6C28 1.6 78 1.6 113 4.6"/></svg>
+        </p>
+      </div>
+    </section>
+
+    <section class="section" style="padding:24px 0" aria-label="Share Taxify">
+      <div class="wrap">
+        <div class="social-row">
+          <!--SOCIAL-START--><!--SOCIAL-END-->
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <div class="lp-footer">
+    <div class="wrap">
+      <span>&copy; <span id="year">2026</span> Taxify. All rights reserved.</span>
+      <nav class="lp-links" aria-label="Legal and support">
+        <a href="https://taxify.mikesapphub.com/app/privacy">Privacy</a>
+        <a href="https://taxify.mikesapphub.com/app/terms">Terms</a>
+        <a href="https://taxify.mikesapphub.com/app/support">Support</a>
+        <a href="https://taxify.mikesapphub.com/app/support">Contact</a>
+      </nav>
+    </div>
+  </div>
+
+  <!-- The panel the download button opens on anything that is not an Android
+       phone. Always in the page; :target is what shows it, so it needs no
+       script — which matters, because the hub removes every one of them. -->
+  <div class="sheet" id="android-only" role="dialog" aria-label="Android only">
+    <a class="sheet-close" href="#" aria-label="Close">&times;</a>
+    <div class="sheet-card">
+      <h3>The app is Android only</h3>
+      <p>There is no iPhone version yet, and this page cannot install one on the device you are reading it on.</p>
+      <p>You are not missing anything, though. Taxify runs in the browser on any phone, tablet or computer &mdash; the same account, the same books, nothing to install.</p>
+      <a class="btn" href="https://taxify.mikesapphub.com/go/app">Open Taxify in this browser</a>
+    </div>
+  </div>
+
+  <!-- Counting a visit.
+
+       Never write a script tag, opening or closing, in a comment on this page
+       — not even as prose. The hub strips scripts with a pattern rather than a
+       parser, so a comment describing that behaviour once matched one: it cut
+       from there to the next real closing tag and left 28KB of English where
+       JavaScript should have been. Say "script tag" in words, as this does.
+
+       An image is what the proxy leaves alone, so an image is the measurement
+       that always works. Both are pinned at the origin with position:fixed —
+       absolute with no coordinates keeps an element's static position, which
+       for these is the very bottom of the document, and the last thing in the
+       page should not be something that arrives whenever the network gets
+       round to it. -->
+  <img src="https://taxify.mikesapphub.com/api/analytics/px.gif?s=landing&e=view&p=/"
+       alt="" width="1" height="1" style="position:fixed;top:0;left:0;width:1px;height:1px;opacity:0;pointer-events:none" />
+
+  <!-- Meta Pixel, as an image rather than as the snippet Meta hands out. The
+       snippet is a script that loads another script and neither survives here.
+       Meta's own fallback is this image, which it wraps in a noscript block —
+       and that block renders only when JavaScript is switched off, while ours
+       is on and merely missing its scripts. Out of the block it fires for
+       everybody. -->
+  <img src="https://www.facebook.com/tr?id=957172023312324&amp;ev=PageView&amp;noscript=1"
+       alt="" width="1" height="1" style="position:fixed;top:0;left:0;width:1px;height:1px;opacity:0;pointer-events:none" />
+
+</body>
+</html>
