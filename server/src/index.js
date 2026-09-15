@@ -24,6 +24,7 @@ import entityRoutes from './routes/entities.routes.js';
 import { AD_SLOTS, adFile, posterFile, adsPresent, faststartExistingAds } from './lib/landingAds.js';
 import { cutEmptyAdSlots } from './lib/landingAdsHtml.js';
 import { injectLandingScript } from './lib/landingScript.js';
+import { injectHubChrome } from './lib/landingPreviewChrome.js';
 import { injectLandingSocial } from './lib/landingSocial.js';
 import { landingSocialConfig } from './lib/socialSettings.js';
 import { injectAppDownload, isAndroidAgent } from './lib/landingAppDownload.js';
@@ -266,7 +267,11 @@ app.get('/landing2', async (req, res) => {
     res.set('Content-Type', 'text/html; charset=utf-8');
     res.set('X-Robots-Tag', 'noindex, nofollow');
     res.set('Cache-Control', 'no-store');
-    res.send(await withLandingExtras(file, req));
+    // The hub's bar and footer, which the live page gets from the hub itself
+    // and this one never would. Added here rather than written into the file,
+    // so promoting the draft does not leave two of each — see
+    // landingPreviewChrome.js.
+    res.send(injectHubChrome(await withLandingExtras(file, req)));
   } catch (err) {
     console.error('[landing2] could not be served:', err.message);
     res.status(404).type('text/plain').send('No draft landing page is in place.');
