@@ -352,6 +352,21 @@
   .feature h3 { margin: 0 0 6px; font-size: 13.5px; font-weight: 700; letter-spacing: -.2px; }
   .feature p { margin: 0; font-size: 12.5px; color: var(--body); line-height: 1.5; }
 
+  /* ---- Australian made ----
+     Every line in this band is checkable. See the note in the markup for why
+     that matters more here than anywhere else on the page. */
+  .aussie { background: var(--blue-soft); }
+  .aussie .wrap { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: clamp(20px, 4vw, 44px); align-items: center; }
+  @media (max-width: 860px) { .aussie .wrap { grid-template-columns: 1fr; text-align: center; justify-items: center; } }
+  .aussie-mark { display: flex; align-items: center; gap: 13px; }
+  .aussie-mark svg { flex-shrink: 0; }
+  .aussie-mark b { display: block; font-family: 'Poppins', sans-serif; font-size: clamp(20px, 2.6vw, 27px); font-weight: 700; letter-spacing: -.7px; line-height: 1.15; }
+  .aussie-mark span { display: block; font-size: 13.5px; color: var(--body); margin-top: 2px; }
+  .aussie-points { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px 26px; margin: 0; padding: 0; list-style: none; }
+  @media (max-width: 640px) { .aussie-points { grid-template-columns: 1fr; text-align: left; } }
+  .aussie-points li { display: flex; align-items: flex-start; gap: 10px; font-size: 14px; }
+  .aussie-points svg { flex-shrink: 0; margin-top: 2px; color: var(--blue); }
+
   /* ---- Three showcase cards ---- */
   .showcase { display: grid; grid-template-columns: 1.15fr 1.15fr .95fr; gap: 16px; }
   @media (max-width: 980px) { .showcase { grid-template-columns: 1fr 1fr; } }
@@ -549,6 +564,10 @@
             <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 15c3-5 6-5 9 0s6 5 9 0"/></svg>
             Australian Tax Years
           </span>
+          <span>
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l2.2 4.6L19 8.3l-3.5 3.4.8 4.9-4.3-2.3-4.3 2.3.8-4.9L5 8.3l4.8-.7z"/></svg>
+            Australian Made
+          </span>
         </div>
       </div>
     </section>
@@ -693,6 +712,44 @@
             <h3>One-Click Tax Export</h3>
             <p>Export the entire year for your accountant.</p>
           </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Australian made.
+
+         Every line in here is checkable, and that is deliberate. The obvious
+         thing to put on a band like this is a number — how many people use it —
+         and there is no honest number to put. Australian Consumer Law treats an
+         invented one as misleading conduct, Meta and Google both treat it as
+         grounds to pull an advertisement, and the first customer who asks a
+         question the figure cannot survive is a worse outcome than the sign-up
+         it won. So this says the true things instead: where it is built, whose
+         tax year it uses, what happens to somebody's records if they leave, and
+         what is never done with what they type. Those are the things a person
+         deciding whether to trust a small app actually wants to know. -->
+    <section class="section section-flush">
+      <div class="aussie" style="padding: clamp(28px, 4vw, 44px) 0">
+        <div class="wrap">
+          <div class="aussie-mark">
+            <svg width="52" height="52" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <circle cx="12" cy="12" r="11" fill="#1a7cf0"/>
+              <path d="M7.6 15.6l1.1-3.1-2.6-1.9h3.2L10.4 7.4l1.1 3.2h3.2l-2.6 1.9 1.1 3.1-2.8-2z" fill="#fff"/>
+              <circle cx="17.2" cy="8.4" r="1.05" fill="#fff"/>
+              <circle cx="18.4" cy="12.6" r=".85" fill="#fff"/>
+              <circle cx="16" cy="16.4" r=".85" fill="#fff"/>
+            </svg>
+            <span>
+              <b>Australian made,<br>for Australian tax.</b>
+              <span>Built here by Mikes App Hub.</span>
+            </span>
+          </div>
+          <ul class="aussie-points">
+            <li><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6L9 17l-5-5"/></svg>Australian financial years &mdash; 1 July to 30 June, not a US one</li>
+            <li><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6L9 17l-5-5"/></svg>Priced in Australian dollars, once a year</li>
+            <li><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6L9 17l-5-5"/></svg>Your records stay yours if you ever stop paying</li>
+            <li><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6L9 17l-5-5"/></svg>Nothing you enter is ever used for advertising</li>
+          </ul>
         </div>
       </div>
     </section>
