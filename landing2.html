@@ -208,64 +208,10 @@
   /* Hidden wherever it would sit on top of the phones rather than beside them. */
   @media (max-width: 1140px) { .hero-note { display: none; } }
 
-  /* Two phones, drawn rather than photographed.
-
-     The mock-up shows a hand holding a phone. That photograph does not exist,
-     and a stand-in photograph of somebody else's hand is worse than none — so
-     these are built: a receipt on the left, the app's confirmation on the
-     right, and an arrow between them carrying the argument of the whole page. */
-  .phones { display: flex; align-items: center; justify-content: center; gap: clamp(6px, 2vw, 26px); }
-  .phone {
-    width: clamp(118px, 17vw, 196px);
-    aspect-ratio: 9 / 18.6;
-    border-radius: 22px;
-    background: #10161f;
-    padding: 6px;
-    box-shadow: 0 30px 60px -22px rgba(0, 0, 0, .75), 0 0 0 1px rgba(255, 255, 255, .09);
-    flex-shrink: 0;
-  }
-  .phone-screen {
-    width: 100%; height: 100%;
-    border-radius: 16px;
-    background: #fff;
-    /* The hero sets colour: #fff on everything inside it, and these screens are
-       white. Without this the merchant and the amount were white on white —
-       present in the markup, invisible on the page, and only the lines that
-       happened to set a colour of their own showed up. */
-    color: var(--ink);
-    overflow: hidden;
-    display: flex;
-    flex-direction: column;
-    position: relative;
-  }
-  .phone-notch {
-    position: absolute; top: 5px; left: 50%; transform: translateX(-50%);
-    width: 34%; height: 8px; border-radius: 999px; background: #10161f;
-  }
-  .arrow-between { flex-shrink: 0; color: #fff; opacity: .9; width: clamp(26px, 4vw, 46px); height: auto; }
-
-  /* The receipt. Ruled lines rather than invented words: at this size a
-     receipt is a shape, and the shape is what says receipt. */
-  .receipt { background: #efece6; flex: 1; padding: 18px 9px 9px; display: flex; flex-direction: column; gap: clamp(3px, .6vw, 5px); min-height: 0; }
-  .receipt-name { font-family: 'Poppins', sans-serif; font-weight: 700; font-size: clamp(9px, 1.1vw, 13px); letter-spacing: 1px; color: #1c1c1c; text-align: center; margin-bottom: 3px; }
-  .receipt-rule { height: 4px; background: repeating-linear-gradient(90deg, #b9b3a7 0 7px, transparent 7px 11px); border-radius: 2px; flex-shrink: 0; }
-  .receipt-rule.short { width: 62%; }
-  .receipt-total { margin-top: auto; font-family: 'Poppins', sans-serif; font-weight: 700; font-size: clamp(11px, 1.3vw, 15px); color: #16202e; text-align: right; }
-  .phone-shutter { height: clamp(30px, 4vw, 44px); background: #0d1116; display: grid; place-items: center; flex-shrink: 0; }
-  .phone-shutter span { width: 20px; height: 20px; border-radius: 50%; background: #fff; box-shadow: 0 0 0 3px #0d1116, 0 0 0 5px #fff; }
-
-  /* The right phone: the same purchase, already filed. */
-  .app-top { background: #fff; padding: 14px 8px 7px; text-align: center; border-bottom: 1px solid #eef1f6; flex-shrink: 0; }
-  .app-top b { font-family: 'Poppins', sans-serif; font-size: clamp(10px, 1.1vw, 13px); color: var(--ink); }
-  .app-body { flex: 1; padding: 10px 8px; display: flex; flex-direction: column; align-items: center; gap: clamp(4px, .7vw, 7px); text-align: center; background: #fff; min-height: 0; }
-  .app-merchant { font-family: 'Poppins', sans-serif; font-weight: 700; font-size: clamp(10px, 1.1vw, 13px); }
-  .app-date { font-size: clamp(7.5px, .85vw, 10px); color: var(--faint); }
-  .app-amount { font-family: 'Poppins', sans-serif; font-weight: 700; font-size: clamp(14px, 1.8vw, 20px); letter-spacing: -.5px; }
-  .app-tag { font-size: clamp(7px, .82vw, 9.5px); background: var(--blue-soft); color: var(--blue-deep); border-radius: 999px; padding: 3px 8px; font-weight: 600; }
-  .app-tick { width: clamp(24px, 3vw, 34px); height: clamp(24px, 3vw, 34px); border-radius: 50%; background: #16a34a; display: grid; place-items: center; }
-  .app-tick svg { width: 60%; height: 60%; }
-  .app-saved { font-size: clamp(8px, .92vw, 10.5px); font-weight: 700; color: #16a34a; }
-  .app-ready { font-size: clamp(7px, .82vw, 9.5px); color: var(--faint); }
+  /* The two photographs that replaced them. Both are simply images now; the
+     frames they used to need were drawings of frames. */
+  .hero-shot { display: block; width: 100%; height: auto; border-radius: 14px; }
+  .money-shot { display: block; width: 100%; height: auto; border-radius: 12px; box-shadow: 0 26px 50px -24px rgba(8, 20, 40, .45); }
 
   /* ---- Trust strip ---- */
   .trust { border-top: 1px solid rgba(255,255,255,.1); background: rgba(0,0,0,.22); }
@@ -309,39 +255,6 @@
   .ticks li { display: flex; align-items: flex-start; gap: 11px; font-size: 14.5px; }
   .ticks svg { flex-shrink: 0; margin-top: 1px; }
 
-  /* A laptop, drawn. Same reasoning as the phones: the screenshot exists, the
-     photograph of a laptop on a desk does not. */
-  .laptop { width: 100%; min-width: 0; }
-  .laptop-lid { background: #1b2430; border-radius: 12px 12px 4px 4px; padding: 8px 8px 0; box-shadow: 0 26px 50px -24px rgba(8, 20, 40, .55); }
-  .laptop-screen { border-radius: 6px; overflow: hidden; display: flex; background: #fff; aspect-ratio: 16 / 10; }
-  .laptop-base { height: 11px; border-radius: 0 0 11px 11px; background: linear-gradient(180deg, #c9d2de, #98a6b8); position: relative; }
-  .laptop-base::after { content: ''; position: absolute; left: 50%; top: 0; transform: translateX(-50%); width: 14%; height: 4px; border-radius: 0 0 5px 5px; background: #7e8ea3; }
-
-  /* Everything inside the screen is sized in cqw — container query units —
-     against the laptop itself. The whole mock-up then scales as one object
-     from a 320px phone to a desktop, instead of the text staying put while
-     the frame shrinks around it. */
-  .laptop-screen { container-type: inline-size; }
-  .dash-side { width: 26%; background: #0f2744; padding: 2.2cqw 1.6cqw; display: flex; flex-direction: column; gap: 1.1cqw; }
-  .dash-brand { display: flex; align-items: center; gap: 1.2cqw; color: #fff; font-weight: 600; font-size: 2.1cqw; margin-bottom: .6cqw; }
-  .dash-brand i { width: 2.4cqw; height: 2.4cqw; border-radius: .6cqw; background: var(--blue); display: block; flex-shrink: 0; }
-  .dash-link { font-size: 1.7cqw; color: #9db4d4; padding: .6cqw 1cqw; border-radius: .8cqw; }
-  .dash-link.on { background: rgba(255,255,255,.12); color: #fff; }
-  .dash-main { flex: 1; background: #f5f8fc; padding: 1.9cqw; display: flex; flex-direction: column; gap: 1.4cqw; min-width: 0; }
-  .dash-hello { font-size: 2cqw; font-weight: 600; }
-  .dash-tiles { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1cqw; }
-  .dash-tile { background: #fff; border: 1px solid #e6ecf4; border-radius: 1cqw; padding: 1cqw; min-width: 0; }
-  .dash-tile b { display: block; font-family: 'Poppins', sans-serif; font-size: 2cqw; letter-spacing: -.3px; }
-  .dash-tile span { font-size: 1.35cqw; color: var(--faint); }
-  .dash-panels { display: grid; grid-template-columns: 1fr 1fr; gap: 1cqw; flex: 1; min-height: 0; }
-  .dash-panel { background: #fff; border: 1px solid #e6ecf4; border-radius: 1cqw; padding: 1.2cqw; display: flex; flex-direction: column; min-width: 0; }
-  .dash-panel h4 { margin: 0 0 1cqw; font-size: 1.5cqw; font-family: 'Poppins', sans-serif; font-weight: 600; }
-  .dash-donut { width: 9cqw; height: 9cqw; border-radius: 50%; background: conic-gradient(#1a7cf0 0 28%, #5aa9f7 28% 50%, #94c6fb 50% 68%, #2f6fd0 68% 80%, #cfe1f8 80% 100%); display: grid; place-items: center; margin: auto; }
-  .dash-donut::after { content: ''; width: 4.6cqw; height: 4.6cqw; border-radius: 50%; background: #fff; }
-  .dash-bars { display: flex; align-items: flex-end; gap: .45cqw; height: 9cqw; margin-top: auto; }
-  .dash-bars i { flex: 1; background: #9cc8fa; border-radius: .3cqw; display: block; }
-  .dash-bars i.tall { background: var(--blue); }
-
   /* ---- Feature cards ---- */
   .feature-grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 14px; }
   @media (max-width: 1040px) { .feature-grid { grid-template-columns: repeat(3, 1fr); } }
@@ -383,8 +296,11 @@
     color: #fff;
     background: linear-gradient(135deg, #0b1e3a, #12305a);
   }
-  .show img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
-  .show::after { content: ''; position: absolute; inset: 0; background: linear-gradient(90deg, rgba(8,20,40,.95) 0%, rgba(8,20,40,.74) 54%, rgba(8,20,40,.34) 100%); }
+  /* The photograph sits below the scrim, the words above it. The z-index on
+     the image has to be stated: .show > * matches it too, and would otherwise
+     lift the photograph over the gradient and leave the heading unreadable. */
+  .show img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; z-index: 0; }
+  .show::after { content: ''; position: absolute; inset: 0; z-index: 0; background: linear-gradient(90deg, rgba(8,20,40,.95) 0%, rgba(8,20,40,.8) 58%, rgba(8,20,40,.42) 100%); }
   .show > * { position: relative; z-index: 1; }
   .show h3 { margin: 0 0 9px; font-size: clamp(17px, 2vw, 21px); font-weight: 700; letter-spacing: -.5px; line-height: 1.2; max-width: 16ch; }
   .show p { margin: 0; font-size: 13.5px; color: #c9d8ec; max-width: 28ch; }
@@ -423,9 +339,14 @@
   .plan li svg { flex-shrink: 0; margin-top: 3px; color: var(--blue); }
 
   /* ---- Closing ask ---- */
+  /* The photograph sits under a wash dark enough to read white type on at any
+     crop. The gradient stays underneath it as the colour the band falls back
+     to while the image is still arriving, and on the day it is replaced. */
   .closing {
+    position: relative;
     background:
-      radial-gradient(90% 120% at 76% 30%, rgba(255,166,77,.2) 0%, rgba(255,166,77,0) 55%),
+      linear-gradient(90deg, rgba(6, 14, 28, .88) 0%, rgba(6, 14, 28, .62) 50%, rgba(6, 14, 28, .82) 100%),
+      url('/media/closing-band.jpg') center 62% / cover no-repeat,
       linear-gradient(170deg, #0a1b33 0%, #12305a 55%, #0a1b33 100%);
     color: #fff;
   }
@@ -498,47 +419,14 @@
           <p class="btn-note">No credit card required.</p>
         </div>
 
-        <div class="phones">
-          <div class="phone">
-            <div class="phone-screen">
-              <span class="phone-notch"></span>
-              <div class="receipt">
-                <div class="receipt-name">BUNNINGS</div>
-                <div class="receipt-rule"></div>
-                <div class="receipt-rule short"></div>
-                <div class="receipt-rule"></div>
-                <div class="receipt-rule short"></div>
-                <div class="receipt-rule"></div>
-                <div class="receipt-rule short"></div>
-                <div class="receipt-rule"></div>
-                <div class="receipt-total">$56.90</div>
-              </div>
-              <div class="phone-shutter"><span></span></div>
-            </div>
-          </div>
-
-          <svg class="arrow-between" viewBox="0 0 48 28" fill="none" aria-hidden="true">
-            <path d="M2 19C12 6 26 4 38 10" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"/>
-            <path d="M30 6.5L40 10.5L35.5 19" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>
-          </svg>
-
-          <div class="phone">
-            <div class="phone-screen">
-              <div class="app-top"><b>Taxify</b></div>
-              <div class="app-body">
-                <span class="app-merchant">Bunnings</span>
-                <span class="app-date">12 May 2026</span>
-                <span class="app-amount">$56.90</span>
-                <span class="app-tag">Tools &amp; Equipment</span>
-                <span class="app-tick">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6L9 17l-5-5"/></svg>
-                </span>
-                <span class="app-saved">Saved &amp; Categorised</span>
-                <span class="app-ready">Ready for tax time!</span>
-              </div>
-            </div>
-          </div>
-        </div>
+        <!-- The photograph the mock-up was drawn around: the receipt in a hand,
+             and the same purchase already filed beside it. Two phones were
+             built in CSS while this did not exist; now it does, and a real
+             photograph of the thing happening beats a drawing of it. -->
+        <img class="hero-shot" src="/media/hero-compare.jpg"
+             alt="A hand holding a phone photographing a Bunnings receipt, and beside it the Taxify app showing the same purchase saved and categorised, ready for tax time"
+             width="1200" height="800" fetchpriority="high" decoding="async">
+</div>
       </div>
 
       <div class="hero-note note">
@@ -633,46 +521,9 @@
           </ul>
         </div>
 
-        <div class="laptop">
-          <div class="laptop-lid">
-            <div class="laptop-screen">
-              <div class="dash-side">
-                <span class="dash-brand"><i></i>Taxify</span>
-                <span class="dash-link on">Dashboard</span>
-                <span class="dash-link">Receipts</span>
-                <span class="dash-link">Categories</span>
-                <span class="dash-link">Properties</span>
-                <span class="dash-link">Reports</span>
-                <span class="dash-link">Settings</span>
-              </div>
-              <div class="dash-main">
-                <span class="dash-hello">Good morning!</span>
-                <div class="dash-tiles">
-                  <div class="dash-tile"><span>Total Expenses</span><b>$12,584</b></div>
-                  <div class="dash-tile"><span>Receipts</span><b>248</b></div>
-                  <div class="dash-tile"><span>This Month</span><b>$1,230</b></div>
-                  <div class="dash-tile"><span>Tax Year</span><b>2025-26</b></div>
-                </div>
-                <div class="dash-panels">
-                  <div class="dash-panel">
-                    <h4>Expenses by Category</h4>
-                    <div class="dash-donut"></div>
-                  </div>
-                  <div class="dash-panel">
-                    <h4>Monthly Expenses</h4>
-                    <div class="dash-bars">
-                      <i style="height:26%"></i><i style="height:38%"></i><i style="height:30%"></i>
-                      <i style="height:52%"></i><i style="height:44%"></i><i style="height:62%"></i>
-                      <i style="height:48%"></i><i style="height:70%"></i><i class="tall" style="height:96%"></i>
-                      <i style="height:58%"></i><i style="height:66%"></i><i style="height:50%"></i>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-          <div class="laptop-base"></div>
-        </div>
+        <img class="money-shot" src="/media/app-dashboard.jpg"
+             alt="Taxify open on a laptop, showing the year's totals, expenses by category and a month-by-month chart"
+             width="1200" height="800" loading="lazy" decoding="async">
       </div>
     </section>
 
@@ -757,12 +608,12 @@
     <section class="section section-flush" id="tradies">
       <div class="wrap">
         <div class="showcase">
-          <!-- Two of these three want a photograph that does not exist yet — a
-               tradie at a ute, and a rental property. They are laid out for
-               one: drop a file in as the first child and the gradient stops
-               showing. Until then the words carry the card, which beats a
-               stock photograph of somebody else's business. -->
+          <!-- The rental card still wants a photograph. Drop a file in as the
+               first child, the way the tradie card has one, and the flat
+               gradient stops showing. Until then the words carry the card,
+               which beats a stock photograph of somebody else's house. -->
           <div class="show">
+            <img src="/media/show-tradie.jpg" alt="" width="1100" height="619" loading="lazy" decoding="async">
             <h3>Your receipts shouldn&rsquo;t live in the centre console.</h3>
             <p>Built for Australian tradies, contractors and small businesses.</p>
             <svg class="show-swoosh" viewBox="0 0 74 8" aria-hidden="true"><path d="M2 5.4C18 2 52 2 72 4.4"/></svg>
