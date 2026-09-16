@@ -1,7 +1,7 @@
 {
   "name": "taxify",
   "private": true,
-  "version": "1.1.37",
+  "version": "1.1.38",
   "scripts": {
     "dev:server": "npm run dev --prefix server",
     "dev:client": "npm run dev --prefix client",

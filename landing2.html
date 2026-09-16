@@ -138,7 +138,7 @@
   @media (prefers-reduced-motion: reduce) { .btn { transition: none; } .btn:hover { transform: none; } }
   .btn-sm { min-height: 38px; padding: 8px 17px; font-size: 13.5px; }
   .btn-full { width: 100%; }
-  .btn-note { font-size: 12.5px; color: var(--faint); margin: 9px 0 0; }
+  .btn-note { font-size: 12.5px; color: var(--faint); margin: 18px 0 0; }
 
   /* ---- Top bar ----
      A div, never a <header>. The hub deletes header, footer and several nav
@@ -250,18 +250,34 @@
 
   /* ---- How Taxify Works ---- */
   .works-row { display: flex; align-items: flex-start; justify-content: center; gap: clamp(14px, 2vw, 26px); flex-wrap: wrap; }
-  .step { display: flex; align-items: flex-start; gap: 12px; max-width: 250px; }
+  .step { display: flex; align-items: flex-start; gap: 12px; max-width: 300px; flex: 1 1 250px; }
   .step-n {
     width: 30px; height: 30px; border-radius: 50%;
     background: var(--blue); color: #fff;
     font-family: 'Poppins', sans-serif; font-weight: 600; font-size: 14px;
     display: grid; place-items: center; flex-shrink: 0;
   }
-  .step-body { text-align: center; }
-  .step-art { width: 72px; height: 72px; margin: 0 auto 10px; border-radius: 16px; background: var(--blue-soft); display: grid; place-items: center; color: var(--blue); }
+  .step-body { text-align: center; min-width: 0; flex: 1; }
+  /* The same three photographs the live page uses, at a third of the size.
+     4:3 and cropping, so the box is the same shape whatever is dropped in —
+     the three source files are not all one aspect. */
+  .step-art {
+    display: block;
+    width: 100%;
+    aspect-ratio: 4 / 3;
+    margin: 0 0 12px;
+    border-radius: 14px;
+    overflow: hidden;
+    background: var(--blue-soft);
+    box-shadow: var(--shadow-card);
+  }
+  .step-art img { display: block; width: 100%; height: 100%; object-fit: cover; }
   .step-name { font-size: 17px; font-weight: 700; margin: 0 0 4px; }
   .step-body p { margin: 0; font-size: 14px; color: var(--body); }
-  .works-arrow { color: #bcc9db; margin-top: 46px; flex-shrink: 0; }
+  /* Roughly level with the middle of the photographs beside it. Exact is not
+     available — their height follows the column width — and close is enough
+     for an arrow. */
+  .works-arrow { color: #bcc9db; margin-top: 84px; flex-shrink: 0; }
   @media (max-width: 900px) { .works-arrow { display: none; } .step { max-width: 300px; } }
   .works-note { margin-top: 32px; text-align: center; }
 
@@ -417,11 +433,33 @@
 
   /* ---- Footer ---- */
   .lp-footer { background: #061020; color: #7f8ca0; }
-  .lp-footer .wrap { display: flex; flex-wrap: wrap; gap: 10px 26px; align-items: center; padding-top: 18px; padding-bottom: 18px; font-size: 13px; }
+  /* Scoped to the first row rather than to .lp-footer .wrap, which caught the
+     Powered by row underneath as well and made it a flex item that shrank to
+     its own text — rule and all. */
+  .lp-footer-main { display: flex; flex-wrap: wrap; gap: 10px 26px; align-items: center; padding-top: 18px; padding-bottom: 18px; font-size: 13px; }
   .lp-links { margin-left: auto; display: flex; gap: 20px; flex-wrap: wrap; }
   .lp-footer a { color: #9dabc0; text-decoration: none; }
   .lp-footer a:hover, .lp-footer a:focus-visible { color: #fff; }
   @media (max-width: 640px) { .lp-links { margin-left: 0; } }
+  /* Powered by. Its own line under the rest, centred, with a rule above it:
+     it is a different kind of statement from a copyright and a row of legal
+     links, and sharing their line made it read as a fourth link. */
+  .lp-powered {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 9px;
+    /* Explicit, because a p's default margin is 1em and the footer has no
+       bottom padding to stop the bottom one collapsing straight out of it —
+       which showed as a white strip under the whole footer. */
+    margin: 0;
+    border-top: 1px solid rgba(255, 255, 255, .07);
+    padding: 14px 0 18px;
+    font-size: 12.5px;
+    color: #7f8ca0;
+  }
+  .lp-powered a { display: inline-flex; align-items: center; gap: 8px; font-weight: 600; color: #b8c6da; }
+  .lp-powered img { width: 20px; height: 20px; border-radius: 5px; display: block; }
 
   /* ---- The Android panel, opened by the download button ---- */
   .sheet { position: fixed; inset: 0; z-index: 2000; display: none; align-items: center; justify-content: center; padding: 20px; background: rgba(6, 12, 22, .86); overflow-y: auto; }
@@ -492,7 +530,6 @@
         <a href="#pricing">Pricing</a>
         <a href="#tradies">For Tradies</a>
         <a href="#rentals">For Rentals</a>
-        <a class="on" href="https://taxify.mikesapphub.com/app/support">Help</a>
       </nav>
       <a class="btn btn-sm" href="https://taxify.mikesapphub.com/go/trial">Start Free for 14 Days</a>
     </div>
@@ -579,7 +616,7 @@
             <span class="step-n">1</span>
             <div class="step-body">
               <span class="step-art">
-                <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14.5 4h-5L7 7H4a2 2 0 00-2 2v9a2 2 0 002 2h16a2 2 0 002-2V9a2 2 0 00-2-2h-3z"/><circle cx="12" cy="13" r="3.2"/></svg>
+                <img src="/media/shot-capture.jpg" alt="A caf&eacute; receipt on a wooden table being photographed with a phone, the shot already framed on screen" width="1083" height="693" loading="lazy" decoding="async">
               </span>
               <h3 class="step-name">Snap</h3>
               <p>Photograph your receipt before it disappears.</p>
@@ -592,7 +629,7 @@
             <span class="step-n">2</span>
             <div class="step-body">
               <span class="step-art">
-                <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 2h8l4 4v16H6z"/><path d="M9 11h6M9 15h6"/></svg>
+                <img src="/media/shot-expenses.jpg" alt="A laptop, a tablet and a phone side by side on a wooden desk, the same records on all three" width="1400" height="1050" loading="lazy" decoding="async">
               </span>
               <h3 class="step-name">Taxify Sorts It</h3>
               <p>Stored and categorised automatically.</p>
@@ -605,7 +642,7 @@
             <span class="step-n">3</span>
             <div class="step-body">
               <span class="step-art">
-                <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 7a2 2 0 012-2h5l2 2h7a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2z"/></svg>
+                <img src="/media/shot-accountant.jpg" alt="Two people going through printed statements together at a desk, a laptop open beside them" width="1400" height="1050" loading="lazy" decoding="async">
               </span>
               <h3 class="step-name">Tax Time</h3>
               <p>Export your entire year in one click.</p>
@@ -964,14 +1001,25 @@
   </main>
 
   <div class="lp-footer">
-    <div class="wrap">
+    <div class="wrap lp-footer-main">
       <span>&copy; <span id="year">2026</span> Taxify. All rights reserved.</span>
       <nav class="lp-links" aria-label="Legal and support">
         <a href="https://taxify.mikesapphub.com/app/privacy">Privacy</a>
         <a href="https://taxify.mikesapphub.com/app/terms">Terms</a>
         <a href="https://taxify.mikesapphub.com/app/support">Support</a>
-        <a href="https://taxify.mikesapphub.com/app/support">Contact</a>
       </nav>
+    </div>
+    <div class="wrap">
+      <!-- Leaves the site, so it opens in a new window. noreferrer as well as
+           noopener: without it the new window can reach back through
+           window.opener. -->
+      <p class="lp-powered">
+        Powered by
+        <a href="https://mikesapphub.com" target="_blank" rel="noopener noreferrer">
+          <img src="/brand/mikesapphub-logo.png" alt="" width="192" height="192" loading="lazy" decoding="async">
+          Mikes App Hub
+        </a>
+      </p>
     </div>
   </div>
 
