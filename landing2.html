@@ -431,7 +431,45 @@
   .sheet-card p { margin: 0 0 12px; font-size: 14px; color: var(--body); }
   .sheet-close { position: absolute; top: 14px; right: 18px; color: #fff; font-size: 32px; text-decoration: none; line-height: 1; padding: 6px 10px; }
 
-  .social-row { display: flex; justify-content: center; gap: 12px; flex-wrap: wrap; }
+  /* ---- Share ----
+
+     The buttons themselves are written by the server from what is set in
+     Administration — see landingSocial.js — so all this page owns is how they
+     look. It has to own that: the injected markup carries class names and
+     nothing else, and without these rules the strip was three underlined blue
+     links on bare white, wedged between the closing band and the footer.
+
+     Dark, and the footer's exact colour, so the foot of the page reads as one
+     piece. The vertical padding sits on the row rather than the section, so
+     that when Facebook is switched off and the row is removed the strip has no
+     height at all instead of leaving a gap. */
+  .social-strip { background: #061020; }
+  .social-strip .wrap { padding-top: 0; padding-bottom: 0; }
+  .social-row { display: flex; align-items: center; justify-content: center; flex-wrap: wrap; gap: 10px; margin: 0; padding-block: 24px 26px; }
+  .social-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    min-height: 38px;
+    padding: 8px 16px;
+    border-radius: 999px;
+    font-size: 13px;
+    font-weight: 600;
+    text-decoration: none;
+    color: #cfe0f5;
+    background: rgba(255, 255, 255, .06);
+    border: 1px solid rgba(255, 255, 255, .15);
+    transition: background .15s ease, border-color .15s ease, color .15s ease;
+  }
+  .social-btn:hover, .social-btn:focus-visible { background: rgba(255, 255, 255, .13); border-color: rgba(255, 255, 255, .32); color: #fff; }
+  .social-btn:focus-visible { outline: 3px solid #9cc8fa; outline-offset: 2px; }
+  @media (prefers-reduced-motion: reduce) { .social-btn { transition: none; } }
+  /* Messenger only where Messenger exists. fb-messenger:// needs the app
+     installed; on a desktop the link is inert, and a button that does nothing
+     when pressed is worse than no button — which is what "the links are
+     broken" meant. */
+  .social-btn--messenger { display: none; }
+  @media (pointer: coarse) { .social-btn--messenger { display: inline-flex; } }
 </style>
 </head>
 <body>
@@ -913,11 +951,13 @@
       </div>
     </section>
 
-    <section class="section" style="padding:24px 0" aria-label="Share Taxify">
+    <!-- The server replaces everything between the markers with its own
+         div.social-row, so there is no wrapper of that class here — one used to
+         be, which nested a row inside a row. When Facebook is switched off the
+         markers are replaced with nothing and this collapses to no height. -->
+    <section class="social-strip" aria-label="Share Taxify">
       <div class="wrap">
-        <div class="social-row">
-          <!--SOCIAL-START--><!--SOCIAL-END-->
-        </div>
+        <!--SOCIAL-START--><!--SOCIAL-END-->
       </div>
     </section>
 

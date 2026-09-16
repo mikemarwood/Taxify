@@ -57,6 +57,23 @@ test('adds a follow link only when a page address is given', () => {
   assert.match(with_, /Follow us/);
 });
 
+test('every button carries an icon', () => {
+  // A bare word beside two buttons with glyphs reads as an unfinished link
+  // rather than the third button in a set.
+  const html = socialButtonsHtml({ shareUrl: 'https://taxify.example', pageUrl: 'https://facebook.com/taxify' });
+  assert.equal(html.match(/<a class="social-btn/g).length, 3);
+  assert.equal(html.match(/<svg /g).length, 3);
+});
+
+test('the ampersand in the share link is written as an entity', () => {
+  // A bare & in an href is a character reference waiting to happen — this one
+  // is a letter away from &quot, and only the "e" after it stops the parser
+  // matching. There should be no bare ampersand in the markup at all.
+  const html = socialButtonsHtml({ shareUrl: 'https://taxify.example' });
+  assert.match(html, /sharer\.php\?u=[^"]*&amp;quote=/);
+  assert.ok(!/&(?!amp;|quot;|lt;|gt;)/.test(html), 'no unescaped ampersand');
+});
+
 test('ignores a follow address that is not a real URL', () => {
   const html = socialButtonsHtml({ shareUrl: 'https://taxify.example', pageUrl: 'javascript:alert(1)' });
   assert.ok(!html.includes('Follow us'));

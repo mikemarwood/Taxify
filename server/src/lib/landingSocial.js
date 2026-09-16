@@ -13,8 +13,15 @@
 // neither a script nor an iframe and works everywhere including with an ad
 // blocker in the way.
 
-// Facebook renders these at a fixed size, and the iframe has to be told the
-// same size or it scrolls its own content.
+const FACEBOOK_ICON =
+  '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" width="15" height="15">' +
+  '<path d="M22 12a10 10 0 1 0-11.56 9.88v-6.99H7.9V12h2.54V9.8c0-2.5 1.49-3.89 3.77-3.89 1.09 0 2.24.2 2.24.2v2.46h-1.26c-1.24 0-1.63.77-1.63 1.56V12h2.78l-.45 2.89h-2.33v6.99A10 10 0 0 0 22 12Z"/>' +
+  '</svg>';
+
+const MESSENGER_ICON =
+  '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" width="15" height="15">' +
+  '<path d="M12 2C6.3 2 2 6.2 2 11.7c0 3.1 1.4 5.9 3.7 7.7v3.8l3.4-1.9c.9.3 1.9.4 2.9.4 5.7 0 10-4.2 10-9.7S17.7 2 12 2Zm1 13.1-2.6-2.7-5 2.7 5.5-5.8 2.6 2.7 4.9-2.7-5.4 5.8Z"/>' +
+  '</svg>';
 
 function escapeAttribute(value) {
   return String(value)
@@ -76,13 +83,16 @@ export function socialButtonsHtml({ shareUrl, pageUrl }) {
   // page itself, which is the "Follow us" button below — set the page address
   // in the admin panel and it appears. Everything here is a plain anchor now,
   // and plain anchors survive both the proxy and its CSP.
+  // &amp; rather than a bare &, which is what an ampersand in an href has to
+  // be. A bare one is a character reference waiting to happen: this href is
+  // one letter away from &quot, and the only reason it survives today is that
+  // the "e" after it stops the parser matching. Not a thing to leave standing.
   return (
     `<div class="social-row">` +
-    `<a class="social-btn" href="https://www.facebook.com/sharer/sharer.php?u=${encoded}&quote=${quote}" ` +
+    `<a class="social-btn" href="https://www.facebook.com/sharer/sharer.php?u=${encoded}&amp;quote=${quote}" ` +
     `target="_blank" rel="noopener noreferrer">` +
-    `<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" width="15" height="15">` +
-    `<path d="M22 12a10 10 0 1 0-11.56 9.88v-6.99H7.9V12h2.54V9.8c0-2.5 1.49-3.89 3.77-3.89 1.09 0 2.24.2 2.24.2v2.46h-1.26c-1.24 0-1.63.77-1.63 1.56V12h2.78l-.45 2.89h-2.33v6.99A10 10 0 0 0 22 12Z"/>` +
-    `</svg>Share on Facebook</a>` +
+    FACEBOOK_ICON +
+    `Share on Facebook</a>` +
     // Straight into a Messenger conversation, which is where most of this kind
     // of recommendation actually happens — one person telling one other.
     //
@@ -91,11 +101,15 @@ export function socialButtonsHtml({ shareUrl, pageUrl }) {
     // installed. On a desktop with no Messenger the link does nothing, so it is
     // only offered on a touch device — see the CSS.
     `<a class="social-btn social-btn--messenger" href="fb-messenger://share/?link=${encoded}">` +
-    `<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" width="15" height="15">` +
-    `<path d="M12 2C6.3 2 2 6.2 2 11.7c0 3.1 1.4 5.9 3.7 7.7v3.8l3.4-1.9c.9.3 1.9.4 2.9.4 5.7 0 10-4.2 10-9.7S17.7 2 12 2Zm1 13.1-2.6-2.7-5 2.7 5.5-5.8 2.6 2.7 4.9-2.7-5.4 5.8Z"/>` +
-    `</svg>Send on Messenger</a>` +
+    MESSENGER_ICON +
+    `Send on Messenger</a>` +
+    // The same glyph as the share button: this goes to the Facebook page, and
+    // a bare word beside two buttons with icons reads as a link somebody
+    // forgot to finish rather than the third button in a set.
     (follow
-      ? `<a class="social-btn" href="${escapeAttribute(follow)}" target="_blank" rel="noopener noreferrer">Follow us</a>`
+      ? `<a class="social-btn" href="${escapeAttribute(follow)}" target="_blank" rel="noopener noreferrer">` +
+        FACEBOOK_ICON +
+        `Follow us</a>`
       : '') +
     `</div>`
   );
