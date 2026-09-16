@@ -4,6 +4,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import { asyncHandler } from '../lib/asyncHandler.js';
 import { publicOrigin } from '../lib/publicOrigin.js';
+import { apkMarkerVersion } from '../lib/apkVersion.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const versionFile = path.join(__dirname, '..', 'app-version.json');
@@ -33,7 +34,21 @@ const apkFile = path.join(__dirname, '..', '..', '..', 'client', 'public', 'down
 router.get(
   '/version',
   asyncHandler(async (req, res) => {
-    const { versionCode, versionName, notes } = JSON.parse(fs.readFileSync(versionFile, 'utf8'));
+    const published = JSON.parse(fs.readFileSync(versionFile, 'utf8'));
+    const { versionName, notes } = published;
+
+    // The number the APK will report once it is installed, taken from the APK
+    // itself. app-version.json is only the fallback, for a build old enough to
+    // carry no marker.
+    //
+    // This is the whole fix for the banner that would not go away. The two
+    // numbers being compared have to come from the same build, and a file
+    // describing a different file is a promise nothing was checking — twice
+    // now it was wrong, and both times it left people tapping update forever
+    // on an APK that could never satisfy it. Advertise what is actually
+    // downloadable and the loop cannot form.
+    const fromApk = apkMarkerVersion(apkFile);
+    const versionCode = fromApk ?? Number(published.versionCode);
 
     let sizeBytes = null;
     let updatedAt = null;
