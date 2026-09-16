@@ -25,18 +25,6 @@ const DISMISSED_KEY = 'taxify:updateDismissedFor';
 
 // Capacitor appends this in capacitor.config.json, so the app can recognise
 // itself. A browser never matches and never sees any of this.
-// Whether this build came from Google Play.
-//
-// Capacitor appends its marker to the user agent, and the Play build's carries
-// "Play" on the end. A browser matches nothing here and neither does a
-// sideloaded build, which is the point — the two need opposite behaviour from
-// the same web app, and the user agent is the only thing that can tell them
-// apart at runtime.
-export function isPlayBuild() {
-  if (typeof navigator === 'undefined') return false;
-  return /TaxifyAndroid\/\d+\s+Play/i.test(navigator.userAgent || '');
-}
-
 function installedVersionCode() {
   if (typeof navigator === 'undefined') return null;
   const ua = navigator.userAgent || '';
@@ -51,23 +39,8 @@ export default function AppUpdateBanner() {
   const [update, setUpdate] = useState(null);
   const installed = installedVersionCode();
 
-  // Nothing at all, once the build came from Google Play.
-  //
-  // This banner exists for an app somebody sideloaded from our own website: it
-  // asks the server what the newest build is and offers to download it. On a
-  // Play install that is a policy violation rather than a feature — an app
-  // distributed through Play must update through Play, and pushing your own
-  // APK from your own server is Device and Network Abuse however politely the
-  // banner asks. Play does the job anyway, in the background, better than this
-  // does.
-  //
-  // Told apart by the user agent, which the Play build stamps with "Play" —
-  // see capacitor.config.json. The sideloaded builds already out there keep
-  // the banner, which is the only way they will ever hear about a new version.
-  const fromPlay = isPlayBuild();
-
   useEffect(() => {
-    if (installed === null || fromPlay) return undefined;
+    if (installed === null) return undefined;
 
     function check() {
       api

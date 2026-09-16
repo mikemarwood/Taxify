@@ -125,21 +125,21 @@
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
     <!--
-      REQUEST_INSTALL_PACKAGES is gone, and it had to be.
+      REQUEST_INSTALL_PACKAGES, because this app updates itself.
 
-      It was here so the app could install its own updates: the download button
-      fetched a new APK from our own server and handed it to the system
-      installer, which needs this permission from Android 8 onwards. That is
-      the right design for an app somebody sideloads from a website, and it is
-      not allowed on Google Play twice over. Play restricts this permission to
-      apps whose core purpose is installing other apps — a file manager, a
-      store — and a tax app asking for it is refused. And distributing your own
-      updates outside Play is a Device and Network Abuse violation in its own
-      right, permission or no permission.
+      Taxify is distributed from our own website, not from a store. The update
+      banner downloads a new APK and hands it to the system installer, and from
+      Android 8 onwards that needs this permission. Without it the download
+      finishes and the install is refused, which reads to the person as an
+      update that simply does not work.
 
-      Play is the update channel now. It does this job, it does it in the
-      background, and it does not need a permission to do it.
+      It was taken out once, while the app was being prepared for Google Play,
+      which restricts this permission to apps whose core purpose is installing
+      other apps. That plan is off, so it comes back. If Play is ever revisited
+      this is the first thing that has to go again, along with the banner it
+      exists for.
     -->
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
 
     <!--
       CAMERA, having deliberately not been declared until now.
