@@ -310,6 +310,36 @@
   .show-files span { width: 42px; height: 42px; border-radius: 9px; display: grid; place-items: center; font-family: 'Poppins', sans-serif; font-weight: 700; font-size: 10px; color: #fff; }
   .f-xls { background: #18794e; } .f-pdf { background: #c0392b; } .f-zip { background: #2a7fd4; }
 
+  /* ---- Safe hands ----
+
+     The band that answers "should I type my tax records into this?". Every
+     line on it is a checkable fact about how the app is built, because that
+     is the only kind of reassurance a product without a long customer list
+     can honestly give — and, for somebody handing over a year of receipts,
+     it is the more useful kind anyway. */
+  .safe { background: var(--ink); color: #fff; }
+  .safe .wrap { padding-top: clamp(34px, 5vw, 56px); padding-bottom: clamp(34px, 5vw, 56px); }
+  .safe-head { text-align: center; margin-bottom: clamp(22px, 3vw, 34px); }
+  .safe-head h2 { margin: 0 0 7px; font-size: clamp(21px, 2.9vw, 30px); font-weight: 700; letter-spacing: -.8px; text-wrap: balance; }
+  .safe-head p { margin: 0; color: #9db4d4; font-size: 15px; }
+  .safe-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(238px, 100%), 1fr)); gap: 14px; }
+  .safe-item { min-width: 0; padding: 18px 18px 20px; border-radius: 12px; background: rgba(255, 255, 255, .06); border: 1px solid rgba(255, 255, 255, .1); }
+  .safe-item svg { display: block; color: #4d9ffb; margin-bottom: 11px; }
+  .safe-item h3 { margin: 0 0 6px; font-size: 15.5px; font-weight: 700; letter-spacing: -.3px; }
+  .safe-item p { margin: 0; font-size: 13.5px; line-height: 1.55; color: #b9cbe4; }
+
+  /* ---- Questions ----
+
+     An established product has answered its objections somewhere. A new one
+     that answers them on the page reads as the same thing, and costs nothing
+     but honesty. No cards here — a rule above each question, so the section
+     reads as a document rather than another grid of boxes. */
+  .faq-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(300px, 100%), 1fr)); gap: clamp(18px, 2.6vw, 30px) clamp(20px, 3vw, 44px); }
+  .faq-item { min-width: 0; }
+  .faq-item h3 { margin: 0 0 7px; font-size: 16px; font-weight: 700; letter-spacing: -.3px; color: var(--ink); }
+  .faq-item h3::before { content: ''; display: block; width: 26px; height: 3px; border-radius: 2px; background: var(--blue); margin-bottom: 12px; }
+  .faq-item p { margin: 0; font-size: 14.5px; line-height: 1.62; color: var(--body); }
+
   /* ---- Advertisement films ---- */
   .ads-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(290px, 100%), 1fr)); gap: 18px; }
   .ad-frame { border-radius: 12px; overflow: hidden; background: #0b1524; box-shadow: var(--shadow-card); }
@@ -608,10 +638,6 @@
     <section class="section section-flush" id="tradies">
       <div class="wrap">
         <div class="showcase">
-          <!-- The rental card still wants a photograph. Drop a file in as the
-               first child, the way the tradie card has one, and the flat
-               gradient stops showing. Until then the words carry the card,
-               which beats a stock photograph of somebody else's house. -->
           <div class="show">
             <img src="/media/show-tradie.jpg" alt="" width="1100" height="619" loading="lazy" decoding="async">
             <h3>Your receipts shouldn&rsquo;t live in the centre console.</h3>
@@ -620,6 +646,7 @@
           </div>
 
           <div class="show" id="rentals">
+            <img src="/media/show-rental.jpg" alt="" width="1100" height="619" loading="lazy" decoding="async">
             <h3>Keep your rental property expenses organised.</h3>
             <p>Track all your property costs in one place.</p>
             <svg class="show-swoosh" viewBox="0 0 74 8" aria-hidden="true"><path d="M2 5.4C18 2 52 2 72 4.4"/></svg>
@@ -685,7 +712,48 @@
       </div>
     </section>
 
-    <section class="section section-flush pricing" id="pricing">
+    <!-- Safe hands.
+         Placed immediately before the price, which is where somebody stops and
+         wonders whether they should be typing their tax records into an app
+         they had not heard of this morning. All four are verifiable: two-factor
+         cannot be switched off (auth.routes.js), cards go to Stripe Checkout and
+         never reach us (billing.routes.js), category guessing is word-scoring
+         against the account's own history with no outside service involved
+         (categorySuggest.js), and the export is the whole year in one file. -->
+    <section class="safe" aria-labelledby="safe-title">
+      <div class="wrap">
+        <div class="safe-head">
+          <h2 id="safe-title">Built to be trusted with your records.</h2>
+          <p>Worth knowing before you photograph a single receipt.</p>
+        </div>
+        <div class="safe-grid">
+          <div class="safe-item">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="M9 12l2 2 4-4"/></svg>
+            <h3>Two-factor on every account</h3>
+            <p>Not a setting you can forget to switch on. Every Taxify account asks for a second step at sign-in, and it cannot be turned off.</p>
+          </div>
+          <div class="safe-item">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="5" width="20" height="14" rx="2.5"/><path d="M2 10h20M6 15h4"/></svg>
+            <h3>Your card never touches Taxify</h3>
+            <p>Payments run through Stripe. Card numbers go straight to them &mdash; this app never stores one, and never sees one.</p>
+          </div>
+          <div class="safe-item">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="10" width="16" height="11" rx="2.2"/><path d="M8 10V7a4 4 0 018 0v3"/></svg>
+            <h3>Your receipts stay yours</h3>
+            <p>Nothing you photograph is sent off to an AI service, sold, or used for advertising. Categories are worked out from your own filing history, on your own account.</p>
+          </div>
+          <div class="safe-item">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><path d="M7 10l5 5 5-5M12 15V3"/></svg>
+            <h3>Leave whenever you like</h3>
+            <p>Export the entire year &mdash; spreadsheet, PDFs and the original photographs &mdash; in one click. Stop paying and your records are still yours.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Full top padding, not section-flush: this one now follows a full-bleed
+         dark band, and butting the price straight onto it looks like a mistake. -->
+    <section class="section pricing" id="pricing">
       <div class="wrap">
         <div class="pricing-lead">
           <h2>Simple, transparent pricing.</h2>
@@ -724,6 +792,44 @@
           &ldquo;A small investment<br>for a much<br>easier tax time.&rdquo;
           <svg class="note-swoosh" viewBox="0 0 116 9" aria-hidden="true"><path d="M3 6C28 1.6 78 1.6 113 4.6"/></svg>
         </p>
+      </div>
+    </section>
+
+    <!-- Questions.
+         The ones that actually stop a sign-up, answered in the open. Every
+         answer here is true of the app as it stands today; if one stops being
+         true, it comes off the page rather than being softened. -->
+    <section class="section section-flush" aria-labelledby="faq-title">
+      <div class="wrap">
+        <div class="section-head">
+          <h2 id="faq-title">Questions people ask before they sign up.</h2>
+        </div>
+        <div class="faq-grid">
+          <div class="faq-item">
+            <h3>Is Taxify actually Australian?</h3>
+            <p>Yes. It is built and supported here by Mikes App Hub, priced in Australian dollars, and it runs on the Australian financial year &mdash; 1 July to 30 June, not a US one.</p>
+          </div>
+          <div class="faq-item">
+            <h3>Do I need to be good with computers?</h3>
+            <p>If you can take a photograph on your phone, you can use Taxify. Snap the receipt and it is stored, dated and put in a category for you.</p>
+          </div>
+          <div class="faq-item">
+            <h3>What happens when the 14 days are up?</h3>
+            <p>Nothing automatic. There is no card on the trial, so there is nothing to charge. You pick a plan only if you want to keep going.</p>
+          </div>
+          <div class="faq-item">
+            <h3>Will my accountant be able to use it?</h3>
+            <p>That is what the export is for: one file holding your spreadsheet, the PDFs and every original receipt, ready to hand straight over.</p>
+          </div>
+          <div class="faq-item">
+            <h3>Can I keep personal and business separate?</h3>
+            <p>Yes, and rental properties too. Each one keeps its own expenses and its own totals, so nothing has to be untangled at the end of the year.</p>
+          </div>
+          <div class="faq-item">
+            <h3>Is there an app for my phone?</h3>
+            <p>Taxify runs in any phone browser with nothing to install, and there is an Android app to download. On an iPhone, add it to your home screen from Safari and it opens like an app.</p>
+          </div>
+        </div>
       </div>
     </section>
 
