@@ -184,6 +184,27 @@
     padding-top: clamp(32px, 5vw, 62px);
     padding-bottom: 24px;
   }
+  /* The eyebrow above the headline. Small, but it is in the first frame —
+     which for an Australian buying a tax product is the fact that decides
+     whether the rest of the page is worth reading. The Southern Cross rather
+     than a flag emoji: it sits on the baseline and renders the same on every
+     platform, which an emoji does not. */
+  .hero-eyebrow {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    margin: 0 0 14px;
+    padding: 6px 14px 6px 10px;
+    border-radius: 999px;
+    background: rgba(77, 159, 251, .14);
+    border: 1px solid rgba(77, 159, 251, .32);
+    color: #b7d6fb;
+    font-size: 12.5px;
+    font-weight: 600;
+    letter-spacing: .3px;
+    text-transform: uppercase;
+  }
+  .hero-eyebrow svg { flex-shrink: 0; }
   .hero h1 {
     margin: 0 0 10px;
     font-size: clamp(34px, 6.4vw, 60px);
@@ -270,8 +291,16 @@
      that matters more here than anywhere else on the page. */
   .aussie { background: var(--blue-soft); }
   .aussie .wrap { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: clamp(20px, 4vw, 44px); align-items: center; }
-  @media (max-width: 860px) { .aussie .wrap { grid-template-columns: 1fr; text-align: center; justify-items: center; } }
-  .aussie-mark { display: flex; align-items: center; gap: 13px; }
+  @media (max-width: 860px) {
+    .aussie .wrap { grid-template-columns: 1fr; text-align: center; justify-items: center; }
+    /* Stacked, the cap below would stretch the mark across the column and
+       strand the star against the left edge of centred text. The mark stacks
+       with everything else instead: star over words, both centred. */
+    .aussie-mark { max-width: none; flex-direction: column; gap: 11px; }
+  }
+  /* Capped, because this is an auto column: without it the one long sentence
+     underneath sets the column width and squeezes the six points beside it. */
+  .aussie-mark { display: flex; align-items: center; gap: 13px; max-width: 360px; }
   .aussie-mark svg { flex-shrink: 0; }
   .aussie-mark b { display: block; font-family: 'Poppins', sans-serif; font-size: clamp(20px, 2.6vw, 27px); font-weight: 700; letter-spacing: -.7px; line-height: 1.15; }
   .aussie-mark span { display: block; font-size: 13.5px; color: var(--body); margin-top: 2px; }
@@ -436,6 +465,17 @@
     <section class="hero">
       <div class="wrap">
         <div>
+          <p class="hero-eyebrow">
+            <!-- Same Southern Cross as the Australian band, but framed tight:
+                 the full 24 viewBox leaves it a smudge at this size. -->
+            <svg width="18" height="18" viewBox="5.2 6 14.4 12" fill="none" aria-hidden="true">
+              <path d="M7.6 15.6l1.1-3.1-2.6-1.9h3.2L10.4 7.4l1.1 3.2h3.2l-2.6 1.9 1.1 3.1-2.8-2z" fill="currentColor"/>
+              <circle cx="17.2" cy="8.4" r="1.05" fill="currentColor"/>
+              <circle cx="18.4" cy="12.6" r=".85" fill="currentColor"/>
+              <circle cx="16" cy="16.4" r=".85" fill="currentColor"/>
+            </svg>
+            Built in Australia, for Aussies
+          </p>
           <h1>Tax receipts.<span>Sorted.</span></h1>
           <h2>Snap it. Store it. Done.</h2>
           <p>Photograph your receipts and Taxify keeps your expenses organised, categorised and ready for tax time.</p>
@@ -608,7 +648,9 @@
          it won. So this says the true things instead: where it is built, whose
          tax year it uses, what happens to somebody's records if they leave, and
          what is never done with what they type. Those are the things a person
-         deciding whether to trust a small app actually wants to know. -->
+         deciding whether to trust a small app actually wants to know — along
+         with which ATO rates it knows about, and who answers when something
+         goes wrong. -->
     <section class="section section-flush">
       <div class="aussie" style="padding: clamp(28px, 4vw, 44px) 0">
         <div class="wrap">
@@ -621,8 +663,8 @@
               <circle cx="16" cy="16.4" r=".85" fill="#fff"/>
             </svg>
             <span>
-              <b>Australian made,<br>for Australian tax.</b>
-              <span>Built here by Mikes App Hub.</span>
+              <b>Built in Australia,<br>for Aussies.</b>
+              <span>Made and supported here by Mikes App Hub, an Australian business.</span>
             </span>
           </div>
           <ul class="aussie-points">
@@ -630,6 +672,8 @@
             <li><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6L9 17l-5-5"/></svg>Priced in Australian dollars, once a year</li>
             <li><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6L9 17l-5-5"/></svg>Your records stay yours if you ever stop paying</li>
             <li><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6L9 17l-5-5"/></svg>Nothing you enter is ever used for advertising</li>
+            <li><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6L9 17l-5-5"/></svg>Cents-per-kilometre and working-from-home hours, at each year&rsquo;s rate</li>
+            <li><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6L9 17l-5-5"/></svg>Support answered by the people who built it</li>
           </ul>
         </div>
       </div>
