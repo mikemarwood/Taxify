@@ -118,40 +118,87 @@ export default function AndroidDownloadButton({ variant = 'button' }) {
 
   const notice = (
     <AnimatePresence>
+      {/* The same panel the landing page shows, rather than a notice tucked
+          under the button. On a sign-in page the button can be the last thing
+          on screen, and a line appearing below the fold is a line nobody sees
+          — which reads as the button doing nothing at all. */}
       {notAndroid && (
         <motion.div
-          initial={{ opacity: 0, y: -6 }}
-          animate={{ opacity: 1, y: 0 }}
-          exit={{ opacity: 0, y: -6 }}
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          onClick={() => setNotAndroid(false)}
           style={{
-            display: 'flex',
-            alignItems: 'flex-start',
-            gap: 10,
-            marginTop: 12,
-            padding: '12px 14px',
-            borderRadius: 'var(--radius-sm)',
-            background: 'var(--bg-inset)',
-            border: '1px solid var(--border)',
-            fontSize: 12.5,
-            lineHeight: 1.55,
-            color: 'var(--text-muted)',
-            maxWidth: 420,
+            position: 'fixed',
+            inset: 0,
+            zIndex: 2000,
+            display: 'grid',
+            placeItems: 'center',
+            padding: 20,
+            background: 'rgba(6, 12, 22, 0.72)',
           }}
         >
-          <Icon name="info" size={15} style={{ marginTop: 1, flexShrink: 0, color: 'var(--accent)' }} />
-          <span>
-            <strong style={{ color: 'var(--text)' }}>This app is for Android devices only.</strong> You're on a
-            different device, so the file wouldn't run here. Open this page on your Android phone or tablet to install
-            it — or just use Taxify in this browser, which does everything the app does.
-          </span>
+          <motion.div
+            role="dialog"
+            aria-modal="true"
+            aria-label="Android only"
+            initial={{ opacity: 0, scale: 0.97, y: 8 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.97, y: 8 }}
+            transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
+            onClick={(e) => e.stopPropagation()}
+            className="card"
+            style={{ position: 'relative', maxWidth: 420, padding: 26, textAlign: 'center' }}
+          >
+            <button
+              type="button"
+              className="btn btn-ghost icon-btn"
+              aria-label="Close"
+              onClick={() => setNotAndroid(false)}
+              style={{ position: 'absolute', top: 8, right: 8 }}
+            >
+              <Icon name="x" size={16} />
+            </button>
+
+            <span
+              style={{
+                width: 46,
+                height: 46,
+                borderRadius: 14,
+                display: 'grid',
+                placeItems: 'center',
+                margin: '0 auto 12px',
+                background: 'var(--accent-soft)',
+                color: 'var(--accent)',
+              }}
+            >
+              <Icon name="phone" size={22} />
+            </span>
+
+            <h3 style={{ margin: '0 0 10px', fontSize: 19, fontWeight: 700 }}>The app is Android only</h3>
+            <p style={{ margin: '0 0 10px', fontSize: 14, color: 'var(--text-muted)', lineHeight: 1.55 }}>
+              There is no iPhone version yet, and this page cannot install one on the device you are reading it on.
+            </p>
+            <p style={{ margin: '0 0 16px', fontSize: 14, color: 'var(--text-muted)', lineHeight: 1.55 }}>
+              You are not missing anything, though. Taxify runs in the browser on any phone, tablet or computer — the
+              same account, the same books, nothing to install.
+            </p>
+            <button type="button" className="btn btn-primary" style={{ width: '100%' }} onClick={() => setNotAndroid(false)}>
+              Carry on in this browser
+            </button>
+          </motion.div>
         </motion.div>
       )}
     </AnimatePresence>
   );
 
   if (variant === 'button') {
+    // Centred. It used to be flex-start because the "not an Android device"
+    // reply was a notice sitting directly under the button and wanted the same
+    // left edge. That reply is a dialog in the middle of the screen now, so
+    // there is nothing left for the button to line up with.
     return (
-      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
         {button}
         {notice}
       </div>

@@ -1889,3 +1889,30 @@ input[type="date"].input::-webkit-calendar-picker-indicator:hover { opacity: 1; 
 .support-tip svg { color: var(--accent); flex-shrink: 0; margin-top: 1px; }
 .support-tip p { margin: 0; font-size: 12.5px; line-height: 1.5; color: var(--text-muted); }
 .support-tip strong { color: var(--text); }
+
+/* ---------------------------------------------------------------------------
+   Signed-out pages: the window itself does not scroll.
+
+   Beside the rail there are two columns of very different lengths, and letting
+   the document scroll meant the brand panel dragged the form up out of view on
+   a short screen. The shell is exactly the viewport and each column scrolls its
+   own content instead, so the form is always where it was left.
+
+   dvh, not vh: on a phone browser 100vh is the height the page would have if
+   the toolbars were hidden, which is taller than the screen. The stacked phone
+   layout is deliberately left to scroll normally — the brand panel sits under
+   the form there and is meant to be scrolled to.
+   ------------------------------------------------------------------------ */
+@media (min-width: 901px) {
+  .signup-shell { height: 100vh; height: 100dvh; overflow: hidden; }
+  .signup-brand, .auth-content { overflow-y: auto; overscroll-behavior: contain; }
+}
+
+/* Short screens, where the reassurances under the card are the part worth
+   losing: they repeat what the brand panel already says a few centimetres to
+   the left. */
+@media (min-width: 901px) and (max-height: 840px) {
+  .auth-assurances-card { display: none; }
+  .auth-card { padding: 20px; }
+  .signup-brand { padding-top: 24px !important; padding-bottom: 24px !important; }
+}

@@ -388,7 +388,7 @@ export default function Login() {
 
       {/* Also here, not only on the brand panel — on a phone that panel is
           below the fold, and a phone is the one device the app installs on. */}
-      <div style={{ marginTop: 18 }}>
+      <div style={{ marginTop: 18, display: 'flex', justifyContent: 'center' }}>
         <AndroidDownloadButton />
       </div>
 
