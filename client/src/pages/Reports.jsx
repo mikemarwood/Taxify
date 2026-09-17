@@ -3,6 +3,8 @@ import { motion } from 'framer-motion';
 import { api } from '../lib/api.js';
 import { SkeletonStat } from '../components/Skeletons.jsx';
 import Icon from '../components/Icon.jsx';
+import StatTile from '../components/StatTile.jsx';
+import { CategoryYearChart, CategoryDonut } from '../components/ReportCharts.jsx';
 import { claimable } from '../lib/money.js';
 import CategoryBadge from '../components/CategoryBadge.jsx';
 import ExpenseModal from '../components/ExpenseModal.jsx';
@@ -20,6 +22,7 @@ export default function Reports() {
   const { isAll, showSwitcher } = useEntities();
   const [expenses, setExpenses] = useState(null);
   const [categoryFilter, setCategoryFilter] = useState(null);
+  const [asPercent, setAsPercent] = useState(false);
   const [selectedExpense, setSelectedExpense] = useState(null);
   const [archiveYear, setArchiveYear] = useState('');
 
@@ -81,6 +84,15 @@ export default function Reports() {
   function fmt(value) {
     if (!value) return <span style={{ color: 'var(--text-muted)' }}>—</span>;
     return `$${value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  }
+
+  // A cell, either way round. The percentage is of that year's own total, so a
+  // column adds up to 100% and reads as "where this year went". A year with
+  // nothing in it has no denominator and stays a dash rather than becoming 0%.
+  function cellText(value, yearTotal) {
+    if (!asPercent) return fmt(value);
+    if (!value || !yearTotal) return <span style={{ color: 'var(--text-muted)' }}>—</span>;
+    return `${((value / yearTotal) * 100).toFixed(1)}%`;
   }
 
   return (
@@ -146,7 +158,7 @@ export default function Reports() {
       <UnconvertedNotice expenses={expenses} />
 
       {loading ? (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 16, marginBottom: 24 }}>
+        <div className="stat-row">
           <SkeletonStat />
           <SkeletonStat />
           <SkeletonStat />
@@ -157,19 +169,18 @@ export default function Reports() {
         </div>
       ) : (
         <>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 16, marginBottom: 24 }}>
-            <motion.div className="card" style={{ padding: 20 }} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}>
-              <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>Grand total</div>
-              <div style={{ fontSize: 24, fontWeight: 800, marginTop: 6 }}>{fmt(grandTotal)}</div>
-            </motion.div>
-            <motion.div className="card" style={{ padding: 20 }} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }}>
-              <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>Years compared</div>
-              <div style={{ fontSize: 24, fontWeight: 800, marginTop: 6 }}>{years.length}</div>
-            </motion.div>
-            <motion.div className="card" style={{ padding: 20 }} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
-              <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>Categories</div>
-              <div style={{ fontSize: 24, fontWeight: 800, marginTop: 6 }}>{categories.length}</div>
-            </motion.div>
+          <div className="stat-row">
+            <StatTile icon="cash" tint="blue" label="Grand total" value={fmt(grandTotal)} />
+            <StatTile icon="calendar" tint="violet" label="Years compared" value={years.length} delay={0.05} />
+            <StatTile icon="tag" tint="amber" label="Categories" value={categories.length} delay={0.1} />
+          </div>
+
+          {/* The same figures as the table at the foot of the page, read two
+              other ways: which category and whether it is moving, then what
+              shape the whole is. */}
+          <div className="report-charts">
+            <CategoryYearChart categories={categories} years={years} cellTotals={cellTotals} />
+            <CategoryDonut categories={categories} categoryTotals={categoryTotals} grandTotal={grandTotal} />
           </div>
 
           {/* What each year actually came back as, beside what it claimed —
@@ -189,6 +200,29 @@ export default function Reports() {
             expenses={expenses}
             renderDocuments={(y) => <YearDocuments financialYear={y} title="Documents filed" manage />}
           />
+
+          {/* The table had no heading at all: it followed the year list
+              directly and had to be worked out from its own column names. */}
+          <div className="panel-head" style={{ marginTop: 24, alignItems: 'center' }}>
+            <span className="panel-head-mark">
+              <Icon name="list" size={17} />
+            </span>
+            <div style={{ minWidth: 0, flex: 1 }}>
+              <h2>Spending by category and tax year</h2>
+              <p>A detailed breakdown of your spending across each category and tax year.</p>
+            </div>
+            {/* Percentages are of that year's own total, so a column reads as
+                "where this year's money went" rather than as a share of all
+                years — which is what the Share column at the end already is. */}
+            <div className="seg" role="group" aria-label="Show amounts or percentages">
+              <button type="button" aria-pressed={!asPercent} onClick={() => setAsPercent(false)}>
+                Amounts
+              </button>
+              <button type="button" aria-pressed={asPercent} onClick={() => setAsPercent(true)}>
+                Percentages
+              </button>
+            </div>
+          </div>
 
           <motion.div
             className="card scrollbar-slim report-scroll"
@@ -232,7 +266,7 @@ export default function Reports() {
                       </td>
                       {years.map((y) => (
                         <td key={y} style={tdStyle('right')}>
-                          {fmt(cellTotals.get(`${c.name}|${y}`))}
+                          {cellText(cellTotals.get(`${c.name}|${y}`), yearTotals.get(y))}
                         </td>
                       ))}
                       <td style={{ ...tdStyle('right'), fontWeight: 700 }}>{fmt(total)}</td>

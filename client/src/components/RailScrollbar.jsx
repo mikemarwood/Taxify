@@ -10,10 +10,17 @@ import { useEffect, useState } from 'react';
 // why the note on the rail already says "scrollbar-slim only styles a
 // scrollbar; it never made one appear".
 //
-// So this draws one. It is a hint rather than a control: pointer-events are
-// off, because a strip down the edge of a narrow drawer is exactly where a
-// thumb lands when somebody means to scroll the rail itself, and swallowing
-// that touch would make the problem worse than the one being fixed.
+// So this draws one — but only where the browser has not already drawn a real
+// one. A classic scrollbar takes width out of the element: offsetWidth minus
+// clientWidth is how much, and it is zero exactly when the scrollbar is an
+// overlay, which is the case this exists for. Without that test a desktop got
+// both, one inside the rail and one drawn beside it, which is what it looked
+// like — two scrollbars on the left menu.
+//
+// It is a hint rather than a control: pointer-events are off, because a strip
+// down the edge of a narrow drawer is exactly where a thumb lands when somebody
+// means to scroll the rail itself, and swallowing that touch would make the
+// problem worse than the one being fixed.
 //
 // It lives in a sticky, zero-height wrapper. The rail is the scrolling element,
 // so an ordinary absolutely-positioned child would scroll away with the
@@ -30,6 +37,12 @@ export default function RailScrollbar({ containerRef }) {
       // A few pixels of slack: sub-pixel layout leaves most elements
       // technically overflowing, and a scrollbar for two pixels is noise.
       if (scrollHeight - clientHeight < 8) return setBox(null);
+
+      // The browser is already showing one, and it does not fade. Two is one
+      // too many. Measured rather than assumed from the pointer type: a
+      // desktop browser can be set to overlay scrollbars, and a tablet with a
+      // mouse attached can be given classic ones.
+      if (el.offsetWidth - el.clientWidth > 0) return setBox(null);
 
       // Never smaller than a thumb somebody can see. The proportional height
       // of a very long rail comes out at a few pixels, which reads as a mark
