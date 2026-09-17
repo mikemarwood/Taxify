@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { injectLandingSocial, socialButtonsHtml, safeHttpUrl } from './landingSocial.js';
+import { injectLandingSocial, socialButtonsHtml, safeHttpUrl, onCurrentHost } from './landingSocial.js';
 
 const PAGE = '<header>x</header><!--SOCIAL-START--><!--SOCIAL-END--><footer>y</footer>';
 
@@ -93,4 +93,37 @@ test('every button is a plain link — no iframe, no script', () => {
   assert.ok(!html.includes('connect.facebook.net'));
   assert.ok(!html.includes('plugins/like.php'));
   assert.match(html, /sharer\.php/);
+});
+
+test('a share address left on the old domain is moved to the current one', () => {
+  // The address is a stored setting, so one typed before the move outlives it
+  // and goes on sending everybody who presses Share to the old name. That name
+  // still resolves, which is why nobody would ever report it.
+  assert.equal(
+    onCurrentHost('https://taxify.mikesapphub.com', 'https://taxify.net.au'),
+    'https://taxify.net.au/'
+  );
+});
+
+test('moving the host keeps the path somebody chose', () => {
+  assert.equal(
+    onCurrentHost('https://taxify.mikesapphub.com/pricing?a=1', 'https://taxify.net.au'),
+    'https://taxify.net.au/pricing?a=1'
+  );
+});
+
+test('an address already on the current domain is left alone', () => {
+  assert.equal(onCurrentHost('https://taxify.net.au/x', 'https://taxify.net.au'), 'https://taxify.net.au/x');
+});
+
+test('somewhere else entirely is left alone', () => {
+  // Only the addresses this site has actually retired are rewritten. Pointing
+  // Share at a different site is unusual but it is not ours to correct.
+  assert.equal(onCurrentHost('https://example.com/x', 'https://taxify.net.au'), 'https://example.com/x');
+});
+
+test('rubbish in is still null out', () => {
+  assert.equal(onCurrentHost('javascript:alert(1)', 'https://taxify.net.au'), null);
+  assert.equal(onCurrentHost('', 'https://taxify.net.au'), null);
+  assert.equal(onCurrentHost(null, 'https://taxify.net.au'), null);
 });

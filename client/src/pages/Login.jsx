@@ -379,7 +379,11 @@ export default function Login() {
           reach it from inside the app. */}
       <p style={{ fontSize: 12.5, color: 'var(--text-muted)', margin: '16px 0 0', textAlign: 'center' }}>
         Locked out, or something wrong?{' '}
-        <Link to="/support" style={{ color: 'var(--blue)', fontWeight: 600 }}>
+        {/* Marked as coming from here, so Support can lay its reassurances
+            across the top rather than down the side: somebody arriving from a
+            sign-in they cannot complete is reading the page in a different
+            order from somebody who opened it from inside the app. */}
+        <Link to="/support" state={{ from: 'login' }} style={{ color: 'var(--blue)', fontWeight: 600 }}>
           Contact support
         </Link>
       </p>

@@ -46,6 +46,30 @@ export function safeHttpUrl(value) {
   return parsed.toString();
 }
 
+// Addresses this site used to answer on. A share URL is a stored setting, so
+// one typed before the move outlives the move and goes on sending everybody who
+// presses Share to the old name — which still resolves, so nothing looks broken
+// and nobody reports it.
+//
+// The path is kept; only the host moves. Somebody who deliberately pointed
+// Share at a particular page should keep pointing at that page.
+const RETIRED_HOSTS = ['taxify.mikesapphub.com'];
+
+export function onCurrentHost(value, origin) {
+  const parsed = safeHttpUrl(value);
+  if (!parsed) return null;
+  const now = safeHttpUrl(origin);
+  if (!now) return parsed;
+
+  const url = new URL(parsed);
+  if (!RETIRED_HOSTS.includes(url.hostname.toLowerCase())) return parsed;
+
+  const current = new URL(now);
+  url.protocol = current.protocol;
+  url.host = current.host;
+  return url.toString();
+}
+
 // The markup for the two buttons, or null when there is nothing to show.
 // The address as somebody would write it, not as a URL parser returns it.
 //

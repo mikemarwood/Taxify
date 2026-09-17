@@ -1,5 +1,5 @@
 import { getSetting, setSetting } from '../db.js';
-import { safeHttpUrl } from './landingSocial.js';
+import { safeHttpUrl, onCurrentHost } from './landingSocial.js';
 import { publicOrigin } from './publicOrigin.js';
 
 // The Facebook settings, read and written in one place.
@@ -34,7 +34,10 @@ export async function landingSocialConfig() {
   const configured = await getSetting(SOCIAL_KEYS.shareUrl);
   return {
     enabled: true,
-    shareUrl: safeHttpUrl(configured) || safeHttpUrl(publicOrigin()) || null,
+    // Through onCurrentHost, so a share address stored before the move to
+    // taxify.net.au stops sending people to the old name. The old one still
+    // resolves, which is exactly why nobody would have noticed.
+    shareUrl: onCurrentHost(configured, publicOrigin()) || safeHttpUrl(publicOrigin()) || null,
     pageUrl: await getSetting(SOCIAL_KEYS.pageUrl),
   };
 }

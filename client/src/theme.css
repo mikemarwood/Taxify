@@ -1975,3 +1975,36 @@ input[type="date"].input::-webkit-calendar-picker-indicator:hover { opacity: 1; 
   .signup-shell-fixed .brand-aud-photo { aspect-ratio: 16 / 6; }
   .signup-shell-fixed .signup-brand p { display: none; }
 }
+
+/* "We're here to help", laid across the top instead of down the side. Used
+   when somebody arrives from a sign-in they could not complete: they are here
+   because something is wrong, so this is read before the form rather than
+   after it. */
+.support-aside-wide { display: block; }
+.support-aside-wide .support-aside-top {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 0;
+  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+  border-bottom: 0;
+  padding: 16px 20px;
+}
+.support-aside-wide .support-aside-mark { margin-bottom: 0; width: 40px; height: 40px; border-radius: 12px; }
+.support-aside-wide .support-aside-top h2 { margin: 0; font-size: 17px; }
+.support-aside-wide .support-aside-top p { margin: 2px 0 0; }
+.support-aside-wide .support-aside-list {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 16px;
+  padding: 16px 20px;
+  border: 1px solid var(--border);
+  border-top: 0;
+  border-radius: 0 0 var(--radius-lg) var(--radius-lg);
+  background: var(--bg-card);
+}
+@media (max-width: 900px) { .support-aside-wide .support-aside-list { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 520px) {
+  .support-aside-wide .support-aside-list { grid-template-columns: 1fr; }
+  .support-aside-wide .support-aside-top { flex-direction: column; align-items: flex-start; }
+}

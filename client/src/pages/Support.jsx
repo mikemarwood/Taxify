@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { useNavigate, useParams, Link } from 'react-router-dom';
+import { useNavigate, useParams, useLocation, Link } from 'react-router-dom';
 import { api } from '../lib/api.js';
 import PlanInvoiceNotice from '../components/PlanInvoiceNotice.jsx';
 import { useAuth } from '../lib/AuthContext.jsx';
@@ -55,9 +55,9 @@ const ASSURANCES = [
   { icon: 'book', tint: '#9a5b06', title: 'Keep track', text: 'Every request gets a reference number and stays on your account' },
 ];
 
-function HelpAside() {
+function HelpAside({ horizontal = false }) {
   return (
-    <aside className="support-aside">
+    <aside className={horizontal ? 'support-aside support-aside-wide' : 'support-aside'}>
       <div className="support-aside-top">
         <span className="support-aside-mark">
           <Icon name="heart" size={22} />
@@ -80,13 +80,15 @@ function HelpAside() {
         ))}
       </ul>
 
-      <div className="support-tip">
-        <Icon name="info" size={16} />
-        <p>
-          <strong>Tip. </strong>
-          The more detail you can give — including screenshots — the faster we can help.
-        </p>
-      </div>
+      {!horizontal && (
+        <div className="support-tip">
+          <Icon name="info" size={16} />
+          <p>
+            <strong>Tip. </strong>
+            The more detail you can give — including screenshots — the faster we can help.
+          </p>
+        </div>
+      )}
     </aside>
   );
 }
@@ -123,7 +125,7 @@ function Counter({ value, min, max }) {
   );
 }
 
-function NewTicket({ user, onRaised }) {
+function NewTicket({ user, onRaised, fromLogin }) {
   const toast = useToast();
   const [categories, setCategories] = useState([]);
   const [category, setCategory] = useState('');
@@ -373,7 +375,7 @@ function NewTicket({ user, onRaised }) {
         answers what somebody wants to know before writing — how long, who
         reads it, whether it goes anywhere — so it belongs next to the writing,
         not after it. */}
-    <HelpAside />
+    {!fromLogin && <HelpAside />}
     </div>
   );
 }
@@ -502,6 +504,10 @@ function TicketRow({ ticket, onOpen }) {
 }
 
 export default function Support() {
+  // Set by the Contact support link on the sign-in page. Undefined for anybody
+  // who reached this page any other way, including a refresh — which is right:
+  // once the page has been reloaded the arrival is no longer what it was.
+  const fromLogin = useLocation().state?.from === 'login';
   const { user } = useAuth();
   const toast = useToast();
   const navigate = useNavigate();
@@ -543,6 +549,12 @@ export default function Support() {
         </p>
       </div>
 
+      {/* Straight from a sign-in somebody could not complete. They are here
+          because something is wrong, so the reassurance goes across the top
+          where it is read before the form rather than down the side where it
+          is read after it. */}
+      {fromLogin && <HelpAside horizontal />}
+
       {user && tickets && tickets.length > 0 && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
@@ -557,7 +569,7 @@ export default function Support() {
         </div>
       )}
 
-      {showForm && <NewTicket user={user} onRaised={onRaised} />}
+      {showForm && <NewTicket user={user} onRaised={onRaised} fromLogin={fromLogin} />}
     </div>
   );
 }
