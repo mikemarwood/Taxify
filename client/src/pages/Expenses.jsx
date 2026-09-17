@@ -20,6 +20,7 @@ import Amount from '../components/Amount.jsx';
 import UnconvertedNotice from '../components/UnconvertedNotice.jsx';
 import StatTile from '../components/StatTile.jsx';
 import { changeBetween } from '../lib/change.js';
+import PageBanner from '../components/PageBanner.jsx';
 
 // Lets the one search box take an amount as well as text. A bare number
 // matches by prefix, so "47" finds $47.91 and $47.00 — typing the exact cents
@@ -326,12 +327,7 @@ export default function Expenses() {
 
   return (
     <div>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24, flexWrap: 'wrap', gap: 12 }}>
-        <div>
-          <h1 style={{ margin: 0, fontSize: 26 }}>Expenses</h1>
-          <p style={{ color: 'var(--text-muted)', margin: '4px 0 0' }}>Every expense, grouped by category.</p>
-        </div>
-      </div>
+      <PageBanner title="Expenses" blurb="Every expense, grouped by category." />
 
       {loading ? (
         <div className="stat-row">

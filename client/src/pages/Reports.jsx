@@ -17,6 +17,7 @@ import { formatDateShort } from '../lib/dates.js';
 import Amount from '../components/Amount.jsx';
 import UnconvertedNotice from '../components/UnconvertedNotice.jsx';
 import DeductionSummary from '../components/DeductionSummary.jsx';
+import PageBanner from '../components/PageBanner.jsx';
 
 export default function Reports() {
   const { isAll, showSwitcher } = useEntities();
@@ -115,61 +116,42 @@ export default function Reports() {
 
   return (
     <div>
-      <div
-        style={{
-          display: 'flex',
-          alignItems: 'flex-start',
-          justifyContent: 'space-between',
-          gap: 16,
-          marginBottom: 24,
-          flexWrap: 'wrap',
-        }}
-      >
-        <div style={{ minWidth: 0, flex: '1 1 220px' }}>
-          <h1 style={{ margin: '0 0 4px', fontSize: 26 }}>Reports</h1>
-          <p style={{ color: 'var(--text-muted)', margin: 0 }}>
-            {year === 'all'
-              ? 'Compare spending by category across tax years.'
-              : `Spending by category for FY ${year}.`}
-          </p>
-        </div>
-        {/* Export and download on one line. They were stacked, which read as
-            two unrelated features rather than the two ways of getting your
-            records out — and put a summary export a full row away from the
-            archive it belongs beside.
-
-            On a phone that line becomes three things stacked in a column, each
-            a different width, right-aligned under a left-aligned heading — the
-            ragged edge is what makes it look like a mistake rather than a
-            group. So below 560px they go full width and left-aligned, in the
-            order they are used: pick a year, take that year, take everything. */}
-        <div className="reports-actions">
-          <div className="reports-year">
-            {/* This scopes the page, not just the download. Every figure,
-                both charts and the table answer for whichever year is picked,
-                and "All years" is how the comparison is reached. */}
-            <select
-              className="input"
-              aria-label="Financial year"
-              value={year}
-              onChange={(e) => setYear(e.target.value)}
-              style={{ flex: '1 1 128px', minWidth: 110, fontSize: 12.5, padding: '7px 9px' }}
-            >
-              {allYears
-                .slice()
-                .reverse()
-                .map((y) => (
-                  <option key={y} value={y}>
-                    FY {y}
-                  </option>
-                ))}
-              <option value="all">All years</option>
-            </select>
-            <YearArchiveButton financialYear={archiveYear} disabled={allYears.length === 0} />
+      <PageBanner
+        title="Reports"
+        blurb={
+          year === 'all'
+            ? 'Compare spending by category across tax years.'
+            : `Spending by category for FY ${year}.`
+        }
+        actions={
+          <div className="reports-actions">
+            <div className="reports-year">
+              {/* This scopes the page, not just the download. Every figure,
+                  both charts and the table answer for whichever year is
+                  picked, and "All years" is how the comparison is reached. */}
+              <select
+                className="input"
+                aria-label="Financial year"
+                value={year}
+                onChange={(e) => setYear(e.target.value)}
+                style={{ flex: '1 1 128px', minWidth: 110, fontSize: 12.5, padding: '7px 9px' }}
+              >
+                {allYears
+                  .slice()
+                  .reverse()
+                  .map((y) => (
+                    <option key={y} value={y}>
+                      FY {y}
+                    </option>
+                  ))}
+                <option value="all">All years</option>
+              </select>
+              <YearArchiveButton financialYear={archiveYear} disabled={allYears.length === 0} />
+            </div>
+            <ExportMenu baseUrl="/api/export/categories" label="Export summary" />
           </div>
-          <ExportMenu baseUrl="/api/export/categories" label="Export summary" />
-        </div>
-      </div>
+        }
+      />
 
       {/* In the combined view a category name is not enough to tell two sets
           of books apart, and merging them into one row would make the report

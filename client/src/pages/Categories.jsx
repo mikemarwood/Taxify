@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import PageBanner from '../components/PageBanner.jsx';
 import { motion, AnimatePresence } from 'framer-motion';
 import { api } from '../lib/api.js';
 import { useToast } from '../components/Toast.jsx';
@@ -175,15 +176,15 @@ export default function Categories() {
 
   return (
     <div style={{ maxWidth: 940 }}>
-      <div style={{ display: 'flex', alignItems: 'flex-end', gap: 16, flexWrap: 'wrap', marginBottom: 22 }}>
-        <div style={{ flex: 1, minWidth: 240 }}>
-          <h1 style={{ margin: '0 0 4px', fontSize: 26 }}>Categories</h1>
-          <p style={{ color: 'var(--text-muted)', margin: 0 }}>
-            {categories === null
-              ? 'Loading…'
-              : `${categories.length} categories in FY ${year} · ${formatMoney(totalTracked)} tracked`}
-          </p>
-        </div>
+      <PageBanner
+        title="Categories"
+        blurb={
+          categories === null
+            ? 'Loading…'
+            : `${categories.length} categories in FY ${year} · ${formatMoney(totalTracked)} tracked`
+        }
+        actions={
+          <>
         {/* Categories belong to a financial year: how you filed things in
             2024-2025 shouldn't change because you renamed something today.
             A year you haven't used yet opens with last year's set. */}
@@ -221,7 +222,9 @@ export default function Categories() {
           <Icon name={adding ? 'x' : finalised ? 'lock' : 'plus'} size={15} />
           {adding ? 'Cancel' : 'New category'}
         </button>
-      </div>
+          </>
+        }
+      />
 
       {finalised && (
         <div

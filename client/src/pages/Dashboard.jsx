@@ -21,6 +21,7 @@ import { formatDayMonth } from '../lib/dates.js';
 import Amount from '../components/Amount.jsx';
 import UnconvertedNotice from '../components/UnconvertedNotice.jsx';
 import DateField from '../components/DateField.jsx';
+import PageBanner from '../components/PageBanner.jsx';
 
 const COLLAPSED_ROW_COUNT = 8;
 
@@ -166,57 +167,41 @@ export default function Dashboard() {
           somebody goes once and this is where they are. */}
       <AvatarPrompt />
 
-      <div
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          gap: 14,
-          flexWrap: 'wrap',
-          marginBottom: 24,
-        }}
-      >
-        <div>
-          <h1 style={{ margin: 0, fontSize: 26 }}>Dashboard</h1>
-          {/* Which year everything below is about. It was only ever implied,
-              which is a poor thing to leave to inference on a page of totals. */}
-          <p style={{ color: 'var(--text-muted)', margin: '4px 0 0' }}>
-            {year ? (
-              <>
-                Your deductions for <strong style={{ color: 'var(--text)' }}>FY {year}</strong>
-                <span style={{ opacity: 0.8 }}> · {financialYearSpan(user?.financialYearRule)}</span>
-              </>
-            ) : (
-              'Your deductions at a glance.'
+      <PageBanner
+        title="Dashboard"
+        blurb={
+          year
+            ? `Your deductions for FY ${year} · ${financialYearSpan(user?.financialYearRule)}`
+            : 'Your deductions at a glance.'
+        }
+        actions={
+          <>
+            {/* Switching year is the most common thing anyone does here at tax
+                time, so it sits with the heading rather than further down. */}
+            {years.length > 0 && (
+              <select
+                className="input"
+                aria-label="Financial year"
+                value={year || ''}
+                onChange={(e) => setYear(e.target.value)}
+                style={{ width: 150, padding: '9px 10px', fontSize: 13 }}
+              >
+                {years.map((y) => (
+                  <option key={y} value={y}>
+                    FY {y}
+                  </option>
+                ))}
+              </select>
             )}
-          </p>
-        </div>
-        <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
-          {/* Switching year is the most common thing anyone does here at tax
-              time, so it sits with the heading rather than further down. */}
-          {years.length > 0 && (
-            <select
-              className="input"
-              aria-label="Financial year"
-              value={year || ''}
-              onChange={(e) => setYear(e.target.value)}
-              style={{ width: 150, padding: '9px 10px', fontSize: 13 }}
-            >
-              {years.map((y) => (
-                <option key={y} value={y}>
-                  FY {y}
-                </option>
-              ))}
-            </select>
-          )}
-          <ExportMenu baseUrl="/api/export/expenses" label="Export & download" archiveYear={year} />
-          {user?.role !== 'accountant' && !user?.actingAsClient && (
-            <Link to="/add" className="btn btn-primary">
-              + Add expense
-            </Link>
-          )}
-        </div>
-      </div>
+            <ExportMenu baseUrl="/api/export/expenses" label="Export & download" archiveYear={year} />
+            {user?.role !== 'accountant' && !user?.actingAsClient && (
+              <Link to="/add" className="btn btn-primary">
+                + Add expense
+              </Link>
+            )}
+          </>
+        }
+      />
 
       <UnconvertedNotice expenses={expenses} />
 

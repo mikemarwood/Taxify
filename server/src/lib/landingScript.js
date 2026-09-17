@@ -47,7 +47,7 @@ const MARKER = '<!--LANDING-JS-->';
 // landing.html by hand, which is two places for one string — the alternative is
 // parsing our own file back out of the hub's markup to find a tag it has
 // already thrown away.
-const TITLE = 'Taxify | Receipt & expense tracker for Australian tax time';
+const TITLE = 'Receipt & expense tracker for Australian tax time | Taxify';
 
 const SCRIPT = `<script>
 (function(){

@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Taxify | Receipt &amp; expense tracker for Australian tax time</title>
+<title>Receipt &amp; expense tracker for Australian tax time | Taxify</title>
 <meta name="description" content="Photograph a receipt and Taxify files it — right category, right tax year. Work, business and rental expenses organised and ready for tax time. 14-day free trial, no credit card required.">
 <meta name="theme-color" content="#081428">
 
@@ -563,7 +563,14 @@
   .lp-links { margin-left: auto; display: flex; gap: 20px; flex-wrap: wrap; }
   .lp-footer a { color: #9dabc0; text-decoration: none; }
   .lp-footer a:hover, .lp-footer a:focus-visible { color: #fff; }
-  @media (max-width: 640px) { .lp-links { margin-left: 0; } }
+  /* Centred on a phone. The row wraps to two lines there — the copyright on
+     one, the links on the next — and with margin-left:auto pushing the links
+     right they sat against opposite edges of the screen. */
+  @media (max-width: 640px) {
+    .lp-footer-main { justify-content: center; text-align: center; gap: 6px; }
+    .lp-links { margin-left: 0; width: 100%; justify-content: center; }
+    .lp-powered { flex-wrap: wrap; row-gap: 3px; text-align: center; padding-left: 8px; padding-right: 8px; }
+  }
   /* Powered by. Its own line under the rest, centred, with a rule above it:
      it is a different kind of statement from a copyright and a row of legal
      links, and sharing their line made it read as a fourth link. */

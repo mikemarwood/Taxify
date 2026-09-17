@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import PageBanner from '../components/PageBanner.jsx';
 import { useNavigate, useParams, useLocation, Link } from 'react-router-dom';
 import { api } from '../lib/api.js';
 import PlanInvoiceNotice from '../components/PlanInvoiceNotice.jsx';
@@ -546,13 +547,10 @@ export default function Support() {
 
   return (
     <div style={{ maxWidth: 1120, display: 'flex', flexDirection: 'column', gap: 18 }}>
-      <div>
-        <h1 style={{ margin: '0 0 6px', fontSize: 26 }}>Support</h1>
-        <p style={{ color: 'var(--text-muted)', margin: 0, lineHeight: 1.6, maxWidth: 560 }}>
-          Send us a message and we will look into it. Every request gets a reference number, a written reply, and stays
-          on record so you can come back to it.
-        </p>
-      </div>
+      <PageBanner
+        title="Support"
+        blurb="Send us a message and we will look into it. Every request gets a reference number, a written reply, and stays on record so you can come back to it."
+      />
 
       {/* Straight from a sign-in somebody could not complete. They are here
           because something is wrong, so the reassurance goes across the top

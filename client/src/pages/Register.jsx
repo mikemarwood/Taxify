@@ -608,12 +608,15 @@ export default function Register() {
           // scrolling, so whichever column holds the content has to take it
           // over — without this a form taller than the window was simply cut
           // off at both ends with no way to reach either.
-          className="public-content"
+          // auth-content, the same class sign-in's column carries: it scrolls
+          // when the shell is pinned, and on a phone it goes transparent so the
+          // shell's navy shows through and the form reads as a card laid on it.
+          className="auth-content"
           style={{
             // Paper against the navy, so the two halves read as chrome and
             // content rather than as one flat surface.
             background: 'var(--bg-card)',
-            padding: 'clamp(28px, 5vw, 56px)',
+            padding: 'clamp(20px, 4vw, 48px)',
             display: 'flex',
             flexDirection: 'column',
             justifyContent: 'center',
@@ -621,8 +624,12 @@ export default function Register() {
             minHeight: 0,
           }}
         >
-          <div style={{ width: '100%', maxWidth: 560, margin: '0 auto', display: 'flex', flexDirection: 'column', flex: 1, justifyContent: 'center' }}>
           <AuthMobileBrand />
+          {/* The same card sign-in and forgotten-password use. On a phone the
+              column behind it is the shell's navy, and a form sitting straight
+              on that looked like part of the background rather than the thing
+              to fill in. */}
+          <div className="auth-card" style={{ width: '100%', maxWidth: 560, margin: '0 auto', display: 'flex', flexDirection: 'column' }}>
           {/* No Back here at all.
               The form has its own control at the foot of every step: Cancel on
               the first, Back on the rest. Adding a second one at the top of

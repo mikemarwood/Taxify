@@ -119,7 +119,11 @@ export const ASSURANCES = [
 export function ProductPanel({ headline }) {
   return (
     <aside
-      className="signup-brand"
+      // signup-brand-product as well, because "the marketing panel" and "any
+      // aside in this frame" are not the same thing: registration puts its step
+      // rail in the same slot with the same class, and the rules that stack
+      // this one under the form on a phone are wrong for that.
+      className="signup-brand signup-brand-product"
       style={{
         position: 'relative',
         background: 'transparent',

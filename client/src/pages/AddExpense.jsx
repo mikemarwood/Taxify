@@ -19,6 +19,7 @@ import LodgedConfirmation from '../components/LodgedConfirmation.jsx';
 import { currenciesFor } from '../lib/currencies.js';
 import { onCasedInput } from '../lib/casedInput.js';
 import DateField from '../components/DateField.jsx';
+import PageBanner from '../components/PageBanner.jsx';
 
 // The three things this page can add. A receipt is the common one and stays
 // the default; the other two are the deductions that have no receipt to
@@ -26,9 +27,9 @@ import DateField from '../components/DateField.jsx';
 // What the banner promises, in the order somebody does it: put it in, know it
 // is safe, get it out again.
 const BANNER_CHIPS = [
-  { icon: 'camera', tint: 'linear-gradient(140deg, #2f8bf4, #1559b8)', title: 'Keep it organised', text: 'Add receipts in seconds' },
-  { icon: 'upload', tint: 'linear-gradient(140deg, #23a866, #0c7343)', title: 'Stored securely', text: 'In the cloud' },
-  { icon: 'chart', tint: 'linear-gradient(140deg, #9a6ae8, #6d3fc4)', title: 'Ready for tax time', text: 'Find, track and export easily' },
+  { icon: 'camera', tint: 'blue', title: 'Keep it organised', text: 'Add receipts in seconds' },
+  { icon: 'upload', tint: 'green', title: 'Stored securely', text: 'In the cloud' },
+  { icon: 'chart', tint: 'violet', title: 'Ready for tax time', text: 'Find, track and export easily' },
 ];
 
 const KINDS = [
@@ -359,26 +360,12 @@ export default function AddExpense() {
       {/* The picture is decorative and says so: everything it shows is said in
           words beside it, and a screen reader announcing "receipt and phone"
           before the heading would be noise. */}
-      <div className="ae-banner">
-        <div className="ae-banner-copy">
-          <h1>{chosen.heading}</h1>
-          <p>{chosen.blurb}</p>
-          <div className="ae-chips">
-            {BANNER_CHIPS.map((c) => (
-              <span className="ae-chip" key={c.title}>
-                <span className="ae-chip-mark" style={{ background: c.tint }}>
-                  <Icon name={c.icon} size={13} />
-                </span>
-                <span style={{ minWidth: 0 }}>
-                  <b>{c.title}</b>
-                  <span>{c.text}</span>
-                </span>
-              </span>
-            ))}
-          </div>
-        </div>
-        <img className="ae-banner-art" src="/media/add-expense-art.jpg" alt="" width="717" height="724" />
-      </div>
+      <PageBanner
+        title={chosen.heading}
+        blurb={chosen.blurb}
+        chips={BANNER_CHIPS}
+        art="/media/add-expense-art.jpg"
+      />
 
       {/* Three things get claimed, and only one of them comes with a receipt.
           Kilometres and hours used to live on a page of their own, so logging a

@@ -59,7 +59,7 @@ test('it sets the title, because the hub replaces ours', () => {
   // after the proxy has finished with the document.
   const out = injectLandingScript(PAGE);
   assert.match(out, /document\.title=/);
-  assert.match(out, /Receipt & expense tracker for Australian tax time/);
+  assert.match(out, /Receipt & expense tracker for Australian tax time \| Taxify/);
 });
 
 test('the title is a JSON string, so an apostrophe cannot end it', () => {

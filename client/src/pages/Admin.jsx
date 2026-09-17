@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import PageBanner from '../components/PageBanner.jsx';
 import LandingAdsTab from '../components/LandingAdsTab.jsx';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -209,24 +210,24 @@ export default function Admin() {
 
   return (
     <div style={{ maxWidth: tab === 'stats' || tab === 'support' || tab === 'how' || tab === 'analytics' ? 1100 : 760 }}>
-      <div style={{ display: 'flex', alignItems: 'flex-start', gap: 16, flexWrap: 'wrap' }}>
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <h1 style={{ margin: '0 0 4px', fontSize: 26 }}>Administration</h1>
-          <p style={{ color: 'var(--text-muted)', margin: '0 0 24px' }}>
-            Manage user accounts and the default category template.
-          </p>
-        </div>
-        {/* The wall display. Not a tab, because it is full-screen and meant to
-            be cast or left on a spare monitor rather than read inside the
-            panel — a tab would put the site's own navigation around something
-            designed to be looked at from across a room. */}
-        {!supportOnly && (
-          <button className="btn btn-ghost" style={{ fontSize: 13, gap: 7 }} onClick={() => setServerView(true)}>
-            <Icon name="chart" size={15} />
-            View Server
-          </button>
-        )}
-      </div>
+      <PageBanner
+        title="Administration"
+        blurb="Manage user accounts and the default category template."
+        actions={
+          <>
+            {/* The wall display. Not a tab, because it is full-screen and meant
+                to be cast or left on a spare monitor rather than read inside
+                the panel — a tab would put the site's own navigation around
+                something designed to be looked at from across a room. */}
+            {!supportOnly && (
+              <button className="btn btn-ghost" style={{ fontSize: 13, gap: 7 }} onClick={() => setServerView(true)}>
+                <Icon name="chart" size={15} />
+                View Server
+              </button>
+            )}
+          </>
+        }
+      />
 
       {/* One bordered strip rather than eleven loose pills. The groups are
           separated by a rule, not by a gap somebody has to interpret. */}
