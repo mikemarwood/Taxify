@@ -1,4 +1,3 @@
-import SiteFooter from './SiteFooter.jsx';
 import BackButton from './BackButton.jsx';
 import { AuthSplitFrame, AuthMobileBrand, ProductPanel } from './AuthSplit.jsx';
 
@@ -24,12 +23,16 @@ export default function PublicShell({ children }) {
   // "Sign in", which reads as an invitation to start something rather than a
   // way out of a page you opened by accident — and on a phone, where the whole
   // header was the logo, there was nothing at all.
+  //
+  // No footer of its own either. The product panel carries terms, privacy and
+  // the copyright at its foot, the same as it does on sign-in, and this had a
+  // second copy of all three a few inches to the right.
   return (
     <AuthSplitFrame>
       <ProductPanel />
     <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', background: 'var(--bg)', minWidth: 0 }}>
       <main style={{ flex: 1, padding: '26px 18px' }}>
-        <div style={{ maxWidth: 840, margin: '0 auto' }}>
+        <div style={{ maxWidth: 1120, margin: '0 auto' }}>
           <AuthMobileBrand />
 
           <BackButton />
@@ -38,9 +41,6 @@ export default function PublicShell({ children }) {
         </div>
       </main>
 
-      <footer style={{ padding: '18px', borderTop: '1px solid var(--border)' }}>
-        <SiteFooter />
-      </footer>
     </div>
     </AuthSplitFrame>
   );

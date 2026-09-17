@@ -125,10 +125,11 @@ export default function AndroidDownloadButton({ variant = 'button' }) {
           — which reads as the button doing nothing at all. */}
       {notAndroid && (
         <motion.div
+          key="android-only"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-          onClick={() => setNotAndroid(false)}
+          transition={{ duration: 0.16 }}
           style={{
             position: 'fixed',
             inset: 0,
@@ -143,11 +144,10 @@ export default function AndroidDownloadButton({ variant = 'button' }) {
             role="dialog"
             aria-modal="true"
             aria-label="Android only"
-            initial={{ opacity: 0, scale: 0.97, y: 8 }}
-            animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.97, y: 8 }}
-            transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
-            onClick={(e) => e.stopPropagation()}
+            initial={{ opacity: 0, scale: 0.97 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 1 }}
+            transition={{ duration: 0.16, ease: [0.16, 1, 0.3, 1] }}
             className="card"
             style={{ position: 'relative', maxWidth: 420, padding: 26, textAlign: 'center' }}
           >

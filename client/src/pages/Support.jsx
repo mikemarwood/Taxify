@@ -142,7 +142,12 @@ function NewTicket({ user, onRaised, fromLogin }) {
   useEffect(() => {
     api
       .get('/support/categories')
-      .then((res) => setCategories(res.data.categories))
+      // Whatever comes back, this ends up an array. A response that is not the
+      // shape expected — a proxy returning an HTML error page with a 200, which
+      // is the usual way this happens — put undefined into state and the next
+      // render threw on .map. That takes out the whole page, and this is the
+      // page somebody reaches when something has already gone wrong.
+      .then((res) => setCategories(Array.isArray(res.data?.categories) ? res.data.categories : []))
       .catch(() => setCategories([]));
   }, []);
 
@@ -216,7 +221,7 @@ function NewTicket({ user, onRaised, fromLogin }) {
   }
 
   return (
-    <div className="support-layout">
+    <div className={fromLogin ? 'support-layout is-wide' : 'support-layout'}>
     <form onSubmit={submit} className="card" style={{ padding: 20, display: 'flex', flexDirection: 'column', gap: 16 }}>
       <div>
         <div style={{ fontWeight: 700, fontSize: 15.5, marginBottom: 3 }}>What can we help with?</div>

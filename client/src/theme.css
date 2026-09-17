@@ -2010,3 +2010,8 @@ input[type="date"].input::-webkit-calendar-picker-indicator:hover { opacity: 1; 
   .support-aside-wide .support-aside-list { grid-template-columns: 1fr; }
   .support-aside-wide .support-aside-top { flex-direction: column; align-items: flex-start; }
 }
+
+/* One column, for the arrival that puts "We're here to help" across the top
+   instead of down the side. Without this the form kept the first column of a
+   two-column grid and left 330px of nothing beside it. */
+.support-layout.is-wide { grid-template-columns: minmax(0, 1fr); }

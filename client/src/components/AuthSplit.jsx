@@ -172,14 +172,16 @@ export function ProductPanel({ headline }) {
             The photographs are the same files, so there is one copy of each to
             replace rather than a set that can drift out of step. */}
         <div className="brand-aud">
-          {AUDIENCES.map((a, i) => (
-            <motion.div
-              key={a.title}
-              className="brand-aud-card"
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1], delay: 0.15 + i * 0.07 }}
-            >
+          {/* No entrance animation.
+
+              This panel is identical on sign-in, registration, forgotten
+              password and the rest, but each of those is a separate route, so
+              the panel remounts and every card faded and rose again on a
+              navigation that did not change it. Pressing "Forgot password?"
+              looked like the left-hand side reloading. The form beside it still
+              animates, because that is the part that actually changed. */}
+          {AUDIENCES.map((a) => (
+            <div key={a.title} className="brand-aud-card">
               <div className="brand-aud-photo">
                 <img src={a.photo} alt={a.alt} width="1100" height="619" loading="lazy" decoding="async" />
                 <span className="brand-aud-mark" style={{ background: a.tint }}>
@@ -190,7 +192,7 @@ export function ProductPanel({ headline }) {
                 <b>{a.title}</b>
                 <span>{a.text}</span>
               </div>
-            </motion.div>
+            </div>
           ))}
         </div>
       </div>
