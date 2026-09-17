@@ -18,6 +18,8 @@ import { useConfirm } from '../lib/ConfirmContext.jsx';
 import { useToast } from '../components/Toast.jsx';
 import Amount from '../components/Amount.jsx';
 import UnconvertedNotice from '../components/UnconvertedNotice.jsx';
+import StatTile from '../components/StatTile.jsx';
+import { changeBetween } from '../lib/change.js';
 
 // Lets the one search box take an amount as well as text. A bare number
 // matches by prefix, so "47" finds $47.91 and $47.00 — typing the exact cents
@@ -270,6 +272,29 @@ export default function Expenses() {
   const loading = expenses === null;
   const total = searched.reduce((sum, e) => sum + claimable(e), 0);
 
+  // The same financial year one year earlier, for the movement on the tile.
+  // Only meaningful when a single year is selected: against "All years" there
+  // is no earlier period to compare with, so there is nothing to show.
+  const previousYearTotal = useMemo(() => {
+    if (!expenses || !year || year === 'all') return 0;
+    const [from, to] = String(year).split('-').map(Number);
+    if (!from || !to) return 0;
+    const before = `${from - 1}-${to - 1}`;
+    return expenses.filter((e) => e.financialYear === before).reduce((sum, acc) => sum + claimable(acc), 0);
+  }, [expenses, year]);
+
+  // Entries added this calendar month, across the whole account rather than
+  // the current filter — it answers "have I kept up", which the filter does
+  // not change.
+  const newThisMonth = useMemo(() => {
+    if (!expenses) return 0;
+    const now = new Date();
+    return expenses.filter((e) => {
+      const d = new Date(e.purchaseDate);
+      return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+    }).length;
+  }, [expenses]);
+
   // The same search box reads these too, over the words they actually have:
   // a vehicle and a purpose, or a note. Not the amount matcher — neither has
   // an amount, and "over $500" has nothing to say about a Tuesday's driving.
@@ -309,56 +334,73 @@ export default function Expenses() {
       </div>
 
       {loading ? (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 16, marginBottom: 24 }}>
+        <div className="stat-row">
           <SkeletonStat />
           <SkeletonStat />
         </div>
       ) : (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 16, marginBottom: 24 }}>
-          <motion.div className="card" style={{ padding: 20 }} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}>
-            <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>Total</div>
-            <div style={{ fontSize: 26, fontWeight: 800, marginTop: 6 }}>{formatMoney(total)}</div>
-          </motion.div>
-          <motion.div className="card" style={{ padding: 20 }} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }}>
-            <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>Entries</div>
-            <div style={{ fontSize: 26, fontWeight: 800, marginTop: 6 }}>{searched.length}</div>
-          </motion.div>
+        <div className="stat-row">
+          <StatTile
+            icon="cash"
+            tint="blue"
+            label="Total"
+            value={formatMoney(total)}
+            change={changeBetween(total, previousYearTotal)}
+            changeNote="vs previous year"
+          />
+          <StatTile icon="file" tint="violet" label="Entries" value={searched.length} delay={0.05}>
+            {newThisMonth > 0 && (
+              <div className="stat-tile-change" style={{ color: 'var(--text-muted)' }}>
+                <strong style={{ color: 'var(--green)' }}>+{newThisMonth}</strong>
+                new this month
+              </div>
+            )}
+          </StatTile>
         </div>
       )}
 
       <UnconvertedNotice expenses={expenses} />
 
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 18, flexWrap: 'wrap' }}>
-        <select className="input" value={year || ''} onChange={(e) => setYear(e.target.value)} style={{ width: 150, padding: '8px 10px', fontSize: 13 }}>
-          <option value="all">All years</option>
-          {years.map((y) => (
-            <option key={y} value={y}>
-              FY {y}
-            </option>
-          ))}
-        </select>
-        <select
-          className="input"
-          value={categoryFilter}
-          onChange={(e) => setCategoryFilter(e.target.value)}
-          style={{ width: 190, padding: '8px 10px', fontSize: 13 }}
-        >
-          <option value="all">All categories</option>
-          {categoryNames.map((name) => (
-            <option key={name} value={name}>
-              {name}
-            </option>
-          ))}
-        </select>
-        <input
-          type="text"
-          className="input"
-          placeholder="Search name, notes or amount…"
-          title={'Type a name, or an amount: 47.91, 47, >100, <20, 50-100'}
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          style={{ maxWidth: 280, padding: '8px 12px', fontSize: 13, marginLeft: 'auto' }}
-        />
+      <div className="filter-bar">
+        <span className="filter-field">
+          <Icon name="calendar" size={16} />
+          <select className="input" value={year || ''} onChange={(e) => setYear(e.target.value)} style={{ width: 168, fontSize: 13 }}>
+            <option value="all">All years</option>
+            {years.map((y) => (
+              <option key={y} value={y}>
+                FY {y}
+              </option>
+            ))}
+          </select>
+        </span>
+        <span className="filter-field">
+          <Icon name="tag" size={16} />
+          <select
+            className="input"
+            value={categoryFilter}
+            onChange={(e) => setCategoryFilter(e.target.value)}
+            style={{ width: 200, fontSize: 13 }}
+          >
+            <option value="all">All categories</option>
+            {categoryNames.map((name) => (
+              <option key={name} value={name}>
+                {name}
+              </option>
+            ))}
+          </select>
+        </span>
+        <span className="filter-field filter-grow">
+          <Icon name="search" size={16} />
+          <input
+            type="text"
+            className="input"
+            placeholder="Search name, notes or amount…"
+            title={'Type a name, or an amount: 47.91, 47, >100, <20, 50-100'}
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            style={{ fontSize: 13, width: '100%' }}
+          />
+        </span>
         {(searchQuery.trim() || categoryFilter !== 'all') && (
           <button
             type="button"

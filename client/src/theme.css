@@ -1765,3 +1765,49 @@ input[type="date"].input::-webkit-calendar-picker-indicator:hover { opacity: 1; 
 .ae-step h2 { margin: 0; font-size: 16px; font-weight: 700; letter-spacing: -0.3px; }
 .ae-step p { margin: 2px 0 0; font-size: 12.5px; color: var(--text-muted); }
 .ae-rule { border: 0; border-top: 1px solid var(--border); margin: 4px 0; }
+
+/* ---------------------------------------------------------------------------
+   The expense record panel.
+   ------------------------------------------------------------------------ */
+.xd-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg-card);
+  overflow: hidden;
+}
+@media (max-width: 560px) { .xd-grid { grid-template-columns: 1fr; } }
+/* Hairlines between the facts rather than gaps. Six loose pairs of label and
+   value read as six unrelated things; ruled, they read as one record. */
+.xd-row { display: flex; align-items: flex-start; gap: 12px; padding: 14px; min-width: 0; border-top: 1px solid var(--border); }
+.xd-grid > .xd-row:nth-child(-n + 2) { border-top: 0; }
+@media (max-width: 560px) { .xd-grid > .xd-row:nth-child(2) { border-top: 1px solid var(--border); } }
+.xd-grid > .xd-row:nth-child(odd) { border-right: 1px solid var(--border); }
+@media (max-width: 560px) { .xd-grid > .xd-row:nth-child(odd) { border-right: 0; } }
+.xd-mark {
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+.xd-label { font-size: 10.5px; font-weight: 700; letter-spacing: 0.6px; text-transform: uppercase; color: var(--text-muted); }
+.xd-value { margin-top: 2px; font-size: 14px; font-weight: 600; overflow-wrap: anywhere; }
+
+/* The receipt, with its own heading and the way to see it full size. */
+.xd-section-head { display: flex; align-items: center; gap: 9px; margin-bottom: 10px; }
+.xd-section-head .xd-label { flex: 1; }
+.xd-section-head svg { color: var(--accent); flex-shrink: 0; }
+
+/* A filter bar: each control carries the glyph for what it filters, so the row
+   is told apart by shape rather than by reading three similar boxes. */
+.filter-bar { display: flex; align-items: center; gap: 10px; margin-bottom: 18px; flex-wrap: wrap; }
+.filter-field { position: relative; display: flex; align-items: center; min-width: 0; }
+.filter-field > svg { position: absolute; left: 13px; color: var(--text-subtle); pointer-events: none; }
+.filter-field .input { padding-left: 39px; }
+.filter-grow { flex: 1 1 200px; margin-left: auto; max-width: 320px; }
+@media (max-width: 640px) { .filter-grow { margin-left: 0; max-width: none; } }
