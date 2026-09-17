@@ -3,14 +3,17 @@ import crypto from 'crypto';
 // What somebody can be writing in about. Required, because the first thing
 // support does with a message is decide which of these it is, and the person
 // writing already knows.
+// The icon is a name from the client's own set, sent with the category rather
+// than mapped on arrival — one list, so a topic added here cannot show up in
+// the picker without a glyph.
 export const SUPPORT_CATEGORIES = [
-  { value: 'billing', label: 'Billing and plans', hint: 'Payments, invoices, changing or cancelling a plan' },
-  { value: 'account', label: 'Account and sign-in', hint: 'Signing in, two-factor, changing your email' },
-  { value: 'expenses', label: 'Expenses and receipts', hint: 'Adding, editing or attaching things' },
-  { value: 'reports', label: 'Reports and tax time', hint: 'Reports, exports, finalising a year' },
-  { value: 'accountant', label: 'Accountant access', hint: 'Sharing your books with an accountant' },
-  { value: 'app', label: 'The Android app', hint: 'Installing, updating or notifications' },
-  { value: 'other', label: 'Something else', hint: 'Anything that does not fit above' },
+  { value: 'billing', label: 'Billing and plans', hint: 'Payments, invoices, changing or cancelling a plan', icon: 'cash' },
+  { value: 'account', label: 'Account and sign-in', hint: 'Signing in, two-factor, changing your email', icon: 'user' },
+  { value: 'expenses', label: 'Expenses and receipts', hint: 'Adding, editing or attaching things', icon: 'receipt' },
+  { value: 'reports', label: 'Reports and tax time', hint: 'Reports, exports, finalising a year', icon: 'chart' },
+  { value: 'accountant', label: 'Accountant access', hint: 'Sharing your books with an accountant', icon: 'users' },
+  { value: 'app', label: 'The Android app', hint: 'Installing, updating or notifications', icon: 'phone' },
+  { value: 'other', label: 'Something else', hint: 'Anything that does not fit above', icon: 'info' },
 ];
 
 const CATEGORY_VALUES = new Set(SUPPORT_CATEGORIES.map((c) => c.value));

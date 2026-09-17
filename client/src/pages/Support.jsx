@@ -16,7 +16,7 @@ import { onCasedInput } from '../lib/casedInput.js';
 
 function CategoryCards({ categories, value, onChange }) {
   return (
-    <div className="support-cats" style={{ display: 'grid', gap: 8, gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))' }}>
+    <div className="support-cats">
       {categories.map((c) => {
         const on = value === c.value;
         return (
@@ -24,30 +24,70 @@ function CategoryCards({ categories, value, onChange }) {
             key={c.value}
             type="button"
             onClick={() => onChange(c.value)}
-            style={{
-              textAlign: 'left',
-              padding: '11px 13px',
-              borderRadius: 10,
-              cursor: 'pointer',
-              border: `1px solid ${on ? 'var(--accent)' : 'var(--border)'}`,
-              background: on ? 'var(--accent-soft)' : 'var(--bg-card)',
-              // A rail rather than a fill, so the chosen one reads as chosen
-              // without the grid turning into a block of colour.
-              borderLeft: `3px solid ${on ? 'var(--accent)' : 'var(--border)'}`,
-            }}
+            className={on ? 'support-cat is-on' : 'support-cat'}
           >
-            <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 2 }}>{c.label}</div>
-            {/* The hint is the first thing to go on a phone — see
-                .support-cats. Seven cards each carrying a label and a line of
-                explanation is most of a small screen before the form has
-                started. */}
-            <div className="support-cat-hint" style={{ fontSize: 11.5, color: 'var(--text-muted)', lineHeight: 1.45 }}>
-              {c.hint}
-            </div>
+            <span className="support-cat-mark">
+              <Icon name={c.icon || 'info'} size={18} />
+            </span>
+            <span style={{ minWidth: 0, flex: 1 }}>
+              <span className="support-cat-name">{c.label}</span>
+              {/* The hint is the first thing to go on a phone — see
+                  .support-cats. Seven cards each carrying a label and a line of
+                  explanation is most of a small screen before the form has
+                  started. */}
+              <span className="support-cat-hint">{c.hint}</span>
+            </span>
+            <Icon name="chevron-right" size={15} className="support-cat-go" />
           </button>
         );
       })}
     </div>
+  );
+}
+
+// What somebody wants to know before they write: how long, who reads it, and
+// whether it goes anywhere. Every line is true of how support actually works —
+// the reference number and the record are in the paragraph above the form.
+const ASSURANCES = [
+  { icon: 'bolt', tint: '#0c7343', title: 'Fast response', text: 'Usually within 1 business day' },
+  { icon: 'users', tint: '#6d3fc4', title: 'Real people', text: 'A friendly Australian-based team' },
+  { icon: 'shield', tint: '#1559b8', title: 'Your information is safe', text: 'All requests are secure and private' },
+  { icon: 'book', tint: '#9a5b06', title: 'Keep track', text: 'Every request gets a reference number and stays on your account' },
+];
+
+function HelpAside() {
+  return (
+    <aside className="support-aside">
+      <div className="support-aside-top">
+        <span className="support-aside-mark">
+          <Icon name="heart" size={22} />
+        </span>
+        <h2>We&rsquo;re here to help</h2>
+        <p>Our team will get back to you as soon as possible, usually within 1 business day.</p>
+      </div>
+
+      <ul className="support-aside-list">
+        {ASSURANCES.map((a) => (
+          <li key={a.title}>
+            <span className="support-aside-item-mark" style={{ background: `${a.tint}1a`, color: a.tint }}>
+              <Icon name={a.icon} size={17} />
+            </span>
+            <span style={{ minWidth: 0 }}>
+              <b>{a.title}</b>
+              <span>{a.text}</span>
+            </span>
+          </li>
+        ))}
+      </ul>
+
+      <div className="support-tip">
+        <Icon name="info" size={16} />
+        <p>
+          <strong>Tip. </strong>
+          The more detail you can give — including screenshots — the faster we can help.
+        </p>
+      </div>
+    </aside>
   );
 }
 
@@ -174,9 +214,10 @@ function NewTicket({ user, onRaised }) {
   }
 
   return (
+    <div className="support-layout">
     <form onSubmit={submit} className="card" style={{ padding: 20, display: 'flex', flexDirection: 'column', gap: 16 }}>
       <div>
-        <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 3 }}>What can we help with?</div>
+        <div style={{ fontWeight: 700, fontSize: 15.5, marginBottom: 3 }}>What can we help with?</div>
         <div style={{ fontSize: 12.5, color: 'var(--text-muted)', lineHeight: 1.55 }}>
           Choose the closest match. It decides who picks this up, so it is worth a moment.
         </div>
@@ -327,6 +368,13 @@ function NewTicket({ user, onRaised }) {
         Send request
       </button>
     </form>
+
+    {/* Beside the form on a wide screen and under it on a narrow one. It
+        answers what somebody wants to know before writing — how long, who
+        reads it, whether it goes anywhere — so it belongs next to the writing,
+        not after it. */}
+    <HelpAside />
+    </div>
   );
 }
 
@@ -486,7 +534,7 @@ export default function Support() {
   const showForm = writing || !user || (tickets && tickets.length === 0);
 
   return (
-    <div style={{ maxWidth: 840, display: 'flex', flexDirection: 'column', gap: 18 }}>
+    <div style={{ maxWidth: 1120, display: 'flex', flexDirection: 'column', gap: 18 }}>
       <div>
         <h1 style={{ margin: '0 0 6px', fontSize: 26 }}>Support</h1>
         <p style={{ color: 'var(--text-muted)', margin: 0, lineHeight: 1.6, maxWidth: 560 }}>

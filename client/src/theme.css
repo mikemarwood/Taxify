@@ -1811,3 +1811,81 @@ input[type="date"].input::-webkit-calendar-picker-indicator:hover { opacity: 1; 
 .filter-field .input { padding-left: 39px; }
 .filter-grow { flex: 1 1 200px; margin-left: auto; max-width: 320px; }
 @media (max-width: 640px) { .filter-grow { margin-left: 0; max-width: none; } }
+
+/* ---------------------------------------------------------------------------
+   Support.
+   ------------------------------------------------------------------------ */
+.support-layout { display: grid; grid-template-columns: minmax(0, 1fr) 330px; gap: 18px; align-items: start; }
+@media (max-width: 1000px) { .support-layout { grid-template-columns: 1fr; } }
+
+.support-cats { display: grid; gap: 9px; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); }
+.support-cat {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  text-align: left;
+  padding: 12px 12px 12px 11px;
+  border-radius: 11px;
+  cursor: pointer;
+  border: 1px solid var(--border);
+  background: var(--bg-card);
+  min-width: 0;
+}
+.support-cat:hover { border-color: var(--border-strong); }
+.support-cat.is-on { border-color: var(--accent); background: var(--accent-soft); box-shadow: 0 0 0 1px var(--accent); }
+.support-cat-mark {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+.support-cat.is-on .support-cat-mark { background: var(--accent); color: #fff; }
+.support-cat-name { display: block; font-size: 13px; font-weight: 700; }
+.support-cat-hint { display: block; font-size: 11.5px; color: var(--text-muted); line-height: 1.4; margin-top: 2px; }
+.support-cat-go { color: var(--text-subtle); flex-shrink: 0; }
+/* On a phone seven cards each with a line of explanation is most of the screen
+   before the form has started. The label alone still says which is which. */
+@media (max-width: 620px) { .support-cat-hint { display: none; } }
+
+.support-aside { display: flex; flex-direction: column; gap: 16px; }
+.support-aside-top {
+  padding: 20px;
+  border-radius: var(--radius-lg);
+  background: linear-gradient(160deg, #eef5ff, #e2eefe);
+  border: 1px solid var(--border);
+}
+.support-aside-mark {
+  width: 46px;
+  height: 46px;
+  border-radius: 14px;
+  display: grid;
+  place-items: center;
+  background: #fff;
+  color: var(--accent);
+  box-shadow: var(--shadow-sm);
+  margin-bottom: 12px;
+}
+.support-aside-top h2 { margin: 0 0 6px; font-size: 19px; font-weight: 800; letter-spacing: -0.5px; }
+.support-aside-top p { margin: 0; font-size: 13px; line-height: 1.55; color: var(--text-muted); }
+
+.support-aside-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 14px; }
+.support-aside-list li { display: flex; gap: 11px; align-items: flex-start; min-width: 0; }
+.support-aside-item-mark { width: 34px; height: 34px; border-radius: 10px; display: grid; place-items: center; flex-shrink: 0; }
+.support-aside-list b { display: block; font-size: 13px; font-weight: 700; }
+.support-aside-list li > span > span { display: block; font-size: 12px; color: var(--text-muted); line-height: 1.45; margin-top: 1px; }
+
+.support-tip {
+  display: flex;
+  gap: 10px;
+  padding: 14px;
+  border-radius: var(--radius);
+  background: var(--accent-soft);
+  border: 1px solid var(--accent-ring);
+}
+.support-tip svg { color: var(--accent); flex-shrink: 0; margin-top: 1px; }
+.support-tip p { margin: 0; font-size: 12.5px; line-height: 1.5; color: var(--text-muted); }
+.support-tip strong { color: var(--text); }
