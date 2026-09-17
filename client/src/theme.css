@@ -438,6 +438,24 @@ input[type="date"].input::-webkit-calendar-picker-indicator:hover { opacity: 1; 
   border-radius: 6px;
   padding: 0 !important;
 }
+/* Terms and Privacy are squares like the bell, not buttons that share the row
+   with Log out. Without this the flex rule above stretches them to a third of
+   the rail each and Log out loses its label.
+
+   26px rather than 28, and the row's gap drops with them: four controls in a
+   232px rail leaves Log out about ninety pixels, and at 28px its label wrapped
+   onto a second line. nowrap so it can never do that again — if it ever stops
+   fitting, the row should overflow visibly rather than quietly go two-storey. */
+.nav-foot-actions { gap: 6px; }
+.nav-foot-actions > .nav-btn { white-space: nowrap; }
+.nav-foot-actions > div { flex: 0 0 26px; }
+.nav-foot-actions > div > .nav-btn { width: 26px !important; }
+.nav-foot-actions > .nav-btn.icon-btn {
+  flex: 0 0 26px;
+  width: 26px;
+  padding: 0 !important;
+  justify-content: center;
+}
 
 .nav-item { transition: background 0.12s var(--ease-standard), color 0.12s var(--ease-standard); }
 .nav-item:hover { background: var(--nav-hover) !important; color: var(--nav-text-active) !important; }
@@ -698,7 +716,6 @@ input[type="date"].input::-webkit-calendar-picker-indicator:hover { opacity: 1; 
   }
   .app-sidebar .nav-brand,
   .app-sidebar .nav-scope,
-  .app-sidebar .nav-footer { display: none; }
 
   /* Quieter, and further apart. A stack of shouted labels between short lists
      was doing more separating than the space around them ever needed. */
@@ -725,6 +742,13 @@ input[type="date"].input::-webkit-calendar-picker-indicator:hover { opacity: 1; 
     height: 42px;
     font-size: 13px !important;
     gap: 7px !important;
+  }
+  /* The same squares in the drawer, at a finger's size. */
+  .app-sidebar .nav-foot-actions > .nav-btn.icon-btn {
+    flex: 0 0 42px;
+    width: 42px;
+    height: 42px;
+    padding: 0 !important;
   }
   .app-sidebar .nav-foot-actions > div > .nav-btn {
     width: 42px !important;

@@ -17,7 +17,6 @@ import { playClick } from '../lib/sounds.js';
 import { formatMoney } from '../lib/money.js';
 import { describeSubscription } from '../lib/subscription.js';
 import { currentPlanType, planLabel as labelForPlan } from '../lib/plans.js';
-import SiteFooter from './SiteFooter.jsx';
 import SharePrompt from './SharePrompt.jsx';
 import { useSupportCounts } from '../lib/useSupportCounts.js';
 import RailScrollbar from './RailScrollbar.jsx';
@@ -528,6 +527,7 @@ export default function Layout({ children }) {
             bottom: 0,
             background: 'var(--nav-bg)',
             paddingTop: 10,
+            paddingBottom: 4,
             display: 'flex',
             flexDirection: 'column',
             gap: 8,
@@ -633,16 +633,42 @@ export default function Layout({ children }) {
                 </span>
               </Link>
             )}
-            {/* One row: the bell as an icon square, Log out taking the rest.
-                Two equal text buttons never fit the rail's width — the labels
-                overflowed their own boxes — and both are pressed rarely enough
-                not to deserve as much of the drawer as the pages you go to. */}
+            {/* One row: the bell and the two legal pages as icon squares, Log
+                out taking the rest.
+
+                Terms and Privacy used to be a line of text under the card, in
+                a footer that also carried a copyright nobody reads on a page
+                they are signed in to. As glyphs they cost a few pixels rather
+                than two rows, and they stay reachable from inside the app —
+                which was the whole reason they were put in the rail. Both
+                carry a title and a label, because an icon alone does not say
+                which is which. */}
             <div className="nav-foot-actions">
               <NotificationBell compact />
 
+              <Link
+                to="/terms"
+                className="btn nav-btn icon-btn"
+                title="Terms of Service"
+                aria-label="Terms of Service"
+                onClick={playClick}
+              >
+                <Icon name="file" size={14} />
+              </Link>
+
+              <Link
+                to="/privacy"
+                className="btn nav-btn icon-btn"
+                title="Privacy Policy"
+                aria-label="Privacy Policy"
+                onClick={playClick}
+              >
+                <Icon name="lock" size={14} />
+              </Link>
+
               <button
                 className="btn nav-btn"
-                style={{ gap: 7 }}
+                style={{ gap: 7, flex: 1, minWidth: 0 }}
                 onClick={async () => {
                   playClick();
                   await logout();
@@ -653,12 +679,6 @@ export default function Layout({ children }) {
                 Log out
               </button>
             </div>
-          </div>
-
-          <div className="nav-footer">
-            {/* Centred. Left-aligned it sat under the account card and read
-                as another line of it rather than as the foot of the rail. */}
-            <SiteFooter tone="nav" align="center" style={{ padding: '4px 8px 0' }} />
           </div>
         </div>
       </aside>
