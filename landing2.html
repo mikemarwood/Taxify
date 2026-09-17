@@ -144,7 +144,10 @@
      A div, never a <header>. The hub deletes header, footer and several nav
      class names outright from the copy it serves, and this bar disappeared
      with them the first time it was marked up honestly. */
-  .lp-topbar { background: var(--navy-1); position: relative; z-index: 3; }
+  /* Transparent, and it sits inside .hero. The header is one painted field
+     with the light coming in at the corners, so a flat bar across the top of
+     it would cut the top-left flare off exactly where it is brightest. */
+  .lp-topbar { background: transparent; position: relative; z-index: 3; }
   .lp-topbar .wrap {
     display: flex;
     align-items: center;
@@ -167,16 +170,33 @@
      second row and push the one thing worth pressing off the first screen. */
   @media (max-width: 980px) { .topnav { display: none; } }
 
-  /* ---- Hero ---- */
+  /* ---- Hero ----
+
+     A deep navy field with the light coming in at the corners rather than a
+     gradient running corner to corner. Four glows over a flat ground: a tight
+     bright one at the top left, a wash down the right-hand edge, a wide soft
+     bloom at the bottom right, and a faint lift at the bottom left so that
+     corner does not go dead. The middle is left alone, which is what makes the
+     corners read as light — the darkest part of the band is the part with the
+     words on it, and that is also what keeps them legible.
+
+     One element paints all of it, the top bar included; the bar is a child and
+     transparent. Percentages, so the shape holds at any width. */
   .hero {
-    background:
-      radial-gradient(120% 130% at 78% 18%, rgba(26,124,240,.34) 0%, rgba(26,124,240,0) 58%),
-      linear-gradient(160deg, var(--navy-1) 0%, var(--navy-2) 62%, #0b1e3a 100%);
+    background-color: #061529;
+    background-image:
+      radial-gradient(52% 88% at -1% -4%, rgba(44,148,255,1) 0%, rgba(26,132,250,.74) 11%, rgba(26,124,240,.21) 38%, rgba(26,124,240,0) 65%),
+      radial-gradient(40% 108% at 105% 1%, rgba(26,132,250,.82) 0%, rgba(26,124,240,.14) 46%, rgba(26,124,240,0) 72%),
+      radial-gradient(54% 96% at 99% 106%, rgba(26,124,240,.46) 0%, rgba(26,124,240,0) 66%),
+      radial-gradient(46% 64% at -5% 110%, rgba(26,124,240,.26) 0%, rgba(26,124,240,0) 62%);
     color: #fff;
     position: relative;
     overflow: hidden;
   }
-  .hero .wrap {
+  /* Direct child. The trust strip and the top bar are both inside .hero and
+     both carry a .wrap, and a descendant selector here turned each of them
+     into a two-column grid. */
+  .hero > .wrap {
     display: grid;
     grid-template-columns: minmax(0, 1fr) minmax(0, 1.05fr);
     gap: clamp(22px, 4vw, 56px);
@@ -220,7 +240,7 @@
   /* Stacked below 860px, copy first. The phones are the illustration; the
      sentence and the button are the point, and on a phone they go first. */
   @media (max-width: 860px) {
-    .hero .wrap { grid-template-columns: 1fr; text-align: center; }
+    .hero > .wrap { grid-template-columns: 1fr; text-align: center; }
     .hero p { margin-left: auto; margin-right: auto; }
     .hero .btn { margin-inline: auto; }
   }
@@ -392,7 +412,33 @@
 
   /* ---- Devices line ---- */
   .devices-line { display: flex; align-items: center; justify-content: center; gap: 10px; flex-wrap: wrap; color: var(--body); font-size: 14px; text-align: center; margin: 0; }
-  .devices-get { display: inline-flex; align-items: center; gap: 7px; min-height: 44px; color: var(--blue); font-weight: 600; text-decoration: none; }
+  .devices-slot { margin: 14px 0 0; text-align: center; }
+  /* A button, not a blue word. The server decides where it goes — the APK on
+     an Android phone, and everywhere else #android-only, the panel at the foot
+     of this page that says the app is Android only and offers the browser
+     instead. See landingAppDownload.js; the panel opens on :target, so it
+     needs no script, which matters because the hub strips them all. */
+  .devices-get {
+    display: inline-flex;
+    align-items: center;
+    gap: 9px;
+    min-height: 44px;
+    padding: 10px 20px;
+    border-radius: 999px;
+    border: 1px solid var(--line);
+    background: var(--paper);
+    box-shadow: var(--shadow-card);
+    color: var(--ink);
+    font-size: 14.5px;
+    font-weight: 600;
+    text-decoration: none;
+    transition: border-color .15s ease, background .15s ease;
+  }
+  .devices-get svg { flex-shrink: 0; color: var(--blue); }
+  .devices-get:hover, .devices-get:focus-visible { border-color: var(--blue); background: var(--blue-soft); }
+  .devices-get:focus-visible { outline: 3px solid #9cc8fa; outline-offset: 2px; }
+  @media (prefers-reduced-motion: reduce) { .devices-get { transition: none; } }
+  .devices-note { font-size: 12px; color: var(--faint); }
 
   /* ---- Pricing ---- */
   .pricing .wrap { display: grid; grid-template-columns: minmax(0, .8fr) minmax(0, 1fr) minmax(0, 1fr) auto; gap: clamp(18px, 3vw, 34px); align-items: center; }
@@ -512,32 +558,37 @@
 </head>
 <body>
 
-  <!-- A div, not a header element. The hub strips header, footer and the common
-       nav class names out of the copy it serves, and this bar vanished with
-       them the first time it was written honestly. -->
-  <div class="lp-topbar">
-    <div class="wrap">
-      <a class="brand" href="/">
-        <img src="/logo.svg" alt="" width="34" height="34">
-        <span>
-          <span class="brand-name">Taxify</span>
-          <span class="brand-sub">Receipts. Sorted.</span>
-        </span>
-      </a>
-      <nav class="topnav" aria-label="Sections of this page">
-        <a href="#how">How It Works</a>
-        <a href="#features">Features</a>
-        <a href="#pricing">Pricing</a>
-        <a href="#tradies">For Tradies</a>
-        <a href="#rentals">For Rentals</a>
-      </nav>
-      <a class="btn btn-sm" href="https://taxify.mikesapphub.com/go/trial">Start Free for 14 Days</a>
-    </div>
-  </div>
-
   <main class="lp">
 
     <section class="hero">
+
+      <!-- A div, not a header element. The hub strips header, footer and the
+           common nav class names out of the copy it serves, and this bar
+           vanished with them the first time it was written honestly.
+
+           Inside the hero, so the one background paints the bar as well and
+           the flare in the top-left corner is not sliced off at the bar's
+           bottom edge. It is transparent; the hero is what you see through it. -->
+      <div class="lp-topbar">
+        <div class="wrap">
+          <a class="brand" href="/">
+            <img src="/logo.svg" alt="" width="34" height="34">
+            <span>
+              <span class="brand-name">Taxify</span>
+              <span class="brand-sub">Receipts. Sorted.</span>
+            </span>
+          </a>
+          <nav class="topnav" aria-label="Sections of this page">
+            <a href="#how">How It Works</a>
+            <a href="#features">Features</a>
+            <a href="#pricing">Pricing</a>
+            <a href="#tradies">For Tradies</a>
+            <a href="#rentals">For Rentals</a>
+          </nav>
+          <a class="btn btn-sm" href="https://taxify.mikesapphub.com/go/app" target="_blank" rel="noopener noreferrer">Open Taxify</a>
+        </div>
+      </div>
+
       <div class="wrap">
         <div>
           <p class="hero-eyebrow">
@@ -557,7 +608,7 @@
           <!-- Every button here goes through /go/trial. That hop is what counts
                the press: the hub strips scripts, so nothing in the page itself
                can report a click. See index.js. -->
-          <a class="btn" href="https://taxify.mikesapphub.com/go/trial">
+          <a class="btn" href="https://taxify.mikesapphub.com/go/trial" target="_blank" rel="noopener noreferrer">
             Start Free for 14 Days
             <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h13M13 6l6 6-6 6"/></svg>
           </a>
@@ -825,7 +876,9 @@
              are reading this on: a download on Android, and everywhere else the
              same button opening the panel that explains why not. The page
              cannot work this out for itself. See landingAppDownload.js. -->
-        <p class="devices-line" style="margin-top:8px">
+        <!-- No .devices-line on this wrapper: the server's markup brings its
+             own, and two of them nested one flex row inside another. -->
+        <p class="devices-slot">
           <!--APPDL-START--><!--APPDL-END-->
         </p>
       </div>
@@ -891,7 +944,7 @@
             <li><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6L9 17l-5-5"/></svg>Track your expenses</li>
             <li><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6L9 17l-5-5"/></svg>Stay organised at tax time</li>
           </ul>
-          <a class="btn btn-full" href="https://taxify.mikesapphub.com/go/trial">Start Free for 14 Days</a>
+          <a class="btn btn-full" href="https://taxify.mikesapphub.com/go/trial" target="_blank" rel="noopener noreferrer">Start Free for 14 Days</a>
         </div>
 
         <div class="plan">
@@ -904,7 +957,7 @@
             <li><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6L9 17l-5-5"/></svg>Business expense tracking</li>
             <li><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6L9 17l-5-5"/></svg>Built for tradies and small businesses</li>
           </ul>
-          <a class="btn btn-full" href="https://taxify.mikesapphub.com/go/trial">Start Free for 14 Days</a>
+          <a class="btn btn-full" href="https://taxify.mikesapphub.com/go/trial" target="_blank" rel="noopener noreferrer">Start Free for 14 Days</a>
         </div>
 
         <p class="pricing-note note">
@@ -974,7 +1027,7 @@
 
         <div class="closing-mid">
           <h2>Stop chasing receipts at tax time.<br><span>Start organising them today.</span></h2>
-          <a class="btn" style="margin-top:12px" href="https://taxify.mikesapphub.com/go/trial">
+          <a class="btn" style="margin-top:12px" href="https://taxify.mikesapphub.com/go/trial" target="_blank" rel="noopener noreferrer">
             Start Free for 14 Days
             <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h13M13 6l6 6-6 6"/></svg>
           </a>
@@ -1032,7 +1085,7 @@
       <h3>The app is Android only</h3>
       <p>There is no iPhone version yet, and this page cannot install one on the device you are reading it on.</p>
       <p>You are not missing anything, though. Taxify runs in the browser on any phone, tablet or computer &mdash; the same account, the same books, nothing to install.</p>
-      <a class="btn" href="https://taxify.mikesapphub.com/go/app">Open Taxify in this browser</a>
+      <a class="btn" href="https://taxify.mikesapphub.com/go/app" target="_blank" rel="noopener noreferrer">Open Taxify in this browser</a>
     </div>
   </div>
 

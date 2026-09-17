@@ -410,7 +410,12 @@ app.use('/api/analytics', analyticsRoutes);
 const GO_DESTINATIONS = {
   trial: { path: '/app/register', event: 'start_trial', label: 'Start your free trial' },
   login: { path: '/app/login', event: 'open_app', label: 'Log in' },
-  app: { path: '/app/login', event: 'open_app', label: 'Open Taxify' },
+  // The app's own front door rather than the login screen. Somebody already
+  // signed in lands where they left off; somebody who is not is sent to login
+  // by the app itself. Pointing this at /app/login made the first group sign
+  // in again for no reason, and Open Taxify in the top bar is aimed at exactly
+  // that group.
+  app: { path: '/app/', event: 'open_app', label: 'Open Taxify' },
 };
 
 app.get('/go/:what', async (req, res) => {
