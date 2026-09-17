@@ -629,6 +629,47 @@
      broken" meant. */
   .social-btn--messenger { display: none; }
   @media (pointer: coarse) { .social-btn--messenger { display: inline-flex; } }
+
+  /* ---- Surviving the hub ----
+
+     This page is served to real visitors by the Mikes App Hub proxy, which
+     wraps it and injects its own stylesheet. Three of those rules are aimed at
+     body and carry !important:
+
+       body { background: #070b14 !important }
+       body { color: #e2e8f0 !important }
+       body { padding-top: calc(68px + var(--mah-banner-h,0px)) !important }
+
+     The page that used to live here was dark, so a near-black ground and pale
+     text were what it wanted anyway and nobody noticed. This one is white, and
+     it arrived on the hub as white cards and washed-out headings on black.
+
+     `html body` is one step more specific than `body`, so it wins over those
+     regardless of which stylesheet the proxy puts last — which is the point,
+     because we do not control that order. The ground and the ink are also set
+     on .lp rather than left to inherit, so that anything the hub reaches body
+     with in future stops at the top of this page instead of running through it.
+
+     The padding is theirs, reserving room for a fixed bar. The bar is hidden
+     below, so only the bar's share of it is reclaimed — the hub can also show
+     an announcement strip above it, and that one still has to be cleared or it
+     would sit on top of this page. */
+  html body { background: var(--paper) !important; color: var(--ink) !important; padding-top: var(--mah-banner-h, 0px) !important; }
+  .lp { background: var(--paper); color: var(--ink); }
+
+  /* The hub's own bar. This page carries its own, with the same brand and the
+     same way into the app, and the two sat one on top of the other.
+
+     Two selectors deep on purpose. The hub sets `.mah-landing-nav { display:
+     flex !important }`, which is the same specificity as a bare class, so with
+     both marked important the winner is whichever stylesheet the proxy happens
+     to put last — and that is not ours to decide. `html body .mah-landing-nav`
+     outranks it outright.
+
+     Hidden from here because the page cannot reach the proxy's markup any
+     other way. The tidier fix is to stop the hub adding chrome to this app. */
+  html body .mah-landing-nav { display: none !important; }
+
 </style>
 </head>
 <body>
