@@ -67,33 +67,42 @@ export default function AuthSplit({ aside, topRight, children }) {
   );
 }
 
-// Each tile keeps its own colour. Four accents rather than one repeated four
-// times: the list is scanned, not read, and the colour is what a returning eye
-// lands on before any of the words.
-const FEATURES = [
+// The four audiences, the same four the landing page leads with, in the same
+// order and the same colours. Somebody arriving at sign-in from an ad has very
+// likely just read that row; seeing it again here is recognition rather than
+// repetition, and the disc colour is what carries it.
+const AUDIENCES = [
   {
-    icon: 'camera',
+    icon: 'wrench',
+    photo: '/media/show-tradie.jpg',
+    alt: 'A tradesman leaning against his ute, phone in hand',
     tint: 'linear-gradient(140deg, #2f8bf4, #1559b8)',
-    title: 'Upload receipts',
-    text: "Take a photo, we'll store it securely in the cloud.",
+    title: 'Tradies',
+    text: 'Fuel, tools, materials and meals.',
   },
   {
-    icon: 'chart',
+    icon: 'briefcase',
+    photo: '/media/show-business.jpg',
+    alt: 'A small-business owner standing in her café',
     tint: 'linear-gradient(140deg, #23a866, #0c7343)',
-    title: 'Track expenses',
-    text: 'View totals by category and year.',
+    title: 'Small Business',
+    text: 'Keep the books separate, ready for tax time.',
   },
   {
     icon: 'home',
+    photo: '/media/show-rental.jpg',
+    alt: 'A modern Australian house at dusk',
     tint: 'linear-gradient(140deg, #f0913a, #cf6a11)',
-    title: 'Property rentals',
-    text: 'Keep rental statements and end-of-year documents.',
+    title: 'Rental Properties',
+    text: 'Repairs, rates and maintenance in one place.',
   },
   {
-    icon: 'users',
+    icon: 'user',
+    photo: '/media/show-individual.jpg',
+    alt: 'A woman working at a laptop at her kitchen table',
     tint: 'linear-gradient(140deg, #9a6ae8, #6d3fc4)',
-    title: 'For individuals & businesses',
-    text: 'Simple, powerful and easy to use.',
+    title: 'Individuals',
+    text: 'Work-related and personal, never missed.',
   },
 ];
 
@@ -115,7 +124,6 @@ export function ProductPanel({ headline }) {
         flexDirection: 'column',
         gap: 26,
         minWidth: 0,
-        overflow: 'hidden',
       }}
     >
       {/* Hidden on a phone, where AuthMobileBrand has already said it at the
@@ -131,68 +139,56 @@ export function ProductPanel({ headline }) {
         </span>
       </div>
 
-      <div className="brand-split">
-        <div style={{ minWidth: 0, display: 'flex', flexDirection: 'column', gap: 20 }}>
-          <div>
-            <h2
-              style={{
-                margin: 0,
-                fontSize: 'clamp(25px, 2.6vw, 36px)',
-                lineHeight: 1.16,
-                letterSpacing: -1,
-                color: 'var(--nav-text-active)',
-                textWrap: 'balance',
-              }}
-            >
-              {headline || (
-                <>
-                  Every receipt where you left it,{' '}
-                  <span style={{ color: 'var(--nav-accent)' }}>come tax time.</span>
-                </>
-              )}
-            </h2>
-            <p style={{ margin: '12px 0 0', fontSize: 14, lineHeight: 1.6, color: 'var(--nav-text)', maxWidth: '42ch' }}>
-              Take a photo, we&rsquo;ll store it on the cloud. Keep your expenses organised, categorised and ready when
-              you need them.
-            </p>
-          </div>
-
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 15 }}>
-            {FEATURES.map((f, i) => (
-              <motion.div
-                key={f.title}
-                className="brand-feature"
-                initial={{ opacity: 0, x: -10 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1], delay: 0.15 + i * 0.07 }}
-              >
-                <span className="brand-feature-mark" style={{ background: f.tint }}>
-                  <Icon name={f.icon} size={20} />
-                </span>
-                <span style={{ minWidth: 0 }}>
-                  <span style={{ display: 'block', fontWeight: 700, fontSize: 14.5, color: 'var(--nav-text-active)' }}>
-                    {f.title}
-                  </span>
-                  <span style={{ display: 'block', fontSize: 13, color: 'var(--nav-text)', lineHeight: 1.5, marginTop: 1 }}>
-                    {f.text}
-                  </span>
-                </span>
-              </motion.div>
-            ))}
-          </div>
+      <div style={{ minWidth: 0, display: 'flex', flexDirection: 'column', gap: 22 }}>
+        <div>
+          <h2
+            style={{
+              margin: 0,
+              fontSize: 'clamp(25px, 2.6vw, 34px)',
+              lineHeight: 1.16,
+              letterSpacing: -1,
+              color: 'var(--nav-text-active)',
+              textWrap: 'balance',
+            }}
+          >
+            {headline || (
+              <>
+                Every receipt where you left it,{' '}
+                <span style={{ color: 'var(--nav-accent)' }}>come tax time.</span>
+              </>
+            )}
+          </h2>
+          <p style={{ margin: '12px 0 0', fontSize: 14, lineHeight: 1.6, color: 'var(--nav-text)', maxWidth: '46ch' }}>
+            Take a photo, we&rsquo;ll store it on the cloud. Keep your expenses organised, categorised and ready when
+            you need them.
+          </p>
         </div>
 
-        {/* The same photograph the landing page opens with: a receipt being
-            photographed, and the same purchase already filed beside it. */}
-        <img
-          className="brand-shot"
-          src="/media/hero-compare.jpg"
-          alt="A hand holding a phone photographing a receipt, and beside it the Taxify app showing the same purchase saved and categorised"
-          width="1200"
-          height="800"
-          loading="lazy"
-          decoding="async"
-        />
+        {/* The four the landing page leads with, in its order and its colours.
+            The photographs are the same files, so there is one copy of each to
+            replace rather than a set that can drift out of step. */}
+        <div className="brand-aud">
+          {AUDIENCES.map((a, i) => (
+            <motion.div
+              key={a.title}
+              className="brand-aud-card"
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1], delay: 0.15 + i * 0.07 }}
+            >
+              <div className="brand-aud-photo">
+                <img src={a.photo} alt={a.alt} width="1100" height="619" loading="lazy" decoding="async" />
+                <span className="brand-aud-mark" style={{ background: a.tint }}>
+                  <Icon name={a.icon} size={16} />
+                </span>
+              </div>
+              <div className="brand-aud-body">
+                <b>{a.title}</b>
+                <span>{a.text}</span>
+              </div>
+            </motion.div>
+          ))}
+        </div>
       </div>
 
       <div className="brand-foot" style={{ marginTop: 'auto', display: 'flex', flexDirection: 'column', gap: 18, paddingTop: 8 }}>

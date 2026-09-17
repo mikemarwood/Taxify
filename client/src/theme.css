@@ -614,32 +614,44 @@ input[type="date"].input::-webkit-calendar-picker-indicator:hover { opacity: 1; 
 .auth-assurance b { display: block; font-size: 11.5px; font-weight: 700; line-height: 1.25; }
 .auth-assurance span { display: block; font-size: 10.5px; line-height: 1.3; }
 
-/* The brand panel's own two columns: the words, and the photograph.
+/* Who it is for, on the brand panel: the same four the landing page leads
+   with, in its order and its colours, sharing its photographs.
 
-   A container query, not a media query. This panel is a percentage of the
-   window, so a viewport breakpoint says nothing useful about how much room it
-   actually has — at 1440px the window is wide and the panel is 660px, which is
-   not enough for a feature list and a photograph side by side. The panel asks
-   about itself instead. */
+   A container query rather than a media query for the column count. This panel
+   is a percentage of the window, so a viewport breakpoint says nothing useful
+   about how much room it actually has — at 1440px the window is wide and the
+   panel is about 660px. The panel asks about itself instead. */
 .signup-brand { container-type: inline-size; }
-.brand-split { display: grid; grid-template-columns: 1fr; gap: clamp(18px, 3vw, 34px); align-items: center; }
-@container (min-width: 780px) {
-  .brand-split { grid-template-columns: minmax(0, 1fr) minmax(0, 0.9fr); }
+.brand-aud { display: grid; grid-template-columns: 1fr; gap: 12px; }
+@container (min-width: 420px) {
+  .brand-aud { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
-.brand-shot { width: 100%; height: auto; border-radius: 14px; display: block; }
-
-/* The feature list on the brand panel: a coloured tile, a name, a line. */
-.brand-feature { display: flex; gap: 13px; align-items: flex-start; }
-.brand-feature-mark {
-  width: 42px;
-  height: 42px;
+.brand-aud-card {
+  min-width: 0;
+  background: rgba(255, 255, 255, 0.055);
+  border: 1px solid var(--nav-border);
   border-radius: 12px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: #fff;
-  flex-shrink: 0;
+  overflow: hidden;
 }
+.brand-aud-photo { position: relative; aspect-ratio: 16 / 9; background: rgba(255, 255, 255, 0.05); }
+.brand-aud-photo img { width: 100%; height: 100%; object-fit: cover; display: block; }
+/* The disc straddles the join, as it does on the landing page — it is what
+   carries the colour, and the colour is what the row is scanned by. */
+.brand-aud-mark {
+  position: absolute;
+  left: 12px;
+  bottom: -15px;
+  width: 31px;
+  height: 31px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  color: #fff;
+  box-shadow: 0 3px 10px rgba(4, 10, 20, 0.45);
+}
+.brand-aud-body { padding: 21px 12px 12px; }
+.brand-aud-body b { display: block; font-size: 13.5px; font-weight: 700; letter-spacing: -0.2px; color: var(--nav-text-active); }
+.brand-aud-body span { display: block; margin-top: 2px; font-size: 11.5px; line-height: 1.4; color: var(--nav-text); }
 
 /* ---------------------------------------------------------------------------
    Small screens.
