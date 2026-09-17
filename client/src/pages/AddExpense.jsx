@@ -367,7 +367,7 @@ export default function AddExpense() {
             {BANNER_CHIPS.map((c) => (
               <span className="ae-chip" key={c.title}>
                 <span className="ae-chip-mark" style={{ background: c.tint }}>
-                  <Icon name={c.icon} size={15} />
+                  <Icon name={c.icon} size={13} />
                 </span>
                 <span style={{ minWidth: 0 }}>
                   <b>{c.title}</b>

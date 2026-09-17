@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { AnimatePresence, motion } from 'framer-motion';
 import Icon from '../components/Icon.jsx';
-import { AuthSplitFrame, AuthMobileBrand } from '../components/AuthSplit.jsx';
+import AuthSplit, { AuthSplitFrame, AuthMobileBrand } from '../components/AuthSplit.jsx';
 import AuthLayout from './AuthLayout.jsx';
 import SignupArtwork from '../components/SignupArtwork.jsx';
 import { api } from '../lib/api.js';
@@ -460,7 +460,21 @@ export default function Register() {
   // sign-up flashed the whole thing up for a second or two before replacing
   // it, which reads as the page changing its mind. A brief hold is better than
   // showing somebody a form they are about to be told they cannot use.
-  if (!options) return <AuthLayout title="Create your account" subtitle="One moment…"><div /></AuthLayout>;
+  //
+  // Held in the frame this page is about to use, not in a card of its own. It
+  // was an AuthLayout titled "Create your account — One moment…", which is a
+  // whole different layout: pressing Create an account put a card on screen for
+  // a few frames and then threw it away for the form. The wait is real and
+  // worth having; announcing it twice over is not. The brand side is the same
+  // either way, so what somebody sees now is the panel arriving and the fields
+  // filling in beside it.
+  if (!options) {
+    return (
+      <AuthSplit>
+        <div />
+      </AuthSplit>
+    );
+  }
 
   const selectedPlan = plans.find((p) => p.planType === planType) || null;
   const trialDays = options?.trialDays || 14;
