@@ -23,6 +23,14 @@ import DateField from '../components/DateField.jsx';
 // The three things this page can add. A receipt is the common one and stays
 // the default; the other two are the deductions that have no receipt to
 // attach, which is the only reason they were ever a separate page.
+// What the banner promises, in the order somebody does it: put it in, know it
+// is safe, get it out again.
+const BANNER_CHIPS = [
+  { icon: 'camera', tint: 'linear-gradient(140deg, #2f8bf4, #1559b8)', title: 'Keep it organised', text: 'Add receipts in seconds' },
+  { icon: 'upload', tint: 'linear-gradient(140deg, #23a866, #0c7343)', title: 'Stored securely', text: 'In the cloud' },
+  { icon: 'chart', tint: 'linear-gradient(140deg, #9a6ae8, #6d3fc4)', title: 'Ready for tax time', text: 'Find, track and export easily' },
+];
+
 const KINDS = [
   { id: 'receipt', tab: 'Receipt', icon: 'receipt', heading: 'Add expense', blurb: 'Log a purchase and attach the receipt.' },
   { id: 'trip', tab: 'Vehicle trip', icon: 'car', heading: 'Add a trip', blurb: 'Odometer at the start and the finish — the distance works itself out.' },
@@ -344,9 +352,30 @@ export default function AddExpense() {
   const chosen = KINDS.find((k) => k.id === kind);
 
   return (
-    <div style={{ maxWidth: kind === 'receipt' ? 560 : 940 }}>
-      <h1 style={{ margin: '0 0 4px', fontSize: 26 }}>{chosen.heading}</h1>
-      <p style={{ color: 'var(--text-muted)', margin: '0 0 20px' }}>{chosen.blurb}</p>
+    <div style={{ maxWidth: kind === 'receipt' ? 760 : 940 }}>
+      {/* The picture is decorative and says so: everything it shows is said in
+          words beside it, and a screen reader announcing "receipt and phone"
+          before the heading would be noise. */}
+      <div className="ae-banner">
+        <div className="ae-banner-copy">
+          <h1>{chosen.heading}</h1>
+          <p>{chosen.blurb}</p>
+          <div className="ae-chips">
+            {BANNER_CHIPS.map((c) => (
+              <span className="ae-chip" key={c.title}>
+                <span className="ae-chip-mark" style={{ background: c.tint }}>
+                  <Icon name={c.icon} size={15} />
+                </span>
+                <span style={{ minWidth: 0 }}>
+                  <b>{c.title}</b>
+                  <span>{c.text}</span>
+                </span>
+              </span>
+            ))}
+          </div>
+        </div>
+        <img className="ae-banner-art" src="/media/add-expense-art.jpg" alt="" width="717" height="724" />
+      </div>
 
       {/* Three things get claimed, and only one of them comes with a receipt.
           Kilometres and hours used to live on a page of their own, so logging a
@@ -357,6 +386,15 @@ export default function AddExpense() {
           just lodged and what to do next; a row of tabs above it offers a
           fourth answer to a question nobody asked, and switching tab there
           would clear the confirmation without saying so. */}
+      {!saved && (
+      <div className="ae-step" style={{ marginBottom: 12 }}>
+        <span className="ae-step-n">1</span>
+        <div>
+          <h2>Expense type</h2>
+          <p>Choose how you want to add this expense.</p>
+        </div>
+      </div>
+      )}
       {!saved && (
       <div className="add-kind" role="tablist" aria-label="What are you adding">
         {KINDS.map((k) => (
@@ -414,6 +452,14 @@ export default function AddExpense() {
         className="card"
         style={{ padding: 24, display: kind === 'receipt' && !saved ? 'flex' : 'none', flexDirection: 'column', gap: 18 }}
       >
+        <div className="ae-step">
+          <span className="ae-step-n">2</span>
+          <div>
+            <h2>Expense details</h2>
+            <p>Enter the details of your purchase.</p>
+          </div>
+        </div>
+
         {/* Shown only once there is more than one set of books to choose
             between. Asking is more honest than hiding the form: "Everything" is
             a way of looking at records, not a place to put one. */}
@@ -814,6 +860,16 @@ export default function AddExpense() {
           )}
         </div>
 
+        <hr className="ae-rule" />
+
+        <div className="ae-step">
+          <span className="ae-step-n">3</span>
+          <div>
+            <h2>Additional information</h2>
+            <p>Add any extra notes to help you later (optional).</p>
+          </div>
+        </div>
+
         <div>
           <label className="label">Notes (optional)</label>
           <textarea
@@ -826,6 +882,16 @@ export default function AddExpense() {
           />
           <div style={{ fontSize: 11.5, minHeight: 15, marginTop: 4, color: 'var(--text-muted)' }}>
             {notes.length > NOTES_MAX - 100 ? `${NOTES_MAX - notes.length} characters left` : ''}
+          </div>
+        </div>
+
+        <hr className="ae-rule" />
+
+        <div className="ae-step">
+          <span className="ae-step-n">4</span>
+          <div>
+            <h2>Add receipt</h2>
+            <p>Upload a photo or PDF of your receipt.</p>
           </div>
         </div>
 
