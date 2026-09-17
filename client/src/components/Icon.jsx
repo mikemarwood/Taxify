@@ -265,6 +265,8 @@ const PATHS = {
   // "and then this happens", for a button that goes somewhere. `pointer` is a
   // mouse cursor and kept getting used for this.
   'arrow-right': <path d="M5 12h13M13 6l6 6-6 6" />,
+  // Movement on a figure, not navigation.
+  'arrow-up': <path d="M12 19V5M6 11l6-6 6 6" />,
   gift: (
     <>
       <rect x="3" y="9.5" width="18" height="11.5" rx="1.5" />

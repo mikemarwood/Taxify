@@ -3,6 +3,8 @@ import { motion } from 'framer-motion';
 import { formatMoney, claimable } from '../lib/money.js';
 import { formatDateLong } from '../lib/dates.js';
 import { financialYearRange } from '../lib/financialYear.js';
+import StatTile from './StatTile.jsx';
+import Icon from './Icon.jsx';
 
 // Two charts and a countdown, all reading from the same filtered expense list.
 //
@@ -38,14 +40,24 @@ function niceCeiling(value) {
   return magnitude * 10;
 }
 
-function Panel({ title, subtitle, children, action }) {
+// The mark is not decoration: two panels of identical grey heading text sat
+// side by side and had to be read to be told apart. One glyph each, and they
+// are recognised instead.
+function Panel({ icon, title, subtitle, children, action }) {
   return (
-    <div className="card" style={{ padding: 20, display: 'flex', flexDirection: 'column', gap: 4, minWidth: 0 }}>
-      <div style={{ display: 'flex', alignItems: 'baseline', gap: 10 }}>
-        <h2 style={{ margin: 0, fontSize: 15, fontWeight: 700 }}>{title}</h2>
+    <div className="card" style={{ padding: 20, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
+      <div className="panel-head">
+        {icon && (
+          <span className="panel-head-mark">
+            <Icon name={icon} size={17} />
+          </span>
+        )}
+        <div style={{ minWidth: 0, flex: 1 }}>
+          <h2>{title}</h2>
+          <p>{subtitle}</p>
+        </div>
         {action}
       </div>
-      <p style={{ margin: '0 0 14px', fontSize: 12.5, color: 'var(--text-muted)' }}>{subtitle}</p>
       {children}
     </div>
   );
@@ -53,7 +65,7 @@ function Panel({ title, subtitle, children, action }) {
 
 // --- Days to the end of the financial year -------------------------------
 
-export function FinancialYearCountdown({ financialYear, rule }) {
+export function FinancialYearCountdown({ financialYear, rule, delay = 0 }) {
   const { daysLeft, elapsed, endLabel } = useMemo(() => {
     // Taken from the account's own rule rather than assumed. This used to be
     // hard-coded to 1 July – 30 June, so a UK account counting down to 5 April
@@ -76,28 +88,33 @@ export function FinancialYearCountdown({ financialYear, rule }) {
 
   const past = daysLeft === 0;
 
+  // The same tile as the three beside it, so the row reads as one row. The
+  // meter is the part only this one has: the number is meaningless without
+  // knowing how far through the year it is.
   return (
-    <div className="card" style={{ padding: 20, display: 'flex', flexDirection: 'column', gap: 8 }}>
-      <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>
-        {past ? 'Financial year closed' : 'Days to end of financial year'}
-      </div>
-
-      <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
-        <span style={{ fontSize: 30, fontWeight: 800, fontVariantNumeric: 'tabular-nums', letterSpacing: -0.5 }}>
+    <StatTile
+      icon="calendar"
+      tint="amber"
+      label={past ? 'Financial year closed' : 'Days to end of financial year'}
+      value={
+        <>
           {past ? '—' : daysLeft}
-        </span>
-        {!past && <span style={{ fontSize: 13, color: 'var(--text-muted)' }}>{daysLeft === 1 ? 'day' : 'days'}</span>}
-      </div>
-
-      {/* A meter, not a chart: it shows how far through the year you are, which
-          is the context the number needs. */}
+          {!past && (
+            <span style={{ fontSize: 13, fontWeight: 500, color: 'var(--text-muted)', marginLeft: 6, letterSpacing: 0 }}>
+              {daysLeft === 1 ? 'day' : 'days'}
+            </span>
+          )}
+        </>
+      }
+      delay={delay}
+    >
       <div
         role="progressbar"
         aria-valuenow={Math.round(elapsed)}
         aria-valuemin={0}
         aria-valuemax={100}
         aria-label="Financial year elapsed"
-        style={{ height: 6, borderRadius: 999, background: 'var(--bg-inset)', overflow: 'hidden' }}
+        style={{ height: 6, borderRadius: 999, background: 'var(--bg-inset)', overflow: 'hidden', marginTop: 10 }}
       >
         <motion.div
           initial={{ width: 0 }}
@@ -107,10 +124,10 @@ export function FinancialYearCountdown({ financialYear, rule }) {
         />
       </div>
 
-      <div style={{ fontSize: 11.5, color: 'var(--text-muted)' }}>
+      <div style={{ fontSize: 11.5, color: 'var(--text-muted)', marginTop: 8 }}>
         FY {financialYear} ends {endLabel}
       </div>
-    </div>
+    </StatTile>
   );
 }
 
@@ -140,7 +157,7 @@ export function MonthlySpendChart({ expenses, financialYear }) {
   const anySpend = max > 0;
 
   return (
-    <Panel title="Spending by month" subtitle={`Every expense in FY ${financialYear}, month by month.`}>
+    <Panel icon="chart" title="Spending by month" subtitle={`Every expense in FY ${financialYear}, month by month.`}>
       {!anySpend ? (
         <Empty>Nothing recorded in this financial year yet.</Empty>
       ) : (
@@ -293,7 +310,7 @@ export function CategorySpendChart({ byCategory, onSelect }) {
   const grandTotal = rows.reduce((s, r) => s + r.total, 0);
 
   return (
-    <Panel title="Where it went" subtitle="Categories ranked by spend — biggest first.">
+    <Panel icon="palette" title="Where it went" subtitle="Categories ranked by spend — biggest first.">
       {rows.length === 0 ? (
         <Empty>No categories with spending yet.</Empty>
       ) : (

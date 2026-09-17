@@ -13,6 +13,8 @@ import { defaultFinancialYear, financialYearSpan } from '../lib/financialYear.js
 import Icon from '../components/Icon.jsx';
 import { claimable } from '../lib/money.js';
 import { FinancialYearCountdown, MonthlySpendChart, CategorySpendChart } from '../components/SpendCharts.jsx';
+import StatTile from '../components/StatTile.jsx';
+import { changeBetween } from '../lib/change.js';
 import { useAuth } from '../lib/AuthContext.jsx';
 import { describeSubscription, toneColor } from '../lib/subscription.js';
 import { formatDayMonth } from '../lib/dates.js';
@@ -64,16 +66,40 @@ export default function Dashboard() {
 
   const total = filtered.reduce((sum, e) => sum + claimable(e), 0);
 
-  const thisMonthTotal = useMemo(() => {
-    if (!expenses) return 0;
+  // This month and the one before it, in one pass, plus how many entries are
+  // new this month. The month before is what the tile compares against.
+  //
+  // Month and year are compared as a pair rather than by month alone: last
+  // January and this January are the same getMonth().
+  const { thisMonthTotal, lastMonthTotal, thisMonthCount } = useMemo(() => {
+    if (!expenses) return { thisMonthTotal: 0, lastMonthTotal: 0, thisMonthCount: 0 };
     const now = new Date();
-    return expenses
-      .filter((e) => {
-        const d = new Date(e.purchaseDate);
-        return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
-      })
-      .reduce((sum, e) => sum + claimable(e), 0);
+    const prev = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+    let current = 0;
+    let before = 0;
+    let count = 0;
+    for (const e of expenses) {
+      const d = new Date(e.purchaseDate);
+      if (d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear()) {
+        current += claimable(e);
+        count += 1;
+      } else if (d.getMonth() === prev.getMonth() && d.getFullYear() === prev.getFullYear()) {
+        before += claimable(e);
+      }
+    }
+    return { thisMonthTotal: current, lastMonthTotal: before, thisMonthCount: count };
   }, [expenses]);
+
+  // The same financial year, one year earlier. Missing entirely on a first
+  // year, which is exactly when the tile should say nothing — changeBetween
+  // returns null for it.
+  const previousYearTotal = useMemo(() => {
+    if (!expenses || !year) return 0;
+    const [from, to] = String(year).split('-').map(Number);
+    if (!from || !to) return 0;
+    const before = `${from - 1}-${to - 1}`;
+    return expenses.filter((e) => e.financialYear === before).reduce((sum, e) => sum + claimable(e), 0);
+  }, [expenses, year]);
 
   const byCategory = useMemo(() => {
     const map = new Map();
@@ -195,38 +221,50 @@ export default function Dashboard() {
       <UnconvertedNotice expenses={expenses} />
 
       {loading ? (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 16, marginBottom: 24 }}>
+        <div className="stat-row">
           <SkeletonStat />
           <SkeletonStat />
           <SkeletonStat />
           <SkeletonStat />
         </div>
       ) : (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 16, marginBottom: 24 }}>
-          <motion.div className="card" style={{ padding: 20 }} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}>
-            <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>Total tracked</div>
-            <div style={{ fontSize: 26, fontWeight: 800, marginTop: 6 }}>
-              <AnimatedNumber value={total} />
-            </div>
-          </motion.div>
-          <motion.div className="card" style={{ padding: 20 }} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }}>
-            <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>Claimed this month</div>
-            <div style={{ fontSize: 26, fontWeight: 800, marginTop: 6 }}>
-              <AnimatedNumber value={thisMonthTotal} />
-            </div>
-          </motion.div>
-          <motion.div className="card" style={{ padding: 20 }} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
-            <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>Entries</div>
-            <div style={{ fontSize: 26, fontWeight: 800, marginTop: 6 }}>{filtered.length}</div>
-          </motion.div>
-          <motion.div className="card" style={{ padding: 20 }} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }}>
-            <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>Top category</div>
-            <div style={{ fontSize: 18, fontWeight: 700, marginTop: 6 }}>{byCategory[0]?.name || '—'}</div>
-          </motion.div>
+        <div className="stat-row">
+          {/* Each figure keeps its own colour for good — the row is scanned by
+              hue, not read left to right. The movement under each is only
+              drawn where there is a period before it to compare against. */}
+          <StatTile
+            icon="cash"
+            tint="blue"
+            label="Total tracked"
+            value={<AnimatedNumber value={total} />}
+            change={changeBetween(total, previousYearTotal)}
+            changeNote="vs previous year"
+          />
+          <StatTile
+            icon="receipt"
+            tint="green"
+            label="Claimed this month"
+            value={<AnimatedNumber value={thisMonthTotal} />}
+            change={changeBetween(thisMonthTotal, lastMonthTotal)}
+            changeNote="vs previous month"
+            delay={0.05}
+          />
+          <StatTile
+            icon="file"
+            tint="violet"
+            label="Entries"
+            value={filtered.length}
+            delay={0.1}
+          >
+            {thisMonthCount > 0 && (
+              <div className="stat-tile-change" style={{ color: 'var(--text-muted)' }}>
+                <strong style={{ color: 'var(--green)' }}>+{thisMonthCount}</strong>
+                new this month
+              </div>
+            )}
+          </StatTile>
 
-          <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}>
-            <FinancialYearCountdown financialYear={year} rule={user?.financialYearRule} />
-          </motion.div>
+          <FinancialYearCountdown financialYear={year} rule={user?.financialYearRule} delay={0.15} />
 
           {/* Only while something is actually running out.
 
@@ -304,8 +342,16 @@ export default function Dashboard() {
         </div>
       )}
 
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10, flexWrap: 'wrap' }}>
-        <div style={{ fontWeight: 700 }}>{categoryFilter ? `${categoryFilter} entries` : 'Recent expenses'}</div>
+      {/* The heading carries the same mark as the panels above it, so the three
+          blocks on this page read as a set rather than as a page that changed
+          its mind halfway down. */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12, flexWrap: 'wrap' }}>
+        <span className="panel-head-mark">
+          <Icon name="list" size={17} />
+        </span>
+        <div style={{ fontWeight: 700, fontSize: 15.5, letterSpacing: -0.2 }}>
+          {categoryFilter ? `${categoryFilter} entries` : 'Recent expenses'}
+        </div>
         {categoryFilter && (
           <button
             className="btn btn-ghost"

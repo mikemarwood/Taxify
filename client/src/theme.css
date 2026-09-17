@@ -1557,3 +1557,49 @@ input[type="date"].input::-webkit-calendar-picker-indicator:hover { opacity: 1; 
   cursor: pointer;
 }
 .share-prompt-close:hover { color: var(--text); }
+
+/* ---------------------------------------------------------------------------
+   The figures across the top of the dashboard.
+
+   A row of tiles that are scanned rather than read: the coloured disc is what
+   the eye lands on first, so each figure keeps its own hue for good. The
+   numbers are tabular, because four tiles whose digits do not line up read as
+   four unrelated boxes.
+   ------------------------------------------------------------------------ */
+.stat-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 16px; margin-bottom: 24px; }
+.stat-tile { display: flex; align-items: flex-start; gap: 14px; padding: 18px; }
+.stat-tile-mark {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+}
+.stat-tile-label { font-size: 12.5px; color: var(--text-muted); line-height: 1.3; }
+.stat-tile-value {
+  margin-top: 3px;
+  font-size: 25px;
+  font-weight: 800;
+  letter-spacing: -0.7px;
+  line-height: 1.15;
+  font-variant-numeric: tabular-nums;
+}
+.stat-tile-change { display: flex; align-items: center; gap: 5px; margin-top: 7px; font-size: 12px; }
+.stat-tile-change svg { flex-shrink: 0; }
+
+/* The heading of a panel: a tinted mark, a name, and the line that says what
+   the panel is actually showing. */
+.panel-head { display: flex; align-items: flex-start; gap: 11px; margin-bottom: 14px; }
+.panel-head-mark {
+  width: 32px;
+  height: 32px;
+  border-radius: 9px;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+.panel-head h2 { margin: 0; font-size: 15.5px; font-weight: 700; letter-spacing: -0.2px; }
+.panel-head p { margin: 2px 0 0; font-size: 12.5px; color: var(--text-muted); line-height: 1.4; }
