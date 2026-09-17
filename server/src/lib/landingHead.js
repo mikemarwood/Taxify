@@ -1,5 +1,11 @@
 // The landing page's own head, put back after the hub has replaced it.
 //
+// The share image is its own file, not the hero. The hero is transparent, and
+// Facebook and LinkedIn flatten transparency against whatever they please —
+// usually black — then crop to roughly 1.91:1. share-card.jpg is the same
+// picture composited on the hero's navy at 1200x630, which is the shape they
+// were going to cut anyway.
+//
 // A real visitor is served the hub's copy of this page, and the hub does not
 // merely wrap it — it rewrites the head. Measured against the live page rather
 // than assumed, everything below was the hub's:
@@ -68,7 +74,7 @@ function structuredData() {
     operatingSystem: 'Web, Android',
     url: `${ORIGIN}/`,
     description: DESCRIPTION,
-    image: `${ORIGIN}/media/hero-compare.jpg`,
+    image: `${ORIGIN}/media/share-card.jpg`,
     inLanguage: 'en-AU',
     publisher: { '@type': 'Organization', name: 'Mikes App Hub', url: 'https://mikesapphub.com' },
     offers: [
@@ -98,15 +104,15 @@ export function taxifyHeadHtml() {
     meta('property', 'og:url', `${ORIGIN}/`) +
     meta('property', 'og:title', SHARE_TITLE) +
     meta('property', 'og:description', SHARE_DESCRIPTION) +
-    meta('property', 'og:image', `${ORIGIN}/media/hero-compare.jpg`) +
+    meta('property', 'og:image', `${ORIGIN}/media/share-card.jpg`) +
     meta('property', 'og:image:width', '1200') +
-    meta('property', 'og:image:height', '800') +
+    meta('property', 'og:image:height', '630') +
     meta('property', 'og:image:alt', 'A receipt being photographed, and the same purchase already filed in Taxify') +
     meta('property', 'og:locale', 'en_AU') +
     meta('name', 'twitter:card', 'summary_large_image') +
     meta('name', 'twitter:title', SHARE_TITLE) +
     meta('name', 'twitter:description', SHARE_DESCRIPTION) +
-    meta('name', 'twitter:image', `${ORIGIN}/media/hero-compare.jpg`) +
+    meta('name', 'twitter:image', `${ORIGIN}/media/share-card.jpg`) +
     `<script type="application/ld+json">${JSON.stringify(structuredData())}</script>`
   );
 }

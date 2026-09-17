@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import PageBanner from '../components/PageBanner.jsx';
 import { describeHours } from '../lib/accessWindow.js';
 import { OFF_SCREEN_INPUT } from '../lib/fileInput.js';
 import { motion } from 'framer-motion';
@@ -1799,10 +1800,7 @@ export default function Account() {
 
   return (
     <div style={{ maxWidth: 780, display: 'flex', flexDirection: 'column', gap: 20 }}>
-      <div>
-        <h1 style={{ margin: '0 0 4px', fontSize: 26 }}>Account settings</h1>
-        <p style={{ color: 'var(--text-muted)', margin: 0 }}>Update your details, password, and how you sign in.</p>
-      </div>
+      <PageBanner title="Account settings" blurb="Update your details, password, and how you sign in." />
 
       <div
         role="tablist"

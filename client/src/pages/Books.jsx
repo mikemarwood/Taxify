@@ -1,4 +1,5 @@
 import EntityManager from '../components/EntityManager.jsx';
+import PageBanner from '../components/PageBanner.jsx';
 import { useEntities } from '../lib/EntityContext.jsx';
 import { useAuth } from '../lib/AuthContext.jsx';
 import { filingNoun } from '../lib/taxWords.js';
@@ -20,12 +21,10 @@ export default function Books() {
 
   return (
     <div style={{ maxWidth: 940 }}>
-      <div style={{ marginBottom: 22 }}>
-        <h1 style={{ margin: '0 0 4px', fontSize: 26 }}>Your books</h1>
-        <p style={{ color: 'var(--text-muted)', margin: 0 }}>
-          Every expense, category, report and {filingWord} belongs to one of these.
-        </p>
-      </div>
+      <PageBanner
+        title="Your books"
+        blurb={`Every expense, category, report and ${filingWord} belongs to one of these.`}
+      />
 
       {/* What the plan allows, said before somebody types a name and is
           refused. The manager below repeats the refusal at the point of

@@ -755,10 +755,19 @@
         <!-- The photograph the mock-up was drawn around: the receipt in a hand,
              and the same purchase already filed beside it. Two phones were
              built in CSS while this did not exist; now it does, and a real
-             photograph of the thing happening beats a drawing of it. -->
-        <img class="hero-shot" src="/media/hero-compare.jpg"
-             alt="A hand holding a phone photographing a Bunnings receipt, and beside it the Taxify app showing the same purchase saved and categorised, ready for tax time"
-             width="1200" height="800" fetchpriority="high" decoding="async">
+             photograph of the thing happening beats a drawing of it.
+
+             WebP, and transparent. The picture has no background of its own,
+             so it sits on the hero's gradient and its corner glows rather than
+             on a rectangle of one flat colour that would show its edges. As a
+             PNG that transparency cost 1.2MB for the first thing on the page;
+             the same image as WebP is 150KB. No fallback: every browser that
+             can run this page has read WebP for years, and the hub mangles a
+             srcset into one malformed URL, so a picture element here would be
+             a way of shipping nothing. -->
+        <img class="hero-shot" src="/media/hero-shot.webp"
+             alt="A hand holding a phone photographing a Bunnings receipt, and beside it the Taxify app showing the same purchase saved, categorised and ready for tax time"
+             width="1100" height="825" fetchpriority="high" decoding="async">
 </div>
       </div>
 
