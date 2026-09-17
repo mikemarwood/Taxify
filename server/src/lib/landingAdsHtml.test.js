@@ -26,7 +26,7 @@ test('nothing uploaded removes the whole section', () => {
   assert.ok(!out.includes('/media/ads/ad-1'));
   assert.ok(!out.includes('/media/ads/ad-2'));
   assert.ok(!out.includes('<!--ADS-START-->'));
-  assert.ok(!out.includes('See it in action'));
+  assert.ok(!out.includes('aria-label="Watch Taxify"'));
   // The rest of the page is untouched — the cut is bounded by its markers.
   assert.ok(out.includes('</html>'));
   assert.ok(out.length < LANDING.length);
@@ -36,7 +36,7 @@ test('one film keeps its own frame and drops the other', () => {
   const out = cutEmptyAdSlots(LANDING, ['ad-2']);
   assert.ok(!out.includes('/media/ads/ad-1'), 'the empty slot should be gone');
   assert.ok(out.includes('/media/ads/ad-2'), 'the uploaded slot should stay');
-  assert.ok(out.includes('See it in action'), 'the section stays for one film');
+  assert.ok(out.includes('aria-label="Watch Taxify"'), 'the section stays for one film');
 });
 
 test('the other way round, so the loop is not just cutting the first', () => {

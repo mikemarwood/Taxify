@@ -4,35 +4,21 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Taxify — Snap your receipts, sorted for tax time</title>
-<meta name="description" content="Still keeping receipts in the ute? Photograph a receipt and Taxify files it — right category, right tax year. Work, business and rental expenses organised and ready for tax time. 14-day free trial, no credit card required.">
-<meta name="theme-color" content="#0a0f18">
+<meta name="description" content="Photograph a receipt and Taxify files it — right category, right tax year. Work, business and rental expenses organised and ready for tax time. 14-day free trial, no credit card required.">
+<meta name="theme-color" content="#081428">
 
 <!-- Search.
 
-     The canonical is the hub's page, not this file, and that is deliberate:
-     the hub serves this content at its own address and declares that address
-     canonical too. Two URLs claiming to be the original is how a site competes
-     with itself for its own name — one of them has to yield, and it should be
-     the one visitors never see in their address bar.
-
-     The keywords tag is absent on purpose. No engine has used it for well over
-     a decade, and its only effect now is to tell a competitor what you think
-     you rank for. -->
+     The canonical points at the hub, not here. This page is served from two
+     addresses — taxify.net.au and mikesapphub.com/apps/taxify — and
+     without this they compete with each other for the same words. -->
 <link rel="canonical" href="https://mikesapphub.com/apps/taxify">
 <meta name="robots" content="index, follow, max-image-preview:large">
 <meta name="author" content="Mikes App Hub">
 
-<!-- What Google shows beside the result, and what a phone puts on a home
-     screen. The mark is the same file the app and the emails use, so there is
-     one logo rather than four that drift. -->
 <link rel="icon" type="image/svg+xml" href="/favicon.svg">
 <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
 
-<!-- Structured data: what this page is, in the form a search engine reads
-     without having to infer it from the prose. SoftwareApplication rather than
-     Product, because a subscription to a web app is not a thing in a box, and
-     the free-trial offer is stated as an Offer so the price is not guessed at
-     from whatever number appears first on the page. -->
 <script type="application/ld+json">
 {
   "@context": "https://schema.org",
@@ -44,1961 +30,1201 @@
   "description": "Photograph a receipt and Taxify files it — right category, right tax year. Work, business and rental expenses organised and ready for tax time, with a 14-day free trial and no credit card required.",
   "image": "https://taxify.net.au/media/shot-dashboard.jpg",
   "publisher": { "@type": "Organization", "name": "Mikes App Hub", "url": "https://mikesapphub.com" },
-  "offers": {
-    "@type": "Offer",
-    "category": "Subscription",
-    "priceCurrency": "AUD",
-    "availability": "https://schema.org/InStock"
-  }
+  "offers": [
+    { "@type": "Offer", "name": "Individual", "price": "49", "priceCurrency": "AUD", "category": "Subscription" },
+    { "@type": "Offer", "name": "Small Business", "price": "99", "priceCurrency": "AUD", "category": "Subscription" }
+  ]
 }
 </script>
 
-<!-- What a share of this link looks like.
-     There were none of these, which meant Facebook, Messenger, WhatsApp,
-     LinkedIn and every group chat picked a title, a line of text and a picture
-     off the page at random — usually the wrong ones, sometimes nothing at all.
-     No share button can control that; these tags can, and they do it for every
-     share from anywhere, not only from a button on this page.
-
-     Facebook's scraper reaches the static file rather than the hub's copy: the
-     proxy only runs for a real browser navigation, and a crawler is not one.
-
-     The image is absolute because a scraper cannot resolve a relative one, and
-     it is the dashboard because that is the product. At 1719x885 it is close
-     to the 1.91:1 Facebook lays out for, and well over the 1200x630 minimum. -->
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="Taxify">
 <meta property="og:url" content="https://taxify.net.au/">
-<meta property="og:title" content="Never lose a deduction again">
+<meta property="og:title" content="Tax receipts. Sorted.">
 <meta property="og:description" content="Photograph a receipt and Taxify files it — right category, right tax year. Come tax time the whole year is already added up. 14-day free trial, no card needed.">
-<!-- Three pictures, in the order they should be preferred.
-     
-     Facebook takes the first it can use and offers the rest where a chooser is
-     shown, so the advertisement leads: it is the one made for this, and the
-     only one of the three that was drawn to be looked at rather than to
-     demonstrate something. The tablet follows, because a screen of the real
-     product is the next most useful thing, and the dashboard last.
-     
-     Each carries its own width and height. Without them the crawler has to
-     fetch every image before it can lay a preview out, which is what makes a
-     first share sit blank for a minute and then come back cropped. -->
 <meta property="og:image" content="https://taxify.net.au/media/advertisement.jpg">
 <meta property="og:image:width" content="1024">
 <meta property="og:image:height" content="1536">
 <meta property="og:image:alt" content="Taxify — keep your receipts in the cloud, ready for tax time">
-
-<meta property="og:image" content="https://taxify.net.au/media/hero-tablet.jpg">
-<meta property="og:image:width" content="1100">
-<meta property="og:image:height" content="646">
-<meta property="og:image:alt" content="Taxify open on a tablet, showing a year's deductions totalled by category">
-
-<meta property="og:image" content="https://taxify.net.au/media/shot-dashboard.jpg">
-<meta property="og:image:width" content="1600">
-<meta property="og:image:height" content="823">
-<meta property="og:image:alt" content="A year of deductions already added up, sorted by category">
 <meta property="og:locale" content="en_AU">
-
 <meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="Never lose a deduction again">
-<meta name="twitter:description" content="Photograph a receipt and Taxify files it — right category, right tax year. Come tax time the whole year is already added up.">
-<meta name="twitter:image" content="https://taxify.net.au/media/shot-dashboard.jpg">
 
-<!-- Same set as the app. An SVG alone leaves a blank page glyph in the tab on
-     iOS, which ignores SVG icons, and on Android Chrome, which reads the
-     manifest. -->
-<link rel="icon" type="image/svg+xml" href="/favicon.svg">
-<link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png">
-<link rel="icon" type="image/png" sizes="16x16" href="/favicon-16.png">
-<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
-<link rel="manifest" href="/site.webmanifest">
-<!-- This page is served two ways: directly by Taxify, and wrapped inside
-     Mike's App Hub, which fetches it and serves it from its own domain. On the
-     hub, a link written as "/register" resolves to the hub's own /register,
-     which does not exist — so every button on the page did nothing.
-
-     The origin is named here and the script at the foot rewrites the links
-     when, and only when, the page is not already on it. Locally it is left
-     alone, so a dev server still links to itself. -->
-<meta name="taxify-origin" content="https://taxify.net.au">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-<style>
-  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-  :root {
-    --bg: #0a0f18;
-    --bg-elevated: #0f1826;
-    --bg-card: #101a2b;
-    --border: #1e2c3f;
-    --text: #e8eef7;
-    --text-muted: #8fa2ba;
-    --violet: #2563eb;
-    --cyan: #06b6d4;
-    --blue: #3b82f6;
-    --emerald: #10b981;
-    --gradient-brand: linear-gradient(135deg, var(--blue), var(--violet) 55%, var(--cyan));
-  }
-  /* min-height, not height, and body only.
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@500;600;700;800&family=Inter:wght@400;500;600;700&family=Caveat:wght@500;600&display=swap" rel="stylesheet">
 
-     height: 100% on html made the root exactly one viewport tall. That is what
-     the body gradients are positioned against, so it was doing real work here
-     — but this rule is lifted into the hub's document too, where pinning the
-     root to viewport height is not ours to decide. min-height gives the
-     gradients a full viewport to sit in on a short page without capping a tall
-     one, and leaves the root alone. */
-  body { min-height: 100%; }
+<style>
+  /* Light, not dark.
+
+     The page was navy top to bottom. This keeps navy for the two moments that
+     want weight — the opening and the closing ask — and puts everything
+     between them on white, where a page explaining a tax product belongs. */
+  :root {
+    --ink: #0f1b2d;
+    --body: #4c5a70;
+    --faint: #7b8798;
+    --blue: #1a7cf0;
+    --blue-deep: #0b5fd0;
+    --blue-soft: #e9f2fd;
+    --navy-1: #081428;
+    --navy-2: #12305a;
+    --line: #e3e9f2;
+    --paper: #ffffff;
+    --shadow-card: 0 1px 2px rgba(15, 27, 45, .05), 0 8px 24px -14px rgba(15, 27, 45, .18);
+  }
+
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; }
+  @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+
   body {
+    margin: 0;
+    background: var(--paper);
+    color: var(--ink);
     font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-    background:
-      radial-gradient(circle at 15% 0%, rgba(59, 130, 246, 0.14), transparent 40%),
-      radial-gradient(circle at 85% 20%, rgba(6, 182, 212, 0.12), transparent 40%),
-      var(--bg);
-    color: var(--text);
+    font-size: 16px;
     line-height: 1.6;
     -webkit-font-smoothing: antialiased;
+    /* Nothing on this page may scroll sideways. Clip rather than hidden, so a
+       position:fixed child is not trapped by a new containing block. */
+    overflow-x: clip;
   }
-  a { color: inherit; text-decoration: none; }
-  .container { max-width: 1200px; margin: 0 auto; padding: 0 clamp(20px, 5vw, 64px); }
-  .card {
-    background: var(--bg-card);
-    border: 1px solid var(--border);
-    border-radius: 16px;
+  img, svg, video { max-width: 100%; }
+
+  /* One gutter, set once. Every section inherits it, so no section can end up
+     with content against the edge of a phone. */
+  .wrap { max-width: 1120px; margin: 0 auto; padding: 0 clamp(16px, 4vw, 40px); }
+
+  h1, h2, h3, .brand-name, .btn, .step-name, .plan-price, .plan-name, .dash-brand, .dash-hello {
+    font-family: 'Poppins', 'Inter', -apple-system, 'Segoe UI', Roboto, sans-serif;
   }
 
-  /* Not <header>, and not <footer> further down, for a reason that cost this
-     page its entire top bar and its legal links without anybody noticing.
+  /* Handwriting.
 
-     Visitors arrive through the Mikes App Hub proxy, and the first thing it
-     does to a proxied page is
-       $('header, nav.site-nav, nav.main-nav, nav.navbar, .site-header,
-          .site-footer, footer, …').remove()
-     — so every one of those tags, and its contents, was deleted in transit.
-     The origin served them correctly, which is why this was invisible from
-     here and only ever wrong for the people it was written for.
-
-     What was being thrown away: the brand, Log in, Open Taxify, Terms of
-     Service, Privacy Policy, the copyright line and the Facebook buttons.
-     Plain divs with our own class names survive. Do not rename these to
-     anything on that list. */
-  .lp-topbar {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 12px clamp(20px, 5vw, 64px);
-    max-width: 1200px;
-    margin: 0 auto;
+     Three of these, and they are the one informal thing on the page — an aside
+     in the margin rather than another heading. A real fallback stack, because
+     a script face that quietly becomes Arial reads as a mistake. */
+  .note {
+    font-family: 'Caveat', 'Segoe Script', 'Bradley Hand', cursive;
+    font-size: clamp(18px, 2vw, 25px);
+    line-height: 1.25;
+    color: var(--ink);
   }
-  .brand { display: flex; align-items: center; gap: 10px; }
-  .brand img { width: 32px; height: 32px; }
-  .brand span { font-weight: 800; font-size: 20px; }
-  .nav-actions { display: flex; gap: 10px; align-items: center; }
+  .note-swoosh { display: block; width: 116px; max-width: 100%; height: 9px; margin-top: 4px; }
+  .note-swoosh path { fill: none; stroke: var(--blue); stroke-width: 3.4; stroke-linecap: round; }
+
+  /* ---- Buttons ----
+     44px minimum height everywhere: a target smaller than a fingertip is a
+     target missed, and every one of these is the only thing to press. */
   .btn {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    padding: 10px 18px;
-    border-radius: 10px;
-    font-weight: 600;
-    font-size: 13.5px;
-    cursor: pointer;
-    border: 1px solid transparent;
-  }
-  .btn-ghost { background: transparent; border-color: var(--border); color: var(--text); }
-  .btn-primary { background: var(--gradient-brand); color: white; }
-  .btn-lg { padding: 13px 28px; font-size: 15px; }
-
-  /* Scoped to our own main.
-
-     This page is also served wrapped inside Mikes App Hub, which puts its own
-     <main> around it — and a bare `main` selector styled that one too, so the
-     padding applied at every level and compounded. Our styles are guests on
-     that page and should touch only what belongs to us.
-
-     min-width: 0 so it can shrink inside whatever the host lays it out with,
-     rather than insisting on the width of its widest child. */
-  main.lp { max-width: 1200px; min-width: 0; margin: 0 auto; padding: 0 clamp(20px, 5vw, 64px) 80px; }
-  main.lp img, main.lp svg, main.lp video { max-width: 100%; height: auto; }
-  /* Nothing wider than the phone it is being read on.
-     Every grid used minmax(Npx, 1fr), and a grid track will not go below its
-     stated minimum — so on a narrow handset the widest of them was 300px
-     inside a 280px content box and the page could be dragged sideways. They
-     are all min(Npx, 100%) now, which lets a track give way when there is no
-     room. This is the backstop for whatever gets added later and forgets.
-
-     On the page's own wrapper, and clip rather than hidden. Both parts matter,
-     and the old version — overflow-x: hidden on html — broke the scrollbar of
-     a page that is not even ours.
-
-     The hub proxy lifts this whole stylesheet into its own <head>, so every
-     rule here written against html or body lands on the hub's document. And
-     overflow-x: hidden on a root element is a known trap: the spec says a
-     non-visible value on one axis forces the other to compute to auto, so that
-     one line quietly turned the hub's root into a scroll container of its own
-     and left its scrollbar sitting behind the fixed header.
-
-     overflow: clip has no such side effect — it clips without ever creating a
-     scroll container — and .lp is our own <main>, which is where every grid
-     that could overflow actually lives. The lightboxes sit outside <main>, so
-     nothing position: fixed is caught by the clipping. */
-  .lp { overflow-x: clip; }
-
-  /* The product picture sits directly under the hero, so the hero stops
-     reserving a section-sized gap beneath itself — the two are one thought. */
-
-  /* The poster, first, and the whole of it on one screen.
-
-     The advertisement says in one picture what the rest of this page spends a
-     thousand words on, so it opens the page — and the only thing set beside it
-     is the one decision a reader can make here, which is whether to start.
-
-     Sized by height rather than by width. It is a print poster in portrait,
-     and a portrait image laid out by width overflows a landscape screen
-     immediately; constraining the height is what keeps the whole thing on the
-     first screen, which is the point of putting it there. */
-  .poster-hero {
-    display: grid;
-    grid-template-columns: auto minmax(300px, 1fr);
-    gap: clamp(22px, 3.4vw, 46px);
-    align-items: center;
-    /* svh, not vh: on a phone vh is the tallest the viewport ever gets, so a
-       full-height block measured in vh is always taller than what is actually
-       on screen and the bottom of it is cut off by the browser's own bars. */
-    min-height: calc(100svh - 80px);
-    padding: clamp(4px, 0.8vw, 10px) 0 clamp(10px, 1.4vw, 16px);
-    margin-bottom: clamp(10px, 1.6vw, 20px);
-  }
-  /* min-width: 0 on both columns.
-     A grid item defaults to min-width:auto, which means it refuses to shrink
-     below its contents' intrinsic width — and the poster's intrinsic width is
-     1100px. On a phone that pushed the single column out to 428px inside a
-     412px viewport, so the whole page overflowed sideways and every line in it
-     was clipped at the right edge. The image's own max-width:100% cannot help,
-     because the column had already been sized around it. */
-  .poster-figure { margin: 0; min-width: 0; display: flex; flex-direction: column; align-items: center; gap: 12px; }
-
-  /* The whole thing is one link, so the poster itself opens it rather than
-     only the small label underneath — which is where anybody would press. */
-  .poster-link {
-    position: relative;
-    display: block;
-    min-width: 0;
-    text-decoration: none;
-    transition: transform .35s cubic-bezier(.22,.61,.36,1);
-  }
-  .poster-link:hover { transform: translateY(-4px); }
-  .poster-link { display: flex; flex-direction: column; align-items: center; gap: 9px; }
-  /* Light behind it, not on it.
-     On a dark page a dark poster sits flat against the ground however big it
-     is. A blurred wash of the brand blue behind the edges separates the two
-     and is what makes it read as an object on the page rather than a panel
-     cut into it. Drawn behind the image and unclickable. */
-  .poster-link::before {
-    content: '';
-    position: absolute;
-    z-index: 0;
-    left: 50%;
-    top: 50%;
-    width: 116%;
-    height: 94%;
-    transform: translate(-50%, -50%);
-    background: radial-gradient(closest-side, rgba(59,130,246,.34), rgba(59,130,246,.12) 58%, transparent 80%);
-    filter: blur(30px);
-    pointer-events: none;
-  }
-  .poster-figure img {
-    display: block;
-    width: auto;
-    max-width: 100%;
-    /* As tall as the screen will take. It was 72svh, which on a laptop drew it
-       at about 470px wide — small for the one thing this page opens with. */
-    max-height: min(80svh, 900px);
-    height: auto;
-    position: relative;
-    z-index: 1;
-    border-radius: 16px;
-    box-shadow:
-      0 44px 96px -34px rgba(2, 8, 20, .9),
-      0 0 70px -26px rgba(59, 130, 246, .5),
-      0 0 0 1px rgba(255, 255, 255, .1);
-  }
-  /* The small print on a poster is print-sized, and at the height this is
-     drawn at it can be seen but not read. One press opens it flat.
-
-     Underneath rather than laid over the artwork: overlaid in the only corner
-     it fits, it covered the QR code and the address — putting a control on top
-     of the two things the poster exists to hand somebody. */
-  .poster-open {
-    display: inline-flex;
-    width: fit-content;
-    align-items: center;
-    gap: 7px;
-    padding: 5px 13px;
+    gap: 9px;
+    min-height: 44px;
+    padding: 12px 26px;
     border-radius: 999px;
-    font-size: 12px;
+    background: var(--blue);
+    color: #fff;
+    font-size: 15px;
     font-weight: 600;
     text-decoration: none;
-    color: var(--text-muted);
-    background: rgba(255, 255, 255, .04);
-    border: 1px solid var(--border);
+    border: 0;
+    cursor: pointer;
+    transition: background .15s ease, transform .15s ease;
   }
-  .poster-link:hover .poster-open { color: var(--text); border-color: var(--blue); }
+  .btn:hover { background: var(--blue-deep); transform: translateY(-1px); }
+  .btn:focus-visible { outline: 3px solid #9cc8fa; outline-offset: 2px; }
+  @media (prefers-reduced-motion: reduce) { .btn { transition: none; } .btn:hover { transform: none; } }
+  .btn-sm { min-height: 38px; padding: 8px 17px; font-size: 13.5px; }
+  .btn-full { width: 100%; }
+  .btn-note { font-size: 12.5px; color: var(--faint); margin: 18px 0 0; }
 
-  .poster-copy { text-align: left; min-width: 0; }
-  .poster-copy h1 {
-    font-size: clamp(29px, 3.8vw, 46px);
-    line-height: 1.06;
-    letter-spacing: -1.1px;
+  /* ---- Top bar ----
+     A div, never a <header>. The hub deletes header, footer and several nav
+     class names outright from the copy it serves, and this bar disappeared
+     with them the first time it was marked up honestly. */
+  /* Transparent, and it sits inside .hero. The header is one painted field
+     with the light coming in at the corners, so a flat bar across the top of
+     it would cut the top-left flare off exactly where it is brightest. */
+  .lp-topbar { background: transparent; position: relative; z-index: 3; }
+  .lp-topbar .wrap {
+    display: flex;
+    align-items: center;
+    gap: 14px 20px;
+    flex-wrap: wrap;
+    padding-top: 14px;
+    padding-bottom: 14px;
+  }
+  .brand { display: flex; align-items: center; gap: 11px; text-decoration: none; flex-shrink: 0; }
+  .brand img { width: 34px; height: 34px; border-radius: 8px; }
+  .brand-name { display: block; font-size: 21px; font-weight: 700; color: #fff; line-height: 1.05; letter-spacing: -.3px; }
+  .brand-sub { display: block; font-size: 10.5px; color: #9db4d4; letter-spacing: .3px; }
+  .topnav { display: flex; gap: clamp(14px, 2.2vw, 26px); margin-left: auto; flex-wrap: wrap; }
+  .topnav a { color: #cfdcef; text-decoration: none; font-size: 14px; font-weight: 500; }
+  .topnav a:hover, .topnav a:focus-visible { color: #fff; }
+  .topnav a.on { color: #4d9ffb; }
+  .lp-topbar .btn { margin-left: auto; }
+  .topnav ~ .btn { margin-left: 0; }
+  /* The links go before the button does. Below this width they would wrap to a
+     second row and push the one thing worth pressing off the first screen. */
+  @media (max-width: 980px) { .topnav { display: none; } }
+
+  /* ---- Hero ----
+
+     A deep navy field with the light coming in at the corners rather than a
+     gradient running corner to corner. Four glows over a flat ground: a tight
+     bright one at the top left, a wash down the right-hand edge, a wide soft
+     bloom at the bottom right, and a faint lift at the bottom left so that
+     corner does not go dead. The middle is left alone, which is what makes the
+     corners read as light — the darkest part of the band is the part with the
+     words on it, and that is also what keeps them legible.
+
+     One element paints all of it, the top bar included; the bar is a child and
+     transparent. Percentages, so the shape holds at any width. */
+  .hero {
+    background-color: #061529;
+    background-image:
+      radial-gradient(52% 88% at -1% -4%, rgba(44,148,255,1) 0%, rgba(26,132,250,.74) 11%, rgba(26,124,240,.21) 38%, rgba(26,124,240,0) 65%),
+      radial-gradient(40% 108% at 105% 1%, rgba(26,132,250,.82) 0%, rgba(26,124,240,.14) 46%, rgba(26,124,240,0) 72%),
+      radial-gradient(54% 96% at 99% 106%, rgba(26,124,240,.46) 0%, rgba(26,124,240,0) 66%),
+      radial-gradient(46% 64% at -5% 110%, rgba(26,124,240,.26) 0%, rgba(26,124,240,0) 62%);
+    color: #fff;
+    position: relative;
+    overflow: hidden;
+  }
+  /* Direct child. The trust strip and the top bar are both inside .hero and
+     both carry a .wrap, and a descendant selector here turned each of them
+     into a two-column grid. */
+  .hero > .wrap {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1.05fr);
+    gap: clamp(22px, 4vw, 56px);
+    align-items: center;
+    padding-top: clamp(32px, 5vw, 62px);
+    padding-bottom: 24px;
+  }
+  /* The eyebrow above the headline. Small, but it is in the first frame —
+     which for an Australian buying a tax product is the fact that decides
+     whether the rest of the page is worth reading. The Southern Cross rather
+     than a flag emoji: it sits on the baseline and renders the same on every
+     platform, which an emoji does not. */
+  .hero-eyebrow {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    margin: 0 0 14px;
+    padding: 6px 14px 6px 10px;
+    border-radius: 999px;
+    background: rgba(77, 159, 251, .14);
+    border: 1px solid rgba(77, 159, 251, .32);
+    color: #b7d6fb;
+    font-size: 12.5px;
+    font-weight: 600;
+    letter-spacing: .3px;
+    text-transform: uppercase;
+  }
+  .hero-eyebrow svg { flex-shrink: 0; }
+  .hero h1 {
     margin: 0 0 10px;
+    font-size: clamp(34px, 6.4vw, 60px);
+    line-height: 1.02;
+    letter-spacing: -1.6px;
+    font-weight: 800;
     text-wrap: balance;
   }
-  /* The answer to the question above it: same weight, a step down in size, and
-     the brand blue so the two read as one thought rather than as a heading
-     followed by a sentence. */
-  .poster-answer {
-    margin: 0 0 18px;
-    font-size: clamp(20px, 2.5vw, 30px);
-    font-weight: 800;
-    line-height: 1.15;
-    letter-spacing: -0.6px;
-    color: var(--blue);
-  }
-  .poster-copy .lede { margin: 0 0 26px; max-width: 52ch; }
-  .poster-cta {
-    display: inline-flex;
-    align-items: center;
-    gap: 10px;
-    font-size: 17px;
-    padding: 15px 30px;
-  }
-  /* Deliberately not a flex row.
-     It was, and a flex container makes its one run of text a single item that
-     cannot wrap — so on a narrow screen the line ran straight off the right
-     edge instead of folding onto a second one. Plain text wraps. */
-  .poster-terms {
-    margin: 14px 0 0;
-    font-size: 13.5px;
-    line-height: 1.6;
-    color: var(--text-muted);
-  }
-  .poster-terms b { color: var(--text); font-weight: 700; }
-  .poster-points {
-    list-style: none;
-    margin: 26px 0 0;
-    padding: 0;
-    display: flex;
-    flex-direction: column;
-    gap: 9px;
-  }
-  .poster-points li { display: flex; align-items: flex-start; gap: 10px; font-size: 14.5px; }
-  .poster-points svg { flex-shrink: 0; margin-top: 2px; color: var(--blue); }
+  .hero h1 span { color: #4d9ffb; display: block; }
+  .hero h2 { margin: 0 0 14px; font-size: clamp(18px, 2.4vw, 27px); font-weight: 700; letter-spacing: -.5px; }
+  .hero p { margin: 0 0 22px; color: #c3d3e8; font-size: 15.5px; max-width: 42ch; }
 
-  /* Stacked, poster first, and still one screenful.
-     The poster gives up height here so the button underneath it is on screen
-     without scrolling — an advertisement nobody can act on is a picture. */
-  @media (max-width: 900px) {
-    .poster-hero {
-      grid-template-columns: 1fr;
-      gap: 18px;
-      text-align: center;
-      min-height: calc(100svh - 80px);
-      /* Centred as one block rather than spread down the screen. A grid with
-         a tall minimum pushes its rows apart, which left the poster at the top
-         and the button near the fold with a hole between them. */
-      align-content: center;
-      padding-top: 6px;
-    }
-    .poster-figure img { max-height: 44svh; }
-    .poster-copy { text-align: center; }
-    .poster-copy h1 { font-size: clamp(21px, 5.2vw, 28px); margin-bottom: 6px; letter-spacing: -0.6px; }
-    .poster-answer { font-size: clamp(17px, 4.4vw, 22px); margin-bottom: 12px; }
-    .poster-copy .lede { display: none; }
-    .poster-points { display: none; }
-    .poster-terms { margin-top: 11px; }
-    .poster-cta { font-size: 16px; padding: 14px 26px; }
+  /* Stacked below 860px, copy first. The phones are the illustration; the
+     sentence and the button are the point, and on a phone they go first. */
+  @media (max-width: 860px) {
+    .hero > .wrap { grid-template-columns: 1fr; text-align: center; }
+    .hero p { margin-left: auto; margin-right: auto; }
+    .hero .btn { margin-inline: auto; }
   }
-  /* A short landscape phone has no room for a portrait poster and a button.
-     The poster goes; the offer stays, because the offer is the point. */
-  @media (max-height: 480px) and (max-width: 900px) {
-    .poster-figure { display: none; }
-    .poster-hero { min-height: 0; }
+
+  .hero-note { position: absolute; right: 2.5%; bottom: 26%; text-align: center; color: #fff; }
+  /* Hidden wherever it would sit on top of the phones rather than beside them. */
+  @media (max-width: 1140px) { .hero-note { display: none; } }
+
+  /* The two photographs that replaced them. Both are simply images now; the
+     frames they used to need were drawings of frames. */
+  .hero-shot { display: block; width: 100%; height: auto; border-radius: 14px; }
+  .money-shot { display: block; width: 100%; height: auto; border-radius: 12px; box-shadow: 0 26px 50px -24px rgba(8, 20, 40, .45); }
+
+  /* ---- Trust strip ---- */
+  .trust { border-top: 1px solid rgba(255,255,255,.1); background: rgba(0,0,0,.22); }
+  .trust .wrap { display: flex; flex-wrap: wrap; justify-content: center; gap: 12px clamp(16px, 4vw, 48px); padding-top: 13px; padding-bottom: 13px; }
+  @media (min-width: 861px) { .trust .wrap { justify-content: flex-start; } }
+  .trust span { display: inline-flex; align-items: center; gap: 8px; color: #d5e2f2; font-size: 13.5px; font-weight: 500; }
+  .trust svg { color: #4d9ffb; flex-shrink: 0; }
+
+  /* ---- Section furniture ---- */
+  .section { padding: clamp(40px, 7vw, 86px) 0; }
+  .section-flush { padding-top: 0; }
+  .section-head { text-align: center; margin-bottom: clamp(26px, 4vw, 44px); }
+  .section-head h2 { margin: 0 0 8px; font-size: clamp(23px, 3.4vw, 36px); font-weight: 700; letter-spacing: -.9px; text-wrap: balance; }
+  .section-head p { margin: 0; color: var(--body); font-size: 16px; }
+
+  /* ---- How Taxify Works ---- */
+  .works-row { display: flex; align-items: flex-start; justify-content: center; gap: clamp(14px, 2vw, 26px); flex-wrap: wrap; }
+  .step { display: flex; align-items: flex-start; gap: 12px; max-width: 300px; flex: 1 1 250px; }
+  .step-n {
+    width: 30px; height: 30px; border-radius: 50%;
+    background: var(--blue); color: #fff;
+    font-family: 'Poppins', sans-serif; font-weight: 600; font-size: 14px;
+    display: grid; place-items: center; flex-shrink: 0;
   }
-  .badge {
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-    padding: 6px 14px;
-    border-radius: 999px;
-    border: 1px solid var(--border);
-    background: var(--bg-elevated);
-    font-size: 12.5px;
-    color: var(--text-muted);
-    margin-bottom: 24px;
+  .step-body { text-align: center; min-width: 0; flex: 1; }
+  /* The same three photographs the live page uses, at a third of the size.
+     4:3 and cropping, so the box is the same shape whatever is dropped in —
+     the three source files are not all one aspect. */
+  .step-art {
+    display: block;
+    width: 100%;
+    aspect-ratio: 4 / 3;
+    margin: 0 0 12px;
+    border-radius: 14px;
+    overflow: hidden;
+    background: var(--blue-soft);
+    box-shadow: var(--shadow-card);
   }
-  h1 {
-    font-size: clamp(32px, 6vw, 52px);
-    line-height: 1.15;
-    margin: 0 0 20px;
-    font-weight: 800;
-    max-width: 780px;
-    margin-inline: auto;
+  .step-art img { display: block; width: 100%; height: 100%; object-fit: cover; }
+  .step-name { font-size: 17px; font-weight: 700; margin: 0 0 4px; }
+  .step-body p { margin: 0; font-size: 14px; color: var(--body); }
+  /* Roughly level with the middle of the photographs beside it. Exact is not
+     available — their height follows the column width — and close is enough
+     for an arrow. */
+  .works-arrow { color: #bcc9db; margin-top: 84px; flex-shrink: 0; }
+  @media (max-width: 900px) { .works-arrow { display: none; } .step { max-width: 300px; } }
+  .works-note { margin-top: 32px; text-align: center; }
+
+  /* ---- See where your money went ---- */
+  .money { background: var(--blue-soft); }
+  .money .wrap { display: grid; grid-template-columns: minmax(0, .85fr) minmax(0, 1.15fr); gap: clamp(26px, 4vw, 52px); align-items: center; }
+  @media (max-width: 900px) { .money .wrap { grid-template-columns: 1fr; } }
+  .money h2 { margin: 0; font-size: clamp(22px, 3.2vw, 34px); font-weight: 700; letter-spacing: -.9px; line-height: 1.16; text-wrap: balance; }
+  .money h2 span { color: var(--blue); display: block; }
+  .money-copy > p { color: var(--body); margin: 14px 0 20px; max-width: 44ch; }
+  .ticks { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 11px; }
+  .ticks li { display: flex; align-items: flex-start; gap: 11px; font-size: 14.5px; }
+  .ticks svg { flex-shrink: 0; margin-top: 1px; }
+
+  /* ---- Feature cards ---- */
+  .feature-grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 14px; }
+  @media (max-width: 1040px) { .feature-grid { grid-template-columns: repeat(3, 1fr); } }
+  @media (max-width: 640px) { .feature-grid { grid-template-columns: repeat(2, 1fr); gap: 11px; } }
+  @media (max-width: 380px) { .feature-grid { grid-template-columns: 1fr; } }
+  .feature { background: #fbfcfe; border: 1px solid var(--line); border-radius: 12px; padding: 18px 13px; text-align: center; }
+  .feature svg { color: var(--blue); margin-bottom: 9px; }
+  .feature h3 { margin: 0 0 6px; font-size: 13.5px; font-weight: 700; letter-spacing: -.2px; }
+  .feature p { margin: 0; font-size: 12.5px; color: var(--body); line-height: 1.5; }
+
+  /* ---- Australian made ----
+     Every line in this band is checkable. See the note in the markup for why
+     that matters more here than anywhere else on the page. */
+  .aussie { background: var(--blue-soft); }
+  .aussie .wrap { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: clamp(20px, 4vw, 44px); align-items: center; }
+  @media (max-width: 860px) {
+    .aussie .wrap { grid-template-columns: 1fr; text-align: center; justify-items: center; }
+    /* Stacked, the cap below would stretch the mark across the column and
+       strand the star against the left edge of centred text. The mark stacks
+       with everything else instead: star over words, both centred. */
+    .aussie-mark { max-width: none; flex-direction: column; gap: 11px; }
   }
-  .lede {
-    font-size: clamp(15px, 2vw, 18px);
-    color: var(--text-muted);
-    max-width: 600px;
-    margin: 0 auto 36px;
-  }
-  /* The tablet under the hero.
-     Big, because it is the only place on the page the whole product is shown
-     at once, and it has a real alpha channel so there is no card or frame
-     around it — it just sits on the page. A soft glow behind it stops it
-     floating on the dark ground with nothing to stand on; the original had a
-     drop shadow, but that shadow was painted over the chequerboard and came
-     off with it. */
-  .hero-shot {
+  /* Capped, because this is an auto column: without it the one long sentence
+     underneath sets the column width and squeezes the six points beside it. */
+  .aussie-mark { display: flex; align-items: center; gap: 13px; max-width: 360px; }
+  .aussie-mark svg { flex-shrink: 0; }
+  .aussie-mark b { display: block; font-family: 'Poppins', sans-serif; font-size: clamp(20px, 2.6vw, 27px); font-weight: 700; letter-spacing: -.7px; line-height: 1.15; }
+  .aussie-mark span { display: block; font-size: 13.5px; color: var(--body); margin-top: 2px; }
+  .aussie-points { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px 26px; margin: 0; padding: 0; list-style: none; }
+  @media (max-width: 640px) { .aussie-points { grid-template-columns: 1fr; text-align: left; } }
+  .aussie-points li { display: flex; align-items: flex-start; gap: 10px; font-size: 14px; }
+  .aussie-points svg { flex-shrink: 0; margin-top: 2px; color: var(--blue); }
+
+  /* ---- Three showcase cards ---- */
+  .showcase { display: grid; grid-template-columns: 1.15fr 1.15fr .95fr; gap: 16px; }
+  @media (max-width: 980px) { .showcase { grid-template-columns: 1fr 1fr; } }
+  @media (max-width: 680px) { .showcase { grid-template-columns: 1fr; } }
+  .show {
     position: relative;
+    border-radius: 14px;
+    overflow: hidden;
+    min-height: 208px;
+    padding: clamp(18px, 3vw, 26px);
     display: flex;
     flex-direction: column;
-    align-items: center;
-    max-width: 1000px;
-    margin: 0 auto clamp(40px, 7vw, 76px);
-    padding: 0 clamp(12px, 3vw, 24px);
-  }
-  .hero-shot::before {
-    content: '';
-    position: absolute;
-    left: 12%;
-    right: 12%;
-    bottom: 4%;
-    height: 24%;
-    background: radial-gradient(ellipse at center, rgba(37, 99, 235, .30), rgba(37, 99, 235, 0) 70%);
-    filter: blur(26px);
-    z-index: 0;
-  }
-  /* One flat picture, deliberately.
-     This was three screenshots cross-fading behind a cut-out frame, and it
-     read as glitchy for a reason that only shows in motion: mid-dissolve both
-     screens are partly visible, and superimposed text at half opacity looks
-     like a double image rather than a transition. The frame is now baked over
-     the dashboard, so there is nothing to fall out of step — and it is one
-     request instead of four. The other two screens are still a click away,
-     full size, under the button below. */
-  .hero-shot img { position: relative; z-index: 1; display: block; width: 100%; height: auto; }
-  /* The way to a flat, readable copy. The tablet is angled, so the dashboard
-     on it can be seen but not read, and this is the only thing on the page
-     worth opening full size. */
-  .hero-zoom {
-    position: relative;
-    z-index: 1;
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-    margin-top: 16px;
-    padding: 8px 16px;
-    border-radius: 999px;
-    border: 1px solid var(--border);
-    background: var(--bg-elevated);
-    color: var(--text);
-    font-size: 13px;
-    font-weight: 600;
-    text-decoration: none;
-    transition: border-color .15s ease, background .15s ease;
-  }
-  .hero-zoom svg { color: var(--blue); flex-shrink: 0; }
-  .hero-zoom:hover { border-color: var(--blue); background: rgba(59, 130, 246, .12); }
-  .hero-zoom:focus-visible { outline: 2px solid var(--blue); outline-offset: 3px; }
-
-
-  /* A sentence and a button, not a pill inside a pill.
-     This was a bordered bar with a green pill sitting inside it, and nested
-     pills look homemade whatever is written on them — two borders, two
-     radiuses and two backgrounds to say one plain thing and offer one plain
-     download. The sentence is now just a sentence, and the download is the
-     same button the rest of the page uses.
-
-     Before that it was five identical chips: Phone, Tablet, Laptop, Desktop,
-     Android app. Two of them made the same point twice — nobody separates a
-     laptop from a desktop when asking whether a website works — and the app
-     sat among them as though it were another screen size, when it is the only
-     one that is a different kind of thing. */
-  .devices {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 16px;
-    margin: 0 0 clamp(32px, 6vw, 56px);
-  }
-  .devices-line {
-    display: inline-flex;
-    align-items: center;
     justify-content: center;
-    flex-wrap: wrap;
-    gap: 10px;
+    color: #fff;
+    background: linear-gradient(135deg, #0b1e3a, #12305a);
   }
-  .devices-icons { display: inline-flex; align-items: center; gap: 9px; color: var(--blue); }
-  .devices-icons svg { flex-shrink: 0; }
-  .devices-text { font-size: 13.5px; color: var(--text-muted); }
+  /* The photograph sits below the scrim, the words above it. The z-index on
+     the image has to be stated: .show > * matches it too, and would otherwise
+     lift the photograph over the gradient and leave the heading unreadable. */
+  .show img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; z-index: 0; }
+  .show::after { content: ''; position: absolute; inset: 0; z-index: 0; background: linear-gradient(90deg, rgba(8,20,40,.95) 0%, rgba(8,20,40,.8) 58%, rgba(8,20,40,.42) 100%); }
+  .show > * { position: relative; z-index: 1; }
+  .show h3 { margin: 0 0 9px; font-size: clamp(17px, 2vw, 21px); font-weight: 700; letter-spacing: -.5px; line-height: 1.2; max-width: 16ch; }
+  .show p { margin: 0; font-size: 13.5px; color: #c9d8ec; max-width: 28ch; }
+  .show-swoosh { width: 74px; height: 8px; margin-top: 12px; }
+  .show-swoosh path { fill: none; stroke: #4d9ffb; stroke-width: 3.2; stroke-linecap: round; }
+  .show-files { display: flex; gap: 10px; margin-top: 14px; flex-wrap: wrap; }
+  .show-files span { width: 42px; height: 42px; border-radius: 9px; display: grid; place-items: center; font-family: 'Poppins', sans-serif; font-weight: 700; font-size: 10px; color: #fff; }
+  .f-xls { background: #18794e; } .f-pdf { background: #c0392b; } .f-zip { background: #2a7fd4; }
 
-  /* One line, one weight, no second line of small print inside the button.
-     The size belongs beside it, not in it. */
+  /* ---- Safe hands ----
+
+     The band that answers "should I type my tax records into this?". Every
+     line on it is a checkable fact about how the app is built, because that
+     is the only kind of reassurance a product without a long customer list
+     can honestly give — and, for somebody handing over a year of receipts,
+     it is the more useful kind anyway. */
+  .safe { background: var(--ink); color: #fff; }
+  .safe .wrap { padding-top: clamp(34px, 5vw, 56px); padding-bottom: clamp(34px, 5vw, 56px); }
+  .safe-head { text-align: center; margin-bottom: clamp(22px, 3vw, 34px); }
+  .safe-head h2 { margin: 0 0 7px; font-size: clamp(21px, 2.9vw, 30px); font-weight: 700; letter-spacing: -.8px; text-wrap: balance; }
+  .safe-head p { margin: 0; color: #9db4d4; font-size: 15px; }
+  .safe-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(238px, 100%), 1fr)); gap: 14px; }
+  .safe-item { min-width: 0; padding: 18px 18px 20px; border-radius: 12px; background: rgba(255, 255, 255, .06); border: 1px solid rgba(255, 255, 255, .1); }
+  .safe-item svg { display: block; color: #4d9ffb; margin-bottom: 11px; }
+  .safe-item h3 { margin: 0 0 6px; font-size: 15.5px; font-weight: 700; letter-spacing: -.3px; }
+  .safe-item p { margin: 0; font-size: 13.5px; line-height: 1.55; color: #b9cbe4; }
+
+  /* ---- Questions ----
+
+     An established product has answered its objections somewhere. A new one
+     that answers them on the page reads as the same thing, and costs nothing
+     but honesty. No cards here — a rule above each question, so the section
+     reads as a document rather than another grid of boxes. */
+  .faq-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(300px, 100%), 1fr)); gap: clamp(18px, 2.6vw, 30px) clamp(20px, 3vw, 44px); }
+  .faq-item { min-width: 0; }
+  .faq-item h3 { margin: 0 0 7px; font-size: 16px; font-weight: 700; letter-spacing: -.3px; color: var(--ink); }
+  .faq-item h3::before { content: ''; display: block; width: 26px; height: 3px; border-radius: 2px; background: var(--blue); margin-bottom: 12px; }
+  .faq-item p { margin: 0; font-size: 14.5px; line-height: 1.62; color: var(--body); }
+
+  /* ---- Who it is for ----
+
+     Four cards, each a photograph with a coloured disc straddling the join
+     between the picture and the words. The disc is what carries the colour:
+     one hue per audience, so the row is scanned by colour before any of it is
+     read. A card whose photograph has not been supplied yet falls back to the
+     gradient with its own icon on it, which reads as a style rather than as a
+     picture that failed to load. */
+  .aud-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 18px; }
+  @media (max-width: 1040px) { .aud-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+  @media (max-width: 560px) { .aud-grid { grid-template-columns: 1fr; } }
+  .aud {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    background: #fff;
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    overflow: hidden;
+    box-shadow: var(--shadow-card);
+  }
+  .aud-photo {
+    position: relative;
+    aspect-ratio: 16 / 10;
+    background: linear-gradient(145deg, #0d2748, #1b3f6e);
+  }
+  .aud-photo img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .aud-mark {
+    position: absolute;
+    left: 18px;
+    bottom: -21px;
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    display: grid;
+    place-items: center;
+    color: #fff;
+    box-shadow: 0 4px 12px rgba(8, 20, 40, .28);
+  }
+  .aud-body { flex: 1; display: flex; flex-direction: column; gap: 8px; padding: 32px 18px 18px; }
+  .aud-body h3 { margin: 0; font-size: 17px; font-weight: 700; letter-spacing: -.4px; }
+  .aud-body p { margin: 0; font-size: 13.5px; line-height: 1.55; color: var(--body); }
+  /* Block, not inline-flex. As a flex row a label that wrapped to two lines
+     left its arrow stranded out at the right-hand edge, level with nothing.
+     Inline, the arrow simply follows the last word. */
+  .aud-link {
+    margin-top: auto;
+    padding-top: 12px;
+    display: block;
+    color: var(--blue);
+    font-size: 13.5px;
+    font-weight: 600;
+    line-height: 1.45;
+    text-decoration: none;
+  }
+  .aud-link svg { vertical-align: -3px; margin-left: 6px; }
+  .aud-link:hover, .aud-link:focus-visible { text-decoration: underline; }
+
+  /* ---- Advertisement films ---- */
+  .ads-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(290px, 100%), 1fr)); gap: 18px; }
+  .ad-frame { border-radius: 12px; overflow: hidden; background: #0b1524; box-shadow: var(--shadow-card); }
+  .ad-video { display: block; width: 100%; height: auto; }
+
+  /* ---- Devices line ---- */
+  .devices-line { display: flex; align-items: center; justify-content: center; gap: 10px; flex-wrap: wrap; color: var(--body); font-size: 14px; text-align: center; margin: 0; }
+  .devices-slot { margin: 14px 0 0; text-align: center; }
+  /* A button, not a blue word. The server decides where it goes — the APK on
+     an Android phone, and everywhere else #android-only, the panel at the foot
+     of this page that says the app is Android only and offers the browser
+     instead. See landingAppDownload.js; the panel opens on :target, so it
+     needs no script, which matters because the hub strips them all. */
   .devices-get {
     display: inline-flex;
     align-items: center;
     gap: 9px;
+    min-height: 44px;
     padding: 10px 20px;
-    border-radius: 10px;
-    border: 1px solid var(--border-strong, var(--border));
-    background: var(--bg-elevated);
-    color: var(--text);
-    font-size: 13.5px;
+    border-radius: 999px;
+    border: 1px solid var(--line);
+    background: var(--paper);
+    box-shadow: var(--shadow-card);
+    color: var(--ink);
+    font-size: 14.5px;
     font-weight: 600;
     text-decoration: none;
     transition: border-color .15s ease, background .15s ease;
   }
-  .devices-get svg { flex-shrink: 0; opacity: .9; }
-  .devices-get:hover { border-color: var(--blue); background: rgba(59, 130, 246, .1); }
-  .devices-get:focus-visible { outline: 2px solid var(--blue); outline-offset: 3px; }
-  .devices-note { font-size: 11.5px; color: var(--text-muted); }
+  .devices-get svg { flex-shrink: 0; color: var(--blue); }
+  .devices-get:hover, .devices-get:focus-visible { border-color: var(--blue); background: var(--blue-soft); }
+  .devices-get:focus-visible { outline: 3px solid #9cc8fa; outline-offset: 2px; }
+  @media (prefers-reduced-motion: reduce) { .devices-get { transition: none; } }
+  .devices-note { font-size: 12px; color: var(--faint); }
 
-  /* The product, shown rather than described.
-
-     Two real screenshots in two drawn frames: the app on a laptop, and the app
-     on a phone standing in front of it. Both devices are CSS, so the only
-     things anybody has to produce are two plain screenshots — no compositing,
-     no mockup tool, and swapping either is one file.
-
-     It replaces a single drawing that had to be redrawn whenever the interface
-     moved, and never quite matched it. */
-  .shot { max-width: 940px; margin: 0 auto clamp(36px, 6vw, 64px); }
-  /* The laptop-and-phone scene that stood here is gone, and its styles with
-     it. It was a mock frame around one picture, taking a full screen of
-     height to say what the picture says on its own — and with the films
-     directly beneath it the top of the page was two large silent blocks
-     before a word of explanation. The dashboard itself moved down to the
-     "Come tax time" panel, where it illustrates the thing that panel is about.
-
-     .shot img:focus-visible went with it, and it had been dangling: a
-     selector ending in a comma with nothing after it, which quietly swallowed
-     the .shots rule below into its own selector list. That worked by
-     accident. */
-
-  .shots {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: clamp(14px, 2.5vw, 26px);
-    margin-bottom: clamp(48px, 8vw, 88px);
+  /* ---- Pricing ---- */
+  .pricing .wrap { display: grid; grid-template-columns: minmax(0, .8fr) minmax(0, 1fr) minmax(0, 1fr) auto; gap: clamp(18px, 3vw, 34px); align-items: center; }
+  @media (max-width: 1040px) {
+    .pricing .wrap { grid-template-columns: 1fr 1fr; }
+    .pricing-lead, .pricing-note { grid-column: 1 / -1; text-align: center; }
+    .pricing-note .note-swoosh { margin-inline: auto; }
   }
-  .shot-panel { min-width: 0; }
-  /* One shape for all three, whatever is dropped in.
-     Each image used to set its own, so a 4:3 drawing sat beside a nearly
-     square screenshot and the row came out ragged. Cropping to a shared
-     aspect means a screenshot can be supplied at whatever size it happens to
-     come out of the tool.
-
-     From the top, because that is where a screenshot keeps its heading and its
-     numbers — the part worth showing is never the footer. */
-  .shot-panel img {
-    display: block;
-    width: 100%;
-    aspect-ratio: 4 / 3;
-    object-fit: cover;
-    object-position: top;
-    border-radius: 14px;
-    border: 1px solid var(--border);
-    background: var(--bg-card);
-  }
-  /* Nothing needs an off-centre crop at the moment.
-
-     This carried a .crop-right rule for the expense-list screenshot, which was
-     1.86:1 — cropped to 4:3 from the centre it lost the amounts column off the
-     right-hand side. That screenshot has been replaced by a photograph already
-     cropped to 4:3, so there is nothing left to anchor and the rule went with
-     it. Worth knowing it existed if a very wide screenshot turns up again. */
-
-  /* Full size, on a ground dark enough that the screenshot is the only thing
-     being looked at.
-
-     Opened by :target rather than by script, and that is not a preference.
-     This page is scraped by Mikes App Hub and re-rendered inside its own
-     shell, which keeps the markup and the CSS and drops every script block — so
-     the version real visitors see had markup for a lightbox and nothing to
-     open it. Clicking a screenshot did nothing, and nothing in the page could
-     have told you why.
-
-     A link to #shot-x and a rule on :target needs no script, so it works in
-     both places: here, and in whatever the hub renders. */
-  .lightbox {
-    position: fixed;
-    inset: 0;
-    z-index: 2000;
-    display: none;
-    align-items: center;
-    justify-content: center;
-    padding: 24px;
-    background: rgba(6, 10, 18, .88);
-    backdrop-filter: blur(3px);
-  }
-  .lightbox:target { display: flex; }
-  /* A portrait picture in a landscape window is bounded by height, not width —
-     the shared rule below sizes figures for the wide screenshots and would let
-     this one run off the top and bottom of the screen. */
-  .lightbox-tall figure { max-width: none; }
-  .lightbox-tall figure img { width: auto; max-width: 92vw; max-height: 92svh; }
-  /* The picture arrives rather than appearing.
-     Each screen is its own :target, so stepping to the next one shows a fresh
-     element — which means this runs on every step and the three read as a
-     sequence rather than three hard cuts. */
-  .lightbox:target figure { animation: shot-in .34s cubic-bezier(.22, .61, .36, 1) both; }
-  @keyframes shot-in {
-    from { opacity: 0; transform: translateY(10px) scale(.985); }
-    to { opacity: 1; transform: none; }
-  }
-
-  /* Forward and back, one either side of the picture. */
-  .shotbox-step {
-    position: absolute;
-    z-index: 3;
-    top: 50%;
-    transform: translateY(-50%);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 48px;
-    height: 48px;
-    border-radius: 50%;
-    border: 1px solid rgba(255, 255, 255, .22);
-    background: rgba(10, 15, 24, .55);
-    color: #fff;
-    text-decoration: none;
-    transition: background .15s ease, border-color .15s ease;
-  }
-  .shotbox-step:hover { background: rgba(10, 15, 24, .85); border-color: rgba(255, 255, 255, .45); }
-  .shotbox-step:focus-visible { outline: 2px solid var(--blue); outline-offset: 3px; }
-  .shotbox-prev { left: 18px; }
-  .shotbox-next { right: 18px; }
-
-  /* Which of the three this is, and a way straight to the others. */
-  .shotbox-bar {
-    position: absolute;
-    z-index: 3;
-    left: 50%;
-    bottom: 20px;
-    transform: translateX(-50%);
-    display: flex;
-    align-items: center;
-    gap: 14px;
-    padding: 8px 16px;
-    border-radius: 999px;
-    border: 1px solid rgba(255, 255, 255, .16);
-    background: rgba(10, 15, 24, .6);
-  }
-  .shotbox-name { font-size: 12.5px; font-weight: 600; color: rgba(255, 255, 255, .9); }
-  .shotbox-dots { display: flex; gap: 7px; }
-  .shotbox-dot {
-    width: 8px;
-    height: 8px;
-    border-radius: 50%;
-    background: rgba(255, 255, 255, .3);
-    transition: background .15s ease, transform .15s ease;
-  }
-  .shotbox-dot:hover { background: rgba(255, 255, 255, .6); }
-  .shotbox-dot.on { background: var(--blue); transform: scale(1.25); }
-
-  @media (max-width: 640px) {
-    .shotbox-step { width: 40px; height: 40px; }
-    .shotbox-prev { left: 8px; }
-    .shotbox-next { right: 8px; }
-    .shotbox-bar { bottom: 12px; gap: 10px; padding: 7px 13px; }
-  }
-  @media (prefers-reduced-motion: reduce) {
-    .lightbox:target figure { animation: none; }
-    .shotbox-dot, .shotbox-step { transition: none; }
-  }
-  /* Nothing moves behind an open overlay.
-     The lightbox and the Android panel are fixed and cover the viewport, but
-     the page underneath still scrolls to a flick or a wheel — so closing one
-     used to leave you somewhere else on the page than where you opened it.
-     :has() does this without a line of script, which this page cannot use:
-     the hub proxy strips every one before a visitor sees it. */
-  html:has(.lightbox:target),
-  html:has(.notebox:target) { overflow: hidden; }
-  body:has(.lightbox:target),
-  body:has(.notebox:target) { overflow: hidden; }
-  .lightbox img {
-    max-width: min(1400px, 100%);
-    /* The whole height, less the padding. This used to stop 132px short to
-       leave room for a caption underneath — the caption is gone, and with it
-       the reason the picture was smaller than the screen it was opened on. */
-    max-height: calc(100dvh - 48px);
-    width: auto;
-    height: auto;
-    border-radius: 12px;
-    border: 1px solid rgba(255,255,255,.14);
-    box-shadow: 0 40px 90px -30px rgba(0,0,0,.8);
-  }
-  /* No caption.
-     Somebody who has just clicked a screenshot to see it larger is looking at
-     the screenshot. The description still exists as the image's alt text,
-     which is what a screen reader reads and what the caption was duplicating
-     on screen. */
-  .lightbox figure { margin: 0; display: flex; align-items: center; justify-content: center; }
-  /* A cross in the corner, and nothing else.
-
-     It was a pill reading "× Close", which is a lot of furniture sitting on top
-     of a picture somebody opened in order to look at. The circle keeps the
-     target size that pill had — the point of the padding was never the word. */
-  .lightbox .shotbox-close,
-  .notebox .shotbox-close {
-    position: absolute;
-    z-index: 3;
-    top: 18px;
-    right: 18px;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 42px;
-    height: 42px;
-    border-radius: 50%;
-    border: 1px solid rgba(255,255,255,.22);
-    background: rgba(255,255,255,.1);
-    color: #fff;
-    font: inherit;
-    font-size: 22px;
-    line-height: 1;
-    cursor: pointer;
-    text-decoration: none;
-  }
-  .lightbox .shotbox-close:hover,
-  .notebox .shotbox-close:hover { background: rgba(255,255,255,.24); }
-
-  /* "Why can't I have it?", answered when asked rather than pre-emptively.
-     Opened by :target from the download button, the same scriptless mechanism
-     the screenshot lightboxes use — nothing on this page can depend on
-     JavaScript, because the hub proxy strips it. */
-  .notebox {
-    position: fixed;
-    inset: 0;
-    z-index: 2100;
-    display: none;
-    align-items: center;
-    justify-content: center;
-    padding: 24px;
-    background: rgba(6, 10, 18, .9);
-    backdrop-filter: blur(4px);
-  }
-  .notebox:target { display: flex; }
-  .notebox-card {
-    position: relative;
-    max-width: 420px;
-    width: 100%;
-    padding: clamp(26px, 5vw, 34px);
-    border-radius: 20px;
-    border: 1px solid var(--border);
-    background: var(--bg-card);
-    text-align: center;
-  }
-  /* On the card, not in the corner of the window.
-     The shared rule positions it against the full-screen overlay, which on a
-     desktop strands it a long way from the panel it closes — and on a phone
-     put it behind the picture. Smaller too: it is sitting on a 420px card now,
-     not on the whole screen. */
-  .notebox .notebox-card .shotbox-close {
-    top: 10px;
-    right: 10px;
-    width: 34px;
-    height: 34px;
-    font-size: 19px;
-  }
-  .notebox-mark {
-    width: 62px;
-    height: 62px;
-    margin: 0 auto 18px;
-    border-radius: 18px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: var(--emerald);
-    background: linear-gradient(135deg, rgba(16, 185, 129, .22), rgba(16, 185, 129, .07));
-  }
-  .notebox-card h3 { font-size: 19px; font-weight: 800; letter-spacing: -.2px; margin-bottom: 10px; }
-  .notebox-card p { font-size: 14px; color: var(--text-muted); line-height: 1.6; margin-bottom: 14px; }
-  .notebox-card p:last-of-type { margin-bottom: 22px; }
-  .notebox-card .btn { width: 100%; justify-content: center; }
-
-  /* No backdrop link any more.
-
-     Clicking off the picture used to close it, and a screenshot is something
-     people drag and pinch — any of which can end with the pointer past the edge
-     of the image, throwing away what they were reading with no way back but
-     finding the thumbnail again. The cross is deliberate; a click that lands
-     beside the picture usually is not. */
-  /* No position on the close button here.
-
-     This rule used to name it alongside the figure and set position:
-     relative, which quietly overrode the absolute positioning declared
-     for it thirty lines above — later rule, same specificity — so the
-     cross was never in the corner at all. It became an ordinary flex item
-     of a centred flex container and sat over the middle of the picture,
-     which is exactly the thing that looked wrong.
-
-     The rule was there to lift both above the backdrop, and the backdrop
-     no longer exists. */
-  .lightbox figure { position: relative; }
-  /* Something to look at while a screenshot is on its way.
-
-     On the <img>, not on the <figure>, and that distinction is the whole bug
-     this used to have: a blue border down both sides of every full-size
-     screenshot that never went away.
-
-     The figure is a flex item sized from its content's *width* — 1400px after
-     max-width — but the picture is then held back by max-height and paints
-     narrower than that, around 1360. The figure keeps the wider box, so a
-     hundred pixels of loading placeholder sat either side of the image
-     permanently. Nothing was broken; the placeholder was simply bigger than
-     the thing meant to cover it.
-
-     An <img> paints its own background behind its own content and is exactly
-     the size of the picture, so there is no gap for this to show through. It
-     is still covered the instant the picture decodes, and still needs nothing
-     switched off afterwards. The mark and the slow sweep are the same ones the
-     advertisement frames use, so a wait looks the same wherever it happens. */
-  .lightbox img {
-    background-color: #0b2e6b;
-    background-image:
-      /* Absolute, and it has to be. The hub proxy lifts this stylesheet into
-         its own document, so a relative url() resolves against the hub's
-         origin rather than ours — where /logo.svg does not exist. It rewrites
-         img[src] but nothing inside CSS, so this mark had never once appeared
-         for a real visitor. Same fault as the poster attribute; see
-         landingAdsHtml.js. */
-      url('https://taxify.net.au/logo.svg'),
-      linear-gradient(100deg, rgba(255, 255, 255, 0) 0%, rgba(255, 255, 255, .10) 50%, rgba(255, 255, 255, 0) 100%),
-      linear-gradient(140deg, #12376f 0%, #0b2e6b 55%, #071d45 100%);
-    background-repeat: no-repeat;
-    background-position: center, -60% 0, center;
-    background-size: clamp(48px, 9%, 78px) auto, 55% 100%, cover;
-    animation: shot-loading 2.1s ease-in-out infinite;
-  }
-  @keyframes shot-loading {
-    from { background-position: center, -60% 0, center; }
-    to { background-position: center, 160% 0, center; }
-  }
-  @media (prefers-reduced-motion: reduce) {
-    .lightbox img { animation: none; }
-  }
-  /* Edge to edge on a phone.
-     The padding, the rounded corner and the border are all framing, and a
-     4in screen has no room to spend on framing. */
-  @media (max-width: 640px) {
-    .lightbox { padding: 0; }
-    .lightbox img {
-      max-width: 100vw;
-      max-height: 100dvh;
-      border-radius: 0;
-      border: 0;
-    }
-    .lightbox .shotbox-close,
-    .notebox .shotbox-close { top: 10px; right: 10px; }
-  }
-
-  /* Ask for the phone to be turned, rather than turning the picture.
-
-     The previous answer rotated the image 90deg so it filled an upright
-     phone. It did fill it — and it also painted straight over the close
-     button, which sits behind it in the DOM, so the one way out of the
-     viewer was the thing you could not find. Reading a sideways screenshot
-     by tilting your head is not much of a prize for that either.
-
-     So the picture waits. Upright, the viewer shows why and nothing else;
-     turned, the ask disappears and the screenshot has the whole screen. No
-     script involved — the orientation media query does all of it, which
-     matters because the hub proxy strips every script from this page. */
-  .rotate-ask { display: none; }
-  @media (max-width: 640px) and (orientation: portrait) {
-    /* Not .lightbox-tall.
-    
-       This hides the picture so the "turn your phone" panel can take its
-       place, which is right for the three screenshots — they are far wider
-       than they are tall and unreadable held upright. It was wrong for the
-       poster, which is portrait and already the shape of a phone held
-       normally: it has no rotate panel to show instead, so Enlarge poster
-       opened a black screen with a close button on it and nothing else.
-       Desktop and tablet were fine, which is exactly how it stayed hidden. */
-    .lightbox:target:not(.lightbox-tall) figure,
-    .lightbox:target .shotbox-step,
-    .lightbox:target .shotbox-bar { display: none; }
-    .rotate-ask {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      text-align: center;
-      gap: 4px;
-      max-width: 300px;
-      padding: 0 8px;
-    }
-    .rotate-mark {
-      width: 84px;
-      height: 84px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      margin-bottom: 14px;
-      border-radius: 26px;
-      color: var(--blue);
-      background: linear-gradient(135deg, rgba(59, 130, 246, .22), rgba(59, 130, 246, .06));
-      animation: rotate-hint 2.6s ease-in-out infinite;
-    }
-    .rotate-ask h3 { font-size: 18px; font-weight: 800; letter-spacing: -.2px; color: #fff; }
-    .rotate-ask p { font-size: 13.5px; line-height: 1.6; color: rgba(255, 255, 255, .72); }
-  }
-  /* A quarter turn and back, which is the gesture being asked for. */
-  @keyframes rotate-hint {
-    0%, 55%, 100% { transform: rotate(0deg); }
-    25%, 40% { transform: rotate(-90deg); }
-  }
-  @media (prefers-reduced-motion: reduce) {
-    .rotate-mark { animation: none; }
-  }
-
-  .shot-step {
-    display: inline-block;
-    font-size: 10.5px;
-    font-weight: 800;
-    letter-spacing: 0.8px;
-    text-transform: uppercase;
-    color: var(--text-muted);
-    margin: 14px 0 5px;
-  }
-  .shot-title { font-size: 15px; font-weight: 700; margin-bottom: 5px; }
-  .shot-text { font-size: 13px; color: var(--text-muted); line-height: 1.55; }
-  @media (max-width: 780px) {
-    .shots { grid-template-columns: 1fr; gap: 26px; }
-  }
-
-
-  /* The two advertisement films.
-     Side by side on a wide screen, stacked on a narrow one. They are uploaded from the admin panel rather than deployed,
-     and the server removes whichever slot has no file — so this never renders
-     an empty player. */
-  /* The films sit under the screenshot as one block, not adrift below it.
-
-     They were a section with its own 88px margin plus 64px of padding, holding
-     two 16:9 boxes 980px wide between them — two small dark rectangles with a
-     field of dark ground on every side. The gap above is closed to nothing,
-     because they belong to the picture above them, and the pair is as wide as
-     that picture so the two read as one column rather than two objects that
-     happen to be stacked. */
-  .ads { padding: 0; margin-top: calc(clamp(48px, 8vw, 88px) * -0.55); }
-  .ads-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(min(300px, 100%), 1fr));
-    gap: clamp(14px, 2vw, 22px);
-    max-width: 940px;
-    margin: 0 auto;
-  }
-  .ads-title {
-    text-align: center;
-    font-size: clamp(17px, 2.2vw, 21px);
-    letter-spacing: -0.3px;
-    margin: 0 0 clamp(14px, 2vw, 20px);
-  }
-  .ad-frame {
-    border-radius: 18px;
-    overflow: hidden;
-    border: 1px solid var(--border);
-    background: var(--bg-card);
-    box-shadow: 0 24px 60px -20px rgba(37, 99, 235, 0.45), 0 0 0 1px rgba(59, 130, 246, 0.12);
-  }
-  /* The box is reserved before the file arrives, so the page below does not
-     jump when it does. */
-  /* What fills the frame before anybody presses play.
-
-     With no poster, the opening frame of the film itself: preload="metadata"
-     fetches enough to decode it and browsers paint it, without downloading the
-     film. So an advertisement uploaded without a poster shows the advertisement
-     rather than a black rectangle.
-
-     This ground is what shows for the moment before that frame arrives, and on
-     any browser that declines to decode one. It was #000, which read as broken
-     rather than as a film about to play.
-
-     So the ground is the brand instead: the mark, centred, over the same blue
-     the rest of the page uses. Drawn in CSS rather than shipped as an image so
-     there is no second file to keep, and it costs nothing when a real poster
-     is uploaded — the poster simply covers it.
-
-     The server strips the poster attribute when there is no file, so the
-     browser never requests one that would 404. */
-  /* Play or pause, and nothing to drag.
-
-     A scrub bar on an advertisement invites somebody to skip to the end of it,
-     and what they land on is a frozen last frame rather than the point of the
-     thing. There is no attribute for this — controlsList can drop download,
-     playback rate and fullscreen, but not the timeline — so it is the shadow
-     part, which Chrome, Edge and Safari all expose and Firefox does not. There
-     it degrades to an ordinary control bar, which is where we were.
-
-     Deliberately not removing controls altogether: this page has no JavaScript
-     it can rely on, so a video without controls is a video nobody can start. */
-  .ad-video::-webkit-media-controls-timeline,
-  .ad-video::-webkit-media-controls-current-time-display,
-  .ad-video::-webkit-media-controls-time-remaining-display {
-    display: none;
-  }
-
-  /* The frame says "loading", not "broken".
-     A still placeholder and a film that has failed look identical, and the
-     second background layer here is a slow sheen crossing the frame so the
-     difference is visible without a word of explanation. It needs no
-     JavaScript, which matters: the hub proxy strips every script from this
-     page, so anything driven by one would do nothing for most visitors.
-
-     Nothing has to switch it off, either. The moment the browser paints the
-     poster — or the film's own opening frame, which preload="metadata" is
-     enough to decode — the video's content covers its background and the
-     sheen goes with it. */
-  .ad-video {
-    display: block;
-    width: 100%;
-    aspect-ratio: 16 / 9;
-    background-color: #0b2e6b;
-    background-image:
-      url('/logo.svg'),
-      linear-gradient(100deg, rgba(255, 255, 255, 0) 0%, rgba(255, 255, 255, 0.10) 50%, rgba(255, 255, 255, 0) 100%),
-      radial-gradient(120% 90% at 50% 0%, rgba(59, 130, 246, 0.55) 0%, rgba(11, 46, 107, 0) 70%),
-      linear-gradient(140deg, #12376f 0%, #0b2e6b 55%, #071d45 100%);
-    background-repeat: no-repeat;
-    background-position: center, -60% 0, center, center;
-    background-size: clamp(56px, 12%, 92px) auto, 55% 100%, cover, cover;
-    animation: ad-loading 2.1s ease-in-out infinite;
-  }
-  /* Only the sheen moves; the other three layers are restated unchanged
-     because background-position animates the whole list or none of it. */
-  @keyframes ad-loading {
-    from { background-position: center, -60% 0, center, center; }
-    to { background-position: center, 160% 0, center, center; }
-  }
-
-
-  section { margin-bottom: clamp(48px, 8vw, 88px); }
-  .section-head { text-align: center; margin-bottom: 40px; }
-  h2 { font-size: clamp(24px, 4vw, 32px); margin: 0 0 12px; font-weight: 800; }
-  .section-head p { color: var(--text-muted); font-size: 15px; max-width: 520px; margin: 0 auto; }
-
-  .features-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(240px, 100%), 1fr)); gap: 16px; }
-  .feature-card { padding: 24px; }
-  .feature-icon {
-    /* One tint per card, rotating through six.
-       Every icon used to be the same blue on the same blue-to-cyan wash, so
-       twelve cards read as one texture and nothing in the block was
-       distinguishable from anything else in it. The hues are all mid-tones
-       that hold up on this dark ground, and the icon is the only place the
-       colour lands — the cards themselves stay uniform, so the grid still
-       reads as one set rather than a paint chart. */
-    --tint: 59, 130, 246;
-    width: 38px;
-    height: 38px;
-    margin-bottom: 13px;
-    border-radius: 11px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    flex-shrink: 0;
-    background: linear-gradient(135deg, rgba(var(--tint), 0.20), rgba(var(--tint), 0.07));
-    color: rgb(var(--tint));
-  }
-  .feature-card:nth-child(6n + 2) .feature-icon { --tint: 6, 182, 212; }
-  .feature-card:nth-child(6n + 3) .feature-icon { --tint: 16, 185, 129; }
-  .feature-card:nth-child(6n + 4) .feature-icon { --tint: 139, 122, 246; }
-  .feature-card:nth-child(6n + 5) .feature-icon { --tint: 245, 158, 11; }
-  .feature-card:nth-child(6n + 6) .feature-icon { --tint: 244, 114, 182; }
-  .feature-icon svg { width: 19px; height: 19px; }
-  .feature-title { font-weight: 700; font-size: 15px; margin-bottom: 6px; }
-  .feature-text { font-size: 13.5px; color: var(--text-muted); }
-
-  /* On a phone the cards are a list, not a wall.
-     Stacked one per screen at desktop proportions, twelve of these is a very
-     long scroll through boxes that all look alike — a lot of thumb for not
-     much read. Turning each one on its side puts the icon beside the words
-     instead of above them, which takes roughly a third off the height of
-     every card and gives the column a left edge to run down. */
-  @media (max-width: 640px) {
-    .features-grid { gap: 10px; }
-    .feature-card {
-      display: grid;
-      grid-template-columns: auto 1fr;
-      align-items: start;
-      column-gap: 13px;
-      padding: 15px 16px;
-    }
-    .feature-icon { width: 34px; height: 34px; margin: 1px 0 0; border-radius: 10px; grid-row: span 2; }
-    .feature-icon svg { width: 17px; height: 17px; }
-    .feature-title { font-size: 14.5px; margin-bottom: 3px; }
-    .feature-text { font-size: 13px; line-height: 1.5; }
-  }
-
-  .plans-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(260px, 100%), 1fr)); gap: 20px; max-width: 640px; margin: 0 auto; }
-  .plan-card { padding: 28px; position: relative; border: 1px solid var(--border); }
-  .plan-card.highlight { border-color: var(--violet); box-shadow: 0 0 0 1px var(--violet); }
-
-
-  @media (prefers-reduced-motion: reduce) {
-    /* The sheen stops; the frame keeps its branded ground. */
-    .ad-video { animation: none; }
-    .poster-link, .poster-link:hover { transition: none; transform: none; }
-  }
+  @media (max-width: 640px) { .pricing .wrap { grid-template-columns: 1fr; } }
+  .pricing-lead h2 { margin: 0 0 8px; font-size: clamp(21px, 2.8vw, 29px); font-weight: 700; letter-spacing: -.8px; text-wrap: balance; }
+  .pricing-lead p { margin: 0; color: var(--body); }
+  .plan { position: relative; background: #fff; border: 1px solid var(--line); border-radius: 14px; padding: 20px; box-shadow: var(--shadow-card); }
+  /* One of the two is marked, and the ring is the marking — a heavier border
+     alone shifted the card by a pixel against its neighbour. */
+  .plan.highlight { border-color: var(--blue); box-shadow: 0 0 0 1px var(--blue), var(--shadow-card); }
   .plan-badge {
-    position: absolute;
-    top: -12px;
-    left: 24px;
-    background: var(--gradient-brand);
-    color: white;
-    font-size: 11px;
-    font-weight: 700;
-    padding: 4px 12px;
-    border-radius: 999px;
+    position: absolute; top: -10px; left: 20px;
+    padding: 3px 10px; border-radius: 999px;
+    background: var(--blue); color: #fff;
+    font-family: 'Poppins', sans-serif; font-size: 10px; font-weight: 700;
+    letter-spacing: .6px; text-transform: uppercase;
   }
-  .plan-name { font-weight: 700; font-size: 16px; }
-  .plan-price { margin: 10px 0 2px; }
-  /* The yearly price, divided. A year is the honest way to charge and a week
-     is the honest way to understand it — $49 is a number people weigh up,
-     and ninety-four cents is one they don't. */
-  .plan-per { font-size: 12.5px; color: var(--text-muted); margin-bottom: 8px; }
-  /* On every card, not only in the paragraph above them. Somebody comparing
-     two prices is looking at the cards, and "does this one have a trial too?"
-     should not be a question they have to scroll up to answer. */
-  .plan-trial {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    font-size: 12px;
-    font-weight: 700;
-    letter-spacing: 0.3px;
-    padding: 4px 10px;
-    border-radius: 999px;
-    color: var(--emerald);
-    background: rgba(16, 185, 129, 0.13);
-    margin-bottom: 12px;
+  .plan-trial { display: inline-flex; align-items: center; gap: 6px; margin-bottom: 10px; font-size: 12px; font-weight: 600; color: #18794e; }
+  .plan-trial svg { flex-shrink: 0; }
+  .plan-text { margin: 0 0 14px; font-size: 13px; color: var(--body); }
+  .plan-name { font-weight: 700; font-size: 15px; margin-bottom: 4px; }
+  .plan-price { font-size: clamp(30px, 3.6vw, 34px); font-weight: 800; letter-spacing: -1.4px; }
+  .plan-price em { font-style: normal; font-size: 15px; font-weight: 500; color: var(--faint); letter-spacing: 0; }
+  .plan-per { font-size: 11.5px; color: var(--faint); margin-bottom: 13px; }
+  .plan ul { list-style: none; margin: 0 0 16px; padding: 0; display: flex; flex-direction: column; gap: 7px; }
+  .plan li { display: flex; align-items: flex-start; gap: 8px; font-size: 13px; color: var(--body); }
+  .plan li svg { flex-shrink: 0; margin-top: 3px; color: var(--blue); }
+
+  /* ---- Closing ask ---- */
+  /* The photograph sits under a wash dark enough to read white type on at any
+     crop. The gradient stays underneath it as the colour the band falls back
+     to while the image is still arriving, and on the day it is replaced. */
+  .closing {
+    position: relative;
+    background:
+      linear-gradient(90deg, rgba(6, 14, 28, .88) 0%, rgba(6, 14, 28, .62) 50%, rgba(6, 14, 28, .82) 100%),
+      url('/media/closing-band.jpg') center 62% / cover no-repeat,
+      linear-gradient(170deg, #0a1b33 0%, #12305a 55%, #0a1b33 100%);
+    color: #fff;
   }
-  .plan-price .amount { font-size: 32px; font-weight: 800; }
-  .plan-price .period { font-size: 14px; color: var(--text-muted); }
-  .plan-text { font-size: 13px; color: var(--text-muted); margin: 0 0 18px; }
-  .plan-features { list-style: none; display: flex; flex-direction: column; gap: 10px; }
-  .plan-features li { display: flex; gap: 8px; font-size: 13px; align-items: flex-start; }
-  .plan-features li .check { color: var(--emerald); }
+  .closing .wrap { display: grid; grid-template-columns: auto 1fr auto; gap: clamp(20px, 4vw, 44px); align-items: center; padding-top: 40px; padding-bottom: 40px; }
+  @media (max-width: 980px) { .closing .wrap { grid-template-columns: 1fr; text-align: center; justify-items: center; } }
+  .closing h2 { margin: 0 0 4px; font-size: clamp(19px, 2.6vw, 27px); font-weight: 700; letter-spacing: -.6px; text-wrap: balance; }
+  .closing h2 span { color: #4d9ffb; }
+  .closing-mid { text-align: center; }
 
-  .cta-card { padding: clamp(28px, 5vw, 48px); text-align: center; margin-bottom: clamp(32px, 6vw, 56px); }
-  .cta-card h2 { margin: 0 0 12px; }
-  .cta-card p { color: var(--text-muted); font-size: 15px; max-width: 480px; margin: 0 auto 24px; }
-
-  /* What customers have said.
-     Cut out of the page by the server until it holds something real — see
-     landingReviews.js. The markup below is the shape; the quotes are yours to
-     write, and until one is written this whole block is removed rather than
-     shipped with placeholders in it. */
-  .reviews {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(min(280px, 100%), 1fr));
-    gap: clamp(14px, 2.5vw, 22px);
-    max-width: 1040px;
-    margin: 0 auto;
-  }
-  .review {
-    display: flex;
-    flex-direction: column;
-    gap: 14px;
-    padding: 24px;
-    border-radius: 16px;
-    border: 1px solid var(--border);
-    background: var(--bg-card);
-  }
-  .review-stars { display: flex; gap: 3px; color: var(--amber, #f59e0b); }
-  .review-quote { font-size: 14.5px; line-height: 1.65; }
-  .review-who { display: flex; flex-direction: column; gap: 2px; margin-top: auto; }
-  .review-name { font-size: 13px; font-weight: 700; }
-  .review-role { font-size: 12px; color: var(--text-muted); }
-
-
-  .lp-footer { text-align: center; font-size: 12px; color: var(--text-muted); padding: 16px 20px; }
-  .lp-footer a { color: var(--blue); }
-  /* The Facebook buttons, when the admin panel has switched them on.
-     All plain links now — landingSocial.js has why the Like iframe went. */
-  .social-section { padding: 4px 20px 34px; text-align: center; }
-  .social-row {
+  /* ---- Footer ---- */
+  .lp-footer { background: #061020; color: #7f8ca0; }
+  /* Scoped to the first row rather than to .lp-footer .wrap, which caught the
+     Powered by row underneath as well and made it a flex item that shrank to
+     its own text — rule and all. */
+  .lp-footer-main { display: flex; flex-wrap: wrap; gap: 10px 26px; align-items: center; padding-top: 18px; padding-bottom: 18px; font-size: 13px; }
+  .lp-links { margin-left: auto; display: flex; gap: 20px; flex-wrap: wrap; }
+  .lp-footer a { color: #9dabc0; text-decoration: none; }
+  .lp-footer a:hover, .lp-footer a:focus-visible { color: #fff; }
+  @media (max-width: 640px) { .lp-links { margin-left: 0; } }
+  /* Powered by. Its own line under the rest, centred, with a rule above it:
+     it is a different kind of statement from a copyright and a row of legal
+     links, and sharing their line made it read as a fourth link. */
+  .lp-powered {
     display: flex;
     align-items: center;
     justify-content: center;
-    flex-wrap: wrap;
-    gap: 10px;
+    gap: 9px;
+    /* Explicit, because a p's default margin is 1em and the footer has no
+       bottom padding to stop the bottom one collapsing straight out of it —
+       which showed as a white strip under the whole footer. */
     margin: 0;
+    border-top: 1px solid rgba(255, 255, 255, .07);
+    padding: 14px 0 18px;
+    font-size: 12.5px;
+    color: #7f8ca0;
   }
+  .lp-powered a { display: inline-flex; align-items: center; gap: 8px; font-weight: 600; color: #b8c6da; }
+  .lp-powered img { width: 20px; height: 20px; border-radius: 5px; display: block; }
+
+  /* ---- The Android panel, opened by the download button ---- */
+  .sheet { position: fixed; inset: 0; z-index: 2000; display: none; align-items: center; justify-content: center; padding: 20px; background: rgba(6, 12, 22, .86); overflow-y: auto; }
+  .sheet:target { display: flex; }
+  .sheet-card { position: relative; background: #fff; border-radius: 16px; padding: clamp(26px, 5vw, 32px); max-width: 420px; text-align: center; }
+  .sheet-card h3 { margin: 0 0 10px; font-size: 19px; font-weight: 700; }
+  .sheet-card p { margin: 0 0 12px; font-size: 14px; color: var(--body); }
+  /* On the card, not on the screen behind it. Out in the corner of the page it
+     read as closing the page rather than the panel, and on a phone it landed
+     nowhere near the thing it shuts. */
+  .sheet-close { position: absolute; top: 8px; right: 10px; display: grid; place-items: center; width: 34px; height: 34px; border-radius: 50%; color: var(--faint); font-size: 24px; text-decoration: none; line-height: 1; }
+  .sheet-close:hover, .sheet-close:focus-visible { background: var(--blue-soft); color: var(--ink); }
+
+  /* ---- Share ----
+
+     The buttons themselves are written by the server from what is set in
+     Administration — see landingSocial.js — so all this page owns is how they
+     look. It has to own that: the injected markup carries class names and
+     nothing else, and without these rules the strip was three underlined blue
+     links on bare white, wedged between the closing band and the footer.
+
+     Dark, and the footer's exact colour, so the foot of the page reads as one
+     piece. The vertical padding sits on the row rather than the section, so
+     that when Facebook is switched off and the row is removed the strip has no
+     height at all instead of leaving a gap. */
+  .social-strip { background: #061020; }
+  .social-strip .wrap { padding-top: 0; padding-bottom: 0; }
+  .social-row { display: flex; align-items: center; justify-content: center; flex-wrap: wrap; gap: 10px; margin: 0; padding-block: 24px 26px; }
   .social-btn {
     display: inline-flex;
     align-items: center;
-    gap: 7px;
-    font-size: 12.5px;
+    gap: 8px;
+    min-height: 38px;
+    padding: 8px 16px;
+    border-radius: 999px;
+    font-size: 13px;
     font-weight: 600;
-    padding: 5px 12px;
-    border-radius: 6px;
     text-decoration: none;
-    color: var(--text);
-    background: rgba(255, 255, 255, 0.06);
-    border: 1px solid var(--border);
+    color: #cfe0f5;
+    background: rgba(255, 255, 255, .06);
+    border: 1px solid rgba(255, 255, 255, .15);
+    transition: background .15s ease, border-color .15s ease, color .15s ease;
   }
-  .social-btn:hover { background: rgba(255, 255, 255, 0.12); }
-  /* Messenger only where Messenger exists.
-     fb-messenger:// needs the app installed; on a desktop the link is inert,
-     and an inert button is worse than no button. */
+  .social-btn:hover, .social-btn:focus-visible { background: rgba(255, 255, 255, .13); border-color: rgba(255, 255, 255, .32); color: #fff; }
+  .social-btn:focus-visible { outline: 3px solid #9cc8fa; outline-offset: 2px; }
+  @media (prefers-reduced-motion: reduce) { .social-btn { transition: none; } }
+  /* Messenger only where Messenger exists. fb-messenger:// needs the app
+     installed; on a desktop the link is inert, and a button that does nothing
+     when pressed is worse than no button — which is what "the links are
+     broken" meant. */
   .social-btn--messenger { display: none; }
-  @media (pointer: coarse) {
-    .social-btn--messenger { display: inline-flex; }
-  }
+  @media (pointer: coarse) { .social-btn--messenger { display: inline-flex; } }
 </style>
 </head>
 <body>
-  <div class="lp-topbar">
-    <a class="brand" href="/">
-      <img src="/logo.svg" alt="Taxify" width="32" height="32">
-      <span>Taxify</span>
-    </a>
-    <!-- No buttons up here.
-
-         They were invisible until the topbar stopped being a <header> the hub
-         deletes, and one look at them back in place settled it: the hub draws
-         its own signed-in nav across the top of this page, so Log in and Open
-         Taxify sat directly beneath the hub's own — two sets of controls
-         saying the same thing, inches apart, the second of them ours and
-         redundant.
-
-         Nothing is lost. The call to action at the foot of the page still goes
-         to the same place, and by then the reader has been given a reason to
-         press it. -->
-  </div>
 
   <main class="lp">
-    <!-- The advertisement, first, and the offer beside it.
 
-         The buttons point at /go/trial rather than straight at the app. That
-         hop is what counts the press: the proxy strips every script from this
-         page, so nothing in it can report a click, and without the middle step
-         the funnel cannot tell a button being ignored from a form losing
-         people. See index.js.
+    <section class="hero">
 
-         This is the poster that goes on a noticeboard, and it earns the top of
-         the page for the same reason it works on one: it says what Taxify is
-         in a single glance, which no amount of prose above the fold has ever
-         managed. Everything below it is the argument; this is the picture.
+      <!-- A div, not a header element. The hub strips header, footer and the
+           common nav class names out of the copy it serves, and this bar
+           vanished with them the first time it was written honestly.
 
-         Beside it sits the one decision a reader can make here. A poster with
-         nothing to press is a picture, so the trial is offered in the same
-         breath — with what it costs said plainly next to it rather than
-         waiting at the bottom of the page.
+           Inside the hero, so the one background paints the bar as well and
+           the flare in the top-left corner is not sliced off at the bar's
+           bottom edge. It is transparent; the hero is what you see through it. -->
+      <div class="lp-topbar">
+        <div class="wrap">
+          <a class="brand" href="/">
+            <img src="/logo.svg" alt="" width="34" height="34">
+            <span>
+              <span class="brand-name">Taxify</span>
+              <span class="brand-sub">Receipts. Sorted.</span>
+            </span>
+          </a>
+          <nav class="topnav" aria-label="Sections of this page">
+            <a href="#how">How It Works</a>
+            <a href="#features">Features</a>
+            <a href="#pricing">Pricing</a>
+            <a href="#tradies">For Tradies</a>
+            <a href="#rentals">For Rentals</a>
+          </nav>
+          <a class="btn btn-sm" href="https://taxify.net.au/app/" target="_blank" rel="noopener noreferrer">Open Taxify</a>
+        </div>
+      </div>
 
-         It points at /app/register, not /app/login. A button that says start
-         your free trial and lands somebody on a password form is asking them
-         to sign in to an account they have not made yet. -->
-    <section class="poster-hero" aria-label="Taxify">
-      <figure class="poster-figure">
-        <!-- One link around both, so pressing the poster opens it as well as
-             pressing the label. Two separate links to the same place would be
-             two stops for anybody moving by keyboard and two identical entries
-             in a screen reader's list. -->
-        <a class="poster-link" href="#poster" aria-label="Enlarge the poster">
-          <!-- One file, and deliberately no srcset.
+      <div class="wrap">
+        <div>
+          <p class="hero-eyebrow">
+            <!-- Same Southern Cross as the Australian band, but framed tight:
+                 the full 24 viewBox leaves it a smudge at this size. -->
+            <svg width="18" height="18" viewBox="5.2 6 14.4 12" fill="none" aria-hidden="true">
+              <path d="M7.6 15.6l1.1-3.1-2.6-1.9h3.2L10.4 7.4l1.1 3.2h3.2l-2.6 1.9 1.1 3.1-2.8-2z" fill="currentColor"/>
+              <circle cx="17.2" cy="8.4" r="1.05" fill="currentColor"/>
+              <circle cx="18.4" cy="12.6" r=".85" fill="currentColor"/>
+              <circle cx="16" cy="16.4" r=".85" fill="currentColor"/>
+            </svg>
+            Built in Australia, for Aussies
+          </p>
+          <h1>Tax receipts.<span>Sorted.</span></h1>
+          <h2>Snap it. Store it. Done.</h2>
+          <p>Photograph your receipts and Taxify keeps your expenses organised, categorised and ready for tax time.</p>
+          <!-- Every button here goes through /go/trial. That hop is what counts
+               the press: the hub strips scripts, so nothing in the page itself
+               can report a click. See index.js. -->
+          <a class="btn" href="https://taxify.net.au/go/trial" target="_blank" rel="noopener noreferrer">
+            Start Free for 14 Days
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h13M13 6l6 6-6 6"/></svg>
+          </a>
+          <p class="btn-note">No credit card required.</p>
+        </div>
 
-               There was one, and it is exactly what stopped this image loading.
-               The hub proxies this page and rewrites image URLs to absolute —
-               but it treats the whole srcset attribute as a single URL, so it
-               percent-encoded the spaces inside it and produced one malformed
-               candidate:
+        <!-- The photograph the mock-up was drawn around: the receipt in a hand,
+             and the same purchase already filed beside it. Two phones were
+             built in CSS while this did not exist; now it does, and a real
+             photograph of the thing happening beats a drawing of it. -->
+        <img class="hero-shot" src="/media/hero-compare.jpg"
+             alt="A hand holding a phone photographing a Bunnings receipt, and beside it the Taxify app showing the same purchase saved and categorised, ready for tax time"
+             width="1200" height="800" fetchpriority="high" decoding="async">
+</div>
+      </div>
 
-                 srcset="…/ad-poster.jpg%201100w,%20/media/ad-poster-full.jpg%201700w"
+      <div class="hero-note note">
+        &ldquo;Snap it.<br>Sorted.&rdquo;
+        <svg class="note-swoosh" viewBox="0 0 116 9" aria-hidden="true"><path d="M3 6C28 1.6 78 1.6 113 4.6"/></svg>
+      </div>
 
-               A srcset that parses to a candidate wins over src, so the browser
-               asked for that address, got nothing, and drew a blank — while the
-               lightbox copy below, which has no srcset, loaded perfectly. That
-               difference is the whole symptom.
-
-               1400px wide covers a desktop hero at 1x and a phone at 2x, which
-               is every case this page has. Two sizes were never worth much
-               here; they are worth nothing at all if one of them cannot
-               load. -->
-          <img
-            src="/media/ad-poster.jpg"
-            alt="Taxify: digitise your tax receipts and keep track of your expenses. Snap and save — take a photo of your receipt, upload it, and it is stored in the cloud. Track expenses — keep your work and business expenses organised in one place. Home rentals — track and manage your rental income and expenses. Ready for tax time — easy reporting and export when you need it. For individuals keeping personal, work, business and rental expenses in check, and for businesses staying organised year-round."
-            width="1400" height="1911" fetchpriority="high" decoding="async">
-          <span class="poster-open">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5M8 11h6M11 8v6"/></svg>
-            Enlarge poster
+      <div class="trust">
+        <div class="wrap">
+          <span>
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l8 3v6c0 5-3.4 8.4-8 9-4.6-.6-8-4-8-9V6z"/></svg>
+            14 Days Free
           </span>
-        </a>
-      </figure>
-
-      <div class="poster-copy">
-        <!-- The question, then the answer under it.
-
-             They were one heading and it read badly: sixty characters at
-             display size wrapped to four narrow lines, and the three beats —
-             which only work as three taps — were broken across them wherever
-             the line happened to end. Split, the question gets the size and
-             the answer gets its own line and cannot be broken up.
-
-             Non-breaking spaces still hold each beat together, because on a
-             phone even this short line has to wrap somewhere and it must never
-             be between "Snap" and "it." -->
-        <h1>Still keeping receipts in the ute?</h1>
-        <p class="poster-answer">Snap&nbsp;it. Store&nbsp;it. Sorted.</p>
-        <p class="lede">Photograph your receipts and Taxify keeps your work expenses organised and ready for tax time.</p>
-
-        <a class="btn btn-primary poster-cta" href="https://taxify.net.au/go/trial">
-          Start your free trial
-          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h13M13 6l6 6-6 6"/></svg>
-        </a>
-        <p class="poster-terms"><b>14 days free</b> · No credit card required · Cancel any time</p>
-
-        <ul class="poster-points">
-          <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6L9 17l-5-5"/></svg>Photograph a receipt and it files itself — right category, right tax year</li>
-          <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6L9 17l-5-5"/></svg>Personal, business and rental expenses, never mixed up</li>
-          <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6L9 17l-5-5"/></svg>Hand your accountant the whole year in one file</li>
-        </ul>
+          <span>
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="5" width="20" height="14" rx="2.5"/><path d="M2 10h20"/></svg>
+            No Credit Card
+          </span>
+          <span>
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8"/></svg>
+            Works on Any Device
+          </span>
+          <span>
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l2.2 4.6L19 8.3l-3.5 3.4.8 4.9-4.3-2.3-4.3 2.3.8-4.9L5 8.3l4.8-.7z"/></svg>
+            Australian Made
+          </span>
+        </div>
       </div>
     </section>
 
-    <!-- The product, once, at the top, before a word of argument.
-         Cut out with a real alpha channel so it sits on the page rather than
-         in a box on it — the file arrived as a JPEG with a chequerboard
-         painted into the pixels, which is not the same thing as transparency.
-         The tablet is angled, so the dashboard on it can be seen but not read
-         — hence the button below it, which opens that screenshot flat and
-         full size. -->
-    <div class="hero-shot">
-      <img src="/media/hero-tablet.jpg" alt="Taxify open on a tablet, showing a year's deductions totalled by category" width="1100" height="646" fetchpriority="high" decoding="async">
-      <a class="hero-zoom" href="#shot-1">
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5M8 11h6M11 8v6"/></svg>
-        See the screens full size
-      </a>
-    </div>
+    <section class="section" id="how">
+      <div class="wrap">
+        <div class="section-head">
+          <h2>How Taxify Works</h2>
+          <p>3 simple steps to stress-free tax time.</p>
+        </div>
+        <div class="works-row">
+          <div class="step">
+            <span class="step-n">1</span>
+            <div class="step-body">
+              <span class="step-art">
+                <img src="/media/shot-capture.jpg" alt="A caf&eacute; receipt on a wooden table being photographed with a phone, the shot already framed on screen" width="1083" height="693" loading="lazy" decoding="async">
+              </span>
+              <h3 class="step-name">Snap</h3>
+              <p>Photograph your receipt before it disappears.</p>
+            </div>
+          </div>
 
+          <svg class="works-arrow" width="30" height="14" viewBox="0 0 30 14" fill="none" aria-hidden="true"><path d="M1 7h26M22 2l6 5-6 5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+
+          <div class="step">
+            <span class="step-n">2</span>
+            <div class="step-body">
+              <span class="step-art">
+                <img src="/media/shot-expenses.jpg" alt="A laptop, a tablet and a phone side by side on a wooden desk, the same records on all three" width="1400" height="1050" loading="lazy" decoding="async">
+              </span>
+              <h3 class="step-name">Taxify Sorts It</h3>
+              <p>Stored and categorised automatically.</p>
+            </div>
+          </div>
+
+          <svg class="works-arrow" width="30" height="14" viewBox="0 0 30 14" fill="none" aria-hidden="true"><path d="M1 7h26M22 2l6 5-6 5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+
+          <div class="step">
+            <span class="step-n">3</span>
+            <div class="step-body">
+              <span class="step-art">
+                <img src="/media/shot-accountant.jpg" alt="Two people going through printed statements together at a desk, a laptop open beside them" width="1400" height="1050" loading="lazy" decoding="async">
+              </span>
+              <h3 class="step-name">Tax Time</h3>
+              <p>Export your entire year in one click.</p>
+            </div>
+          </div>
+        </div>
+        <p class="works-note note">&ldquo;Less time on paperwork. More time for what matters.&rdquo;</p>
+      </div>
+    </section>
+
+    <section class="section money">
+      <div class="wrap">
+        <div class="money-copy">
+          <h2>See where your money went.<span>Not where you think it went.</span></h2>
+          <p>Get a clear view of your spending with simple graphs, categories and reports.</p>
+          <ul class="ticks">
+            <li><svg width="19" height="19" viewBox="0 0 24 24" fill="#1a7cf0" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M17 9l-6.2 6.2L7 11.4" stroke="#fff" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>Track expenses by category</li>
+            <li><svg width="19" height="19" viewBox="0 0 24 24" fill="#1a7cf0" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M17 9l-6.2 6.2L7 11.4" stroke="#fff" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>View totals for each tax year</li>
+            <li><svg width="19" height="19" viewBox="0 0 24 24" fill="#1a7cf0" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M17 9l-6.2 6.2L7 11.4" stroke="#fff" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>Keep personal, business and rentals separate</li>
+            <li><svg width="19" height="19" viewBox="0 0 24 24" fill="#1a7cf0" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M17 9l-6.2 6.2L7 11.4" stroke="#fff" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>Export everything for your accountant</li>
+          </ul>
+        </div>
+
+        <img class="money-shot" src="/media/app-dashboard.jpg"
+             alt="Taxify open on a laptop, showing the year's totals, expenses by category and a month-by-month chart"
+             width="1200" height="800" loading="lazy" decoding="async">
+      </div>
+    </section>
+
+    <section class="section" id="features">
+      <div class="wrap">
+        <div class="section-head">
+          <h2>Everything you need, all in one place.</h2>
+        </div>
+        <div class="feature-grid">
+          <div class="feature">
+            <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14.5 4h-5L7 7H4a2 2 0 00-2 2v9a2 2 0 002 2h16a2 2 0 002-2V9a2 2 0 00-2-2h-3z"/><circle cx="12" cy="13" r="3.2"/></svg>
+            <h3>Snap &amp; Store</h3>
+            <p>Photograph receipts before they disappear.</p>
+          </div>
+          <div class="feature">
+            <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l1.9 4.6 4.6 1.9-4.6 1.9L12 16l-1.9-4.6L5.5 9.5l4.6-1.9z"/><path d="M18 15l.8 2 2 .8-2 .8-.8 2-.8-2-2-.8 2-.8z"/></svg>
+            <h3>Automatic Organisation</h3>
+            <p>Date, category and tax year organised for you.</p>
+          </div>
+          <div class="feature">
+            <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg>
+            <h3>Track Your Spending</h3>
+            <p>See exactly where your money goes.</p>
+          </div>
+          <div class="feature">
+            <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 11l9-7 9 7"/><path d="M5 10v10h14V10"/></svg>
+            <h3>Rental Properties</h3>
+            <p>Keep property expenses and documents organised.</p>
+          </div>
+          <div class="feature">
+            <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="7" width="20" height="13" rx="2"/><path d="M9 7V5a2 2 0 012-2h2a2 2 0 012 2v2"/></svg>
+            <h3>Personal + Business</h3>
+            <p>Keep personal and business expenses separate.</p>
+          </div>
+          <div class="feature">
+            <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 10a6 6 0 00-11.5-2A4.5 4.5 0 007 17h11a4 4 0 000-7z"/><path d="M12 12v5M9.5 14.5L12 17l2.5-2.5"/></svg>
+            <h3>One-Click Tax Export</h3>
+            <p>Export the entire year for your accountant.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Australian made.
+
+         Every line in here is checkable, and that is deliberate. The obvious
+         thing to put on a band like this is a number — how many people use it —
+         and there is no honest number to put. Australian Consumer Law treats an
+         invented one as misleading conduct, Meta and Google both treat it as
+         grounds to pull an advertisement, and the first customer who asks a
+         question the figure cannot survive is a worse outcome than the sign-up
+         it won. So this says the true things instead: where it is built, whose
+         tax year it uses, what happens to somebody's records if they leave, and
+         what is never done with what they type. Those are the things a person
+         deciding whether to trust a small app actually wants to know — along
+         with which ATO rates it knows about, and who answers when something
+         goes wrong. -->
+    <section class="section section-flush">
+      <div class="aussie" style="padding: clamp(28px, 4vw, 44px) 0">
+        <div class="wrap">
+          <div class="aussie-mark">
+            <svg width="52" height="52" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <circle cx="12" cy="12" r="11" fill="#1a7cf0"/>
+              <path d="M7.6 15.6l1.1-3.1-2.6-1.9h3.2L10.4 7.4l1.1 3.2h3.2l-2.6 1.9 1.1 3.1-2.8-2z" fill="#fff"/>
+              <circle cx="17.2" cy="8.4" r="1.05" fill="#fff"/>
+              <circle cx="18.4" cy="12.6" r=".85" fill="#fff"/>
+              <circle cx="16" cy="16.4" r=".85" fill="#fff"/>
+            </svg>
+            <span>
+              <b>Built in Australia,<br>for Aussies.</b>
+              <span>Made and supported here by Mikes App Hub, an Australian business.</span>
+            </span>
+          </div>
+          <ul class="aussie-points">
+            <li><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6L9 17l-5-5"/></svg>Australian financial years &mdash; 1 July to 30 June, not a US one</li>
+            <li><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6L9 17l-5-5"/></svg>Priced in Australian dollars, once a year</li>
+            <li><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6L9 17l-5-5"/></svg>Your records stay yours if you ever stop paying</li>
+            <li><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6L9 17l-5-5"/></svg>Nothing you enter is ever used for advertising</li>
+            <li><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6L9 17l-5-5"/></svg>Cents-per-kilometre and working-from-home hours, at each year&rsquo;s rate</li>
+            <li><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6L9 17l-5-5"/></svg>Support answered by the people who built it</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <!-- Who it is for.
+
+         id="tradies" stays on the section and id="rentals" on its card: the
+         top bar links to both, and renaming them here would quietly break two
+         navigation items. -->
+    <section class="section section-flush" id="tradies">
+      <div class="wrap">
+        <div class="section-head">
+          <h2>Taxify works the way you do.</h2>
+          <p>Simple expense tracking for individuals, businesses, tradies and property owners.</p>
+        </div>
+        <div class="aud-grid">
+          <article class="aud">
+            <div class="aud-photo">
+              <img src="/media/show-tradie.jpg" alt="A tradesman leaning against his ute, phone in hand" width="1100" height="619" loading="lazy" decoding="async">
+              <span class="aud-mark" style="background: linear-gradient(140deg, #2f8bf4, #1559b8)"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14.6 6.1a4.4 4.4 0 0 0-5.6 5.6L3.6 17a2.1 2.1 0 0 0 3 3l5.3-5.4a4.4 4.4 0 0 0 5.6-5.6l-2.6 2.6-2.3-.6-.6-2.3z"/></svg></span>
+            </div>
+            <div class="aud-body">
+              <h3>Tradies</h3>
+              <p>Keep your work expenses organised. Fuel, tools, materials, meals and more.</p>
+              <a class="aud-link" href="https://taxify.net.au/go/trial" target="_blank" rel="noopener noreferrer">See Taxify for Tradies<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h13M13 6l6 6-6 6"/></svg></a>
+            </div>
+          </article>
+
+          <article class="aud">
+            <div class="aud-photo">
+              <img src="/media/show-business.jpg" alt="A small-business owner standing in her caf&eacute;" width="1100" height="619" loading="lazy" decoding="async">
+              <span class="aud-mark" style="background: linear-gradient(140deg, #23a866, #0c7343)"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="7.5" width="18" height="12.5" rx="2"/><path d="M9 7.5V6a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v1.5M3 13h18"/></svg></span>
+            </div>
+            <div class="aud-body">
+              <h3>Small Business</h3>
+              <p>Track business expenses, separate your books and be ready for tax time.</p>
+              <a class="aud-link" href="https://taxify.net.au/go/trial" target="_blank" rel="noopener noreferrer">See Taxify for Small Business<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h13M13 6l6 6-6 6"/></svg></a>
+            </div>
+          </article>
+
+          <article class="aud" id="rentals">
+            <div class="aud-photo">
+              <img src="/media/show-rental.jpg" alt="A modern Australian house at dusk" width="1100" height="619" loading="lazy" decoding="async">
+              <span class="aud-mark" style="background: linear-gradient(140deg, #f0913a, #cf6a11)"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3.5 10.5 12 4l8.5 6.5V20a1.5 1.5 0 0 1-1.5 1.5H5A1.5 1.5 0 0 1 3.5 20z"/></svg></span>
+            </div>
+            <div class="aud-body">
+              <h3>Rental Property Owners</h3>
+              <p>Keep your rental property expenses organised. Track repairs, rates, maintenance and more.</p>
+              <a class="aud-link" href="https://taxify.net.au/go/trial" target="_blank" rel="noopener noreferrer">See Taxify for Rentals<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h13M13 6l6 6-6 6"/></svg></a>
+            </div>
+          </article>
+
+          <article class="aud">
+            <div class="aud-photo">
+              <img src="/media/show-individual.jpg" alt="A woman working at a laptop at her kitchen table" width="1100" height="619" loading="lazy" decoding="async">
+              <span class="aud-mark" style="background: linear-gradient(140deg, #9a6ae8, #6d3fc4)"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8.5" r="3.6"/><path d="M4.8 20c.9-3.5 3.8-5.4 7.2-5.4s6.3 1.9 7.2 5.4"/></svg></span>
+            </div>
+            <div class="aud-body">
+              <h3>Individuals</h3>
+              <p>Keep track of your work-related and personal expenses. Don&rsquo;t miss another deduction.</p>
+              <a class="aud-link" href="https://taxify.net.au/go/trial" target="_blank" rel="noopener noreferrer">See Taxify for Individuals<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h13M13 6l6 6-6 6"/></svg></a>
+            </div>
+          </article>
+        </div>
+      </div>
+    </section>
 
     <!--ADS-START-->
     <!-- The advertisement films.
 
          Uploaded from Administration → Landing page, not deployed. An
          advertisement is the thing most likely to need replacing at short
-         notice, and needing a deploy to swap one means it does not get swapped.
+         notice, and needing a deploy to swap one means it does not get
+         swapped.
 
          Everything between ADS-START and ADS-END is removed by the server when
-         neither slot has a file, and each SLOT block is removed on its own when
-         that one is empty — so this is never a broken player, and one film on
-         its own is a single centred frame rather than a gap. -->
-    <section class="ads" aria-label="Watch Taxify">
-      <!-- A label on the pair rather than a chapter heading. The screenshot
-           above is the thing being introduced; these show it working. -->
-      <h2 class="ads-title">See it in action</h2>
-      <!-- No #t=0.1 on the sources any more.
-
-           It was an attempt to force a first frame to paint, and it could
-           never have worked: preload="metadata" does not fetch the sample
-           data, so there is no decoded frame at 0.1s to show. The poster does
-           that job properly now, and the fragment was not free — it makes
-           playback start a tenth of a second in, clipping the opening of both
-           films for no benefit.
-
-           The blank frames were never about the first frame at all. The hub
-           serves this page under a CSP with no media-src, which falls back to
-           default-src 'self' — and 'self' is the hub's origin, not ours, so
-           the browser refused to fetch the video before a request left. Fixed
-           in the hub, not here; nothing on this page could have worked around
-           it. -->
-      <div class="ads-grid">
-        <!--SLOT:ad-1-->
-        <div class="ad-frame">
-          <video class="ad-video" controls playsinline preload="metadata" controlslist="nodownload noplaybackrate" disablepictureinpicture poster="/media/ads/ad-1-poster">
-            <source src="/media/ads/ad-1" type="video/mp4">
-          </video>
+         neither slot has a file, and each SLOT block goes on its own when that
+         one is empty — so this is never a broken player, and one film on its
+         own is a single centred frame rather than a gap. -->
+    <section class="section section-flush" aria-label="Watch Taxify">
+      <div class="wrap">
+        <div class="ads-grid">
+          <!--SLOT:ad-1-->
+          <div class="ad-frame">
+            <video class="ad-video" controls playsinline preload="metadata" controlslist="nodownload noplaybackrate" disablepictureinpicture poster="/media/ads/ad-1-poster">
+              <source src="/media/ads/ad-1" type="video/mp4">
+            </video>
+          </div>
+          <!--/SLOT:ad-1-->
+          <!--SLOT:ad-2-->
+          <div class="ad-frame">
+            <video class="ad-video" controls playsinline preload="metadata" controlslist="nodownload noplaybackrate" disablepictureinpicture poster="/media/ads/ad-2-poster">
+              <source src="/media/ads/ad-2" type="video/mp4">
+            </video>
+          </div>
+          <!--/SLOT:ad-2-->
         </div>
-        <!--/SLOT:ad-1-->
-        <!--SLOT:ad-2-->
-        <div class="ad-frame">
-          <video class="ad-video" controls playsinline preload="metadata" controlslist="nodownload noplaybackrate" disablepictureinpicture poster="/media/ads/ad-2-poster">
-            <source src="/media/ads/ad-2" type="video/mp4">
-          </video>
-        </div>
-        <!--/SLOT:ad-2-->
       </div>
     </section>
     <!--ADS-END-->
 
-    <!-- It runs in a browser, so it runs on whatever somebody already owns.
-         Said plainly, because "web app" means nothing to most people. -->
-    <section class="devices" aria-label="Where Taxify runs">
-      <span class="devices-line">
-        <span class="devices-icons">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="6" y="2" width="12" height="20" rx="2"/><path d="M11 18h2"/></svg>
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M11 18h2"/></svg>
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M2 20h20"/></svg>
-        </span>
-        <span class="devices-text">Runs in the browser on your phone, tablet or computer &mdash; nothing to install</span>
-      </span>
-      <!-- Filled in by the server, which is the only thing here that knows
-           what you are reading this on. A download on Android, and everywhere
-           else the same button opening the panel that explains why not. The
-           page cannot work this out for itself: the hub proxy strips every
-           script from it. See landingAppDownload.js. -->
-      <!--APPDL-START--><!--APPDL-END-->
+    <section class="section section-flush" aria-label="Where Taxify runs">
+      <div class="wrap">
+        <p class="devices-line">Runs in the browser on your phone, tablet or computer &mdash; nothing to install.</p>
+        <!-- Filled in by the server, the only thing here that knows what you
+             are reading this on: a download on Android, and everywhere else the
+             same button opening the panel that explains why not. The page
+             cannot work this out for itself. See landingAppDownload.js. -->
+        <!-- No .devices-line on this wrapper: the server's markup brings its
+             own, and two of them nested one flex row inside another. -->
+        <p class="devices-slot">
+          <!--APPDL-START--><!--APPDL-END-->
+        </p>
+      </div>
     </section>
 
-
-
-    <section class="shots-wrap" aria-label="How the process works">
-      <div class="section-head">
-        <h2>The process, in three pictures</h2>
-        <p>The whole job is the first panel. The other two happen on their own.</p>
-      </div>
-      <div class="shots">
-        <div class="shot-panel">
-          <!-- REPLACE THIS IMAGE
-               File:   client/public/media/shot-capture.jpg
-               Shows:  a receipt being photographed at the table
-               Size:   1083x693 today; any wide picture works, but change the
-                       width and height below to match it
-               JPEG, not PNG: this one is a photograph, and the same picture
-               as a PNG is eight times the bytes for no visible gain.
-               Overwrite that file, keeping its name. -->
-          <img src="/media/shot-capture.jpg" alt="A café receipt on a wooden table being photographed with a phone, the shot already framed on screen" width="1083" height="693" loading="lazy">
-          <span class="shot-step">You do this</span>
-          <div class="shot-title">Photograph it and move on</div>
-          <div class="shot-text">One tap at the counter. Taxify reads the date and the total, and files it under the right category and year.</div>
+    <!-- Safe hands.
+         Placed immediately before the price, which is where somebody stops and
+         wonders whether they should be typing their tax records into an app
+         they had not heard of this morning. All four are verifiable: two-factor
+         cannot be switched off (auth.routes.js), cards go to Stripe Checkout and
+         never reach us (billing.routes.js), category guessing is word-scoring
+         against the account's own history with no outside service involved
+         (categorySuggest.js), and the export is the whole year in one file. -->
+    <section class="safe" aria-labelledby="safe-title">
+      <div class="wrap">
+        <div class="safe-head">
+          <h2 id="safe-title">Built to be trusted with your records.</h2>
+          <p>Worth knowing before you photograph a single receipt.</p>
         </div>
-        <div class="shot-panel">
-          <!-- REPLACE THIS IMAGE
-               File:   client/public/media/shot-expenses.jpg
-               Shows:  a laptop, tablet and phone together on one desk
-               Size:   1400x1050, already 4:3 — the panel crops to that shape,
-                       so supplying it cropped means nothing is lost to the
-                       crop. Change the width and height below to match
-                       whatever replaces it.
-               Overwrite that file, keeping its name. -->
-          <img src="/media/shot-expenses.jpg" alt="A laptop, a tablet and a phone side by side on a wooden desk" width="1400" height="1050" loading="lazy">
-          <span class="shot-step">Taxify does this</span>
-          <div class="shot-title">Everything in one place</div>
-          <div class="shot-text">The same books on your phone, your tablet and your computer. Sorted, searchable, with the receipt attached to the expense — so a question in two years takes a moment, not an afternoon.</div>
-        </div>
-        <div class="shot-panel">
-          <!-- Provenance and licence, kept in the source so it can be checked
-               later without anybody having to remember it:
-                 Pexels, RDNE Stock project — pexels.com/photo/7821907
-                 Pexels License: free for commercial use, attribution not
-                 required, no editorial-only restriction. Fetched already
-                 cropped to 1400x1050, which is the 4:3 this panel wants, so
-                 object-fit has nothing left to cut away.
-
-               A photograph rather than the dashboard screenshot that was here.
-               The screenshot is not gone: it is on the tablet at the top of
-               the page and behind the button beside it, where it is big enough
-               to read. Repeating it small down here said nothing the tablet
-               had not already said better, and this panel is about the
-               handover, not the software. -->
-          <img src="/media/shot-accountant.jpg" alt="Two people going through printed statements together at a desk, a laptop open beside them" width="1400" height="1050" loading="lazy">
-          <span class="shot-step">Come tax time</span>
-          <div class="shot-title">The numbers, already added up</div>
-          <div class="shot-text">Your year totalled, sorted by category, with every receipt behind it. Hand it to your accountant, or copy it straight into your return.</div>
+        <div class="safe-grid">
+          <div class="safe-item">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="M9 12l2 2 4-4"/></svg>
+            <h3>Two-factor on every account</h3>
+            <p>Not a setting you can forget to switch on. Every Taxify account asks for a second step at sign-in, and it cannot be turned off.</p>
+          </div>
+          <div class="safe-item">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="5" width="20" height="14" rx="2.5"/><path d="M2 10h20M6 15h4"/></svg>
+            <h3>Your card never touches Taxify</h3>
+            <p>Payments run through Stripe. Card numbers go straight to them &mdash; this app never stores one, and never sees one.</p>
+          </div>
+          <div class="safe-item">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="10" width="16" height="11" rx="2.2"/><path d="M8 10V7a4 4 0 018 0v3"/></svg>
+            <h3>Your receipts stay yours</h3>
+            <p>Nothing you photograph is sent off to an AI service, sold, or used for advertising. Categories are worked out from your own filing history, on your own account.</p>
+          </div>
+          <div class="safe-item">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><path d="M7 10l5 5 5-5M12 15V3"/></svg>
+            <h3>Leave whenever you like</h3>
+            <p>Export the entire year &mdash; spreadsheet, PDFs and the original photographs &mdash; in one click. Stop paying and your records are still yours.</p>
+          </div>
         </div>
       </div>
     </section>
 
+    <!-- Full top padding, not section-flush: this one now follows a full-bleed
+         dark band, and butting the price straight onto it looks like a mistake. -->
+    <section class="section pricing" id="pricing">
+      <div class="wrap">
+        <div class="pricing-lead">
+          <h2>Simple, honest pricing</h2>
+          <p>Under a dollar a week. One deduction you would otherwise have forgotten pays for the whole year, and the fee itself is deductible.</p>
+          <p>Both plans start with the same 14-day free trial, and there is no card to enter until you have decided. One payment a year, cancel whenever you like. No per-receipt fees, no upsells, no add-ons.</p>
+        </div>
 
-    <section>
-      <div class="section-head">
-        <h2>Everything you need to stay on top of deductions</h2>
-        <p>No accounting degree required — just log as you go and let Taxify do the sorting.</p>
-      </div>
-      <div class="features-grid">
-        <div class="card feature-card">
-          <div class="feature-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3Z"/><circle cx="12" cy="13" r="3"/></svg></div>
-          <div class="feature-title">Photograph it and forget it</div>
-          <div class="feature-text">Snap a receipt on your phone and Taxify files it — right year, right category, named so you can find it again. The shoebox stays empty.</div>
-        </div>
-        <div class="card feature-card">
-          <div class="feature-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.7-.9L9.6 3.9A2 2 0 0 0 7.9 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/></svg></div>
-          <div class="feature-title">Filed by financial year, automatically</div>
-          <div class="feature-text">Every expense lands in the right tax year on its own, and the year is the one your return actually uses.</div>
-        </div>
-        <div class="card feature-card">
-          <div class="feature-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20.6 13.4 12 22l-9-9V3h10l7.6 7.6a2 2 0 0 1 0 2.8Z"/><circle cx="7.5" cy="7.5" r="1.5"/></svg></div>
-          <div class="feature-title">Categories that carry forward</div>
-          <div class="feature-text">Start with a full set of deduction categories. Each new year opens with last year&rsquo;s set, so you never retype them.</div>
-        </div>
-        <div class="card feature-card">
-          <div class="feature-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17 2l4 4-4 4"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><path d="M7 22l-4-4 4-4"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg></div>
-          <div class="feature-title">Recurring bills log themselves</div>
-          <div class="feature-text">Mark a bill weekly, monthly, quarterly or yearly once, and every occurrence after that is added for you.</div>
-        </div>
-        <div class="card feature-card">
-          <div class="feature-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 3v18h18"/><path d="M7 15l4-4 3 3 5-6"/></svg></div>
-          <div class="feature-title">Know where the money actually went</div>
-          <div class="feature-text">Category by category, year against year, with each one&rsquo;s share of your total — before your accountant has to ask.</div>
-        </div>
-        <div class="card feature-card">
-          <div class="feature-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 8v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8"/><path d="M2 4h20v4H2z"/><path d="M10 12h4"/></svg></div>
-          <div class="feature-title">Hand over the whole year in one file</div>
-          <div class="feature-text">One click gives you a zip: a summary spreadsheet, a PDF, and every receipt in folders — each one linked from the sheet.</div>
-        </div>
-        <div class="card feature-card">
-          <div class="feature-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg></div>
-          <!-- This said "read-only access" and "not the keys", which sells the
-               feature short: access_level is read *or* write, so an accountant
-               can be given the run of the books and file for you. Both halves
-               said, because the choice is the point. -->
-          <div class="feature-title">Your accountant can lodge it for you</div>
-          <div class="feature-text">Give them a read-only look, or let them file receipts on your behalf. Limited to the years you pick, and it closes by itself 24 hours after they first open your books.</div>
-        </div>
-        <div class="card feature-card">
-          <div class="feature-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V21h14V9.5"/><path d="M10 21v-6h4v6"/></svg></div>
-          <div class="feature-title">Built for property investors</div>
-          <div class="feature-text">Mark a category as a rental and keep agent statements, depreciation schedules and end-of-year summaries against the property itself.</div>
-        </div>
-        <div class="card feature-card">
-          <div class="feature-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M15 9.5A3.5 3.5 0 0 0 11.5 8h-.5a2.5 2.5 0 0 0 0 5h2a2.5 2.5 0 0 1 0 5h-.5A3.5 3.5 0 0 1 9 16.5"/><path d="M12 6v12"/></svg></div>
-          <div class="feature-title">Close the year properly</div>
-          <div class="feature-text">Record what came back and the year locks, so nothing can change what was claimed after the return was assessed.</div>
-        </div>
-        <div class="card feature-card">
-          <div class="feature-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="m2 7 10 6 10-6"/></svg></div>
-          <div class="feature-title">A nudge, not a nag</div>
-          <div class="feature-text">One reminder to book your tax appointment, and one the day before it. That is genuinely all — we count.</div>
-        </div>
-        <div class="card feature-card">
-          <div class="feature-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/></svg></div>
-          <div class="feature-title">Share it with your partner</div>
-          <div class="feature-text">Small Business keeps your own tax and up to two businesses side by side — separate categories, separate reports, separate returns, one login.</div>
-        </div>
-        <div class="card feature-card">
-          <div class="feature-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2 4 5v6c0 5 3.4 9.2 8 11 4.6-1.8 8-6 8-11V5Z"/><path d="m9 12 2 2 4-4"/></svg></div>
-          <div class="feature-title">Easy on yourself if you are ever audited</div>
-          <div class="feature-text">Every receipt stays attached to the expense it belongs to, for as long as you keep the account. No shoebox, no scrambling, and no trying to remember what a bank line from three years ago was for.</div>
-        </div>
-      </div>
-    </section>
-
-    <section>
-      <div class="section-head">
-        <h2>Simple, honest pricing</h2>
-        <p>Under a dollar a week. One deduction you would otherwise have forgotten pays for the whole year, and the fee itself is deductible.</p>
-        <p>Both plans start with the same 14-day free trial, and there is no card to enter until you have decided. One payment a year, cancel whenever you like. No per-receipt fees, no upsells, no add-ons.</p>
-      </div>
-      <div class="plans-grid" id="plans">
-        <div class="card plan-card">
+        <!-- The figures here are the fallback. The live ones come from Stripe,
+             fetched by the script the server injects after the hub has
+             finished stripping this page — see landingScript.js. -->
+        <div class="plan">
           <div class="plan-name">Individual</div>
-          <div class="plan-price"><span class="amount" data-price="individual">$49</span><span class="period">/year</span></div>
+          <div class="plan-price"><span data-price="individual">$49</span> <em>/ year</em></div>
           <div class="plan-per" data-per="individual">about $0.94 a week</div>
-          <div class="plan-trial">✓ 14-day free trial</div>
+          <div class="plan-trial"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6L9 17l-5-5"/></svg>14-day free trial</div>
           <p class="plan-text">Every deduction you are owed, kept as you go.</p>
-          <ul class="plan-features">
-            <li><span class="check">✓</span><span>Photograph a receipt and it files itself</span></li>
-            <li><span class="check">✓</span><span>Unlimited expenses &amp; receipts, kept for good</span></li>
-            <li><span class="check">✓</span><span>Every year side by side, exported in one click</span></li>
-            <li><span class="check">✓</span><span>Read-only accountant access, revoked whenever you like</span></li>
+          <ul>
+            <li><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6L9 17l-5-5"/></svg>Photograph a receipt and it files itself</li>
+            <li><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6L9 17l-5-5"/></svg>Unlimited expenses &amp; receipts, kept for good</li>
+            <li><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6L9 17l-5-5"/></svg>Every year side by side, exported in one click</li>
+            <li><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6L9 17l-5-5"/></svg>Read-only accountant access, revoked whenever you like</li>
           </ul>
+          <a class="btn btn-full" href="https://taxify.net.au/go/trial" target="_blank" rel="noopener noreferrer">Start Free for 14 Days</a>
         </div>
-        <div class="card plan-card highlight">
-          <div class="plan-badge">MOST POPULAR</div>
+
+        <div class="plan highlight">
+          <div class="plan-badge">Most popular</div>
           <div class="plan-name">Small Business</div>
-          <div class="plan-price"><span class="amount" data-price="business">$99</span><span class="period">/year</span></div>
+          <div class="plan-price"><span data-price="business">$99</span> <em>/ year</em></div>
           <div class="plan-per" data-per="business">about $1.90 a week</div>
-          <div class="plan-trial">✓ 14-day free trial</div>
+          <div class="plan-trial"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6L9 17l-5-5"/></svg>14-day free trial</div>
           <p class="plan-text">Your own return and up to two businesses, never mixed up.</p>
-          <ul class="plan-features">
-            <li><span class="check">✓</span><span>Everything in Individual, for your personal return</span></li>
-            <li><span class="check">✓</span><span>Up to two businesses, each with books of their own</span></li>
-            <li><span class="check">✓</span><span>Separate totals for each — no untangling at tax time</span></li>
-            <li><span class="check">✓</span><span>Read-only accountant access, revoked whenever you like</span></li>
+          <ul>
+            <li><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6L9 17l-5-5"/></svg>Everything in Individual, for your personal return</li>
+            <li><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6L9 17l-5-5"/></svg>Up to two businesses, each with books of their own</li>
+            <li><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6L9 17l-5-5"/></svg>Separate totals for each &mdash; no untangling at tax time</li>
+            <li><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6L9 17l-5-5"/></svg>Read-only accountant access, revoked whenever you like</li>
           </ul>
+          <a class="btn btn-full" href="https://taxify.net.au/go/trial" target="_blank" rel="noopener noreferrer">Start Free for 14 Days</a>
+        </div>
+
+        <p class="pricing-note note">
+          &ldquo;A small investment<br>for a much<br>easier tax time.&rdquo;
+          <svg class="note-swoosh" viewBox="0 0 116 9" aria-hidden="true"><path d="M3 6C28 1.6 78 1.6 113 4.6"/></svg>
+        </p>
+      </div>
+    </section>
+
+    <!-- Questions.
+         The ones that actually stop a sign-up, answered in the open. Every
+         answer here is true of the app as it stands today; if one stops being
+         true, it comes off the page rather than being softened. -->
+    <section class="section section-flush" aria-labelledby="faq-title">
+      <div class="wrap">
+        <div class="section-head">
+          <h2 id="faq-title">Questions people ask before they sign up.</h2>
+        </div>
+        <div class="faq-grid">
+          <div class="faq-item">
+            <h3>Is Taxify actually Australian?</h3>
+            <p>Yes. It is built and supported here by Mikes App Hub, priced in Australian dollars, and it runs on the Australian financial year &mdash; 1 July to 30 June, not a US one.</p>
+          </div>
+          <div class="faq-item">
+            <h3>Do I need to be good with computers?</h3>
+            <p>If you can take a photograph on your phone, you can use Taxify. Snap the receipt and it is stored, dated and put in a category for you.</p>
+          </div>
+          <div class="faq-item">
+            <h3>What happens when the 14 days are up?</h3>
+            <p>Nothing automatic. There is no card on the trial, so there is nothing to charge. You pick a plan only if you want to keep going.</p>
+          </div>
+          <div class="faq-item">
+            <h3>Will my accountant be able to use it?</h3>
+            <p>That is what the export is for: one file holding your spreadsheet, the PDFs and every original receipt, ready to hand straight over.</p>
+          </div>
+          <div class="faq-item">
+            <h3>Can I keep personal and business separate?</h3>
+            <p>Yes, and rental properties too. Each one keeps its own expenses and its own totals, so nothing has to be untangled at the end of the year.</p>
+          </div>
+          <div class="faq-item">
+            <h3>Is there an app for my phone?</h3>
+            <p>Taxify runs in any phone browser with nothing to install, and there is an Android app to download. On an iPhone, add it to your home screen from Safari and it opens like an app.</p>
+          </div>
         </div>
       </div>
     </section>
 
-    <section class="card cta-card">
-      <h2>Ready to stop losing receipts?</h2>
-      <p>Start your 14-day free trial and have your first expense logged before your coffee's cold.</p>
-      <a href="https://taxify.net.au/go/trial" class="btn btn-primary btn-lg" id="cta">Continue to Taxify</a>
-    </section>
     <!--REVIEWS-START-->
     <!-- Customer reviews.
 
-         There is nothing here yet, and that is deliberate: the server removes
-         everything between these two markers until there is a real quote to
-         put in, so the page never carries invented praise.
-
-         To add one, copy a .review block into the grid below and fill in the
-         three parts — the quote, who said it, and what they do. Delete the
-         REVIEWS-EMPTY comment on the next line once the first one is in, and
-         the section appears. Nothing else is needed; there is no admin screen
-         and no database behind this, it is just this page.
-    -->
+         Nothing here yet, deliberately: the server removes everything between
+         these two markers until there is a real quote to put in, so the page
+         never carries invented praise. Add one as a block with class="review"
+         and the section appears. -->
     <!--REVIEWS-EMPTY-->
-    <section aria-label="What customers say">
-      <div class="section-head">
-        <h2>What people using it say</h2>
-      </div>
-      <div class="reviews">
-        <!-- One of these per review. Five stars is optional; delete the
-             .review-stars div for an unrated one.
-
-        <div class="review">
-          <div class="review-stars" aria-label="Five out of five">
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="m12 2 3.1 6.3 6.9 1-5 4.9 1.2 6.8L12 17.8 5.8 21l1.2-6.8-5-4.9 6.9-1Z"/></svg>
-          </div>
-          <p class="review-quote">&ldquo;Their words, exactly as they wrote them.&rdquo;</p>
-          <div class="review-who">
-            <span class="review-name">Their name</span>
-            <span class="review-role">What they do, and where</span>
-          </div>
-        </div>
-
-        -->
-      </div>
-    </section>
     <!--REVIEWS-END-->
 
-    <!-- Outside the footer, and that is the whole reason these buttons are
-         visible at all.
+    <section class="closing">
+      <div class="wrap">
+        <a class="brand" href="/">
+          <img src="/logo.svg" alt="" width="40" height="40">
+          <span>
+            <span class="brand-name" style="font-size:25px">Taxify</span>
+            <span class="brand-sub">Receipts. Sorted.</span>
+          </span>
+        </a>
 
-         They were in it, and never appeared for a single visitor. The hub
-         proxy's first act on a proxied page is
-           $('header, nav.site-nav, …, .site-footer, footer, …').remove()
-         so the entire footer — social row included — was deleted in transit.
-         The origin served the buttons correctly the whole time, which is why
-         switching the setting on and off in admin changed nothing and why the
-         earlier guess that the setting defaulted to off was wrong.
+        <div class="closing-mid">
+          <h2>Stop chasing receipts at tax time.<br><span>Start organising them today.</span></h2>
+          <a class="btn" style="margin-top:12px" href="https://taxify.net.au/go/trial" target="_blank" rel="noopener noreferrer">
+            Start Free for 14 Days
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h13M13 6l6 6-6 6"/></svg>
+          </a>
+          <p class="btn-note" style="color:#9db4d4">No credit card required.</p>
+        </div>
 
-         Filled in by the server from the admin settings, or cut out entirely
-         when Facebook is switched off there. It cannot decide for itself: the
-         proxy strips every script from this page. See landingSocial.js, which
-         is where the reason these are plain links rather than Facebook's own
-         SDK is written down. -->
-    <section class="social-section" aria-label="Share Taxify">
-      <!--SOCIAL-START--><!--SOCIAL-END-->
+        <p class="note" style="color:#fff; text-align:center; margin:0">
+          &ldquo;More freedom<br>for what you love.&rdquo;
+          <svg class="note-swoosh" viewBox="0 0 116 9" aria-hidden="true"><path d="M3 6C28 1.6 78 1.6 113 4.6"/></svg>
+        </p>
+      </div>
+    </section>
+
+    <!-- The server replaces everything between the markers with its own
+         div.social-row, so there is no wrapper of that class here — one used to
+         be, which nested a row inside a row. When Facebook is switched off the
+         markers are replaced with nothing and this collapses to no height. -->
+    <section class="social-strip" aria-label="Share Taxify">
+      <div class="wrap">
+        <!--SOCIAL-START--><!--SOCIAL-END-->
+      </div>
     </section>
 
   </main>
 
   <div class="lp-footer">
-    <!-- No Terms or Privacy links here.
-
-         The hub wraps this page in its own shell and carries both in its
-         footer, so these were a second pair a few inches from the first,
-         pointing at the same two documents. They are still one click away from
-         inside the app, on every signed-in page and on the sign-in panel — the
-         places somebody actually goes looking for them. -->
-    © <span id="year"></span> Taxify · Powered by <a href="https://mikesapphub.com" target="_blank" rel="noreferrer">Mikes App Hub</a>
-  </div>
-
-  <script>
-    // Absolute when the page is somewhere other than Taxify, relative when it
-    // is already there. Everything on the page that navigates goes through it.
-    // Where signing in happens, stated absolutely. The meta tag is the only
-    // thing that knows it; without one we fall back to a relative path, which
-    // is correct when Taxify is serving this page itself.
-    //
-    // No plan is carried across any more. The sign-in page does not read one,
-    // and a parameter nothing acts on is worse than no parameter at all — it
-    // reads like a working feature to whoever finds it next.
-    function signInUrl() {
-      var meta = document.querySelector('meta[name="taxify-origin"]');
-      var origin = meta && meta.content ? meta.content.replace(/\/$/, '') : '';
-      var host = window.location.host;
-      var local = /^(localhost|127\.0\.0\.1|\[::1\])(:\d+)?$/.test(host);
-      var path = '/app/login';
-      return origin && !local ? origin + path : path;
-    }
-
-    function taxifyUrl(path) {
-      var meta = document.querySelector('meta[name="taxify-origin"]');
-      var origin = meta && meta.content ? meta.content.replace(/\/$/, '') : '';
-      if (!origin) return path;
-
-      var host = window.location.host;
-      // A dev server is serving its own copy of this page, so its links belong
-      // to it. Without this, every button on a local build would walk the
-      // developer out to production.
-      if (/^(localhost|127\.0\.0\.1|\[::1\])(:\d+)?$/.test(host)) return path;
-
-      try {
-        if (new URL(origin).host === host) return path;
-      } catch (e) {
-        return path;
-      }
-      return origin + path;
-    }
-
-    // Rewrites what is already in the markup. Done on load rather than written
-    // absolute by hand, so the page still works when it is served by Taxify
-    // itself and nothing points at another domain unnecessarily.
-    (function () {
-      var links = document.querySelectorAll('a[href^="/"]');
-      Array.prototype.forEach.call(links, function (a) {
-        a.setAttribute('href', taxifyUrl(a.getAttribute('href')));
-      });
-
-      // Same for the artwork. On the hub a /media path is the hub's /media,
-      // and the mockups would 404 into whatever it serves for a miss.
-      var images = document.querySelectorAll('img[src^="/"]');
-      Array.prototype.forEach.call(images, function (img) {
-        img.setAttribute('src', taxifyUrl(img.getAttribute('src')));
-      });
-    })();
-
-  </script>
-
-  <script>
-    // The prices come from Stripe, the same as everywhere else in the app. The
-    // figures in the HTML above are the fallback and nothing more — this page
-    // used to hard-code them with no fetch at all, so the one page a stranger
-    // sees first was the one page that could quietly be wrong about the price.
-    (function () {
-      fetch(taxifyUrl('/api/auth/plans'))
-        .then(function (res) { return res.ok ? res.json() : null; })
-        .then(function (data) {
-          if (!data || !data.plans) return;
-          data.plans.forEach(function (plan) {
-            if (plan.amountPerYear === null || plan.amountPerYear === undefined) return;
-            var el = document.querySelector('[data-price="' + plan.planType + '"]');
-            if (!el) return;
-            var currency = plan.currency || 'AUD';
-            el.textContent = new Intl.NumberFormat(undefined, {
-              style: 'currency',
-              currency: currency,
-              minimumFractionDigits: plan.amountPerYear % 100 === 0 ? 0 : 2,
-            }).format(plan.amountPerYear / 100);
-
-            // The same figure divided by the year, because a yearly price is
-            // the honest way to charge and a weekly one is the honest way to
-            // understand it. Computed here rather than typed into the HTML so
-            // it cannot say a dollar fifty while the price above it says
-            // something else.
-            var per = document.querySelector('[data-per="' + plan.planType + '"]');
-            if (!per) return;
-            per.textContent =
-              'about ' +
-              new Intl.NumberFormat(undefined, { style: 'currency', currency: currency }).format(
-                plan.amountPerYear / 100 / 52
-              ) +
-              ' a week';
-          });
-        })
-        .catch(function () {
-          // Offline, or Stripe not configured. The printed figures stand.
-        });
-    })();
-  </script>
-
-  <!-- The plan cards used to be buttons: pressing one marked it and rewrote
-       the call to action below so the choice carried through to signing up.
-       They are plain panels now, by request.
-
-       Worth knowing why it costs nothing here: the hub strips every script
-       from its copy of this page, and that copy is what a real browser is
-       served — so on the page anybody actually reads, those buttons already
-       did nothing at all. A control that looks pressable and is not is worse
-       than a panel that never claimed to be. -->
-
-
-  
-  <!-- Where the download button goes for anybody not on an Android phone.
-       Always in the page; :target is what shows it. The button itself is
-       written by the server, which is the only thing that knows what you are
-       reading this on — see landingAppDownload.js. -->
-  <!-- Three screenshots behind the button under the tablet, one per page of
-       the app, with arrows between them.
-
-       No script: each is its own :target, and the arrows are links to the next
-       and previous ids. The hub proxy strips every script from this page, so
-       anything driven by one would be a dead arrow. The cost is a history
-       entry per step, which is the right trade — Back walks you back through
-       the screenshots the way you would expect it to.
-  -->
-  <!-- The poster, flat and full size.
-
-       No rotate-ask on this one, unlike the screenshots below it: those are
-       far wider than they are tall and need a turned phone to be read at all.
-       A portrait poster is already the shape of a phone held normally, so
-       asking somebody to turn it would make it smaller. -->
-  <div class="lightbox lightbox-tall" id="poster" role="dialog" aria-label="The Taxify poster">
-    <a class="shotbox-close" href="#" aria-label="Close" title="Close">&times;</a>
-    <figure>
-      <img src="/media/ad-poster-full.jpg" alt="Taxify: digitise your tax receipts and keep track of your expenses. Snap and save, track expenses, home rentals, and ready for tax time." width="1700" height="2321" loading="lazy" decoding="async">
-    </figure>
-  </div>
-
-  <div class="lightbox" id="shot-1" role="dialog" aria-label="Dashboard">
-    <a class="shotbox-close" href="#" aria-label="Close" title="Close">&times;</a>
-    <div class="rotate-ask">
-      <div class="rotate-mark" aria-hidden="true">
-        <svg width="38" height="38" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="7" y="2" width="10" height="20" rx="2.5"/><path d="M10 19h4"/><path d="M2.5 12a9.5 9.5 0 0 1 3-6.9"/><path d="M3 3.4V6h2.6"/></svg>
-      </div>
-      <h3>Turn your phone sideways</h3>
-      <p>These are much wider than they are tall. Turned, they fill the screen and you can actually read them.</p>
+    <div class="wrap lp-footer-main">
+      <span>&copy; <span id="year">2026</span> Taxify. All rights reserved.</span>
+      <nav class="lp-links" aria-label="Legal and support">
+        <a href="https://taxify.net.au/app/privacy">Privacy</a>
+        <a href="https://taxify.net.au/app/terms">Terms</a>
+        <a href="https://taxify.net.au/app/support">Support</a>
+      </nav>
     </div>
-    <a class="shotbox-step shotbox-prev" href="#shot-3" aria-label="Previous, Reports"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg></a>
-    <figure>
-      <img src="/media/shot-dashboard.jpg" alt="The Taxify dashboard: spending charted by month, and every category ranked by what it came to" width="1600" height="823" loading="eager" fetchpriority="low" decoding="async">
-    </figure>
-    <a class="shotbox-step shotbox-next" href="#shot-2" aria-label="Next, All expenses"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg></a>
-    <div class="shotbox-bar">
-      <span class="shotbox-name">Dashboard</span>
-      <span class="shotbox-dots"><a class="shotbox-dot on" href="#shot-1" aria-label="Dashboard" aria-current="true"></a><a class="shotbox-dot" href="#shot-2" aria-label="All expenses"></a><a class="shotbox-dot" href="#shot-3" aria-label="Reports"></a></span>
+    <div class="wrap">
+      <!-- Leaves the site, so it opens in a new window. noreferrer as well as
+           noopener: without it the new window can reach back through
+           window.opener. -->
+      <p class="lp-powered">
+        Powered by
+        <a href="https://mikesapphub.com" target="_blank" rel="noopener noreferrer">
+          <img src="/brand/mikesapphub-logo.png" alt="" width="192" height="192" loading="lazy" decoding="async">
+          Mikes App Hub
+        </a>
+      </p>
     </div>
   </div>
 
-  <div class="lightbox" id="shot-2" role="dialog" aria-label="All expenses">
-    <a class="shotbox-close" href="#" aria-label="Close" title="Close">&times;</a>
-    <div class="rotate-ask">
-      <div class="rotate-mark" aria-hidden="true">
-        <svg width="38" height="38" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="7" y="2" width="10" height="20" rx="2.5"/><path d="M10 19h4"/><path d="M2.5 12a9.5 9.5 0 0 1 3-6.9"/><path d="M3 3.4V6h2.6"/></svg>
-      </div>
-      <h3>Turn your phone sideways</h3>
-      <p>These are much wider than they are tall. Turned, they fill the screen and you can actually read them.</p>
-    </div>
-    <a class="shotbox-step shotbox-prev" href="#shot-1" aria-label="Previous, Dashboard"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg></a>
-    <figure>
-      <img src="/media/shot-expenses-app.jpg" alt="The expense list, grouped by category with a total on each group" width="1600" height="840" loading="eager" fetchpriority="low" decoding="async">
-    </figure>
-    <a class="shotbox-step shotbox-next" href="#shot-3" aria-label="Next, Reports"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg></a>
-    <div class="shotbox-bar">
-      <span class="shotbox-name">All expenses</span>
-      <span class="shotbox-dots"><a class="shotbox-dot" href="#shot-1" aria-label="Dashboard"></a><a class="shotbox-dot on" href="#shot-2" aria-label="All expenses" aria-current="true"></a><a class="shotbox-dot" href="#shot-3" aria-label="Reports"></a></span>
-    </div>
-  </div>
-
-  <div class="lightbox" id="shot-3" role="dialog" aria-label="Reports">
-    <a class="shotbox-close" href="#" aria-label="Close" title="Close">&times;</a>
-    <div class="rotate-ask">
-      <div class="rotate-mark" aria-hidden="true">
-        <svg width="38" height="38" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="7" y="2" width="10" height="20" rx="2.5"/><path d="M10 19h4"/><path d="M2.5 12a9.5 9.5 0 0 1 3-6.9"/><path d="M3 3.4V6h2.6"/></svg>
-      </div>
-      <h3>Turn your phone sideways</h3>
-      <p>These are much wider than they are tall. Turned, they fill the screen and you can actually read them.</p>
-    </div>
-    <a class="shotbox-step shotbox-prev" href="#shot-2" aria-label="Previous, All expenses"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg></a>
-    <figure>
-      <img src="/media/shot-reports-app.jpg" alt="The reports page: three tax years side by side, each category totalled and its share of the whole" width="1600" height="864" loading="eager" fetchpriority="low" decoding="async">
-    </figure>
-    <a class="shotbox-step shotbox-next" href="#shot-1" aria-label="Next, Dashboard"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg></a>
-    <div class="shotbox-bar">
-      <span class="shotbox-name">Reports</span>
-      <span class="shotbox-dots"><a class="shotbox-dot" href="#shot-1" aria-label="Dashboard"></a><a class="shotbox-dot" href="#shot-2" aria-label="All expenses"></a><a class="shotbox-dot on" href="#shot-3" aria-label="Reports" aria-current="true"></a></span>
-    </div>
-  </div>
-
-  <div class="notebox" id="android-only" role="dialog" aria-label="About the Android app">
-    <div class="notebox-card">
-      <a class="shotbox-close" href="#" aria-label="Close" title="Close">&times;</a>
-      <div class="notebox-mark" aria-hidden="true">
-        <svg width="30" height="30" viewBox="0 0 24 24" fill="currentColor"><path d="M17.6 9.48l1.84-3.18a.42.42 0 00-.73-.42l-1.86 3.23a11.05 11.05 0 00-9.7 0L5.29 5.88a.42.42 0 00-.73.42L6.4 9.48A10.6 10.6 0 001 18h22a10.6 10.6 0 00-5.4-8.52zM7 15.25a1.25 1.25 0 111.25-1.25A1.25 1.25 0 017 15.25zm10 0a1.25 1.25 0 111.25-1.25A1.25 1.25 0 0117 15.25z"/></svg>
-      </div>
+  <!-- The panel the download button opens on anything that is not an Android
+       phone. Always in the page; :target is what shows it, so it needs no
+       script — which matters, because the hub removes every one of them. -->
+  <div class="sheet" id="android-only" role="dialog" aria-label="Android only">
+    <div class="sheet-card">
+      <a class="sheet-close" href="#" aria-label="Close">&times;</a>
       <h3>The app is Android only</h3>
       <p>There is no iPhone version yet, and this page cannot install one on the device you are reading it on.</p>
-      <p>You are not missing anything though. Taxify runs in the browser on any phone, tablet or computer &mdash; the same account, the same books, nothing to install. The app is a convenience, not the product.</p>
-      <a class="btn btn-primary" href="https://taxify.net.au/go/app">Open Taxify in this browser</a>
+      <p>You are not missing anything, though. Taxify runs in the browser on any phone, tablet or computer &mdash; the same account, the same books, nothing to install.</p>
+      <a class="btn" href="https://taxify.net.au/app/" target="_blank" rel="noopener noreferrer">Open Taxify in this browser</a>
     </div>
   </div>
 
-
-
-  <!-- Counting a visit, twice over, because this page is served two ways.
+  <!-- Counting a visit.
 
        Never write a script tag, opening or closing, in a comment on this page
        — not even as prose. The hub strips scripts with a pattern rather than a
-       parser, so the words in this very comment used to match one: it cut from
-       here to the next real closing tag and left a 28KB block of English where
-       JavaScript should have been. Everything below it stopped running, which
-       is why the year, the live prices and the click beacon all went quiet at
-       once. Say "script tag" in words, as this paragraph now does.
+       parser, so a comment describing that behaviour once matched one: it cut
+       from there to the next real closing tag and left 28KB of English where
+       JavaScript should have been. Say "script tag" in words, as this does.
 
-       Read at taxify.net.au it is this file. Read at
-       mikesapphub.com/apps/taxify it is proxied, the proxy removes scripts,
-       and its policy only allows connections back to the hub — so on that copy
-       nothing here executes and no request could be made even if it did.
-
-       What the proxy leaves alone, and rewrites to an absolute URL for us, is
-       an image. So the image below is the measurement that always works, and
-       the script after it is the measurement that can do more: it records
-       which button was pressed, which an image cannot.
-
-       The image is last in the document and carries no layout, so nothing on
-       the page waits for it. The URL is absolute rather than relative because
-       on the hub copy a relative path would point at the hub, which does not
-       serve it.
-
-       Pinned with position:fixed at 0,0 rather than left absolute with no
-       coordinates. Absolute with no top or left keeps an element's static
-       position, which for these is the very bottom of the document — so the
-       last thing in the page was a pair of elements that arrive after
-       everything else and sit below the footer. Fixed at the origin takes them
-       out of the flow completely: they cannot be the bottom of anything, they
-       cannot be a scroll target, and they cannot shift a line of the page as
-       they load. -->
+       An image is what the proxy leaves alone, so an image is the measurement
+       that always works. Both are pinned at the origin with position:fixed —
+       absolute with no coordinates keeps an element's static position, which
+       for these is the very bottom of the document, and the last thing in the
+       page should not be something that arrives whenever the network gets
+       round to it. -->
   <img src="https://taxify.net.au/api/analytics/px.gif?s=landing&e=view&p=/"
        alt="" width="1" height="1" style="position:fixed;top:0;left:0;width:1px;height:1px;opacity:0;pointer-events:none" />
 
-  <!-- Meta Pixel, as an image rather than as the snippet Meta hands out.
-
-       The snippet is a script that loads another script, and neither survives
-       here: the hub removes ours and keeps its own, which was checked against
-       what production actually serves rather than assumed. Meta's own fallback
-       for that case is this image, which it wraps in a noscript block — and a
-       noscript block is exactly wrong for us, because it renders only when
-       JavaScript is switched off. Our scripts are missing while JavaScript is
-       perfectly well on, so the fallback would render for nobody. Out of the
-       noscript block it fires for everybody.
-
-       What this costs: no advanced matching, no deduplication against a
-       server-side event, and no custom events from this page. What it buys: a
-       PageView from every real visitor, which is what an ad needs to attribute
-       a click. The events that matter for optimisation are raised in the app,
-       where the pixel is a real one.
-
-       No parameters beyond the id and the event, so nothing about the visitor
-       leaves with it. -->
+  <!-- Meta Pixel, as an image rather than as the snippet Meta hands out. The
+       snippet is a script that loads another script and neither survives here.
+       Meta's own fallback is this image, which it wraps in a noscript block —
+       and that block renders only when JavaScript is switched off, while ours
+       is on and merely missing its scripts. Out of the block it fires for
+       everybody. -->
   <img src="https://www.facebook.com/tr?id=957172023312324&amp;ev=PageView&amp;noscript=1"
        alt="" width="1" height="1" style="position:fixed;top:0;left:0;width:1px;height:1px;opacity:0;pointer-events:none" />
 
-  <script>
-    document.getElementById('year').textContent = new Date().getFullYear();
-
-    // Which button, on the copy of this page where scripts run.
-    //
-    // sendBeacon rather than fetch: every one of these is on a link that is
-    // about to navigate away, and an ordinary request is cancelled when the
-    // page unloads — which would lose exactly the clicks worth counting.
-    (function () {
-      var API = 'https://taxify.net.au/api/analytics/event';
-      function tell(event, label) {
-        try {
-          var body = JSON.stringify({
-            surface: 'landing', event: event, label: label,
-            path: location.pathname, url: location.href, referrer: document.referrer || ''
-          });
-          if (navigator.sendBeacon) {
-            navigator.sendBeacon(API, new Blob([body], { type: 'application/json' }));
-          } else {
-            fetch(API, { method: 'POST', headers: { 'Content-Type': 'application/json' },
-                         body: body, keepalive: true, credentials: 'include' }).catch(function () {});
-          }
-        } catch (e) { /* Never let counting a click stop the click. */ }
-      }
-
-      document.addEventListener('click', function (e) {
-        var a = e.target.closest && e.target.closest('a');
-        if (!a || !a.getAttribute('href')) return;
-        var href = a.getAttribute('href');
-        if (href.indexOf('/app/') !== -1) tell('start_trial', a.textContent.trim().slice(0, 60));
-        else if (href.indexOf('/downloads/') !== -1) tell('download_apk', 'Android APK');
-        else if (href.indexOf('facebook.com') !== -1) tell('social', 'Facebook');
-        else if (href.charAt(0) !== '#') tell('outbound', href.slice(0, 60));
-      }, true);
-    })();
-  </script>
 </body>
 </html>
