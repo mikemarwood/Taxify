@@ -272,24 +272,6 @@ export default function Login() {
     <AuthLayout
       title="Welcome back"
       subtitle="Log in to keep tracking your expenses."
-      topRight={
-        <div className="auth-topright">
-          <span>New here?</span>
-          {/* Counted the same as the landing page's button. Somebody who
-              arrives at sign-in and decides to make an account has done
-              exactly what the trial button asks for, and a funnel that only
-              counts one of the two routes in reports half the interest. */}
-          <Link
-            to="/register"
-            className="btn btn-ghost"
-            style={{ fontWeight: 600 }}
-            onClick={() => trackClick('start_trial', 'Create account, from sign-in')}
-          >
-            Create an account
-            <Icon name="arrow-right" size={15} />
-          </Link>
-        </div>
-      }
     >
       {/* Why this is the only page working, when it is. Login stays open
           during an outage so an admin can get in and turn the site back on;

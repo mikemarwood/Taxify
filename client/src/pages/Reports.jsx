@@ -24,7 +24,7 @@ export default function Reports() {
   const [categoryFilter, setCategoryFilter] = useState(null);
   const [asPercent, setAsPercent] = useState(false);
   const [selectedExpense, setSelectedExpense] = useState(null);
-  const [archiveYear, setArchiveYear] = useState('');
+  const [year, setYear] = useState('');
 
   function load() {
     api.get('/expenses').then((res) => setExpenses(res.data.expenses));
@@ -32,10 +32,23 @@ export default function Reports() {
 
   useEffect(load, []);
 
+  // Every year this account has, whatever the page is currently scoped to —
+  // the selector has to keep offering the others.
+  const allYears = useMemo(() => {
+    if (!expenses) return [];
+    return Array.from(new Set(expenses.map((e) => e.financialYear).filter(Boolean))).sort();
+  }, [expenses]);
+
   const { categories, years, cellTotals, categoryTotals, yearTotals, grandTotal } = useMemo(() => {
     if (!expenses) {
       return { categories: [], years: [], cellTotals: new Map(), categoryTotals: new Map(), yearTotals: new Map(), grandTotal: 0 };
     }
+
+    // The page answers for one year unless it is asked for all of them. It
+    // used to total every year regardless of what the selector said, which
+    // only drove the archive download — so picking a year changed the button
+    // and nothing else on the page.
+    const scoped = year === 'all' ? expenses : expenses.filter((e) => e.financialYear === year);
 
     const categoryMap = new Map(); // name -> { name, color, icon }
     const yearSet = new Set();
@@ -44,7 +57,7 @@ export default function Reports() {
     const yrTotals = new Map();
     let grand = 0;
 
-    for (const e of expenses) {
+    for (const e of scoped) {
       const categoryName = e.category?.name || 'Uncategorised';
       const color = e.category?.color || '#9198b0';
       const icon = e.category?.icon;
@@ -64,13 +77,18 @@ export default function Reports() {
     const sortedYears = Array.from(yearSet).sort();
 
     return { categories: sortedCategories, years: sortedYears, cellTotals: cells, categoryTotals: catTotals, yearTotals: yrTotals, grandTotal: grand };
-  }, [expenses]);
+  }, [expenses, year]);
 
   // Defaults to the most recent year with anything in it — the one someone is
   // almost always after at tax time.
   useEffect(() => {
-    if (!archiveYear && years.length > 0) setArchiveYear(years[years.length - 1]);
-  }, [years, archiveYear]);
+    if (!year && allYears.length > 0) setYear(allYears[allYears.length - 1]);
+  }, [allYears, year]);
+
+  // The archive is always one year's worth, so when the page is showing all of
+  // them the button still has to name one: the most recent, which is what it
+  // opened on. Its own label says which year, so nothing is ambiguous.
+  const archiveYear = year === 'all' ? allYears[allYears.length - 1] || '' : year;
 
   const loading = expenses === null;
 
@@ -109,7 +127,11 @@ export default function Reports() {
       >
         <div style={{ minWidth: 0, flex: '1 1 220px' }}>
           <h1 style={{ margin: '0 0 4px', fontSize: 26 }}>Reports</h1>
-          <p style={{ color: 'var(--text-muted)', margin: 0 }}>Compare spending by category across tax years.</p>
+          <p style={{ color: 'var(--text-muted)', margin: 0 }}>
+            {year === 'all'
+              ? 'Compare spending by category across tax years.'
+              : `Spending by category for FY ${year}.`}
+          </p>
         </div>
         {/* Export and download on one line. They were stacked, which read as
             two unrelated features rather than the two ways of getting your
@@ -123,20 +145,27 @@ export default function Reports() {
             order they are used: pick a year, take that year, take everything. */}
         <div className="reports-actions">
           <div className="reports-year">
+            {/* This scopes the page, not just the download. Every figure,
+                both charts and the table answer for whichever year is picked,
+                and "All years" is how the comparison is reached. */}
             <select
               className="input"
-              aria-label="Financial year to archive"
-              value={archiveYear}
-              onChange={(e) => setArchiveYear(e.target.value)}
+              aria-label="Financial year"
+              value={year}
+              onChange={(e) => setYear(e.target.value)}
               style={{ flex: '1 1 128px', minWidth: 110, fontSize: 12.5, padding: '7px 9px' }}
             >
-              {years.map((y) => (
-                <option key={y} value={y}>
-                  FY {y}
-                </option>
-              ))}
+              {allYears
+                .slice()
+                .reverse()
+                .map((y) => (
+                  <option key={y} value={y}>
+                    FY {y}
+                  </option>
+                ))}
+              <option value="all">All years</option>
             </select>
-            <YearArchiveButton financialYear={archiveYear} disabled={years.length === 0} />
+            <YearArchiveButton financialYear={archiveYear} disabled={allYears.length === 0} />
           </div>
           <ExportMenu baseUrl="/api/export/categories" label="Export summary" />
         </div>
@@ -171,7 +200,11 @@ export default function Reports() {
         <>
           <div className="stat-row">
             <StatTile icon="cash" tint="blue" label="Grand total" value={fmt(grandTotal)} />
-            <StatTile icon="calendar" tint="violet" label="Years compared" value={years.length} delay={0.05} />
+            {year === 'all' ? (
+              <StatTile icon="calendar" tint="violet" label="Years compared" value={years.length} delay={0.05} />
+            ) : (
+              <StatTile icon="calendar" tint="violet" label="Financial year" value={`FY ${year}`} delay={0.05} />
+            )}
             <StatTile icon="tag" tint="amber" label="Categories" value={categories.length} delay={0.1} />
           </div>
 
@@ -180,7 +213,7 @@ export default function Reports() {
               shape the whole is. */}
           <div className="report-charts">
             <CategoryYearChart categories={categories} years={years} cellTotals={cellTotals} />
-            <CategoryDonut categories={categories} categoryTotals={categoryTotals} grandTotal={grandTotal} />
+            <CategoryDonut categories={categories} categoryTotals={categoryTotals} grandTotal={grandTotal} singleYear={year !== 'all'} />
           </div>
 
           {/* What each year actually came back as, beside what it claimed —

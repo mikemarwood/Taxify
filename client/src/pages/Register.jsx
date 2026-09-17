@@ -465,8 +465,11 @@ export default function Register() {
   const selectedPlan = plans.find((p) => p.planType === planType) || null;
   const trialDays = options?.trialDays || 14;
 
+  // Pinned like sign-in: the form and the panel beside it are two columns of
+  // different lengths, and one document scroll let the longer one drag the
+  // form out of view.
   return (
-    <AuthSplitFrame>
+    <AuthSplitFrame fixed>
       <form onSubmit={onSubmit} style={{ display: 'contents' }}>
         {/* Rail: where you are in the sequence, and what's still coming. */}
         <aside

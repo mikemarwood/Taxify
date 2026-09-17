@@ -62,14 +62,14 @@ export function CategoryYearChart({ categories, years, cellTotals }) {
           <Icon name="chart" size={17} />
         </span>
         <div style={{ minWidth: 0, flex: 1 }}>
-          <h2>Spending by category across tax years</h2>
+          <h2>{years.length > 1 ? 'Spending by category across tax years' : 'Spending by category'}</h2>
           <p>
             {shown.length < categories.length
               ? `The ${shown.length} biggest categories, side by side.`
               : 'Every category, side by side.'}
           </p>
         </div>
-        <div className="chart-legend">
+        <div className="chart-legend" hidden={years.length < 2}>
           {years.map((y, i) => (
             <span key={y}>
               <i style={{ background: yearColour(i) }} />
@@ -126,7 +126,7 @@ export function CategoryYearChart({ categories, years, cellTotals }) {
 
 // --- The whole, as a ring -------------------------------------------------
 
-export function CategoryDonut({ categories, categoryTotals, grandTotal }) {
+export function CategoryDonut({ categories, categoryTotals, grandTotal, singleYear = false }) {
   const slices = useMemo(() => {
     if (!grandTotal) return [];
     // Everything past the fifth becomes one slice. A ring with fourteen
@@ -161,7 +161,7 @@ export function CategoryDonut({ categories, categoryTotals, grandTotal }) {
         </span>
         <div style={{ minWidth: 0, flex: 1 }}>
           <h2>Total spending by category</h2>
-          <p>Every year added together.</p>
+          <p>{singleYear ? 'Where the year went.' : 'Every year added together.'}</p>
         </div>
       </div>
 

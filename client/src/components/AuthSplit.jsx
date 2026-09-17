@@ -14,10 +14,13 @@ import SocialShare from './SocialShare.jsx';
 //
 // The grid itself, exported so sign-up can use it directly — its form element
 // has to span both columns, which it can't do through the `aside` prop.
-export function AuthSplitFrame({ children }) {
+// `fixed` pins the shell to the viewport and lets each column scroll its own
+// content. Right for a form, wrong for a document: PublicShell puts Terms and
+// Privacy in this same frame, and those have to scroll as a page.
+export function AuthSplitFrame({ children, fixed = false }) {
   return (
     <div
-      className="signup-shell"
+      className={fixed ? 'signup-shell signup-shell-fixed' : 'signup-shell'}
       style={{ minHeight: '100vh', display: 'grid', gridTemplateColumns: 'minmax(360px, 44%) 1fr' }}
     >
       {children}
@@ -41,7 +44,7 @@ export function AuthMobileBrand() {
 
 export default function AuthSplit({ aside, topRight, children }) {
   return (
-    <AuthSplitFrame>
+    <AuthSplitFrame fixed>
       {aside || <ProductPanel />}
 
       <section
