@@ -590,6 +590,11 @@ export default function Register() {
 
         {/* Panel: one step at a time, sliding in the direction of travel. */}
         <section
+          // The column that scrolls. Pinning the shell stops the window
+          // scrolling, so whichever column holds the content has to take it
+          // over — without this a form taller than the window was simply cut
+          // off at both ends with no way to reach either.
+          className="public-content"
           style={{
             // Paper against the navy, so the two halves read as chrome and
             // content rather than as one flat surface.

@@ -2015,3 +2015,14 @@ input[type="date"].input::-webkit-calendar-picker-indicator:hover { opacity: 1; 
    instead of down the side. Without this the form kept the first column of a
    two-column grid and left 330px of nothing beside it. */
 .support-layout.is-wide { grid-template-columns: minmax(0, 1fr); }
+
+/* The scrolling half of a public page — support, terms, privacy. The brand
+   panel beside it stays where it is, which is the point: its foot carries the
+   share buttons and the legal links, and on a long document they used to
+   scroll away with everything else.
+
+   Below 900px the shell is not pinned and the page scrolls as a document, so
+   this does nothing there. */
+@media (min-width: 901px) {
+  .signup-shell-fixed .public-content { overflow-y: auto; overscroll-behavior: contain; }
+}
