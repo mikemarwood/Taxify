@@ -451,23 +451,194 @@ input[type="date"].input::-webkit-calendar-picker-indicator:hover { opacity: 1; 
 .nav-btn:hover:not(:disabled) { background: rgba(255, 255, 255, 0.14); }
 .nav-btn:active:not(:disabled) { background: rgba(255, 255, 255, 0.06); }
 
-/* Sign-up: full-bleed split. Below 900px the brand side is dropped rather than
-   stacked — on a phone it would push the fields off screen, and the fields are
-   what someone came for. */
+/* ---------------------------------------------------------------------------
+   Signed-out pages: log in, activate, accept an invite, reset a password.
+
+   A full-bleed split rather than a centred card — on a wide screen a card
+   leaves most of the page empty, which reads as unfinished however good the
+   card is. The shell itself is navy; on a wide screen the form side paints its
+   own light ground over the right-hand half.
+
+   On a phone the brand side used to be thrown away. It now goes underneath the
+   form instead, which is the only place it can go: the fields are what someone
+   came for and they stay at the top, but the reasons to want an account are
+   worth reading by whoever scrolls past them. The navy shows through there,
+   and the form sits on it as a white card.
+   ------------------------------------------------------------------------ */
+.signup-shell { background: var(--nav-bg); }
+
 @media (max-width: 900px) {
-  .signup-shell { grid-template-columns: 1fr !important; }
-  .signup-brand { display: none !important; }
+  /* align-content, because the shell is still min-height 100vh: without it the
+     two stacked rows share that height between them and the form row grows a
+     screen of empty navy under the card. */
+  .signup-shell { grid-template-columns: 1fr !important; align-content: start; }
+  .signup-brand { display: flex !important; order: 2; padding: 8px 20px 30px !important; }
+  /* Top of the page, not the middle of it. Centred, the card floated in the
+     stretched grid row with the fold below it. */
+  .auth-content { order: 1; justify-content: flex-start !important; padding-top: 28px !important; }
+  /* The rule that pins this to the foot of the rail is for the rail. Stacked,
+     it was pushing the reassurances to the bottom of a row that stretches to
+     the viewport, leaving a screen of empty navy above them. */
+  .brand-foot { margin-top: 0 !important; }
 }
-/* Keep the artwork from eating the rail on a short screen. */
-@media (max-height: 760px) {
+
+/* Keep the artwork from eating the rail on a short screen. Only where the
+   panel is a column beside the form; stacked underneath it, there is room. */
+@media (max-height: 760px) and (min-width: 901px) {
   .signup-art { display: none !important; }
 }
 
-/* The brand mark only appears once the rail carrying it is gone. */
-.auth-mobile-brand { display: none; align-items: center; gap: 10px; margin-bottom: 24px; }
-.auth-mobile-brand span { font-weight: 800; font-size: 21px; letter-spacing: -0.5px; }
+/* The brand mark where the rail is showing. Below 900px AuthMobileBrand has
+   already put it at the top of the page, and these would print the same logo
+   two and three times down one screen. */
+@media (max-width: 900px) {
+  .auth-brand-wide { display: none !important; }
+  /* Same reasoning: the brand panel carries its own copy at the foot of the
+     page, and stacked they landed a few hundred pixels apart. */
+  .auth-assurances-card { display: none !important; }
+}
+
+/* The brand mark above the card, in place of the rail that carried it. */
+.auth-mobile-brand {
+  display: none;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  margin-bottom: 20px;
+  color: var(--nav-text-active);
+}
+.auth-mobile-brand .auth-mobile-brand-row { display: flex; align-items: center; gap: 12px; }
+.auth-mobile-brand strong { font-weight: 800; font-size: 30px; letter-spacing: -1px; }
+.auth-mobile-brand small { font-size: 12px; color: var(--nav-text); letter-spacing: 0.2px; }
 @media (max-width: 900px) {
   .auth-mobile-brand { display: flex; }
+}
+
+/* The form, on paper. White rather than --bg-card, because on a phone it sits
+   directly on the navy and has to read as a sheet laid on top of it. */
+.auth-card {
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  box-shadow: var(--shadow-raised);
+  padding: clamp(20px, 3vw, 32px);
+}
+@media (max-width: 900px) {
+  .auth-card { border-color: transparent; }
+}
+
+/* New here? — pinned above the card, out of the reading order of the form. */
+.auth-topright {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
+  font-size: 13.5px;
+  color: var(--text-muted);
+  margin-bottom: 20px;
+}
+@media (max-width: 900px) { .auth-topright { display: none; } }
+
+/* A field with its icon inside the box. The icon is decorative — the label
+   above it is what a screen reader announces. */
+.auth-field { position: relative; display: flex; align-items: center; }
+.auth-field > svg { position: absolute; left: 14px; color: var(--text-subtle); pointer-events: none; }
+.auth-field .input { padding-left: 42px; }
+.auth-field .input.has-reveal { padding-right: 46px; }
+.auth-reveal {
+  position: absolute;
+  right: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-subtle);
+  cursor: pointer;
+}
+.auth-reveal:hover { color: var(--text); background: var(--bg-inset); }
+
+/* or */
+.auth-or { display: flex; align-items: center; gap: 12px; color: var(--text-subtle); font-size: 12.5px; }
+.auth-or::before, .auth-or::after { content: ''; flex: 1; height: 1px; background: var(--border); }
+
+/* Everything outside the card changes ground at the breakpoint: paper beside
+   the rail, navy underneath it. These carry the two palettes so the components
+   can name one colour and get the right one, rather than each of them writing
+   a media query of its own. */
+.auth-content {
+  --auth-out-strong: var(--text);
+  --auth-out-soft: var(--text-muted);
+  --auth-out-link: var(--accent);
+  --auth-out-rule: var(--border);
+  --auth-out-mark-bg: var(--accent-soft);
+  --auth-out-mark-fg: var(--accent);
+}
+@media (max-width: 900px) {
+  .auth-content {
+    background: transparent !important;
+    --auth-out-strong: var(--nav-text-active);
+    --auth-out-soft: var(--nav-text);
+    --auth-out-link: var(--nav-accent);
+    --auth-out-rule: var(--nav-border);
+    --auth-out-mark-bg: rgba(86, 163, 245, 0.16);
+    --auth-out-mark-fg: var(--nav-accent);
+  }
+  /* SiteFooter names its own colours inline for the page palette. Underneath
+     the card those land as near-black on navy. */
+  .auth-outside a { color: var(--auth-out-link) !important; }
+  .auth-outside div { color: var(--auth-out-soft) !important; }
+}
+
+/* The three reassurances under the card, and their twins at the foot of the
+   brand panel. Same shape, different ground.
+
+   Three columns rather than a wrapping row: as a flex row the third one
+   dropped to a line of its own and sat centred under the other two, which
+   reads as one of them having gone wrong. */
+.auth-assurances { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+@media (max-width: 460px) { .auth-assurances { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.auth-assurance { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.auth-assurance-mark {
+  width: 30px;
+  height: 30px;
+  border-radius: 9px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.auth-assurance b { display: block; font-size: 11.5px; font-weight: 700; line-height: 1.25; }
+.auth-assurance span { display: block; font-size: 10.5px; line-height: 1.3; }
+
+/* The brand panel's own two columns: the words, and the photograph.
+
+   A container query, not a media query. This panel is a percentage of the
+   window, so a viewport breakpoint says nothing useful about how much room it
+   actually has — at 1440px the window is wide and the panel is 660px, which is
+   not enough for a feature list and a photograph side by side. The panel asks
+   about itself instead. */
+.signup-brand { container-type: inline-size; }
+.brand-split { display: grid; grid-template-columns: 1fr; gap: clamp(18px, 3vw, 34px); align-items: center; }
+@container (min-width: 780px) {
+  .brand-split { grid-template-columns: minmax(0, 1fr) minmax(0, 0.9fr); }
+}
+.brand-shot { width: 100%; height: auto; border-radius: 14px; display: block; }
+
+/* The feature list on the brand panel: a coloured tile, a name, a line. */
+.brand-feature { display: flex; gap: 13px; align-items: flex-start; }
+.brand-feature-mark {
+  width: 42px;
+  height: 42px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  flex-shrink: 0;
 }
 
 /* ---------------------------------------------------------------------------

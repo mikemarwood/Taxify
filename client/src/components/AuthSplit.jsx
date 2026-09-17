@@ -1,41 +1,45 @@
 import { motion } from 'framer-motion';
 import Icon from './Icon.jsx';
-import SignupArtwork from './SignupArtwork.jsx';
 import SocialShare from './SocialShare.jsx';
-import { useKeyboardOpen } from '../lib/useKeyboardOpen.js';
 
 // The shared frame for every signed-out page: a navy brand side running edge
 // to edge, and the form on paper beside it. Full bleed rather than a centred
 // card — on a wide screen a card leaves most of the page empty, which reads as
 // unfinished however good the card is.
 //
-// Below 900px the brand side is dropped rather than stacked: on a phone it
-// would push the form off screen, and the form is what someone came for.
+// Below 900px the two stack and the brand side goes underneath the form rather
+// than being dropped: the fields are what somebody came for and they stay at
+// the top, but the reasons to want an account are worth reading by whoever
+// scrolls past them. The ordering is in theme.css.
+//
 // The grid itself, exported so sign-up can use it directly — its form element
 // has to span both columns, which it can't do through the `aside` prop.
 export function AuthSplitFrame({ children }) {
   return (
     <div
       className="signup-shell"
-      style={{ minHeight: '100vh', display: 'grid', gridTemplateColumns: 'minmax(360px, 40%) 1fr' }}
+      style={{ minHeight: '100vh', display: 'grid', gridTemplateColumns: 'minmax(360px, 44%) 1fr' }}
     >
       {children}
     </div>
   );
 }
 
-// On a phone the left rail is gone, so the page would otherwise open with no
-// sign of whose it is. This puts the mark back where the rail was.
+// On a phone the brand rail is below the fold, so the page would otherwise
+// open with no sign of whose it is. This puts the mark back at the top.
 export function AuthMobileBrand() {
   return (
     <div className="auth-mobile-brand">
-      <img src="/logo.svg" alt="" width="34" height="34" />
-      <span>Taxify</span>
+      <div className="auth-mobile-brand-row">
+        <img src="/logo.svg" alt="" width="42" height="42" />
+        <strong>Taxify</strong>
+      </div>
+      <small>Receipts. Sorted.</small>
     </div>
   );
 }
 
-export default function AuthSplit({ aside, children }) {
+export default function AuthSplit({ aside, topRight, children }) {
   return (
     <AuthSplitFrame>
       {aside || <ProductPanel />}
@@ -44,9 +48,10 @@ export default function AuthSplit({ aside, children }) {
         className="auth-content"
         style={{
           // Paper against the navy, so the halves read as chrome and content
-          // rather than as one flat surface.
-          background: 'var(--bg-card)',
-          padding: 'clamp(22px, 5vw, 56px)',
+          // rather than as one flat surface. Transparent on a phone, where the
+          // shell's navy is the ground and the form is a card laid on it.
+          background: 'var(--bg-elevated)',
+          padding: 'clamp(20px, 4vw, 48px)',
           display: 'flex',
           flexDirection: 'column',
           justifyContent: 'center',
@@ -54,6 +59,7 @@ export default function AuthSplit({ aside, children }) {
           minHeight: 0,
         }}
       >
+        {topRight}
         <AuthMobileBrand />
         {children}
       </section>
@@ -61,85 +67,149 @@ export default function AuthSplit({ aside, children }) {
   );
 }
 
+// Each tile keeps its own colour. Four accents rather than one repeated four
+// times: the list is scanned, not read, and the colour is what a returning eye
+// lands on before any of the words.
 const FEATURES = [
-  { icon: 'receipt', title: 'Receipts, filed automatically', text: 'Drop one in and it lands in the right year and category on its own.' },
-  { icon: 'chart', title: 'Ready for tax time', text: 'Year-over-year totals by category, exported to Excel or PDF in a click.' },
-  { icon: 'home', title: 'Property rentals', text: 'Keep statements and end-of-year documents against the property itself.' },
-  { icon: 'users', title: 'Share the books', text: 'Add a second user, or give your accountant read-only access any time.' },
+  {
+    icon: 'camera',
+    tint: 'linear-gradient(140deg, #2f8bf4, #1559b8)',
+    title: 'Upload receipts',
+    text: "Take a photo, we'll store it securely in the cloud.",
+  },
+  {
+    icon: 'chart',
+    tint: 'linear-gradient(140deg, #23a866, #0c7343)',
+    title: 'Track expenses',
+    text: 'View totals by category and year.',
+  },
+  {
+    icon: 'home',
+    tint: 'linear-gradient(140deg, #f0913a, #cf6a11)',
+    title: 'Property rentals',
+    text: 'Keep rental statements and end-of-year documents.',
+  },
+  {
+    icon: 'users',
+    tint: 'linear-gradient(140deg, #9a6ae8, #6d3fc4)',
+    title: 'For individuals & businesses',
+    text: 'Simple, powerful and easy to use.',
+  },
 ];
 
-export function ProductPanel({ headline = 'Every receipt where you left it, come tax time.' }) {
+export const ASSURANCES = [
+  { icon: 'lock', title: 'Secure & private', text: 'Your data is protected' },
+  { icon: 'cpu', title: 'Access anywhere', text: 'On all your devices' },
+  { icon: 'clock', title: 'Ready for tax time', text: 'Export all receipts in 1 click' },
+];
+
+export function ProductPanel({ headline }) {
   return (
     <aside
       className="signup-brand"
       style={{
         position: 'relative',
-        background: 'var(--nav-bg)',
-        padding: '40px 40px 32px',
+        background: 'transparent',
+        padding: '40px clamp(24px, 3vw, 46px) 32px',
         display: 'flex',
         flexDirection: 'column',
-        gap: 22,
+        gap: 26,
         minWidth: 0,
         overflow: 'hidden',
       }}
     >
-      <div style={{ display: 'flex', alignItems: 'center', gap: 11 }}>
-        <img src="/logo.svg" alt="" width="34" height="34" />
-        <span style={{ fontWeight: 700, fontSize: 21, color: 'var(--nav-text-active)' }}>Taxify</span>
+      {/* Hidden on a phone, where AuthMobileBrand has already said it at the
+          top of the page — repeating it here would be the same mark twice on
+          one screen. */}
+      <div className="auth-brand-wide" style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+        <img src="/logo.svg" alt="" width="40" height="40" />
+        <span style={{ minWidth: 0, lineHeight: 1.1 }}>
+          <span style={{ display: 'block', fontWeight: 800, fontSize: 26, letterSpacing: -0.8, color: 'var(--nav-text-active)' }}>
+            Taxify
+          </span>
+          <span style={{ display: 'block', fontSize: 11.5, color: 'var(--nav-text)' }}>Receipts. Sorted.</span>
+        </span>
       </div>
 
-      <h2
-        style={{
-          margin: 0,
-          fontSize: 'clamp(22px, 2.2vw, 29px)',
-          lineHeight: 1.25,
-          letterSpacing: -0.6,
-          color: 'var(--nav-text-active)',
-          textWrap: 'balance',
-        }}
-      >
-        {headline}
-      </h2>
+      <div className="brand-split">
+        <div style={{ minWidth: 0, display: 'flex', flexDirection: 'column', gap: 20 }}>
+          <div>
+            <h2
+              style={{
+                margin: 0,
+                fontSize: 'clamp(25px, 2.6vw, 36px)',
+                lineHeight: 1.16,
+                letterSpacing: -1,
+                color: 'var(--nav-text-active)',
+                textWrap: 'balance',
+              }}
+            >
+              {headline || (
+                <>
+                  Every receipt where you left it,{' '}
+                  <span style={{ color: 'var(--nav-accent)' }}>come tax time.</span>
+                </>
+              )}
+            </h2>
+            <p style={{ margin: '12px 0 0', fontSize: 14, lineHeight: 1.6, color: 'var(--nav-text)', maxWidth: '42ch' }}>
+              Take a photo, we&rsquo;ll store it on the cloud. Keep your expenses organised, categorised and ready when
+              you need them.
+            </p>
+          </div>
 
-      <div className="signup-art" style={{ display: 'flex', justifyContent: 'center' }}>
-        <SignupArtwork />
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 15 }}>
+            {FEATURES.map((f, i) => (
+              <motion.div
+                key={f.title}
+                className="brand-feature"
+                initial={{ opacity: 0, x: -10 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1], delay: 0.15 + i * 0.07 }}
+              >
+                <span className="brand-feature-mark" style={{ background: f.tint }}>
+                  <Icon name={f.icon} size={20} />
+                </span>
+                <span style={{ minWidth: 0 }}>
+                  <span style={{ display: 'block', fontWeight: 700, fontSize: 14.5, color: 'var(--nav-text-active)' }}>
+                    {f.title}
+                  </span>
+                  <span style={{ display: 'block', fontSize: 13, color: 'var(--nav-text)', lineHeight: 1.5, marginTop: 1 }}>
+                    {f.text}
+                  </span>
+                </span>
+              </motion.div>
+            ))}
+          </div>
+        </div>
+
+        {/* The same photograph the landing page opens with: a receipt being
+            photographed, and the same purchase already filed beside it. */}
+        <img
+          className="brand-shot"
+          src="/media/hero-compare.jpg"
+          alt="A hand holding a phone photographing a receipt, and beside it the Taxify app showing the same purchase saved and categorised"
+          width="1200"
+          height="800"
+          loading="lazy"
+          decoding="async"
+        />
       </div>
 
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-        {FEATURES.map((f, i) => (
-          <motion.div
-            key={f.title}
-            initial={{ opacity: 0, x: -10 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1], delay: 0.15 + i * 0.07 }}
-            style={{ display: 'flex', gap: 11, alignItems: 'flex-start' }}
-          >
-            <Icon name={f.icon} size={17} style={{ color: 'var(--nav-accent)', marginTop: 2, flexShrink: 0 }} />
-            <div style={{ minWidth: 0 }}>
-              <div style={{ fontWeight: 600, fontSize: 13.5, color: 'var(--nav-text-active)' }}>{f.title}</div>
-              <div style={{ fontSize: 12.5, color: 'var(--nav-text)', lineHeight: 1.5, marginTop: 1 }}>{f.text}</div>
-            </div>
-          </motion.div>
-        ))}
-      </div>
-
-      <div style={{ marginTop: 'auto', display: 'flex', flexDirection: 'column', gap: 14 }}>
+      <div className="brand-foot" style={{ marginTop: 'auto', display: 'flex', flexDirection: 'column', gap: 18, paddingTop: 8 }}>
         {/* The same buttons the landing page carries, from the same admin
             settings, sharing the same address — see SocialShare.jsx. Renders
             nothing at all when Facebook is switched off. */}
         <SocialShare />
-        <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap' }}>
-          {[
-            { icon: 'gift', label: '14-day free trial' },
-            { icon: 'lock', label: 'No card required' },
-            { icon: 'shield', label: 'Cancel any time' },
-          ].map((t) => (
-            <span
-              key={t.label}
-              style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11.5, color: 'var(--nav-text)' }}
-            >
-              <Icon name={t.icon} size={13} style={{ color: 'var(--nav-accent)' }} />
-              {t.label}
+        <div className="auth-assurances" style={{ justifyContent: 'flex-start', borderTop: '1px solid var(--nav-border)', paddingTop: 18 }}>
+          {ASSURANCES.map((a) => (
+            <span key={a.title} className="auth-assurance">
+              <span className="auth-assurance-mark" style={{ background: 'rgba(86, 163, 245, 0.16)', color: 'var(--nav-accent)' }}>
+                <Icon name={a.icon} size={17} />
+              </span>
+              <span style={{ minWidth: 0 }}>
+                <b style={{ color: 'var(--nav-text-active)' }}>{a.title}</b>
+                <span style={{ color: 'var(--nav-text)' }}>{a.text}</span>
+              </span>
             </span>
           ))}
         </div>

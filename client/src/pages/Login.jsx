@@ -10,6 +10,7 @@ import { api } from '../lib/api.js';
 import { trackClick } from '../lib/analytics.js';
 import Toggle from '../components/Toggle.jsx';
 import Icon from '../components/Icon.jsx';
+import AuthField from '../components/AuthField.jsx';
 import { homePathFor } from '../lib/home.js';
 import AndroidDownloadButton from '../components/AndroidDownloadButton.jsx';
 
@@ -268,13 +269,34 @@ export default function Login() {
   }
 
   return (
-    <AuthLayout title="Welcome back" subtitle="Log in to keep tracking your deductions.">
+    <AuthLayout
+      title="Welcome back"
+      subtitle="Log in to keep tracking your expenses."
+      topRight={
+        <div className="auth-topright">
+          <span>New here?</span>
+          {/* Counted the same as the landing page's button. Somebody who
+              arrives at sign-in and decides to make an account has done
+              exactly what the trial button asks for, and a funnel that only
+              counts one of the two routes in reports half the interest. */}
+          <Link
+            to="/register"
+            className="btn btn-ghost"
+            style={{ fontWeight: 600 }}
+            onClick={() => trackClick('start_trial', 'Create account, from sign-in')}
+          >
+            Create an account
+            <Icon name="arrow-right" size={15} />
+          </Link>
+        </div>
+      }
+    >
       {/* Why this is the only page working, when it is. Login stays open
           during an outage so an admin can get in and turn the site back on;
           without a word of explanation it would look like the outage had
           simply ended. */}
       <MaintenanceLoginNotice />
-      <form onSubmit={onSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+      <form onSubmit={onSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
         {signInError && (
           <div
             role="alert"
@@ -294,88 +316,91 @@ export default function Login() {
             <span>{signInError}</span>
           </div>
         )}
+        <AuthField
+          icon="mail"
+          label="Email address"
+          type="email"
+          placeholder="Email address"
+          autoComplete="email"
+          required
+          // Desktop only. On a phone this summons the keyboard before anybody
+          // has decided to type, covering half the screen — which is why the
+          // check is shared rather than written out here.
+          autoFocus={autoFocusFields}
+          value={email}
+          onChange={(e) => {
+            setSignInError('');
+            setEmail(e.target.value.toLowerCase());
+          }}
+        />
+
         <div>
-          <label className="label">Email</label>
-          <input autoComplete="email"
-            className="input"
-            type="email"
+          <AuthField
+            icon="lock"
+            label="Password"
+            reveal
+            placeholder="Password"
+            autoComplete="current-password"
             required
-            // Desktop only. On a phone this summons the keyboard before anybody
-            // has decided to type, covering half the screen — which is why the
-            // check is shared rather than written out here.
-            autoFocus={autoFocusFields}
-            value={email}
+            value={password}
             onChange={(e) => {
               setSignInError('');
-              setEmail(e.target.value.toLowerCase());
+              setPassword(e.target.value);
             }}
           />
-        </div>
-        <div>
-          <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 10 }}>
-            <label className="label">Password</label>
+          <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 7 }}>
             <Link to="/forgot-password" style={{ fontSize: 12.5, color: 'var(--accent)', fontWeight: 600 }}>
               Forgot password?
             </Link>
           </div>
-          <input autoComplete="current-password" className="input" type="password" required value={password} onChange={(e) => {
-                setSignInError('');
-                setPassword(e.target.value);
-              }} />
         </div>
+
+        {/* Worded the way somebody thinks about it, rather than the way the
+            session is implemented. Ticked is the behaviour that was already the
+            default — the box it replaces asked the opposite question and was
+            unticked, so the meaning of leaving it alone has not changed. */}
         <Toggle
-          checked={publicDevice}
-          onChange={setPublicDevice}
-          label="This is a public or shared device — log me out when the window closes"
+          checked={!publicDevice}
+          onChange={(keep) => setPublicDevice(!keep)}
+          label="Keep me logged in on this device"
         />
-        <button className="btn btn-primary" disabled={busy} type="submit" style={{ marginTop: 8 }}>
+
+        <button className="btn btn-primary" disabled={busy} type="submit" style={{ marginTop: 4 }}>
           {busy && <span className="spinner" />}
           Log in
+          <Icon name="arrow-right" size={16} />
         </button>
-      </form>
-      <p style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 20, textAlign: 'center' }}>
-        {/* Counted the same as the landing page's button. Somebody who arrives
-            at sign-in and decides to make an account has done exactly what the
-            trial button asks for, and a funnel that only counts one of the two
-            routes in reports half the interest. */}
-        No account yet?{' '}
+
+        <div className="auth-or">or</div>
+
+        {/* The same route as the link above the card, which is off screen on a
+            phone. Counted under the same name, so the funnel does not have to
+            care which of the two somebody pressed. */}
         <Link
           to="/register"
-          style={{ color: 'var(--blue)', fontWeight: 600 }}
+          className="btn btn-ghost"
+          style={{ fontWeight: 600 }}
           onClick={() => trackClick('start_trial', 'Create account, from sign-in')}
         >
-          Create one
+          Create an account
         </Link>
-      </p>
+      </form>
+
+      {/* Also here, not only on the brand panel — on a phone that panel is
+          below the fold, and a phone is the one device the app installs on. */}
+      <div style={{ marginTop: 18 }}>
+        <AndroidDownloadButton />
+      </div>
 
       {/* Reachable without signing in, deliberately: somebody stuck on this
           page is the person most likely to need support and the least able to
           reach it from inside the app. */}
-      <p style={{ fontSize: 12.5, color: 'var(--text-muted)', marginTop: 6, textAlign: 'center' }}>
+      <p style={{ fontSize: 12.5, color: 'var(--text-muted)', margin: '16px 0 0', textAlign: 'center' }}>
         Locked out, or something wrong?{' '}
         <Link to="/support" style={{ color: 'var(--blue)', fontWeight: 600 }}>
           Contact support
         </Link>
       </p>
-
-      {/* Also here, not only on the brand rail — the rail is hidden on a phone,
-          which is the one device the app actually installs on. */}
-      <div
-        style={{
-          marginTop: 26,
-          paddingTop: 22,
-          borderTop: '1px solid var(--border)',
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          gap: 10,
-        }}
-      >
-        <span style={{ fontSize: 12.5, color: 'var(--text-muted)', textAlign: 'center' }}>
-          Log expenses on the move — snap a receipt the moment you get it
-        </span>
-        <AndroidDownloadButton />
-      </div>
     </AuthLayout>
   );
 }

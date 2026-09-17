@@ -450,7 +450,20 @@
   @media (max-width: 640px) { .pricing .wrap { grid-template-columns: 1fr; } }
   .pricing-lead h2 { margin: 0 0 8px; font-size: clamp(21px, 2.8vw, 29px); font-weight: 700; letter-spacing: -.8px; text-wrap: balance; }
   .pricing-lead p { margin: 0; color: var(--body); }
-  .plan { background: #fff; border: 1px solid var(--line); border-radius: 14px; padding: 20px; box-shadow: var(--shadow-card); }
+  .plan { position: relative; background: #fff; border: 1px solid var(--line); border-radius: 14px; padding: 20px; box-shadow: var(--shadow-card); }
+  /* One of the two is marked, and the ring is the marking — a heavier border
+     alone shifted the card by a pixel against its neighbour. */
+  .plan.highlight { border-color: var(--blue); box-shadow: 0 0 0 1px var(--blue), var(--shadow-card); }
+  .plan-badge {
+    position: absolute; top: -10px; left: 20px;
+    padding: 3px 10px; border-radius: 999px;
+    background: var(--blue); color: #fff;
+    font-family: 'Poppins', sans-serif; font-size: 10px; font-weight: 700;
+    letter-spacing: .6px; text-transform: uppercase;
+  }
+  .plan-trial { display: inline-flex; align-items: center; gap: 6px; margin-bottom: 10px; font-size: 12px; font-weight: 600; color: #18794e; }
+  .plan-trial svg { flex-shrink: 0; }
+  .plan-text { margin: 0 0 14px; font-size: 13px; color: var(--body); }
   .plan-name { font-weight: 700; font-size: 15px; margin-bottom: 4px; }
   .plan-price { font-size: clamp(30px, 3.6vw, 34px); font-weight: 800; letter-spacing: -1.4px; }
   .plan-price em { font-style: normal; font-size: 15px; font-weight: 500; color: var(--faint); letter-spacing: 0; }
@@ -510,10 +523,14 @@
   /* ---- The Android panel, opened by the download button ---- */
   .sheet { position: fixed; inset: 0; z-index: 2000; display: none; align-items: center; justify-content: center; padding: 20px; background: rgba(6, 12, 22, .86); overflow-y: auto; }
   .sheet:target { display: flex; }
-  .sheet-card { background: #fff; border-radius: 16px; padding: clamp(20px, 5vw, 28px); max-width: 420px; text-align: center; }
+  .sheet-card { position: relative; background: #fff; border-radius: 16px; padding: clamp(26px, 5vw, 32px); max-width: 420px; text-align: center; }
   .sheet-card h3 { margin: 0 0 10px; font-size: 19px; font-weight: 700; }
   .sheet-card p { margin: 0 0 12px; font-size: 14px; color: var(--body); }
-  .sheet-close { position: absolute; top: 14px; right: 18px; color: #fff; font-size: 32px; text-decoration: none; line-height: 1; padding: 6px 10px; }
+  /* On the card, not on the screen behind it. Out in the corner of the page it
+     read as closing the page rather than the panel, and on a phone it landed
+     nowhere near the thing it shuts. */
+  .sheet-close { position: absolute; top: 8px; right: 10px; display: grid; place-items: center; width: 34px; height: 34px; border-radius: 50%; color: var(--faint); font-size: 24px; text-decoration: none; line-height: 1; }
+  .sheet-close:hover, .sheet-close:focus-visible { background: var(--blue-soft); color: var(--ink); }
 
   /* ---- Share ----
 
@@ -585,7 +602,7 @@
             <a href="#tradies">For Tradies</a>
             <a href="#rentals">For Rentals</a>
           </nav>
-          <a class="btn btn-sm" href="https://taxify.mikesapphub.com/go/app" target="_blank" rel="noopener noreferrer">Open Taxify</a>
+          <a class="btn btn-sm" href="https://taxify.mikesapphub.com/app/" target="_blank" rel="noopener noreferrer">Open Taxify</a>
         </div>
       </div>
 
@@ -643,10 +660,6 @@
           <span>
             <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8"/></svg>
             Works on Any Device
-          </span>
-          <span>
-            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 15c3-5 6-5 9 0s6 5 9 0"/></svg>
-            Australian Tax Years
           </span>
           <span>
             <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l2.2 4.6L19 8.3l-3.5 3.4.8 4.9-4.3-2.3-4.3 2.3.8-4.9L5 8.3l4.8-.7z"/></svg>
@@ -928,8 +941,9 @@
     <section class="section pricing" id="pricing">
       <div class="wrap">
         <div class="pricing-lead">
-          <h2>Simple, transparent pricing.</h2>
-          <p>Great value. No hidden fees.</p>
+          <h2>Simple, honest pricing</h2>
+          <p>Under a dollar a week. One deduction you would otherwise have forgotten pays for the whole year, and the fee itself is deductible.</p>
+          <p>Both plans start with the same 14-day free trial, and there is no card to enter until you have decided. One payment a year, cancel whenever you like. No per-receipt fees, no upsells, no add-ons.</p>
         </div>
 
         <!-- The figures here are the fallback. The live ones come from Stripe,
@@ -938,24 +952,30 @@
         <div class="plan">
           <div class="plan-name">Individual</div>
           <div class="plan-price"><span data-price="individual">$49</span> <em>/ year</em></div>
-          <div class="plan-per" data-per="individual">That&rsquo;s about $0.94 per week.</div>
+          <div class="plan-per" data-per="individual">about $0.94 a week</div>
+          <div class="plan-trial"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6L9 17l-5-5"/></svg>14-day free trial</div>
+          <p class="plan-text">Every deduction you are owed, kept as you go.</p>
           <ul>
-            <li><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6L9 17l-5-5"/></svg>Personal use</li>
-            <li><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6L9 17l-5-5"/></svg>Track your expenses</li>
-            <li><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6L9 17l-5-5"/></svg>Stay organised at tax time</li>
+            <li><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6L9 17l-5-5"/></svg>Photograph a receipt and it files itself</li>
+            <li><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6L9 17l-5-5"/></svg>Unlimited expenses &amp; receipts, kept for good</li>
+            <li><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6L9 17l-5-5"/></svg>Every year side by side, exported in one click</li>
+            <li><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6L9 17l-5-5"/></svg>Read-only accountant access, revoked whenever you like</li>
           </ul>
           <a class="btn btn-full" href="https://taxify.mikesapphub.com/go/trial" target="_blank" rel="noopener noreferrer">Start Free for 14 Days</a>
         </div>
 
-        <div class="plan">
+        <div class="plan highlight">
+          <div class="plan-badge">Most popular</div>
           <div class="plan-name">Small Business</div>
           <div class="plan-price"><span data-price="business">$99</span> <em>/ year</em></div>
-          <div class="plan-per" data-per="business">That&rsquo;s about $1.90 per week.</div>
+          <div class="plan-per" data-per="business">about $1.90 a week</div>
+          <div class="plan-trial"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6L9 17l-5-5"/></svg>14-day free trial</div>
+          <p class="plan-text">Your own return and up to two businesses, never mixed up.</p>
           <ul>
-            <li><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6L9 17l-5-5"/></svg>Everything in Individual</li>
-            <li><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6L9 17l-5-5"/></svg>Multiple properties</li>
-            <li><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6L9 17l-5-5"/></svg>Business expense tracking</li>
-            <li><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6L9 17l-5-5"/></svg>Built for tradies and small businesses</li>
+            <li><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6L9 17l-5-5"/></svg>Everything in Individual, for your personal return</li>
+            <li><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6L9 17l-5-5"/></svg>Up to two businesses, each with books of their own</li>
+            <li><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6L9 17l-5-5"/></svg>Separate totals for each &mdash; no untangling at tax time</li>
+            <li><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6L9 17l-5-5"/></svg>Read-only accountant access, revoked whenever you like</li>
           </ul>
           <a class="btn btn-full" href="https://taxify.mikesapphub.com/go/trial" target="_blank" rel="noopener noreferrer">Start Free for 14 Days</a>
         </div>
@@ -1080,12 +1100,12 @@
        phone. Always in the page; :target is what shows it, so it needs no
        script — which matters, because the hub removes every one of them. -->
   <div class="sheet" id="android-only" role="dialog" aria-label="Android only">
-    <a class="sheet-close" href="#" aria-label="Close">&times;</a>
     <div class="sheet-card">
+      <a class="sheet-close" href="#" aria-label="Close">&times;</a>
       <h3>The app is Android only</h3>
       <p>There is no iPhone version yet, and this page cannot install one on the device you are reading it on.</p>
       <p>You are not missing anything, though. Taxify runs in the browser on any phone, tablet or computer &mdash; the same account, the same books, nothing to install.</p>
-      <a class="btn" href="https://taxify.mikesapphub.com/go/app" target="_blank" rel="noopener noreferrer">Open Taxify in this browser</a>
+      <a class="btn" href="https://taxify.mikesapphub.com/app/" target="_blank" rel="noopener noreferrer">Open Taxify in this browser</a>
     </div>
   </div>
 
