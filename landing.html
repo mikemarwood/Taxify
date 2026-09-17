@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Taxify — Snap your receipts, sorted for tax time</title>
+<title>Taxify | Receipt &amp; expense tracker for Australian tax time</title>
 <meta name="description" content="Photograph a receipt and Taxify files it — right category, right tax year. Work, business and rental expenses organised and ready for tax time. 14-day free trial, no credit card required.">
 <meta name="theme-color" content="#081428">
 
@@ -138,7 +138,12 @@
   @media (prefers-reduced-motion: reduce) { .btn { transition: none; } .btn:hover { transform: none; } }
   .btn-sm { min-height: 38px; padding: 8px 17px; font-size: 13.5px; }
   .btn-full { width: 100%; }
-  .btn-note { font-size: 12.5px; color: var(--faint); margin: 18px 0 0; }
+  .btn-note { font-size: 12.5px; color: var(--faint); margin: 22px 0 0; }
+  /* The button and its note as one object, only as wide as the button, so the
+     note centres on the button rather than starting at the same left edge and
+     trailing off past it. */
+  .hero-cta { display: inline-flex; flex-direction: column; align-items: center; width: fit-content; }
+  .hero-cta .btn-note { text-align: center; }
 
   /* ---- Top bar ----
      A div, never a <header>. The hub deletes header, footer and several nav
@@ -243,6 +248,7 @@
     .hero > .wrap { grid-template-columns: 1fr; text-align: center; }
     .hero p { margin-left: auto; margin-right: auto; }
     .hero .btn { margin-inline: auto; }
+    .hero-cta { margin-inline: auto; }
   }
 
   .hero-note { position: absolute; right: 2.5%; bottom: 26%; text-align: center; color: #fff; }
@@ -724,11 +730,13 @@
           <!-- Every button here goes through /go/trial. That hop is what counts
                the press: the hub strips scripts, so nothing in the page itself
                can report a click. See index.js. -->
-          <a class="btn" href="https://taxify.net.au/go/trial" target="_blank" rel="noopener noreferrer">
-            Start Free for 14 Days
-            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h13M13 6l6 6-6 6"/></svg>
-          </a>
-          <p class="btn-note">No credit card required.</p>
+          <span class="hero-cta">
+            <a class="btn" href="https://taxify.net.au/go/trial" target="_blank" rel="noopener noreferrer">
+              Start Free for 14 Days
+              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h13M13 6l6 6-6 6"/></svg>
+            </a>
+            <p class="btn-note">No credit card required.</p>
+          </span>
         </div>
 
         <!-- The photograph the mock-up was drawn around: the receipt in a hand,
@@ -902,7 +910,7 @@
             </svg>
             <span>
               <b>Built in Australia,<br>for Aussies.</b>
-              <span>Made and supported here by Mikes App Hub, an Australian business.</span>
+              <span>Built and managed in Australia by Mikes App Hub.</span>
             </span>
           </div>
           <ul class="aussie-points">
@@ -1219,7 +1227,7 @@
            noopener: without it the new window can reach back through
            window.opener. -->
       <p class="lp-powered">
-        Powered by
+        Built and managed in Australia &middot; Powered by
         <a href="https://mikesapphub.com" target="_blank" rel="noopener noreferrer">
           <img src="/brand/mikesapphub-logo.png" alt="" width="192" height="192" loading="lazy" decoding="async">
           Mikes App Hub
@@ -1233,11 +1241,11 @@
        script — which matters, because the hub removes every one of them. -->
   <div class="sheet" id="android-only" role="dialog" aria-label="Android only">
     <div class="sheet-card">
-      <a class="sheet-close" href="#" aria-label="Close">&times;</a>
-      <h3>The app is Android only</h3>
+      <a class="sheet-close" href="#_" aria-label="Close">&times;</a>
+      <h3>The app is for Android only</h3>
       <p>There is no iPhone version yet, and this page cannot install one on the device you are reading it on.</p>
       <p>You are not missing anything, though. Taxify runs in the browser on any phone, tablet or computer &mdash; the same account, the same books, nothing to install.</p>
-      <a class="btn" href="https://taxify.net.au/app/" target="_blank" rel="noopener noreferrer">Open Taxify in this browser</a>
+      <a class="btn" href="https://taxify.net.au/app" target="_blank" rel="noopener noreferrer">Open Taxify in this browser</a>
     </div>
   </div>
 

@@ -176,7 +176,7 @@ export default function AndroidDownloadButton({ variant = 'button' }) {
               <Icon name="phone" size={22} />
             </span>
 
-            <h3 style={{ margin: '0 0 10px', fontSize: 19, fontWeight: 700 }}>The app is Android only</h3>
+            <h3 style={{ margin: '0 0 10px', fontSize: 19, fontWeight: 700 }}>The app is for Android only</h3>
             <p style={{ margin: '0 0 10px', fontSize: 14, color: 'var(--text-muted)', lineHeight: 1.55 }}>
               There is no iPhone version yet, and this page cannot install one on the device you are reading it on.
             </p>
