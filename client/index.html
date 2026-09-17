@@ -29,9 +29,14 @@
     />
     <!-- The app itself is behind a login, so there is nothing here for a search
          engine to index and following links into it only burns crawl budget on
-         pages that will answer with a sign-in form. The landing page is what
-         should rank; it says so with its own canonical. -->
+         pages that will answer with a sign-in form. -->
     <meta name="robots" content="noindex, nofollow" />
+    <!-- And where the value belongs if anything does reach here: the landing
+         page on taxify.net.au, which is the address the advertisements point
+         at and the one the sitemap names. noindex should mean this is never
+         weighed at all, but a canonical costs one line and is the difference
+         between "ignore this" and "ignore this, count that instead". -->
+    <link rel="canonical" href="https://taxify.net.au/" />
 
     <!-- Meta Pixel.
 

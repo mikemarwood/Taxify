@@ -24,6 +24,7 @@ import entityRoutes from './routes/entities.routes.js';
 import { AD_SLOTS, adFile, posterFile, adsPresent, faststartExistingAds } from './lib/landingAds.js';
 import { cutEmptyAdSlots } from './lib/landingAdsHtml.js';
 import { injectLandingScript } from './lib/landingScript.js';
+import { injectLandingHead } from './lib/landingHead.js';
 import { injectLandingSocial } from './lib/landingSocial.js';
 import { landingSocialConfig } from './lib/socialSettings.js';
 import { injectAppDownload, isAndroidAgent } from './lib/landingAppDownload.js';
@@ -149,11 +150,17 @@ async function withLandingExtras(html, req) {
   // See landingScript.js: this is the only route by which JavaScript reaches
   // the landing page at all.
   return injectLandingScript(
+    // The head, put back after the hub has replaced it — the title, the
+    // canonical, the icons and the share card all arrive as the hub's. Done on
+    // the HTML rather than in the script above it because the scrapers that
+    // build a share card do not run JavaScript. See landingHead.js.
+    injectLandingHead(
     injectLandingReviews(
       injectAppDownload(
         injectLandingSocial(withLandingAds(html), await landingSocialConfig()),
         apkOffer(req)
       )
+    )
     )
   );
 }
@@ -252,15 +259,12 @@ app.get('/', serveLandingPage);
 // takes anything it does not recognise. A robots.txt that is HTML is a
 // robots.txt that parses to nothing, so this host had no directives at all.
 //
-// Crawling is allowed rather than refused, deliberately. The canonical on the
-// landing page points at the hub, and that is the signal that settles which of
-// the two addresses ranks — but a crawler has to be allowed to fetch the page
-// to read the canonical in the first place. Blocking it here would leave the
+// Crawling is allowed rather than refused, deliberately. The landing page's
+// canonical names this host, and that is the signal that settles which of the
+// two addresses ranks — but a crawler has to be allowed to fetch the page to
+// read the canonical in the first place. Blocking it here would leave the
 // duplicate un-deduplicated rather than gone, and would stop Facebook reading
 // the Open Graph tags it scrapes from this host.
-//
-// The sitemap named is the hub's, for the same reason: the hub's addresses are
-// the ones worth listing.
 app.get('/robots.txt', (req, res) => {
   res.type('text/plain').send(
     [
@@ -273,20 +277,46 @@ app.get('/robots.txt', (req, res) => {
       'Disallow: /media/ads/',
       'Disallow: /downloads/',
       '',
-      'Sitemap: https://mikesapphub.com/sitemap.xml',
+      // This host's own, now that this host is the one meant to rank.
+      'Sitemap: https://taxify.net.au/sitemap.xml',
       '',
     ].join('\n')
   );
 });
 
-// No sitemap of our own, and a 404 rather than the landing page.
+// One address, because there is one page worth indexing.
 //
-// A sitemap here would list this host's addresses, which is precisely what the
-// canonical spends its time telling search engines not to index. Saying
-// plainly that there is not one is better than answering with a page of HTML
-// that claims to be XML.
-app.get('/sitemap.xml', (req, res) => {
-  res.status(404).type('text/plain').send('No sitemap here. See https://mikesapphub.com/sitemap.xml\n');
+// This answered 404 and pointed at the hub's sitemap, on the reasoning that the
+// hub's copy of the landing page was the one that should rank. That has turned
+// around: taxify.net.au is the address on the advertisements, the canonical
+// says so now, and a sitemap naming it is the other half of saying it.
+//
+// Nothing else is listed. Everything under /app is behind a sign-in and is
+// disallowed above, and a sitemap listing pages a crawler has been told not to
+// fetch is a contradiction rather than a hint.
+app.get('/sitemap.xml', async (req, res) => {
+  let lastmod = null;
+  try {
+    const stat = await fs.promises.stat(LANDING_HTML_PATH);
+    lastmod = `    <lastmod>${stat.mtime.toISOString().slice(0, 10)}</lastmod>`;
+  } catch {
+    // No date rather than a made-up one; lastmod is optional.
+  }
+
+  const lines = [
+    '<?xml version="1.0" encoding="UTF-8"?>',
+    '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">',
+    '  <url>',
+    '    <loc>https://taxify.net.au/</loc>',
+    lastmod,
+    '    <changefreq>weekly</changefreq>',
+    '    <priority>1.0</priority>',
+    '  </url>',
+    '</urlset>',
+    '',
+  ].filter((line) => line !== null);
+
+  res.type('application/xml').send(lines.join('\n'));
 });
 
 // The old address for it, kept working.

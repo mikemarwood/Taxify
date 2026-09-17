@@ -9,10 +9,16 @@
 
 <!-- Search.
 
-     The canonical points at the hub, not here. This page is served from two
-     addresses — taxify.net.au and mikesapphub.com/apps/taxify — and
-     without this they compete with each other for the same words. -->
-<link rel="canonical" href="https://mikesapphub.com/apps/taxify">
+     This page is served from two addresses — taxify.net.au and
+     mikesapphub.com/apps/taxify — and without a canonical they compete for the
+     same words. It names taxify.net.au, the address the advertisements point
+     at and the one the sitemap lists.
+
+     The hub rewrites this tag on the copy it serves, along with the title, the
+     icons and the share card. landingHead.js puts them all back after the hub
+     has finished; this is here so the file says the same thing the server
+     sends. -->
+<link rel="canonical" href="https://taxify.net.au/">
 <meta name="robots" content="index, follow, max-image-preview:large">
 <meta name="author" content="Mikes App Hub">
 
@@ -26,7 +32,7 @@
   "name": "Taxify",
   "applicationCategory": "FinanceApplication",
   "operatingSystem": "Web, Android",
-  "url": "https://mikesapphub.com/apps/taxify",
+  "url": "https://taxify.net.au/",
   "description": "Photograph a receipt and Taxify files it — right category, right tax year. Work, business and rental expenses organised and ready for tax time, with a 14-day free trial and no credit card required.",
   "image": "https://taxify.net.au/media/shot-dashboard.jpg",
   "publisher": { "@type": "Organization", "name": "Mikes App Hub", "url": "https://mikesapphub.com" },
