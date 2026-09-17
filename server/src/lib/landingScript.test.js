@@ -52,3 +52,22 @@ test('it cannot throw on the page it is added to', () => {
   assert.ok(out.includes('try{'));
   assert.ok(out.includes('catch(e){}'));
 });
+
+test('it sets the title, because the hub replaces ours', () => {
+  // landing.html carries a <title> that never reaches anybody: the proxy serves
+  // the page under "Taxify — Mikes App Hub". This is the only code that runs
+  // after the proxy has finished with the document.
+  const out = injectLandingScript(PAGE);
+  assert.match(out, /document\.title=/);
+  assert.match(out, /Receipt & expense tracker for Australian tax time/);
+});
+
+test('the title is a JSON string, so an apostrophe cannot end it', () => {
+  // Written into a script tag by hand. A quote in the title would close the
+  // string and leave a syntax error where the whole script used to be.
+  const out = injectLandingScript(PAGE);
+  const at = out.indexOf('document.title=');
+  const set = out.slice(at + 'document.title='.length, out.indexOf(';', at));
+  assert.ok(at !== -1, 'the title should be assigned');
+  assert.doesNotThrow(() => JSON.parse(set));
+});

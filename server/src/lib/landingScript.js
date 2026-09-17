@@ -34,9 +34,25 @@ const MARKER = '<!--LANDING-JS-->';
 //
 // A fragment is left alone. Somebody following a link to #plans means to arrive
 // at the plans, and this must not undo that.
+// The title, because the hub replaces ours.
+//
+// landing.html carries a <title>, and it never reaches anybody: the proxy
+// serves the page under its own, "Taxify — Mikes App Hub". That is the hub's
+// convention for every app it hosts, and it is the name in the browser tab, the
+// bookmark and the search result — so for the one page whose job is to be found
+// and clicked, it is worth having our own.
+//
+// Set here for the same reason everything else on this page is: it is the only
+// code that runs after the proxy has finished. Kept in step with the <title> in
+// landing.html by hand, which is two places for one string — the alternative is
+// parsing our own file back out of the hub's markup to find a tag it has
+// already thrown away.
+const TITLE = 'Taxify | Receipt & expense tracker for Australian tax time';
+
 const SCRIPT = `<script>
 (function(){
   try{
+    document.title=${JSON.stringify(TITLE)};
     if('scrollRestoration' in history) history.scrollRestoration='manual';
     if(!location.hash){
       window.scrollTo(0,0);

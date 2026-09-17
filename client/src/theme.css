@@ -657,7 +657,9 @@ input[type="date"].input::-webkit-calendar-picker-indicator:hover { opacity: 1; 
   overflow: hidden;
 }
 .brand-aud-photo { position: relative; aspect-ratio: 16 / 9; background: rgba(255, 255, 255, 0.05); }
-.brand-aud-photo img { width: 100%; height: 100%; object-fit: cover; display: block; }
+/* Anchored to the top. Cropping from the centre took the top off every one of
+   these, which is where the faces are; the bottom is foreground and can go. */
+.brand-aud-photo img { width: 100%; height: 100%; object-fit: cover; object-position: center top; display: block; }
 /* The disc straddles the join, as it does on the landing page — it is what
    carries the colour, and the colour is what the row is scanned by. */
 .brand-aud-mark {

@@ -1,6 +1,5 @@
 import { motion } from 'framer-motion';
 import AuthSplit, { ASSURANCES } from '../components/AuthSplit.jsx';
-import SiteFooter from '../components/SiteFooter.jsx';
 import Icon from '../components/Icon.jsx';
 
 // Every signed-out page other than sign-up: log in, activate, accept an
@@ -90,26 +89,6 @@ export default function AuthLayout({ title, subtitle, topRight, assurances = tru
           </div>
         )}
 
-        <div
-          className="auth-outside"
-          style={{
-            marginTop: 22,
-            paddingTop: 16,
-            borderTop: '1px solid var(--auth-out-rule)',
-            fontSize: 12,
-            color: 'var(--auth-out-soft)',
-            display: 'flex',
-            justifyContent: 'center',
-            gap: 14,
-            flexWrap: 'wrap',
-          }}
-        >
-          {/* The Terms and Privacy links that stood here have gone into
-              SiteFooter, which now carries them everywhere — including inside
-              the app, where they were previously unreachable. Two pairs a few
-              centimetres apart on this one page was the cost of that. */}
-          <SiteFooter align="center" />
-        </div>
       </motion.div>
     </AuthSplit>
   );

@@ -1,6 +1,7 @@
 import { motion } from 'framer-motion';
 import Icon from './Icon.jsx';
 import SocialShare from './SocialShare.jsx';
+import SiteFooter from './SiteFooter.jsx';
 
 // The shared frame for every signed-out page: a navy brand side running edge
 // to edge, and the form on paper beside it. Full bleed rather than a centred
@@ -194,7 +195,7 @@ export function ProductPanel({ headline }) {
         </div>
       </div>
 
-      <div className="brand-foot" style={{ marginTop: 'auto', display: 'flex', flexDirection: 'column', gap: 18, paddingTop: 8 }}>
+      <div className="brand-foot" style={{ marginTop: 'auto', display: 'flex', flexDirection: 'column', gap: 16, paddingTop: 8 }}>
         {/* The same buttons the landing page carries, from the same admin
             settings, sharing the same address — see SocialShare.jsx. Renders
             nothing at all when Facebook is switched off. */}
@@ -212,6 +213,12 @@ export function ProductPanel({ headline }) {
             </span>
           ))}
         </div>
+
+        {/* Terms, privacy and the copyright. They were under the form, where
+            three lines of them pushed the card off centre and took room the
+            fields wanted. Down here they are at the foot of the page, which is
+            where somebody looks for them anyway. */}
+        <SiteFooter tone="nav" align="center" style={{ paddingTop: 4 }} />
       </div>
     </aside>
   );
