@@ -80,6 +80,7 @@ export default function AndroidDownloadButton({ variant = 'button' }) {
 
   const button = (
     <motion.a
+      className="android-cta"
       href={unavailable ? undefined : href}
       download={android ? true : undefined}
       onClick={onClick}

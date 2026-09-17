@@ -345,7 +345,7 @@ export default function Layout({ children }) {
           background: 'var(--nav-bg)',
           color: 'var(--nav-text)',
           borderRight: '1px solid var(--nav-border)',
-          padding: '20px 12px',
+          padding: '20px 12px 12px',
           display: 'flex',
           flexDirection: 'column',
           gap: 22,
@@ -525,9 +525,13 @@ export default function Layout({ children }) {
             marginTop: 'auto',
             position: 'sticky',
             bottom: 0,
-            background: 'var(--nav-bg)',
+            // Solid, not the rail's gradient. This box is a fraction of the
+            // rail's height, and a 180deg gradient painted into it runs its
+            // whole ramp there — so it came out lighter than the rail and read
+            // as a band sitting behind the account card.
+            background: 'var(--nav-bg-foot)',
             paddingTop: 10,
-            paddingBottom: 4,
+            paddingBottom: 0,
             display: 'flex',
             flexDirection: 'column',
             gap: 8,
