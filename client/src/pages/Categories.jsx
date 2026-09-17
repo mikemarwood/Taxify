@@ -33,6 +33,7 @@ export default function Categories() {
   const [icon, setIcon] = useState('tag');
   const [busy, setBusy] = useState(false);
   const [confirmingId, setConfirmingId] = useState(null);
+  const [categorySearch, setCategorySearch] = useState('');
   const [confirmText, setConfirmText] = useState('');
   const [editingId, setEditingId] = useState(null);
   const [editName, setEditName] = useState('');
@@ -45,6 +46,16 @@ export default function Categories() {
   // Checked against the year being viewed, since that is the list a new
   // category would join — the same scope the unique key uses.
   const existingNames = (categories || []).map((c) => c.name);
+
+  // What the grid actually draws. The search is on the name alone: an icon or
+  // a colour is not something anybody types.
+  const shownCategories = (categories || []).filter((c) =>
+    categorySearch.trim() ? c.name.toLowerCase().includes(categorySearch.trim().toLowerCase()) : true
+  );
+
+  // What every category adds up to, so each card can say what share it is.
+  // Zero when nothing has been spent, which is the guard on the bar itself.
+  const allCategoriesTotal = (categories || []).reduce((sum, c) => sum + (c.totalAmount || 0), 0);
   const nameError = categoryNameError(name, existingNames);
   const nameReady = isCategoryNameReady(name, existingNames);
   const editNameError = categoryNameError(editName, existingNames, categories?.find((c) => c.id === editingId)?.name);
@@ -349,12 +360,30 @@ export default function Categories() {
         </div>
       )}
 
+      {/* Worth having once there are more than a handful: the grid is
+          alphabetical and finding one by eye stops working at about a dozen. */}
+      {categories !== null && categories.length > 6 && (
+        <div className="filter-bar">
+          <span className="filter-field" style={{ flex: 1 }}>
+            <Icon name="search" size={16} />
+            <input
+              type="text"
+              className="input"
+              placeholder="Search categories…"
+              value={categorySearch}
+              onChange={(e) => setCategorySearch(e.target.value)}
+              style={{ fontSize: 13, width: '100%' }}
+            />
+          </span>
+        </div>
+      )}
+
       {categories === null ? (
         <SkeletonList rows={4} />
       ) : (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(288px, 1fr))', gap: 14 }}>
           <AnimatePresence initial={false}>
-            {categories.map((c) => {
+            {shownCategories.map((c) => {
               const editing = editingId === c.id;
               const confirming = confirmingId === c.id;
               return (
@@ -423,12 +452,18 @@ export default function Categories() {
                           >
                             {c.name}
                           </div>
+                          {/* The money is the figure somebody came for, so it
+                              is the figure. It used to sit in the grey line
+                              under the name, the same size as the count. */}
+                          {c.expenseCount > 0 && (
+                            <div style={{ fontSize: 21, fontWeight: 800, letterSpacing: -0.6, marginTop: 2, fontVariantNumeric: 'tabular-nums' }}>
+                              {formatMoney(c.totalAmount)}
+                            </div>
+                          )}
                           <div style={{ fontSize: 12.5, color: 'var(--text-muted)', marginTop: 2 }}>
                             {c.expenseCount === 0
                               ? 'No expenses yet'
-                              : `${c.expenseCount} ${c.expenseCount === 1 ? 'expense' : 'expenses'} · ${formatMoney(
-                                  c.totalAmount
-                                )}`}
+                              : `${c.expenseCount} ${c.expenseCount === 1 ? 'expense' : 'expenses'}`}
                           </div>
                         </>
                       )}
@@ -470,6 +505,27 @@ export default function Categories() {
                       </div>
                     )}
                   </div>
+
+                  {/* What share of the year this category is. The bar is the
+                      only thing on the card that compares it with the others —
+                      a figure on its own says nothing about whether it is a
+                      lot. Stood down while the card is being edited, where the
+                      space belongs to the form. */}
+                  {!editing && c.expenseCount > 0 && allCategoriesTotal > 0 && (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                      <div style={{ flex: 1, height: 6, borderRadius: 999, background: 'var(--bg-inset)', overflow: 'hidden' }}>
+                        <motion.div
+                          initial={{ width: 0 }}
+                          animate={{ width: `${(c.totalAmount / allCategoriesTotal) * 100}%` }}
+                          transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
+                          style={{ height: '100%', borderRadius: 999, background: c.color }}
+                        />
+                      </div>
+                      <span style={{ fontSize: 11.5, color: 'var(--text-muted)', fontVariantNumeric: 'tabular-nums' }}>
+                        {Math.round((c.totalAmount / allCategoriesTotal) * 100)}%
+                      </span>
+                    </div>
+                  )}
 
                   {!editing && c.isPropertyRental && (
                     <span
@@ -607,6 +663,22 @@ export default function Categories() {
               );
             })}
           </AnimatePresence>
+        </div>
+      )}
+
+      {/* At the foot, where somebody who has finished reading the grid is.
+          Says what the page is for rather than how to work it — the buttons on
+          each card already say that. */}
+      {categories !== null && categories.length > 0 && (
+        <div className="card" style={{ marginTop: 18, padding: 16, display: 'flex', alignItems: 'center', gap: 14 }}>
+          <span className="panel-head-mark" style={{ width: 38, height: 38, borderRadius: 11 }}>
+            <Icon name="info" size={18} />
+          </span>
+          <p style={{ margin: 0, fontSize: 13, color: 'var(--text-muted)', lineHeight: 1.5 }}>
+            <strong style={{ color: 'var(--text)' }}>Tip. </strong>
+            Categories belong to a financial year, so renaming one today does not change how anything was filed in a
+            year you have already finalised.
+          </p>
         </div>
       )}
     </div>

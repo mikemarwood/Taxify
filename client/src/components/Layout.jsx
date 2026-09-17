@@ -368,9 +368,19 @@ export default function Layout({ children }) {
       >
         <RailScrollbar containerRef={railRef} />
 
-        <div className="nav-brand" style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '0 8px' }}>
-          <img src="/logo.svg" alt="Taxify" width="34" height="34" />
-          <span style={{ fontWeight: 700, fontSize: 19, letterSpacing: -0.4, color: 'var(--nav-text-active)' }}>Taxify</span>
+        <div className="nav-brand" style={{ display: 'flex', alignItems: 'center', gap: 11, padding: '0 8px' }}>
+          <img src="/logo.svg" alt="Taxify" width="36" height="36" />
+          <span style={{ minWidth: 0, lineHeight: 1.1 }}>
+            <span style={{ display: 'block', fontWeight: 800, fontSize: 20, letterSpacing: -0.5, color: 'var(--nav-text-active)' }}>
+              Taxify
+            </span>
+            {/* The same line the landing page and the sign-in panel carry, so
+                the rail is recognisably the same product rather than a bare
+                wordmark. */}
+            <span style={{ display: 'block', fontSize: 10.5, color: 'var(--nav-text)', letterSpacing: 0.2 }}>
+              Receipts. Sorted.
+            </span>
+          </span>
         </div>
 
         {/* A scope control for everything below it, so it sits above the nav
