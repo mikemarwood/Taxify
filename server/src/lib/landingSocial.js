@@ -50,7 +50,7 @@ export function safeHttpUrl(value) {
 // The address as somebody would write it, not as a URL parser returns it.
 //
 // new URL().toString() adds a trailing slash to a bare origin, so the text
-// offered alongside a share read "https://taxify.mikesapphub.com/" — correct,
+// offered alongside a share read "https://taxify.net.au/" — correct,
 // and not how anybody types or reads their own site's name.
 export function tidyShareUrl(url) {
   const parsed = safeHttpUrl(url);

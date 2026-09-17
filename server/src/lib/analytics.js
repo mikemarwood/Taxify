@@ -12,7 +12,7 @@
 // inside the product, not a click that brought them in — counting those as
 // traffic sources makes the site its own biggest referrer and buries the ones
 // that matter.
-export const OWN_HOSTS = ['taxify.mikesapphub.com', 'mikesapphub.com', 'localhost'];
+export const OWN_HOSTS = ['taxify.net.au', 'mikesapphub.com', 'localhost'];
 
 // Where a click came from, in the terms somebody deciding where to spend money
 // would use. Not an exhaustive list of the web — the point is to separate the
@@ -91,7 +91,7 @@ export function campaignFrom(url) {
   if (!raw.includes('utm_') && !raw.includes('fbclid') && !raw.includes('gclid')) return empty;
   let params;
   try {
-    params = new URL(raw, 'https://taxify.mikesapphub.com').searchParams;
+    params = new URL(raw, 'https://taxify.net.au').searchParams;
   } catch {
     return empty;
   }

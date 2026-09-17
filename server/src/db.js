@@ -1198,7 +1198,7 @@ export async function ensureSchema() {
   // people from Facebook" does not need to know which people.
   //
   // `visitor` is a first-party id in a cookie we set, and it is what makes a
-  // returning reader countable. It works on taxify.mikesapphub.com and does
+  // returning reader countable. It works on taxify.net.au and does
   // not on the hub's proxied copy of the landing page, where the same cookie
   // is third-party and browsers drop it — those visits count as new every
   // time, and the panel says so rather than pretending otherwise.

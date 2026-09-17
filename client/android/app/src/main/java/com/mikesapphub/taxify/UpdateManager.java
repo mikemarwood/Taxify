@@ -19,7 +19,7 @@ import java.net.URL;
 
 public class UpdateManager {
 
-    private static final String VERSION_URL = "https://taxify.mikesapphub.com/api/app/version";
+    private static final String VERSION_URL = "https://taxify.net.au/api/app/version";
 
     public static void check(Context context) {
         new Thread(() -> {

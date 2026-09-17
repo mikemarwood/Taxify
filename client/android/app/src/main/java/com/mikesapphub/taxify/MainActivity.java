@@ -133,8 +133,9 @@ public class MainActivity extends BridgeActivity {
     /**
      * Go to the page an emailed link asked for.
      *
-     * The app loads taxify.mikesapphub.com in a webview, and Android now hands
-     * us links to that host (see the intent filter in AndroidManifest.xml). It
+     * The app loads taxify.net.au in a webview, and Android now hands us links
+     * to that host — and to the old taxify.mikesapphub.com, which still points
+     * at the same server (see the intent filter in AndroidManifest.xml). It
      * hands us the URL and nothing else — without this the app would open on
      * whatever page it was last on, which for a password reset or an
      * accountant invitation is the wrong page and no way to reach the right
@@ -142,7 +143,9 @@ public class MainActivity extends BridgeActivity {
      *
      * The host is checked again here rather than trusted from the filter. An
      * intent can be sent by any app on the device, and this method turns one
-     * into a page load inside a signed-in session.
+     * into a page load inside a signed-in session — so the list below is the
+     * security boundary, not the manifest, and it is a fixed allowlist rather
+     * than anything derived from the intent.
      */
     private void openLink(Intent intent) {
         if (intent == null || !Intent.ACTION_VIEW.equals(intent.getAction())) return;
@@ -150,7 +153,9 @@ public class MainActivity extends BridgeActivity {
         final Uri data = intent.getData();
         if (data == null) return;
         if (!"https".equalsIgnoreCase(data.getScheme())) return;
-        if (!"taxify.mikesapphub.com".equalsIgnoreCase(data.getHost())) return;
+        final String host = data.getHost();
+        if (!"taxify.net.au".equalsIgnoreCase(host)
+                && !"taxify.mikesapphub.com".equalsIgnoreCase(host)) return;
 
         if (getBridge() == null || getBridge().getWebView() == null) return;
         final android.webkit.WebView view = getBridge().getWebView();

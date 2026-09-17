@@ -15,7 +15,7 @@ const DEV_DEFAULT = 'http://localhost:5173';
 
 // Where this actually lives. Used only when nothing valid is configured, so
 // that a missing setting degrades to correct rather than to localhost.
-const PRODUCTION_DEFAULT = 'https://taxify.mikesapphub.com';
+const PRODUCTION_DEFAULT = 'https://taxify.net.au';
 
 function isLocal(url) {
   return /^https?:\/\/(localhost|127\.0\.0\.1|\[::1\])(:\d+)?/i.test(url);

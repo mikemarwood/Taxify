@@ -35,7 +35,7 @@
 
               Every link Taxify sends — activation, password reset, an
               accountant invitation, a support ticket — points at
-              taxify.mikesapphub.com, and the app *is* that site loaded in a
+              taxify.net.au, and the app *is* that site loaded in a
               webview. So a link tapped on a phone with the app installed was
               still opening a browser, signing in a second time, and leaving
               the app it was already signed into sitting in the background.
@@ -59,6 +59,14 @@
                      page, so somebody tapping a link to the marketing site
                      from a text message would be dropped into a signed-in
                      dashboard instead of the page they were sent. -->
+                <data android:scheme="https" android:host="taxify.net.au" android:pathPrefix="/app" />
+                <!-- The old address, kept deliberately. Every link already in
+                     somebody's inbox says taxify.mikesapphub.com, and it still
+                     resolves to the same server; dropping it here would send
+                     each of those to a browser instead of the app. It can go
+                     once those have aged out. Both hosts serve the same
+                     assetlinks.json with this build's fingerprint, so both
+                     verify. -->
                 <data android:scheme="https" android:host="taxify.mikesapphub.com" android:pathPrefix="/app" />
             </intent-filter>
         </activity>

@@ -140,7 +140,7 @@ export function addFooter(doc) {
     .font('Helvetica')
     .fontSize(7.5)
     .fillColor(BRAND.blue)
-    .text('taxify.mikesapphub.com', margins.left + 44, y + 1, { lineBreak: false });
+    .text('taxify.net.au', margins.left + 44, y + 1, { lineBreak: false });
 
   doc
     .font('Helvetica')

@@ -1151,7 +1151,7 @@ function FacebookSettingsCard() {
         <input
           className="input"
           value={form.facebookShareUrl}
-          placeholder={form.defaultShareUrl || 'https://taxify.mikesapphub.com'}
+          placeholder={form.defaultShareUrl || 'https://taxify.net.au'}
           onChange={set('facebookShareUrl')}
         />
         <div style={{ fontSize: 11.5, color: 'var(--text-muted)', marginTop: 5 }}>

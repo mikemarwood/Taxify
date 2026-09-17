@@ -3,14 +3,14 @@
   "appName": "Taxify",
   "webDir": "dist",
   "server": {
-    "url": "https://taxify.mikesapphub.com/app",
+    "url": "https://taxify.net.au/app",
     "androidScheme": "https",
     "cleartext": false,
     "errorPath": "offline.html"
   },
   "android": {
     "backgroundColor": "#0a0f18",
-    "appendUserAgent": "TaxifyAndroid/12"
+    "appendUserAgent": "TaxifyAndroid/13"
   },
   "plugins": {
     "SplashScreen": {

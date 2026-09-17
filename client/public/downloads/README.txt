@@ -1,6 +1,6 @@
 Place the signed release APK here as "taxify.apk" before running `npm run build`.
 Vite copies everything in client/public/ into client/dist/, so this file ends up
-served at https://taxify.mikesapphub.com/downloads/taxify.apk
+served at https://taxify.net.au/downloads/taxify.apk
 
 Release checklist:
 1. Bump versionCode/versionName in client/android/app/build.gradle

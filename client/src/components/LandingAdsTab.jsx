@@ -223,7 +223,7 @@ export default function LandingAdsTab() {
         <p style={{ fontSize: 13, color: 'var(--text-muted)', margin: 0, lineHeight: 1.6 }}>
           Two films, shown side by side under "See it in action" on the public page at{' '}
           <a href="/" target="_blank" rel="noreferrer" style={{ color: 'var(--accent)', fontWeight: 600 }}>
-            taxify.mikesapphub.com
+            taxify.net.au
           </a>
           . They go live as soon as they finish uploading — no release needed. An empty slot is left off the page
           rather than shown as a blank player, and if both are empty the whole section disappears.

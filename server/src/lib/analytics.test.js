@@ -34,7 +34,7 @@ test('the sources worth acting on are separated from the rest', () => {
 
   // Our own pages are movement, not traffic. Counted as a source they would be
   // the biggest one on the chart and would bury every real answer.
-  assert.equal(classifyReferrer('https://taxify.mikesapphub.com/app/expenses').kind, 'internal');
+  assert.equal(classifyReferrer('https://taxify.net.au/app/expenses').kind, 'internal');
   assert.equal(classifyReferrer('https://mikesapphub.com/apps/taxify').kind, 'internal');
 
   // Anything else keeps its host, which is the only useful thing about it.
@@ -47,7 +47,7 @@ test('campaign tags survive a click that lost its referrer', () => {
 
   // A click id and nothing else is still a paid click. Facebook strips the
   // referrer often enough that this is the only thing left to file it under.
-  const fb = campaignFrom('https://taxify.mikesapphub.com/?fbclid=ABC123');
+  const fb = campaignFrom('https://taxify.net.au/?fbclid=ABC123');
   assert.equal(fb.source, 'facebook');
   assert.equal(fb.medium, 'cpc');
   assert.equal(fb.campaign, null);

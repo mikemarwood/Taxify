@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { injectAppDownload, appDownloadHtml, isAndroidAgent, formatApkSize } from './landingAppDownload.js';
 
 const PAGE = '<div class="bar"><!--APPDL-START--><!--APPDL-END--></div>';
-const BASE = { origin: 'https://taxify.mikesapphub.com', available: true, sizeBytes: 5304022 };
+const BASE = { origin: 'https://taxify.net.au', available: true, sizeBytes: 5304022 };
 
 test('an Android phone is offered the download', () => {
   const out = injectAppDownload(PAGE, { ...BASE, isAndroid: true });
@@ -26,11 +26,11 @@ test('the link is absolute, because a relative one lands on the hub', () => {
   // real visitors as https://mikesapphub.com/terms. A relative APK path would
   // point at a file the hub does not have.
   const out = injectAppDownload(PAGE, { ...BASE, isAndroid: true });
-  assert.match(out, /href="https:\/\/taxify\.mikesapphub\.com\/downloads\/taxify\.apk"/);
+  assert.match(out, /href="https:\/\/taxify\.net\.au\/downloads\/taxify\.apk"/);
 });
 
 test('a trailing slash on the origin does not double up', () => {
-  const out = appDownloadHtml({ origin: 'https://taxify.mikesapphub.com/', isAndroid: true, sizeBytes: 1 });
+  const out = appDownloadHtml({ origin: 'https://taxify.net.au/', isAndroid: true, sizeBytes: 1 });
   assert.ok(!out.includes('com//downloads'));
 });
 

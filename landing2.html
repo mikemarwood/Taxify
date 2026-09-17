@@ -10,7 +10,7 @@
 <!-- Search.
 
      The canonical points at the hub, not here. This page is served from two
-     addresses — taxify.mikesapphub.com and mikesapphub.com/apps/taxify — and
+     addresses — taxify.net.au and mikesapphub.com/apps/taxify — and
      without this they compete with each other for the same words. -->
 <link rel="canonical" href="https://mikesapphub.com/apps/taxify">
 <meta name="robots" content="index, follow, max-image-preview:large">
@@ -28,7 +28,7 @@
   "operatingSystem": "Web, Android",
   "url": "https://mikesapphub.com/apps/taxify",
   "description": "Photograph a receipt and Taxify files it — right category, right tax year. Work, business and rental expenses organised and ready for tax time, with a 14-day free trial and no credit card required.",
-  "image": "https://taxify.mikesapphub.com/media/shot-dashboard.jpg",
+  "image": "https://taxify.net.au/media/shot-dashboard.jpg",
   "publisher": { "@type": "Organization", "name": "Mikes App Hub", "url": "https://mikesapphub.com" },
   "offers": [
     { "@type": "Offer", "name": "Individual", "price": "49", "priceCurrency": "AUD", "category": "Subscription" },
@@ -39,10 +39,10 @@
 
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="Taxify">
-<meta property="og:url" content="https://taxify.mikesapphub.com/">
+<meta property="og:url" content="https://taxify.net.au/">
 <meta property="og:title" content="Tax receipts. Sorted.">
 <meta property="og:description" content="Photograph a receipt and Taxify files it — right category, right tax year. Come tax time the whole year is already added up. 14-day free trial, no card needed.">
-<meta property="og:image" content="https://taxify.mikesapphub.com/media/advertisement.jpg">
+<meta property="og:image" content="https://taxify.net.au/media/advertisement.jpg">
 <meta property="og:image:width" content="1024">
 <meta property="og:image:height" content="1536">
 <meta property="og:image:alt" content="Taxify — keep your receipts in the cloud, ready for tax time">
@@ -405,6 +405,65 @@
   .faq-item h3::before { content: ''; display: block; width: 26px; height: 3px; border-radius: 2px; background: var(--blue); margin-bottom: 12px; }
   .faq-item p { margin: 0; font-size: 14.5px; line-height: 1.62; color: var(--body); }
 
+  /* ---- Who it is for ----
+
+     Four cards, each a photograph with a coloured disc straddling the join
+     between the picture and the words. The disc is what carries the colour:
+     one hue per audience, so the row is scanned by colour before any of it is
+     read. A card whose photograph has not been supplied yet falls back to the
+     gradient with its own icon on it, which reads as a style rather than as a
+     picture that failed to load. */
+  .aud-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 18px; }
+  @media (max-width: 1040px) { .aud-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+  @media (max-width: 560px) { .aud-grid { grid-template-columns: 1fr; } }
+  .aud {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    background: #fff;
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    overflow: hidden;
+    box-shadow: var(--shadow-card);
+  }
+  .aud-photo {
+    position: relative;
+    aspect-ratio: 16 / 10;
+    background: linear-gradient(145deg, #0d2748, #1b3f6e);
+  }
+  .aud-photo img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .aud-photo-icon { position: absolute; inset: 0; display: grid; place-items: center; color: rgba(255, 255, 255, .22); }
+  .aud-mark {
+    position: absolute;
+    left: 18px;
+    bottom: -21px;
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    display: grid;
+    place-items: center;
+    color: #fff;
+    box-shadow: 0 4px 12px rgba(8, 20, 40, .28);
+  }
+  .aud-body { flex: 1; display: flex; flex-direction: column; gap: 8px; padding: 32px 18px 18px; }
+  .aud-body h3 { margin: 0; font-size: 17px; font-weight: 700; letter-spacing: -.4px; }
+  .aud-body p { margin: 0; font-size: 13.5px; line-height: 1.55; color: var(--body); }
+  /* Block, not inline-flex. As a flex row a label that wrapped to two lines
+     left its arrow stranded out at the right-hand edge, level with nothing.
+     Inline, the arrow simply follows the last word. */
+  .aud-link {
+    margin-top: auto;
+    padding-top: 12px;
+    display: block;
+    color: var(--blue);
+    font-size: 13.5px;
+    font-weight: 600;
+    line-height: 1.45;
+    text-decoration: none;
+  }
+  .aud-link svg { vertical-align: -3px; margin-left: 6px; }
+  .aud-link:hover, .aud-link:focus-visible { text-decoration: underline; }
+
   /* ---- Advertisement films ---- */
   .ads-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(290px, 100%), 1fr)); gap: 18px; }
   .ad-frame { border-radius: 12px; overflow: hidden; background: #0b1524; box-shadow: var(--shadow-card); }
@@ -602,7 +661,7 @@
             <a href="#tradies">For Tradies</a>
             <a href="#rentals">For Rentals</a>
           </nav>
-          <a class="btn btn-sm" href="https://taxify.mikesapphub.com/app/" target="_blank" rel="noopener noreferrer">Open Taxify</a>
+          <a class="btn btn-sm" href="https://taxify.net.au/app/" target="_blank" rel="noopener noreferrer">Open Taxify</a>
         </div>
       </div>
 
@@ -625,7 +684,7 @@
           <!-- Every button here goes through /go/trial. That hop is what counts
                the press: the hub strips scripts, so nothing in the page itself
                can report a click. See index.js. -->
-          <a class="btn" href="https://taxify.mikesapphub.com/go/trial" target="_blank" rel="noopener noreferrer">
+          <a class="btn" href="https://taxify.net.au/go/trial" target="_blank" rel="noopener noreferrer">
             Start Free for 14 Days
             <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h13M13 6l6 6-6 6"/></svg>
           </a>
@@ -818,32 +877,71 @@
       </div>
     </section>
 
+    <!-- Who it is for.
+
+         Two of the four photographs are not supplied yet — a small-business
+         owner and somebody at a laptop at home. Those cards show the gradient
+         with their own icon on it, which is a deliberate-looking card rather
+         than a hole; drop a file in as the first child of .aud-photo and it
+         takes over.
+
+         id="tradies" stays on the section and id="rentals" on its card: the
+         top bar links to both, and renaming them here would quietly break two
+         navigation items. -->
     <section class="section section-flush" id="tradies">
       <div class="wrap">
-        <div class="showcase">
-          <div class="show">
-            <img src="/media/show-tradie.jpg" alt="" width="1100" height="619" loading="lazy" decoding="async">
-            <h3>Your receipts shouldn&rsquo;t live in the centre console.</h3>
-            <p>Built for Australian tradies, contractors and small businesses.</p>
-            <svg class="show-swoosh" viewBox="0 0 74 8" aria-hidden="true"><path d="M2 5.4C18 2 52 2 72 4.4"/></svg>
-          </div>
-
-          <div class="show" id="rentals">
-            <img src="/media/show-rental.jpg" alt="" width="1100" height="619" loading="lazy" decoding="async">
-            <h3>Keep your rental property expenses organised.</h3>
-            <p>Track all your property costs in one place.</p>
-            <svg class="show-swoosh" viewBox="0 0 74 8" aria-hidden="true"><path d="M2 5.4C18 2 52 2 72 4.4"/></svg>
-          </div>
-
-          <div class="show">
-            <h3>Make tax time easy for your accountant.</h3>
-            <p>Export a ZIP file with your spreadsheet, PDFs and receipts.</p>
-            <div class="show-files">
-              <span class="f-xls">XLS</span>
-              <span class="f-pdf">PDF</span>
-              <span class="f-zip">ZIP</span>
+        <div class="section-head">
+          <h2>Taxify works the way you do.</h2>
+          <p>Simple expense tracking for individuals, businesses, tradies and property owners.</p>
+        </div>
+        <div class="aud-grid">
+          <article class="aud">
+            <div class="aud-photo">
+              <img src="/media/show-tradie.jpg" alt="A tradesman leaning against his ute, phone in hand" width="1100" height="619" loading="lazy" decoding="async">
+              <span class="aud-mark" style="background: linear-gradient(140deg, #2f8bf4, #1559b8)"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14.6 6.1a4.4 4.4 0 0 0-5.6 5.6L3.6 17a2.1 2.1 0 0 0 3 3l5.3-5.4a4.4 4.4 0 0 0 5.6-5.6l-2.6 2.6-2.3-.6-.6-2.3z"/></svg></span>
             </div>
-          </div>
+            <div class="aud-body">
+              <h3>Tradies</h3>
+              <p>Keep your work expenses organised. Fuel, tools, materials, meals and more.</p>
+              <a class="aud-link" href="https://taxify.net.au/go/trial" target="_blank" rel="noopener noreferrer">See Taxify for Tradies<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h13M13 6l6 6-6 6"/></svg></a>
+            </div>
+          </article>
+
+          <article class="aud">
+            <div class="aud-photo">
+              <span class="aud-photo-icon"><svg width="58" height="58" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="7.5" width="18" height="12.5" rx="2"/><path d="M9 7.5V6a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v1.5M3 13h18"/></svg></span>
+              <span class="aud-mark" style="background: linear-gradient(140deg, #23a866, #0c7343)"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="7.5" width="18" height="12.5" rx="2"/><path d="M9 7.5V6a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v1.5M3 13h18"/></svg></span>
+            </div>
+            <div class="aud-body">
+              <h3>Small Business</h3>
+              <p>Track business expenses, separate your books and be ready for tax time.</p>
+              <a class="aud-link" href="https://taxify.net.au/go/trial" target="_blank" rel="noopener noreferrer">See Taxify for Small Business<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h13M13 6l6 6-6 6"/></svg></a>
+            </div>
+          </article>
+
+          <article class="aud" id="rentals">
+            <div class="aud-photo">
+              <img src="/media/show-rental.jpg" alt="A modern Australian house at dusk" width="1100" height="619" loading="lazy" decoding="async">
+              <span class="aud-mark" style="background: linear-gradient(140deg, #f0913a, #cf6a11)"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3.5 10.5 12 4l8.5 6.5V20a1.5 1.5 0 0 1-1.5 1.5H5A1.5 1.5 0 0 1 3.5 20z"/></svg></span>
+            </div>
+            <div class="aud-body">
+              <h3>Rental Property Owners</h3>
+              <p>Keep your rental property expenses organised. Track repairs, rates, maintenance and more.</p>
+              <a class="aud-link" href="https://taxify.net.au/go/trial" target="_blank" rel="noopener noreferrer">See Taxify for Rentals<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h13M13 6l6 6-6 6"/></svg></a>
+            </div>
+          </article>
+
+          <article class="aud">
+            <div class="aud-photo">
+              <span class="aud-photo-icon"><svg width="58" height="58" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8.5" r="3.6"/><path d="M4.8 20c.9-3.5 3.8-5.4 7.2-5.4s6.3 1.9 7.2 5.4"/></svg></span>
+              <span class="aud-mark" style="background: linear-gradient(140deg, #9a6ae8, #6d3fc4)"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8.5" r="3.6"/><path d="M4.8 20c.9-3.5 3.8-5.4 7.2-5.4s6.3 1.9 7.2 5.4"/></svg></span>
+            </div>
+            <div class="aud-body">
+              <h3>Individuals</h3>
+              <p>Keep track of your work-related and personal expenses. Don&rsquo;t miss another deduction.</p>
+              <a class="aud-link" href="https://taxify.net.au/go/trial" target="_blank" rel="noopener noreferrer">See Taxify for Individuals<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h13M13 6l6 6-6 6"/></svg></a>
+            </div>
+          </article>
         </div>
       </div>
     </section>
@@ -961,7 +1059,7 @@
             <li><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6L9 17l-5-5"/></svg>Every year side by side, exported in one click</li>
             <li><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6L9 17l-5-5"/></svg>Read-only accountant access, revoked whenever you like</li>
           </ul>
-          <a class="btn btn-full" href="https://taxify.mikesapphub.com/go/trial" target="_blank" rel="noopener noreferrer">Start Free for 14 Days</a>
+          <a class="btn btn-full" href="https://taxify.net.au/go/trial" target="_blank" rel="noopener noreferrer">Start Free for 14 Days</a>
         </div>
 
         <div class="plan highlight">
@@ -977,7 +1075,7 @@
             <li><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6L9 17l-5-5"/></svg>Separate totals for each &mdash; no untangling at tax time</li>
             <li><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6L9 17l-5-5"/></svg>Read-only accountant access, revoked whenever you like</li>
           </ul>
-          <a class="btn btn-full" href="https://taxify.mikesapphub.com/go/trial" target="_blank" rel="noopener noreferrer">Start Free for 14 Days</a>
+          <a class="btn btn-full" href="https://taxify.net.au/go/trial" target="_blank" rel="noopener noreferrer">Start Free for 14 Days</a>
         </div>
 
         <p class="pricing-note note">
@@ -1047,7 +1145,7 @@
 
         <div class="closing-mid">
           <h2>Stop chasing receipts at tax time.<br><span>Start organising them today.</span></h2>
-          <a class="btn" style="margin-top:12px" href="https://taxify.mikesapphub.com/go/trial" target="_blank" rel="noopener noreferrer">
+          <a class="btn" style="margin-top:12px" href="https://taxify.net.au/go/trial" target="_blank" rel="noopener noreferrer">
             Start Free for 14 Days
             <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h13M13 6l6 6-6 6"/></svg>
           </a>
@@ -1077,9 +1175,9 @@
     <div class="wrap lp-footer-main">
       <span>&copy; <span id="year">2026</span> Taxify. All rights reserved.</span>
       <nav class="lp-links" aria-label="Legal and support">
-        <a href="https://taxify.mikesapphub.com/app/privacy">Privacy</a>
-        <a href="https://taxify.mikesapphub.com/app/terms">Terms</a>
-        <a href="https://taxify.mikesapphub.com/app/support">Support</a>
+        <a href="https://taxify.net.au/app/privacy">Privacy</a>
+        <a href="https://taxify.net.au/app/terms">Terms</a>
+        <a href="https://taxify.net.au/app/support">Support</a>
       </nav>
     </div>
     <div class="wrap">
@@ -1105,7 +1203,7 @@
       <h3>The app is Android only</h3>
       <p>There is no iPhone version yet, and this page cannot install one on the device you are reading it on.</p>
       <p>You are not missing anything, though. Taxify runs in the browser on any phone, tablet or computer &mdash; the same account, the same books, nothing to install.</p>
-      <a class="btn" href="https://taxify.mikesapphub.com/app/" target="_blank" rel="noopener noreferrer">Open Taxify in this browser</a>
+      <a class="btn" href="https://taxify.net.au/app/" target="_blank" rel="noopener noreferrer">Open Taxify in this browser</a>
     </div>
   </div>
 
@@ -1123,7 +1221,7 @@
        for these is the very bottom of the document, and the last thing in the
        page should not be something that arrives whenever the network gets
        round to it. -->
-  <img src="https://taxify.mikesapphub.com/api/analytics/px.gif?s=landing&e=view&p=/"
+  <img src="https://taxify.net.au/api/analytics/px.gif?s=landing&e=view&p=/"
        alt="" width="1" height="1" style="position:fixed;top:0;left:0;width:1px;height:1px;opacity:0;pointer-events:none" />
 
   <!-- Meta Pixel, as an image rather than as the snippet Meta hands out. The

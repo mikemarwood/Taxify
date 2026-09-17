@@ -8,7 +8,7 @@
 // same way the advertisement slots and the Facebook buttons work.
 //
 // The link has to be absolute, and that is not belt and braces. The hub
-// rewrites a relative `src` to taxify.mikesapphub.com but rewrites a relative
+// rewrites a relative `src` to taxify.net.au but rewrites a relative
 // `href` to its own domain — /app/terms is served to real visitors as
 // https://mikesapphub.com/terms. A relative /downloads/taxify.apk would
 // therefore point at a file on the hub that does not exist.

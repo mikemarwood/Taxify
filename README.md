@@ -93,7 +93,7 @@ cookie instead of a persistent one, so the user is signed out as soon as the bro
 
 ## Android app
 
-`client/android/` is a Capacitor wrapper that loads the live site (`https://taxify.mikesapphub.com`)
+`client/android/` is a Capacitor wrapper that loads the live site (`https://taxify.net.au`)
 inside a native shell — a real installable app, not a rebuild of the UI. It ships with:
 
 - A branded splash screen (`SplashActivity`): animated logo, "Taxify", and "Powered by Mikes App Hub",
