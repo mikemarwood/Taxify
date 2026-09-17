@@ -351,8 +351,11 @@ export default function AddExpense() {
 
   const chosen = KINDS.find((k) => k.id === kind);
 
+  // One width for all three. The receipt form was narrower than the trip and
+  // hours forms, so switching tab moved the whole page and resized the banner
+  // above it.
   return (
-    <div style={{ maxWidth: kind === 'receipt' ? 760 : 940 }}>
+    <div style={{ maxWidth: 940 }}>
       {/* The picture is decorative and says so: everything it shows is said in
           words beside it, and a screen reader announcing "receipt and phone"
           before the heading would be noise. */}

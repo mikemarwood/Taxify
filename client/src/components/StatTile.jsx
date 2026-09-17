@@ -21,13 +21,19 @@ const TINTS = {
 };
 
 export default function StatTile({ icon, tint = 'blue', label, value, change, changeNote, delay = 0, children }) {
-  const tone = TINTS[tint] || TINTS.blue;
+  const disc = TINTS[tint] || TINTS.blue;
   const direction = directionOf(change);
   const percent = formatChange(change);
 
-  // Down is not automatically bad — spending less is usually the point — so
-  // this is the neutral ink rather than red, and only a rise is coloured.
-  const changeColour = direction === 'up' ? 'var(--green)' : 'var(--text-muted)';
+  // Green up, red down, grey for no movement at all. The arrow points the same
+  // way the colour says, so the direction survives for anyone who cannot
+  // separate the two hues — colour is never the only thing carrying it.
+  const TONE = {
+    up: { colour: 'var(--green)', icon: 'arrow-up' },
+    down: { colour: 'var(--red)', icon: 'arrow-down' },
+    flat: { colour: 'var(--text-muted)', icon: null },
+  };
+  const tone = TONE[direction] || TONE.flat;
 
   return (
     <motion.div
@@ -36,7 +42,7 @@ export default function StatTile({ icon, tint = 'blue', label, value, change, ch
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay }}
     >
-      <span className="stat-tile-mark" style={{ background: tone.bg, color: tone.fg }}>
+      <span className="stat-tile-mark" style={{ background: disc.bg, color: disc.fg }}>
         <Icon name={icon} size={20} />
       </span>
 
@@ -45,8 +51,8 @@ export default function StatTile({ icon, tint = 'blue', label, value, change, ch
         <div className="stat-tile-value">{value}</div>
 
         {percent && (
-          <div className="stat-tile-change" style={{ color: changeColour }}>
-            <Icon name={direction === 'down' ? 'chevron-down' : 'arrow-up'} size={13} />
+          <div className="stat-tile-change" style={{ color: tone.colour }}>
+            {tone.icon && <Icon name={tone.icon} size={13} />}
             <strong>{percent}</strong>
             {changeNote && <span style={{ color: 'var(--text-muted)', fontWeight: 400 }}>{changeNote}</span>}
           </div>

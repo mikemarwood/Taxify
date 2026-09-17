@@ -267,6 +267,7 @@ const PATHS = {
   'arrow-right': <path d="M5 12h13M13 6l6 6-6 6" />,
   // Movement on a figure, not navigation.
   'arrow-up': <path d="M12 19V5M6 11l6-6 6 6" />,
+  'arrow-down': <path d="M12 5v14M6 13l6 6 6-6" />,
   gift: (
     <>
       <rect x="3" y="9.5" width="18" height="11.5" rx="1.5" />
