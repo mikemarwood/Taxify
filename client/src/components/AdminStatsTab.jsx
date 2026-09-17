@@ -26,31 +26,40 @@ function Delta({ change }) {
   );
 }
 
-function Stat({ label, value, hint, change, accent, live }) {
+// The tints, by what the figure is about rather than by whether it is good
+// news: people, money, time. Six saturated cards side by side is a toy and
+// nothing stands out because everything does, so the colour lives in a small
+// disc and the card stays white.
+const STAT_TINTS = {
+  accent: { bg: 'rgba(21, 89, 184, 0.12)', fg: '#1559b8' },
+  emerald: { bg: 'rgba(12, 115, 67, 0.12)', fg: '#0c7343' },
+  violet: { bg: 'rgba(109, 63, 196, 0.12)', fg: '#6d3fc4' },
+  amber: { bg: 'rgba(154, 91, 6, 0.13)', fg: '#9a5b06' },
+  grey: { bg: 'var(--bg-inset)', fg: 'var(--text-muted)' },
+};
+
+function Stat({ label, value, hint, change, tint = 'grey', icon, live }) {
+  const tone = STAT_TINTS[tint] || STAT_TINTS.grey;
   return (
-    <div
-      className="card"
-      style={{
-        padding: 16,
-        display: 'flex',
-        flexDirection: 'column',
-        gap: 4,
-        // The accent is a rail rather than a fill: six saturated cards side by
-        // side is a toy, and nothing on it stands out because everything does.
-        borderLeft: `3px solid ${accent || 'var(--border)'}`,
-      }}
-    >
-      <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
-        <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: 0.4, textTransform: 'uppercase', color: 'var(--text-muted)' }}>
-          {label}
+    <div className="card stat-tile">
+      {icon && (
+        <span className="stat-tile-mark" style={{ background: tone.bg, color: tone.fg }}>
+          <Icon name={icon} size={19} />
         </span>
-        {live && <LiveDot />}
+      )}
+      <div style={{ minWidth: 0, flex: 1 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
+          <span className="stat-tile-label" style={{ fontWeight: 700, letterSpacing: 0.4, textTransform: 'uppercase', fontSize: 10.5 }}>
+            {label}
+          </span>
+          {live && <LiveDot />}
+        </div>
+        <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, flexWrap: 'wrap' }}>
+          <span className="stat-tile-value">{value}</span>
+          <Delta change={change} />
+        </div>
+        {hint && <div style={{ fontSize: 11.5, color: 'var(--text-muted)', marginTop: 2 }}>{hint}</div>}
       </div>
-      <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, flexWrap: 'wrap' }}>
-        <span style={{ fontSize: 30, fontWeight: 800, lineHeight: 1.1, fontVariantNumeric: 'tabular-nums' }}>{value}</span>
-        <Delta change={change} />
-      </div>
-      {hint && <div style={{ fontSize: 11.5, color: 'var(--text-muted)' }}>{hint}</div>}
     </div>
   );
 }
@@ -372,35 +381,33 @@ export default function AdminStatsTab({ onHowItWorks }) {
 
       <div style={{ display: 'grid', gap: 12, gridTemplateColumns: 'repeat(auto-fit, minmax(165px, 1fr))' }}>
         <Stat
-          label="Online now"
+          icon="users" tint="emerald" label="Online now"
           value={stats.online}
           hint={`Active in the last ${stats.onlineWindowMinutes} minutes`}
-          accent="var(--emerald)"
+         
           live
         />
-        <Stat label="Today" value={active.today} hint="People who used Taxify today" accent="var(--accent)" />
-        <Stat label="This week" value={active.week} hint="Used it in the last 7 days" accent="var(--accent)" />
-        <Stat label="This month" value={active.month} hint="Used it in the last 30 days" accent="var(--accent)" />
+        <Stat icon="clock" tint="accent" label="Today" value={active.today} hint="People who used Taxify today" />
+        <Stat icon="chart" tint="accent" label="This week" value={active.week} hint="Used it in the last 7 days" />
+        <Stat icon="calendar" tint="violet" label="This month" value={active.month} hint="Used it in the last 30 days" />
         <Stat
-          label="New this week"
+          icon="user" tint="amber" label="New this week"
           value={signups.week}
           change={signups.weekChange}
           hint="Against the week before"
-          accent="var(--amber)"
         />
         <Stat
-          label="New this month"
+          icon="user" tint="emerald" label="New this month"
           value={signups.month}
           change={signups.monthChange}
           hint="Against the month before"
-          accent="var(--amber)"
         />
       </div>
 
       <div style={{ display: 'grid', gap: 12, gridTemplateColumns: 'repeat(auto-fit, minmax(165px, 1fr))' }}>
-        <Stat label="Accounts" value={totals.users} hint={`${totals.activated} activated`} />
-        <Stat label="Subscribed" value={totals.subscribed} hint={`${conversion}% of all accounts`} accent="var(--emerald)" />
-        <Stat label="On trial" value={totals.trialing} hint="Not yet paying" />
+        <Stat icon="cash" tint="accent" label="Accounts" value={totals.users} hint={`${totals.activated} activated`} />
+        <Stat icon="gift" tint="amber" label="Subscribed" value={totals.subscribed} hint={`${conversion}% of all accounts`} />
+        <Stat icon="clock" tint="violet" label="On trial" value={totals.trialing} hint="Not yet paying" />
       </div>
 
       <div className="card" style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 22 }}>
