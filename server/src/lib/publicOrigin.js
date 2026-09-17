@@ -10,6 +10,12 @@
 // A localhost origin is therefore refused in production rather than trusted.
 // It is never right, it is only ever left over, and the cost of guessing wrong
 // here is lower than the cost of sending it.
+//
+// Not setting CLIENT_ORIGIN at all is a different thing, and it used to be
+// shouted about in the same breath. It is fine: the constant below is the real
+// address, kept in one place, and a correct default beats an environment
+// variable somebody has to remember to change. The production server runs this
+// way. A leftover localhost value is still a real fault and still says so.
 
 const DEV_DEFAULT = 'http://localhost:5173';
 
@@ -23,6 +29,12 @@ function isLocal(url) {
 
 let warned = false;
 
+// Test seam. The warning is deliberately once per process, so a test that
+// wants to see it has to be able to put that back.
+export function resetOriginWarning() {
+  warned = false;
+}
+
 export function publicOrigin() {
   const configured = String(process.env.CLIENT_ORIGIN || '').trim().replace(/\/+$/, '');
   const production = process.env.NODE_ENV === 'production';
@@ -30,13 +42,18 @@ export function publicOrigin() {
   if (configured && !(production && isLocal(configured))) return configured;
 
   if (production) {
+    // Only for a value that is set and wrong. Unset is the normal way this
+    // runs, and an error logged every restart for the expected case is an
+    // error nobody reads by the time there is a real one.
+    //
     // Once, not per email — this is called on every link built.
-    if (!warned) {
+    if (configured && !warned) {
       warned = true;
       console.error(
-        `[config] CLIENT_ORIGIN is ${configured ? `"${configured}"` : 'not set'}, which cannot be right in ` +
-          `production — every link emailed to a customer is built from it. Falling back to ` +
-          `${PRODUCTION_DEFAULT}. Set CLIENT_ORIGIN in server/.env and restart.`
+        `[config] CLIENT_ORIGIN is "${configured}", which cannot be right in production — every link ` +
+          `emailed to a customer is built from it, and nobody can open a localhost one. Falling back to ` +
+          `${PRODUCTION_DEFAULT}. Correct it in server/.env and restart, or remove it and let the ` +
+          `default stand.`
       );
     }
     return PRODUCTION_DEFAULT;
