@@ -272,6 +272,10 @@ export default function Login() {
     <AuthLayout
       title="Welcome back"
       subtitle="Log in to keep tracking your expenses."
+      // The one page where the marketing panel is worth a phone's scroll:
+      // somebody here has not decided yet. On every other signed-out page they
+      // are part-way through something.
+      mobilePanel
     >
       {/* Why this is the only page working, when it is. Login stays open
           during an outage so an admin can get in and turn the site back on;

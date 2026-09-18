@@ -21,9 +21,9 @@ import Icon from '../components/Icon.jsx';
 //
 // PublicShell keeps its Back, because support and the legal pages have no
 // exit of their own to duplicate.
-export default function AuthLayout({ title, subtitle, topRight, assurances = true, children }) {
+export default function AuthLayout({ title, subtitle, topRight, assurances = true, mobilePanel = false, children }) {
   return (
-    <AuthSplit topRight={topRight}>
+    <AuthSplit topRight={topRight} mobilePanel={mobilePanel}>
       <motion.div
         initial={{ opacity: 0, y: 12 }}
         animate={{ opacity: 1, y: 0 }}

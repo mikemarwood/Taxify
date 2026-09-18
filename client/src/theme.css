@@ -498,9 +498,11 @@ input[type="date"].input::-webkit-calendar-picker-indicator:hover { opacity: 1; 
   /* Hidden by default on a phone, as it always was. An aside that is a step
      rail or a progress list has no business below the form. */
   .signup-brand { display: none !important; }
-  /* The marketing panel is the exception: it stacks underneath, because the
-     reasons to want an account are worth reading by whoever scrolls. */
-  .signup-brand-product { display: flex !important; order: 2; padding: 8px 20px 30px !important; }
+  /* The marketing panel stacks underneath on sign-in, and only there: the
+     reasons to want an account are worth a scroll from somebody who has not
+     decided yet, and are not what anybody reaching forgotten-password,
+     activation, an invitation, support, terms or privacy came for. */
+  .signup-shell-panel .signup-brand-product { display: flex !important; order: 2; padding: 8px 20px 30px !important; }
   /* Top of the page, not the middle of it. Centred, the card floated in the
      stretched grid row with the fold below it. */
   .auth-content { order: 1; justify-content: flex-start !important; padding-top: 28px !important; }
@@ -2084,3 +2086,20 @@ input[type="date"].input::-webkit-calendar-picker-indicator:hover { opacity: 1; 
 }
 .dz-preview-pdf { height: min(60vh, 460px); }
 @media (max-width: 560px) { .dz-preview { max-height: 52vh; } }
+
+/* Support, terms and privacy on a phone: the shell's navy behind, the brand at
+   the top, and the page itself on a white sheet — the same shape sign-in has,
+   because they are reached from the same place and by somebody in the same
+   frame of mind.
+
+   Above 900px the column already has paper under it and both of these do
+   nothing. */
+@media (max-width: 900px) {
+  .public-content { background: transparent !important; }
+  .public-sheet {
+    background: #fff;
+    border-radius: 16px;
+    padding: 18px 16px;
+    box-shadow: var(--shadow-raised);
+  }
+}

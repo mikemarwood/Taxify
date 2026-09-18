@@ -1,3 +1,5 @@
+import { useEffect, useRef } from 'react';
+import { useLocation } from 'react-router-dom';
 import BackButton from './BackButton.jsx';
 import { AuthSplitFrame, AuthMobileBrand, ProductPanel } from './AuthSplit.jsx';
 
@@ -8,6 +10,19 @@ import { AuthSplitFrame, AuthMobileBrand, ProductPanel } from './AuthSplit.jsx';
 // a different site — or a phishing page — which is the worst impression to give
 // somebody whose first thought was already "something is wrong here".
 export default function PublicShell({ children }) {
+  // Open at the top of the document.
+  //
+  // The window does not scroll on these pages — the column does — and a router
+  // only ever resets the window. Arriving at the privacy policy from a link at
+  // the foot of the sign-in panel, the new column could open part-way down,
+  // which reads as having missed the beginning of something you have not read
+  // yet. Keyed on the path, so moving between terms and privacy resets too.
+  const { pathname } = useLocation();
+  const column = useRef(null);
+  useEffect(() => {
+    if (column.current) column.current.scrollTop = 0;
+  }, [pathname]);
+
   // The same branded rail the sign-in page has.
   //
   // Support, terms and the privacy policy were a bare header over a white page
@@ -41,14 +56,21 @@ export default function PublicShell({ children }) {
         .auth-content, a class this page does not use, so nothing scrolled at
         all and terms and privacy could not be read past the fold. Hence a class
         of its own. */}
-    <div className="public-content" style={{ display: 'flex', flexDirection: 'column', background: 'var(--bg)', minWidth: 0 }}>
+    <div
+      ref={column}
+      className="public-content"
+      style={{ display: 'flex', flexDirection: 'column', background: 'var(--bg)', minWidth: 0 }}
+    >
       <main style={{ flex: 1, padding: '26px 18px' }}>
         <div style={{ maxWidth: 1120, margin: '0 auto' }}>
           <AuthMobileBrand />
 
           <BackButton />
 
-          {children}
+          {/* On a phone the ground behind this is the shell's navy, so the page
+              reads as a sheet laid on it — the same as sign-in. On a wide
+              screen there is paper here already and the wrapper does nothing. */}
+          <div className="public-sheet">{children}</div>
         </div>
       </main>
 

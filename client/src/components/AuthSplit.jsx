@@ -18,10 +18,18 @@ import SiteFooter from './SiteFooter.jsx';
 // `fixed` pins the shell to the viewport and lets each column scroll its own
 // content. Right for a form, wrong for a document: PublicShell puts Terms and
 // Privacy in this same frame, and those have to scroll as a page.
-export function AuthSplitFrame({ children, fixed = false }) {
+export function AuthSplitFrame({ children, fixed = false, mobilePanel = false }) {
   return (
     <div
-      className={fixed ? 'signup-shell signup-shell-fixed' : 'signup-shell'}
+      className={
+        'signup-shell' +
+        (fixed ? ' signup-shell-fixed' : '') +
+        // Only sign-in stacks the marketing panel under the form on a phone.
+        // Everywhere else — forgotten password, activation, an invitation,
+        // support, terms, privacy — somebody is part-way through something and
+        // the reasons to want an account are not what they came for.
+        (mobilePanel ? ' signup-shell-panel' : '')
+      }
       style={{ minHeight: '100vh', display: 'grid', gridTemplateColumns: 'minmax(360px, 44%) 1fr' }}
     >
       {children}
@@ -43,9 +51,9 @@ export function AuthMobileBrand() {
   );
 }
 
-export default function AuthSplit({ aside, topRight, children }) {
+export default function AuthSplit({ aside, topRight, mobilePanel = false, children }) {
   return (
-    <AuthSplitFrame fixed>
+    <AuthSplitFrame fixed mobilePanel={mobilePanel}>
       {aside || <ProductPanel />}
 
       <section

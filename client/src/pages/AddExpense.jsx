@@ -24,14 +24,6 @@ import PageBanner from '../components/PageBanner.jsx';
 // The three things this page can add. A receipt is the common one and stays
 // the default; the other two are the deductions that have no receipt to
 // attach, which is the only reason they were ever a separate page.
-// What the banner promises, in the order somebody does it: put it in, know it
-// is safe, get it out again.
-const BANNER_CHIPS = [
-  { icon: 'camera', tint: 'blue', title: 'Keep it organised', text: 'Add receipts in seconds' },
-  { icon: 'upload', tint: 'green', title: 'Stored securely', text: 'In the cloud' },
-  { icon: 'chart', tint: 'violet', title: 'Ready for tax time', text: 'Find, track and export easily' },
-];
-
 const KINDS = [
   { id: 'receipt', tab: 'Receipt', icon: 'receipt', heading: 'Add expense', blurb: 'Log a purchase and attach the receipt.' },
   { id: 'trip', tab: 'Vehicle trip', icon: 'car', heading: 'Add a trip', blurb: 'Odometer at the start and the finish — the distance works itself out.' },
@@ -360,12 +352,7 @@ export default function AddExpense() {
       {/* The picture is decorative and says so: everything it shows is said in
           words beside it, and a screen reader announcing "receipt and phone"
           before the heading would be noise. */}
-      <PageBanner
-        title={chosen.heading}
-        blurb={chosen.blurb}
-        chips={BANNER_CHIPS}
-        art="/media/add-expense-art.jpg"
-      />
+      <PageBanner title={chosen.heading} blurb={chosen.blurb} art="/media/add-expense-art.jpg" />
 
       {/* Three things get claimed, and only one of them comes with a receipt.
           Kilometres and hours used to live on a page of their own, so logging a
