@@ -42,7 +42,7 @@ export default function AuthLayout({ title, subtitle, topRight, assurances = tru
             <img src="/logo.svg" alt="" width="34" height="34" />
             <span style={{ lineHeight: 1.1 }}>
               <span style={{ display: 'block', fontWeight: 800, fontSize: 23, letterSpacing: -0.7 }}>Taxify</span>
-              <span style={{ display: 'block', fontSize: 10.5, color: 'var(--text-muted)' }}>Snap. Store. Sorted.</span>
+              <span style={{ display: 'block', fontSize: 10.5, color: 'var(--text-muted)' }}>Snap. Store. Done.</span>
             </span>
           </div>
 

@@ -38,7 +38,7 @@ export function AuthMobileBrand() {
         <img src="/logo.svg" alt="" width="42" height="42" />
         <strong>Taxify</strong>
       </div>
-      <small>Snap. Store. Sorted.</small>
+      <small>Snap. Store. Done.</small>
     </div>
   );
 }
@@ -143,7 +143,7 @@ export function ProductPanel({ headline }) {
           <span style={{ display: 'block', fontWeight: 800, fontSize: 26, letterSpacing: -0.8, color: 'var(--nav-text-active)' }}>
             Taxify
           </span>
-          <span style={{ display: 'block', fontSize: 11.5, color: 'var(--nav-text)' }}>Snap. Store. Sorted.</span>
+          <span style={{ display: 'block', fontSize: 11.5, color: 'var(--nav-text)' }}>Snap. Store. Done.</span>
         </span>
       </div>
 
