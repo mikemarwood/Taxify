@@ -18,15 +18,31 @@
 
 const MARKER = '<!--LANDING-JS-->';
 
+// Something only this script contains, used to decide whether it is already
+// there. The marker alone could not answer that.
+//
+// The hub keeps a copy of this page and strips every script out of it. Our
+// comment is not a script, so it survived — and the copy we then fetched back
+// had the marker and no script in it. The guard saw the marker, concluded the
+// work was done and returned the page untouched, so nothing here ran for
+// anybody: not this, and not the scroll fix above it, which is the bug this
+// file was written for in the first place.
+//
+// A sentinel inside the script body cannot outlive the script. A stale marker
+// is stripped before the fresh one goes in, so a cached copy repairs itself.
+const SENTINEL = 'taxifyLanding=1';
+
 // Two things, and both of them only because this is the one place a script on
 // this page runs at all.
 //
-// The first: the bar across the top is fixed, and it is transparent while the
-// hero is behind it — a bar with its own colour there would be a second band
-// across a header that is meant to read as one field. Once the page has moved,
-// what is behind it is body copy, so it takes a ground. A class toggled on
-// scroll is the whole of it; there is no CSS that can ask "has this page
-// scrolled".
+// The first: the bar across the top is fixed and carries a ground, and gives
+// it up at the very top where the hero is directly behind it — a bar with its
+// own colour there would be a second band across a header meant to read as one
+// field. That way round on purpose: with the class as the thing that *adds* the
+// ground, a page where this never ran was pale text floating over white body
+// copy. There is no CSS that can ask whether a page has scrolled, so this is
+// the only way to do it at all — which is exactly why it must not be the thing
+// legibility rests on.
 //
 // Opening at the top, which is where a page opens.
 //
@@ -47,10 +63,11 @@ const MARKER = '<!--LANDING-JS-->';
 const SCRIPT = `<script>
 (function(){
   try{
+    window.taxifyLanding=1;
     if('scrollRestoration' in history) history.scrollRestoration='manual';
     var bar=document.querySelector('.lp-topbar');
     if(bar){
-      var mark=function(){ bar.classList.toggle('is-stuck', window.scrollY>24); };
+      var mark=function(){ bar.classList.toggle('is-top', window.scrollY<=24); };
       mark();
       window.addEventListener('scroll',mark,{passive:true});
     }
@@ -68,8 +85,16 @@ const SCRIPT = `<script>
 // body tag — the hub assembles its own markup and a missing one should mean a
 // page without this rather than a page thrown away.
 export function injectLandingScript(html) {
-  const source = String(html || '');
-  if (!source || source.includes(MARKER)) return source;
+  let source = String(html || '');
+  if (!source) return source;
+
+  // Already here, for real — the sentinel lives inside the script.
+  if (source.includes(SENTINEL)) return source;
+
+  // A marker with no script behind it is the hub's stripper having been
+  // through. Clear it, or the next check finds it and skips the work again.
+  source = source.split(MARKER).join('');
+
   const block = MARKER + SCRIPT;
   const close = source.lastIndexOf('</body>');
   if (close === -1) return source + block;

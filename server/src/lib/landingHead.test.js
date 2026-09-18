@@ -18,6 +18,7 @@ const HUB_PAGE = `<!doctype html><html><head>
 <meta property="og:image" content="https://mikesapphub.com/uploads/icons/product-7.png">
 <meta name="twitter:title" content="Taxify — Mikes App Hub">
 <meta name="twitter:image" content="https://mikesapphub.com/uploads/icons/product-7.png">
+<script type="application/ld+json">{"@type":"SoftwareApplication","url":"https://mikesapphub.com/apps/taxify"}</script>
 </head><body><main>Taxify</main></body></html>`;
 
 test('the canonical points here, not at the hub', () => {
@@ -71,6 +72,15 @@ test('the structured data is valid JSON and names this address', () => {
   const data = JSON.parse(block[1]);
   assert.equal(data.url, 'https://taxify.net.au/');
   assert.equal(data['@type'], 'SoftwareApplication');
+});
+
+test('the hub’s description of the app goes, so only one survives', () => {
+  // Two SoftwareApplication entries disagreeing about where the application
+  // lives is worse than either alone — which one is believed is the crawler's
+  // choice, and not making it guess is half the point of the canonical.
+  const out = injectLandingHead(HUB_PAGE);
+  assert.equal((out.match(/application\/ld\+json/g) || []).length, 1);
+  assert.ok(!out.includes('mikesapphub.com/apps/taxify'));
 });
 
 test('it goes in once, however many times the page is served', () => {

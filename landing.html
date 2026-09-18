@@ -167,25 +167,31 @@
      element's containing block is the viewport, and no ancestor here has a
      transform, so nothing clips it.
 
-     Transparent at rest, because the hero is directly behind it and a bar with
-     its own colour there is a second band across the top of the page. It takes
-     a ground once the page has moved, when what is behind it is no longer the
-     hero — see landingScript.js, which adds the class. */
+     It carries its ground by default and gives it up only at the very top,
+     which is the way round that survives the script not running. The other way
+     round — transparent by default, coloured once scrolled — is what this was,
+     and when the script went missing the bar was pale text floating over white
+     body copy the whole way down the page. Legibility should not be the thing
+     that depends on JavaScript; the flourish should. */
   .lp-topbar {
     position: fixed;
     top: 0;
     left: 0;
     right: 0;
     z-index: 50;
-    background: transparent;
-    transition: background .2s ease, backdrop-filter .2s ease, border-color .2s ease;
-    border-bottom: 1px solid transparent;
-  }
-  .lp-topbar.is-stuck {
     background: rgba(6, 21, 41, .9);
     -webkit-backdrop-filter: blur(12px);
     backdrop-filter: blur(12px);
-    border-bottom-color: rgba(255, 255, 255, .09);
+    border-bottom: 1px solid rgba(255, 255, 255, .09);
+    transition: background .2s ease, backdrop-filter .2s ease, border-color .2s ease;
+  }
+  /* At the top the hero is directly behind it, and a bar with its own colour
+     there is a second band across a header meant to read as one field. */
+  .lp-topbar.is-top {
+    background: transparent;
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+    border-bottom-color: transparent;
   }
   @media (prefers-reduced-motion: reduce) { .lp-topbar { transition: none; } }
   .lp-topbar .wrap {

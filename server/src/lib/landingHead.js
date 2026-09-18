@@ -52,6 +52,12 @@ const REPLACED = [
   /<meta\b[^>]*name=(["'])description\1[^>]*>/gi,
   /<meta\b[^>]*property=(["'])og:[a-z:]+\1[^>]*>/gi,
   /<meta\b[^>]*name=(["'])twitter:[a-z:]+\1[^>]*>/gi,
+  // The hub describes the app too, and its block names mikesapphub.com as the
+  // url. Two SoftwareApplication entries on one page disagreeing about where
+  // the application lives is worse than either alone: which one a search
+  // engine believes is its own choice, and half the point of a canonical is to
+  // stop making it guess.
+  /<script\b[^>]*type=([\"'])application\/ld\+json\1[^>]*>[\s\S]*?<\/script>/gi,
 ];
 
 function escapeAttribute(value) {
