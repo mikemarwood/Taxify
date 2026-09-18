@@ -18,6 +18,16 @@
 
 const MARKER = '<!--LANDING-JS-->';
 
+// Two things, and both of them only because this is the one place a script on
+// this page runs at all.
+//
+// The first: the bar across the top is fixed, and it is transparent while the
+// hero is behind it — a bar with its own colour there would be a second band
+// across a header that is meant to read as one field. Once the page has moved,
+// what is behind it is body copy, so it takes a ground. A class toggled on
+// scroll is the whole of it; there is no CSS that can ask "has this page
+// scrolled".
+//
 // Opening at the top, which is where a page opens.
 //
 // Reported from a phone: the landing page reached from a Facebook advertisement
@@ -38,6 +48,12 @@ const SCRIPT = `<script>
 (function(){
   try{
     if('scrollRestoration' in history) history.scrollRestoration='manual';
+    var bar=document.querySelector('.lp-topbar');
+    if(bar){
+      var mark=function(){ bar.classList.toggle('is-stuck', window.scrollY>24); };
+      mark();
+      window.addEventListener('scroll',mark,{passive:true});
+    }
     if(!location.hash){
       window.scrollTo(0,0);
       window.addEventListener('load',function(){ if(!location.hash) window.scrollTo(0,0); });

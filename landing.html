@@ -158,7 +158,36 @@
   /* Transparent, and it sits inside .hero. The header is one painted field
      with the light coming in at the corners, so a flat bar across the top of
      it would cut the top-left flare off exactly where it is brightest. */
-  .lp-topbar { background: transparent; position: relative; z-index: 3; }
+  /* Fixed, so it is there the whole way down the page.
+
+     position: fixed rather than sticky, and that is forced: this bar lives
+     inside .hero so the hero's gradient paints behind it, and .hero clips its
+     overflow — a sticky child cannot leave a clipping ancestor, so it would
+     have stuck to the top of the hero and then scrolled away with it. A fixed
+     element's containing block is the viewport, and no ancestor here has a
+     transform, so nothing clips it.
+
+     Transparent at rest, because the hero is directly behind it and a bar with
+     its own colour there is a second band across the top of the page. It takes
+     a ground once the page has moved, when what is behind it is no longer the
+     hero — see landingScript.js, which adds the class. */
+  .lp-topbar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 50;
+    background: transparent;
+    transition: background .2s ease, backdrop-filter .2s ease, border-color .2s ease;
+    border-bottom: 1px solid transparent;
+  }
+  .lp-topbar.is-stuck {
+    background: rgba(6, 21, 41, .9);
+    -webkit-backdrop-filter: blur(12px);
+    backdrop-filter: blur(12px);
+    border-bottom-color: rgba(255, 255, 255, .09);
+  }
+  @media (prefers-reduced-motion: reduce) { .lp-topbar { transition: none; } }
   .lp-topbar .wrap {
     display: flex;
     align-items: center;
@@ -212,7 +241,8 @@
     grid-template-columns: minmax(0, 1fr) minmax(0, 1.05fr);
     gap: clamp(22px, 4vw, 56px);
     align-items: center;
-    padding-top: clamp(32px, 5vw, 62px);
+    /* Room for the fixed bar above, which no longer takes any of its own. */
+    padding-top: clamp(96px, 5vw + 64px, 126px);
     padding-bottom: 24px;
   }
   /* The eyebrow above the headline. Small, but it is in the first frame —
@@ -710,7 +740,7 @@
             <img src="/logo.svg" alt="" width="34" height="34">
             <span>
               <span class="brand-name">Taxify</span>
-              <span class="brand-sub">Receipts. Sorted.</span>
+              <span class="brand-sub">Snap. Store. Sorted.</span>
             </span>
           </a>
           <nav class="topnav" aria-label="Sections of this page">
@@ -1203,7 +1233,7 @@
           <img src="/logo.svg" alt="" width="40" height="40">
           <span>
             <span class="brand-name" style="font-size:25px">Taxify</span>
-            <span class="brand-sub">Receipts. Sorted.</span>
+            <span class="brand-sub">Snap. Store. Sorted.</span>
           </span>
         </a>
 

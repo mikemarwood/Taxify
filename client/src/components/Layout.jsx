@@ -377,7 +377,7 @@ export default function Layout({ children }) {
                 the rail is recognisably the same product rather than a bare
                 wordmark. */}
             <span style={{ display: 'block', fontSize: 10.5, color: 'var(--nav-text)', letterSpacing: 0.2 }}>
-              Receipts. Sorted.
+              Snap. Store. Sorted.
             </span>
           </span>
         </div>
