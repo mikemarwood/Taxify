@@ -2060,3 +2060,27 @@ input[type="date"].input::-webkit-calendar-picker-indicator:hover { opacity: 1; 
 @media (min-width: 901px) {
   .signup-shell-fixed .public-content { overflow-y: auto; overscroll-behavior: contain; }
 }
+
+/* The receipt you just chose, shown at a size you can actually check.
+
+   It was 140px tall, which told somebody a file had attached and nothing
+   about whether it was the right one or whether the total was in frame — the
+   only two questions worth asking before saving. It now takes the width it is
+   given, capped so a wide photograph does not stretch the panel, and never
+   more than the height of the space around it. */
+.dz-preview {
+  display: block;
+  margin: 0 auto;
+  width: 100%;
+  max-width: 420px;
+  max-height: min(60vh, 460px);
+  height: auto;
+  object-fit: contain;
+  border-radius: 12px;
+  /* A pale receipt on a pale panel has no edge of its own. */
+  border: 1px solid var(--border);
+  background: #fff;
+  box-shadow: var(--shadow-card);
+}
+.dz-preview-pdf { height: min(60vh, 460px); }
+@media (max-width: 560px) { .dz-preview { max-height: 52vh; } }

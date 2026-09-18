@@ -262,7 +262,17 @@ export default function ReceiptDropzone({ file, onFileChange, uploadProgress, st
         ) : file ? (
           <motion.div key="preview" initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0 }}>
             {isImage ? (
-              <img src={preview} alt="Receipt preview" style={{ maxHeight: 140, borderRadius: 10, margin: '0 auto', display: 'block' }} />
+              /* Big enough to check before saving.
+                 At 140px a receipt was a thumbnail — you could tell something
+                 had attached and not whether it was the right thing, or whether
+                 the total was in frame, which is the only reason to show it at
+                 all. It takes the width it is given now, up to the size of the
+                 file, inside a frame so a pale receipt has an edge. */
+              <img
+                src={preview}
+                alt="Receipt preview"
+                className="dz-preview"
+              />
             ) : isPdf ? (
               /* pointer-events off, so a click still reaches the card behind
                  rather than being swallowed by the PDF viewer's own controls.
@@ -271,24 +281,15 @@ export default function ReceiptDropzone({ file, onFileChange, uploadProgress, st
                 src={`${preview}#toolbar=0&navpanes=0&scrollbar=0&view=Fit`}
                 title={file.name || 'Receipt preview'}
                 tabIndex={-1}
-                style={{
-                  width: '100%',
-                  maxWidth: 220,
-                  height: 140,
-                  margin: '0 auto',
-                  display: 'block',
-                  border: '1px solid var(--border)',
-                  borderRadius: 10,
-                  background: '#fff',
-                  pointerEvents: 'none',
-                }}
+                className="dz-preview dz-preview-pdf"
+                style={{ pointerEvents: 'none' }}
               />
             ) : (
               <div style={{ display: 'flex', justifyContent: 'center', color: 'var(--text-muted)' }}>
                 <Icon name="file-text" size={38} />
               </div>
             )}
-            <p style={{ marginTop: 10, fontSize: 13, color: 'var(--text-muted)' }}>{file.name}</p>
+            <p style={{ marginTop: 12, fontSize: 13, fontWeight: 600 }}>{file.name}</p>
             <button
               type="button"
               className="btn btn-ghost"
