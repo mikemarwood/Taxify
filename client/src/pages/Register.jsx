@@ -1184,6 +1184,10 @@ function Note({ children, icon, span }) {
 function PlanCard({ plan, selected, discounted, trialDays, onSelect }) {
   const full = money(plan.amountPerYear, plan.currency);
   const cut = discounted !== null && discounted !== undefined ? money(discounted, plan.currency) : null;
+  // What they will actually be charged when the trial ends — the promo price
+  // where one applies, the list price otherwise. This is the figure that gets
+  // struck through today and quoted underneath as what comes next.
+  const payable = cut || full;
 
   return (
     <motion.button
@@ -1219,30 +1223,33 @@ function PlanCard({ plan, selected, discounted, trialDays, onSelect }) {
 
       <span style={{ fontWeight: 700, fontSize: 15 }}>{plan.name}</span>
 
-      <span style={{ display: 'flex', alignItems: 'baseline', gap: 6, flexWrap: 'wrap' }}>
-        {cut ? (
-          <>
-            <span style={{ fontSize: 24, fontWeight: 800, color: 'var(--accent)' }}>{cut}</span>
-            <span style={{ fontSize: 12.5, color: 'var(--text-muted)', textDecoration: 'line-through' }}>{full}</span>
-          </>
-        ) : (
-          <span style={{ fontSize: 24, fontWeight: 800 }}>{full || '—'}</span>
+      {/* What it costs to start, which is nothing.
+          The figure somebody is deciding on at this moment is today's, and
+          today's is zero — so that is the figure, with what they would
+          otherwise be paying struck out beside it.
+
+          The line underneath is not optional. "$0" on its own says free, and
+          this is free for a fortnight; a price crossed out with no mention of
+          when it comes back is the kind of thing that reads as a discount and
+          turns into a complaint. So the card says what happens when the trial
+          ends, at the same size as everything else on it. */}
+      <span style={{ display: 'flex', alignItems: 'baseline', gap: 7, flexWrap: 'wrap' }}>
+        <span style={{ fontSize: 26, fontWeight: 800, color: 'var(--emerald)' }}>$0</span>
+        {payable && (
+          <span style={{ fontSize: 14, color: 'var(--text-subtle)', textDecoration: 'line-through' }}>{payable}</span>
         )}
-        <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>per year</span>
+        <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>for {trialDays} days</span>
       </span>
 
-      <span
-        style={{
-          alignSelf: 'flex-start',
-          fontSize: 10.5,
-          fontWeight: 700,
-          padding: '2px 8px',
-          borderRadius: 999,
-          color: 'var(--emerald)',
-          background: 'rgba(12, 115, 67, 0.1)',
-        }}
-      >
-        {trialDays}-day free trial
+      <span style={{ fontSize: 12, color: 'var(--text-muted)', lineHeight: 1.45 }}>
+        {payable ? (
+          <>
+            then <strong style={{ color: 'var(--text)', fontWeight: 700 }}>{payable}</strong> per year
+            {cut ? ' with your promo code' : ''} &middot; cancel any time
+          </>
+        ) : (
+          'No card needed to start.'
+        )}
       </span>
 
       <span style={{ fontSize: 12, color: 'var(--text-muted)', lineHeight: 1.45 }}>{plan.tagline}</span>
