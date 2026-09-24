@@ -513,8 +513,20 @@
 
   /* ---- Advertisement films ---- */
   .ads-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(290px, 100%), 1fr)); gap: 18px; }
-  .ad-frame { border-radius: 12px; overflow: hidden; background: #0b1524; box-shadow: var(--shadow-card); }
-  .ad-video { display: block; width: 100%; height: auto; }
+  /* The frame, not the film, decides how much of the page a film gets. Left to
+     height:auto a portrait film fills a whole column top to bottom and throws
+     the section out; letterboxing it inside a fixed 16:9 box costs the film
+     nothing — the frame is already dark — and keeps both cards the same size
+     whatever shape the next film turns out to be. */
+  .ad-frame {
+    border-radius: 12px;
+    overflow: hidden;
+    background: #0b1524;
+    box-shadow: var(--shadow-card);
+    aspect-ratio: 16 / 9;
+    max-height: 62vh;
+  }
+  .ad-video { display: block; width: 100%; height: 100%; object-fit: contain; }
 
   /* ---- Devices line ---- */
   .devices-line { display: flex; align-items: center; justify-content: center; gap: 10px; flex-wrap: wrap; color: var(--body); font-size: 14px; text-align: center; margin: 0; }
@@ -1080,7 +1092,7 @@
     </section>
     <!--ADS-END-->
 
-    <section class="section section-flush" aria-label="Where Taxify runs">
+    <section class="section section-flush" id="android" aria-label="Where Taxify runs">
       <div class="wrap">
         <p class="devices-line">Runs in the browser on your phone, tablet or computer &mdash; nothing to install.</p>
         <!-- Filled in by the server, the only thing here that knows what you

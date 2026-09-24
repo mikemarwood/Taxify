@@ -64,7 +64,14 @@ async function getTransporter() {
 }
 
 const BRAND = 'Taxify';
-const BRAND_TAGLINE = 'Expense &amp; Receipt Tracking';
+const BRAND_TAGLINE = 'Snap. Store. Done.';
+
+// The address, written the way somebody would type it. Every message ends with
+// it, because a transactional email is often the only place a person has the
+// name of the thing written down — and "sign in to your account" with no
+// address is an instruction they cannot follow without going and finding it.
+const SITE_URL = 'https://taxify.net.au';
+const SITE_LABEL = 'taxify.net.au';
 const NAVY = '#1e3a8a';
 
 // One centred card on a tinted ground, which is what a modern transactional
@@ -130,9 +137,19 @@ function renderEmail({ title, heading, bodyHtml }) {
         ${bodyHtml}
       </td></tr>
 
+      <!-- Where to find Taxify. Every message carries it, whatever the
+           message is about, so nobody has to go looking for the address. -->
+      <tr><td style="background:#f5f8fd;border-left:1px solid #dfe6f2;border-right:1px solid #dfe6f2;border-top:1px solid #e6ecf7;padding:18px 32px;">
+        <div style="font-size:13px;line-height:1.6;color:#475569;">
+          Sign in to ${BRAND} any time at
+          <a href="${SITE_URL}/app/" style="color:${NAVY};font-weight:700;text-decoration:underline;">${SITE_LABEL}</a>
+        </div>
+      </td></tr>
+
       <!-- Footer, outside the card so it reads as small print -->
       <tr><td style="background:#ffffff;border-radius:0 0 12px 12px;border:1px solid #dfe6f2;border-top:0;padding:20px 32px;">
         <div style="font-size:12px;line-height:1.6;color:#94a3b8;">
+          <a href="${SITE_URL}/#android" style="color:${NAVY};font-weight:600;text-decoration:underline;">Android app now available</a><br>
           &copy; ${new Date().getFullYear()} ${BRAND} &middot;
           <a href="https://mikesapphub.com" style="color:#475569;text-decoration:underline;">Mikes App Hub</a><br>
           <strong style="color:#64748b;">Please do not reply to this email — this inbox is not monitored.</strong>
@@ -163,7 +180,16 @@ function htmlToText(heading, bodyHtml) {
     .replace(/[ \t]+/g, ' ')
     .replace(/\n{3,}/g, '\n\n')
     .trim();
-  return `${heading}\n\n${body}\n\n--\n${BRAND}\nPlease do not reply to this email — this inbox is not monitored.`;
+  return `${heading}
+
+${body}
+
+Sign in to ${BRAND} any time at ${SITE_LABEL} (${SITE_URL}/app/)
+
+--
+${BRAND} — ${BRAND_TAGLINE}
+Android app now available: ${SITE_URL}/#android
+Please do not reply to this email — this inbox is not monitored.`;
 }
 
 // "Taxify <no-reply@example.com>" -> "no-reply@example.com". The envelope and

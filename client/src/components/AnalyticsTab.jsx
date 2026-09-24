@@ -360,7 +360,7 @@ function RegisterSteps({ steps, finished }) {
   );
 }
 
-function Panel({ title, aside, children, wide = false }) {
+function Panel({ title, aside, controls, children, wide = false }) {
   return (
     <section
       style={{
@@ -372,10 +372,21 @@ function Panel({ title, aside, children, wide = false }) {
         padding: '15px 17px 17px',
       }}
     >
-      <header style={{ display: 'flex', alignItems: 'baseline', gap: 10, marginBottom: 13 }}>
+      {/* Baseline for a line of words beside the heading, centre once there
+          are buttons — a button sat on a text baseline hangs below it. */}
+      <header
+        style={{
+          display: 'flex',
+          alignItems: controls ? 'center' : 'baseline',
+          gap: 10,
+          marginBottom: 13,
+          flexWrap: 'wrap',
+        }}
+      >
         <h3 style={{ margin: 0, fontSize: 13.5, fontWeight: 700 }}>{title}</h3>
         <span style={{ flex: 1 }} />
         {aside && <span style={{ fontSize: 11.5, color: 'var(--text-subtle)' }}>{aside}</span>}
+        {controls}
       </header>
       {children}
     </section>
@@ -662,6 +673,146 @@ function HoursChart({ hours }) {
   );
 }
 
+// A day, written the way somebody says it out loud. "Today" earns its own word
+// because that is the day being looked at most of the time.
+function dayLabel(iso, { long = false } = {}) {
+  const today = new Date().toISOString().slice(0, 10);
+  if (iso === today) return 'Today';
+  const yesterday = new Date();
+  yesterday.setDate(yesterday.getDate() - 1);
+  if (iso === yesterday.toISOString().slice(0, 10)) return 'Yesterday';
+  const d = new Date(`${iso}T00:00:00`);
+  return d.toLocaleDateString(undefined, long ? { weekday: 'short', day: 'numeric', month: 'short' } : { day: 'numeric', month: 'short' });
+}
+
+// Presses per day, as a bar each. Also the day picker: the shape and the
+// control are the same thing, so choosing a day means pointing at it rather
+// than reading a date out of one chart and finding it in a dropdown.
+function DayBars({ days, selected, onSelect, height = 74 }) {
+  const top = Math.max(1, ...days.map((d) => d.total));
+  return (
+    <div style={{ display: 'flex', alignItems: 'flex-end', gap: 2, height, marginBottom: 10 }}>
+      {days.map((d) => {
+        const on = d.day === selected;
+        const bar = (
+          <span
+            style={{
+              display: 'block',
+              width: '100%',
+              // A zero day still gets a sliver, so the row reads as a run of
+              // days rather than as a gap where the record stops.
+              height: `${Math.max(d.total ? 6 : 2, (d.total / top) * 100)}%`,
+              borderRadius: 3,
+              background: on ? VIEWS : 'var(--border)',
+              transition: 'background 120ms',
+            }}
+          />
+        );
+        const title = `${dayLabel(d.day, { long: true })} — ${d.total} press${d.total === 1 ? '' : 'es'}`;
+        if (!onSelect) {
+          return (
+            <span key={d.day} title={title} style={{ flex: 1, minWidth: 0, height: '100%', display: 'flex', alignItems: 'flex-end' }}>
+              {bar}
+            </span>
+          );
+        }
+        return (
+          <button
+            key={d.day}
+            type="button"
+            title={title}
+            aria-pressed={on}
+            aria-label={title}
+            onClick={() => onSelect(d.day)}
+            style={{
+              flex: 1,
+              minWidth: 0,
+              height: '100%',
+              display: 'flex',
+              alignItems: 'flex-end',
+              padding: 0,
+              border: 0,
+              background: 'none',
+              cursor: 'pointer',
+            }}
+          >
+            {bar}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+// What people pressed — either one day at a time, or the whole range at once.
+//
+// A total over ninety days is the right answer to "what do people press" and
+// the wrong answer to "what happened today", which is the question asked most
+// mornings. So the day is the default and the range is the other tab, rather
+// than the range being the only thing on offer.
+function ClicksPanel({ byDay, overall, rangeDays }) {
+  const [mode, setMode] = useState('day');
+  const [pickedDay, setPickedDay] = useState(null);
+
+  const days = byDay || [];
+  const latest = days.length ? days[days.length - 1].day : null;
+  // Null means "whatever today is", so changing the range or leaving the page
+  // open overnight lands on the current day rather than on a stale one.
+  const selected = pickedDay && days.some((d) => d.day === pickedDay) ? pickedDay : latest;
+  const today = days.find((d) => d.day === selected);
+
+  const rows = (list) =>
+    list.map((r) => ({
+      key: `${r.event}:${r.label || ''}`,
+      label: r.label || r.event,
+      tag: r.label ? r.event.replace(/_/g, ' ') : null,
+      value: r.count,
+      secondary: r.visitors,
+    }));
+
+  const tab = (key, label) => (
+    <button
+      key={key}
+      type="button"
+      className={mode === key ? 'btn btn-primary' : 'btn btn-ghost'}
+      style={{ fontSize: 12, padding: '5px 11px' }}
+      onClick={() => setMode(key)}
+    >
+      {label}
+    </button>
+  );
+
+  return (
+    <Panel
+      title="What they pressed"
+      aside={
+        mode === 'day' && today
+          ? `${tidyNumber(today.total)} press${today.total === 1 ? '' : 'es'}`
+          : `Last ${rangeDays} days`
+      }
+      controls={<div style={{ display: 'flex', gap: 4 }}>{[tab('day', 'Per day'), tab('trend', 'Trend')]}</div>}
+    >
+      {days.length > 0 && (
+        <DayBars
+          days={days}
+          selected={mode === 'day' ? selected : null}
+          onSelect={mode === 'day' ? setPickedDay : null}
+          height={mode === 'day' ? 62 : 104}
+        />
+      )}
+      {mode === 'day' && days.length > 0 && (
+        <div style={{ fontSize: 11.5, color: 'var(--text-subtle)', marginBottom: 10 }}>
+          Showing {dayLabel(selected, { long: true })}. Pick another day from the bars above.
+        </div>
+      )}
+      <BarList
+        rows={rows(mode === 'day' ? today?.rows || [] : overall || [])}
+        empty={mode === 'day' ? 'Nothing pressed on this day.' : 'No presses recorded yet.'}
+      />
+    </Panel>
+  );
+}
+
 export default function AnalyticsTab() {
   const [days, setDays] = useState(30);
   const [surface, setSurface] = useState('all');
@@ -838,18 +989,7 @@ export default function AnalyticsTab() {
       </div>
 
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 14 }}>
-        <Panel title="What they pressed">
-          <BarList
-            rows={(data.clicks || []).map((r) => ({
-              key: `${r.event}:${r.label || ''}`,
-              label: r.label || r.event,
-              tag: r.label ? r.event.replace(/_/g, ' ') : null,
-              value: r.count,
-              secondary: r.visitors,
-            }))}
-            empty="No presses recorded yet."
-          />
-        </Panel>
+        <ClicksPanel byDay={data.clicksByDay} overall={data.clicks} rangeDays={data.days} />
 
         <Panel title="Countries" aside={countryConfidence}>
           <BarList

@@ -1506,6 +1506,28 @@ router.get(
       args([days])
     );
 
+    // The same presses again, split by the day they happened on.
+    //
+    // A total over thirty days answers "what do people press"; it cannot
+    // answer "what happened today", which is the question actually being asked
+    // most mornings. Both are the same rows counted differently, so they come
+    // back in one request and the panel switches between them without going to
+    // the database again.
+    //
+    // Day, event and label together, so the panel can sum a bar per day and
+    // still list the breakdown for whichever day is picked. The limit is a
+    // guard against a future event type being recorded per visitor rather than
+    // per kind, not an expected ceiling.
+    const [clicksByDay] = await pool.execute(
+      `SELECT DATE(at) AS day, event, label, COUNT(*) AS n, COUNT(DISTINCT visitor) AS visitors
+         FROM page_events
+        WHERE at >= CURDATE() - INTERVAL ? DAY AND event <> 'view' ${where}
+        GROUP BY DATE(at), event, label
+        ORDER BY day DESC, n DESC
+        LIMIT 2000`,
+      args([days - 1])
+    );
+
     const [countries] = await pool.execute(
       `SELECT country, COUNT(*) AS views, COUNT(DISTINCT visitor) AS visitors
          FROM page_events
@@ -1683,6 +1705,23 @@ router.get(
       sources: sources.map((r) => ({ kind: r.kind, name: r.name, views: n(r.views), visitors: n(r.visitors) })),
       pages: pages.map((r) => ({ path: r.path, views: n(r.views), visitors: n(r.visitors) })),
       clicks: clicks.map((r) => ({ event: r.event, label: r.label, count: n(r.n), visitors: n(r.visitors) })),
+      // One entry per day in the range, newest first, each carrying its own
+      // breakdown. Every day is present even at nought: a day picker that
+      // silently skips the quiet days makes a gap look like a missing record.
+      clicksByDay: (() => {
+        const byDay = new Map();
+        for (const r of clicksByDay) {
+          const day = String(r.day instanceof Date ? r.day.toISOString().slice(0, 10) : r.day).slice(0, 10);
+          if (!byDay.has(day)) byDay.set(day, []);
+          byDay.get(day).push({ event: r.event, label: r.label, count: n(r.n), visitors: n(r.visitors) });
+        }
+        return fillDays([], days)
+          .map(({ day }) => {
+            const rows = byDay.get(day) || [];
+            return { day, total: rows.reduce((sum, r) => sum + r.count, 0), rows };
+          })
+          .reverse();
+      })(),
       countries: countries.map((r) => ({ code: r.country, views: n(r.views), visitors: n(r.visitors) })),
       countrySources: countrySources.reduce((acc, r) => ({ ...acc, [r.source || 'none']: n(r.views) }), {}),
       funnel: {
