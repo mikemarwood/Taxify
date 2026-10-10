@@ -1121,14 +1121,35 @@ const SMTP_HINTS = [
       'rather than an alias or an IP address.',
   },
   {
-    match: /Invalid login|535|534|authentication failed/i,
+    // The SMTP codes are matched as codes, not as digits anywhere in the text.
+    // "535" as a bare pattern hits a serial number, a byte count or a port
+    // just as happily as a refused login.
+    match: /Invalid login|authentication failed/i,
+    codes: [534, 535],
     hint: 'The host accepted the connection and refused the credentials — check the account and password.',
   },
   {
-    match: /wrong version number|SSL routines/i,
+    // Only the specific OpenSSL error for reading TLS where there is none.
+    // This used to match "SSL routines" as well, which appears in most of
+    // OpenSSL's errors and so claimed a port mismatch for faults that had
+    // nothing to do with the port — the first real one it caught was a mail
+    // server that could not read its own private key.
+    match: /wrong version number/i,
     hint:
       'This looks like TLS on a port expecting STARTTLS, or the other way round. Port 465 is TLS, 587 is normally ' +
       'STARTTLS — check the encryption setting matches the port.',
+  },
+  {
+    // The server aborted the handshake itself. Alert 80 is "internal error",
+    // which means the fault is entirely at its end and nothing about this
+    // connection will tell you more — it could not produce a certificate to
+    // offer. Seen in the wild as a Postfix tls_server_sni_maps holding file
+    // paths where it requires base64, which it reports only to its own log.
+    match: /alert internal error|alert number 80/i,
+    hint:
+      'The mail server broke off the handshake itself, which means it could not produce a certificate to offer — ' +
+      'a bad path, a key it cannot read, or a malformed TLS map. Nothing at this end can say which; its own log ' +
+      'names the fault. Check /var/log/maillog or journalctl -u postfix.',
   },
   {
     match: /ETIMEDOUT|ECONNREFUSED|EHOSTUNREACH|ENOTFOUND/i,
@@ -1138,15 +1159,33 @@ const SMTP_HINTS = [
   },
 ];
 
+// Which hint, if any, applies to a failure. Separate and exported so the
+// patterns can be tested, which is the whole reason it exists: the first
+// version matched "SSL routines" — a string in most of OpenSSL's errors — and
+// confidently blamed the port for a mail server that could not read its own
+// TLS map. A hint that is wrong is worse than none, because it is followed.
+//
+// The SMTP response code is matched as a number, never as digits inside the
+// message text.
+export function hintForSmtpFailure({ code, responseCode, message } = {}) {
+  const text = `${code || ''} ${message || ''}`;
+  const status = Number(responseCode);
+  const found = SMTP_HINTS.find(
+    (h) =>
+      (h.match && h.match.test(text)) ||
+      (h.codes && Number.isFinite(status) && h.codes.includes(status))
+  );
+  return found ? found.hint : null;
+}
+
 function describeSmtpError(err) {
   const parts = [];
   if (err.code) parts.push(err.code);
   if (err.responseCode) parts.push(`SMTP ${err.responseCode}`);
   const message = err.response || err.message || 'Unknown error';
   parts.push(message);
-  const against = `${err.code || ''} ${err.responseCode || ''} ${message}`;
-  const known = SMTP_HINTS.find((h) => h.match.test(against));
-  if (known) parts.push(known.hint);
+  const hint = hintForSmtpFailure({ code: err.code, responseCode: err.responseCode, message });
+  if (hint) parts.push(hint);
   return parts.join(' · ');
 }
 
