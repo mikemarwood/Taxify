@@ -12,7 +12,25 @@
 // is the sensible choice, and is the default when none is given.
 import 'dotenv/config';
 import { diagnoseSmtp, getSmtpConfig } from '../lib/mailer.js';
+import { describeCertChain } from '../lib/certChain.js';
 import pool from '../db.js';
+
+// Terminal output, so the paragraphs are wrapped rather than left as one line
+// that the window folds mid-word.
+function wrap(text, width) {
+  const lines = [];
+  let line = '';
+  for (const word of String(text).split(/\s+/)) {
+    if (line && line.length + 1 + word.length > width) {
+      lines.push(line);
+      line = word;
+    } else {
+      line = line ? `${line} ${word}` : word;
+    }
+  }
+  if (line) lines.push(line);
+  return lines;
+}
 
 const to = process.argv[2];
 
@@ -46,19 +64,36 @@ try {
     if (failed) {
       console.log(`  Mail is not going out. First failure: ${failed.step}`);
 
-      // The one command that settles a certificate failure, with the host and
-      // port already filled in. A chain that stops at depth 0 is a missing
-      // intermediate on the mail server; anything else is a certificate that
-      // genuinely is not trusted.
+      // A certificate failure says nothing about which certificate failure it
+      // is, and the fixes have nothing in common — so the chain is read back
+      // and named rather than left for somebody to go and decode by hand.
       if (/certificate|CERT_|altname|SSL routines/i.test(failed.detail || '')) {
+        const seen = report.config.secure
+          ? await describeCertChain({ host: report.config.host, port: report.config.port })
+          : null;
         console.log('');
-        console.log('  To see what the mail server is actually presenting:');
-        console.log(
-          `    openssl s_client -connect ${report.config.host}:${report.config.port} ` +
-            `-servername ${report.config.host} </dev/null 2>&1 | head -40`
-        );
+        if (seen) {
+          console.log('  What the server is presenting:');
+          console.log('');
+          for (const line of seen.lines) console.log(line);
+          console.log('');
+          if (seen.verdict) {
+            // Wrapped by hand: this is read in a terminal, and one 300-column
+            // line is the paragraph nobody reads.
+            for (const line of wrap(seen.verdict, 74)) console.log(`  ${line}`);
+            console.log('');
+          }
+        } else {
+          console.log('  To see what the mail server is presenting:');
+          console.log(
+            `    openssl s_client -connect ${report.config.host}:${report.config.port} ` +
+              `-servername ${report.config.host} </dev/null 2>&1 | head -40`
+          );
+          console.log('');
+        }
+      } else {
+        console.log('');
       }
-      console.log('');
       // Worth saying here, because this is the script somebody runs when they
       // cannot sign in, and the connection between the two is not obvious.
       console.log('  While this is broken, login codes cannot be emailed. To get in:');

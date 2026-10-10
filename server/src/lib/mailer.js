@@ -1105,10 +1105,10 @@ const SMTP_HINTS = [
   {
     match: /unable to get local issuer certificate|self.signed certificate|UNABLE_TO_VERIFY_LEAF_SIGNATURE/i,
     hint:
-      "The certificate could not be verified. Usually the mail server is sending only its own certificate and not " +
-      "the intermediate above it — browsers paper over that and Node does not. Check the chain with: " +
-      "openssl s_client -connect <host>:<port> -servername <host> </dev/null. The fix belongs on the mail server; " +
-      "failing that, point NODE_EXTRA_CA_CERTS at the missing certificate.",
+      'The certificate could not be verified. Three different faults give this same message — a staging or ' +
+      'otherwise untrusted CA, a self-signed certificate, or a server sending its own certificate without the ' +
+      'intermediate above it — and they have nothing in common to fix. Run `node src/ops/mail-check.mjs` on the ' +
+      'server, which reads the chain back and says which one it is.',
   },
   {
     match: /certificate has expired|CERT_HAS_EXPIRED/i,
