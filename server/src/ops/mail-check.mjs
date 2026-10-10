@@ -45,6 +45,20 @@ try {
     console.log('');
     if (failed) {
       console.log(`  Mail is not going out. First failure: ${failed.step}`);
+
+      // The one command that settles a certificate failure, with the host and
+      // port already filled in. A chain that stops at depth 0 is a missing
+      // intermediate on the mail server; anything else is a certificate that
+      // genuinely is not trusted.
+      if (/certificate|CERT_|altname|SSL routines/i.test(failed.detail || '')) {
+        console.log('');
+        console.log('  To see what the mail server is actually presenting:');
+        console.log(
+          `    openssl s_client -connect ${report.config.host}:${report.config.port} ` +
+            `-servername ${report.config.host} </dev/null 2>&1 | head -40`
+        );
+      }
+      console.log('');
       // Worth saying here, because this is the script somebody runs when they
       // cannot sign in, and the connection between the two is not obvious.
       console.log('  While this is broken, login codes cannot be emailed. To get in:');

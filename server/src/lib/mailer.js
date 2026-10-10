@@ -1094,11 +1094,59 @@ export async function diagnoseSmtp(to) {
 
 // Pulls the parts of a nodemailer error that actually identify the problem —
 // the SMTP response code and the server's own words.
+// The handful of failures that are a sentence of explanation away from being
+// actionable, and are otherwise read as "the mail server is broken".
+//
+// Every one of these is a thing about the setup rather than about the message,
+// and none of them say so on their own: "unable to get local issuer
+// certificate" is a true statement about a certificate chain that tells
+// somebody looking at a sign-in screen precisely nothing.
+const SMTP_HINTS = [
+  {
+    match: /unable to get local issuer certificate|self.signed certificate|UNABLE_TO_VERIFY_LEAF_SIGNATURE/i,
+    hint:
+      "The certificate could not be verified. Usually the mail server is sending only its own certificate and not " +
+      "the intermediate above it — browsers paper over that and Node does not. Check the chain with: " +
+      "openssl s_client -connect <host>:<port> -servername <host> </dev/null. The fix belongs on the mail server; " +
+      "failing that, point NODE_EXTRA_CA_CERTS at the missing certificate.",
+  },
+  {
+    match: /certificate has expired|CERT_HAS_EXPIRED/i,
+    hint: "The mail server's certificate has expired — renew it there. Nothing in Taxify can work around this.",
+  },
+  {
+    match: /Hostname\/IP does not match|ERR_TLS_CERT_ALTNAME_INVALID/i,
+    hint:
+      'The certificate is for a different hostname. Use the name the certificate was issued for as the SMTP host, ' +
+      'rather than an alias or an IP address.',
+  },
+  {
+    match: /Invalid login|535|534|authentication failed/i,
+    hint: 'The host accepted the connection and refused the credentials — check the account and password.',
+  },
+  {
+    match: /wrong version number|SSL routines/i,
+    hint:
+      'This looks like TLS on a port expecting STARTTLS, or the other way round. Port 465 is TLS, 587 is normally ' +
+      'STARTTLS — check the encryption setting matches the port.',
+  },
+  {
+    match: /ETIMEDOUT|ECONNREFUSED|EHOSTUNREACH|ENOTFOUND/i,
+    hint:
+      'Nothing answered on that host and port. Check the address, the port, and whether outbound mail is blocked ' +
+      'from this server.',
+  },
+];
+
 function describeSmtpError(err) {
   const parts = [];
   if (err.code) parts.push(err.code);
   if (err.responseCode) parts.push(`SMTP ${err.responseCode}`);
-  parts.push(err.response || err.message || 'Unknown error');
+  const message = err.response || err.message || 'Unknown error';
+  parts.push(message);
+  const against = `${err.code || ''} ${err.responseCode || ''} ${message}`;
+  const known = SMTP_HINTS.find((h) => h.match.test(against));
+  if (known) parts.push(known.hint);
   return parts.join(' · ');
 }
 

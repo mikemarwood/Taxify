@@ -230,12 +230,6 @@ const PATHS = {
       <path d="M15 6V5a2 2 0 0 0-2-2H5.5a2 2 0 0 0-2 2v7.5a2 2 0 0 0 2 2h1" />
     </>
   ),
-  'arrow-right': (
-    <>
-      <path d="M4 12h15" />
-      <path d="M13.5 6.5 20 12l-6.5 5.5" />
-    </>
-  ),
   'arrow-left': (
     <>
       <path d="M20 12H5" />
@@ -264,6 +258,12 @@ const PATHS = {
   ),
   // "and then this happens", for a button that goes somewhere. `pointer` is a
   // mouse cursor and kept getting used for this.
+  //
+  // There were two of these, and the object literal meant the first was dead
+  // the moment the second was added — so this is the one that has been drawing
+  // all along. It is a lighter arrow than `arrow-left` above, which was the
+  // other one's pair; left alone rather than restyled, because matching them
+  // changes every arrow in the app and that is a look to choose, not a tidy-up.
   'arrow-right': <path d="M5 12h13M13 6l6 6-6 6" />,
   // Movement on a figure, not navigation.
   'arrow-up': <path d="M12 19V5M6 11l6-6 6 6" />,

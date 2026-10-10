@@ -10,8 +10,33 @@ set -euo pipefail
 # is exactly what happened when the pre-deploy snapshot was removed: the pull
 # brought the new file down, and the old line ran anyway. Wrapping the body in
 # a function makes bash parse the whole thing before the first command runs.
+# The user whose pm2 owns the taxify process. Every pm2 daemon is per-user and
+# sees only its own processes, so running this as anybody else gets all the way
+# through install, test and build and then dies on "Process or Namespace taxify
+# not found" — with the new front end already built and the old server still
+# serving it. Overridable for a host set up differently.
+PM2_USER="${TAXIFY_PM2_USER:-mikes1118}"
+
 main() {
   cd "$(dirname "${BASH_SOURCE[0]}")"
+
+  # Checked before anything is installed, built or written, because what it
+  # prevents is a half-done deploy. Running as root also leaves node_modules
+  # and client/dist owned by root, which is what then breaks the next deploy by
+  # the right user — so this refuses rather than warns.
+  if [ "$(id -un)" != "$PM2_USER" ]; then
+    if [ "${TAXIFY_ALLOW_ANY_USER:-}" = "1" ]; then
+      echo "==> running as $(id -un), not $PM2_USER — continuing because TAXIFY_ALLOW_ANY_USER=1"
+    else
+      echo "This deploy must run as $PM2_USER — pm2 only sees its own user's processes." >&2
+      echo "" >&2
+      echo "  sudo -iu $PM2_USER -- bash -lc 'cd $(pwd) && ./deploy.sh'" >&2
+      echo "" >&2
+      echo "If pm2 runs as somebody else here, set TAXIFY_PM2_USER to them." >&2
+      echo "To skip this check, set TAXIFY_ALLOW_ANY_USER=1." >&2
+      exit 1
+    fi
+  fi
 
   echo "==> git pull"
   local before after
@@ -71,8 +96,17 @@ main() {
   # expenses, the currency backfill writes to every one of them, and
   # receiptFolders renames whole upload trees.
 
+  # Started rather than restarted when pm2 has never heard of it — a first
+  # deploy, or one after the daemon was wiped. `pm2 restart` on an unknown name
+  # is an error, which used to stop the deploy here with everything else done.
   echo "==> pm2 restart taxify"
-  pm2 restart taxify
+  if pm2 describe taxify >/dev/null 2>&1; then
+    pm2 restart taxify --update-env
+  else
+    echo "    pm2 does not know taxify yet — starting it from ecosystem.config.cjs"
+    pm2 start ecosystem.config.cjs
+    pm2 save
+  fi
 
   echo "==> done"
   pm2 status taxify
