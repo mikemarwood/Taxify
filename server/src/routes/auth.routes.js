@@ -1897,12 +1897,26 @@ router.post(
       [hashOtp(code), expiresAt, user.id]
     );
 
+    // A mail outage used to be a total lockout, with no way out of it.
+    //
+    // Two factors are required of every account and cannot be turned off, the
+    // second one arrives by email, and the screen for fixing the email server
+    // is behind the login — so the hour SMTP broke, nobody could sign in at
+    // all, administrator included, and the fix was unreachable from the
+    // outside. The code is kept rather than cleared and the sign-in carries on
+    // to the code step, where someone with shell access can issue a code out
+    // of band: `node src/ops/login-code.mjs <email>`.
+    //
+    // No new information is given away. The password was already accepted, and
+    // the 500 this replaces confirmed as much; the second factor is still
+    // required, and a code nobody can read is no easier to guess for having
+    // failed to send. What changes is that the account is recoverable.
+    let emailFailed = false;
     try {
       await sendOtpEmail(user.email, user.name, code, OTP_TTL_MINUTES);
     } catch (err) {
       console.error('Failed to send OTP email', err);
-      await pool.execute('UPDATE users SET otp_code = NULL, otp_expires_at = NULL WHERE id = ?', [user.id]);
-      return res.status(500).json({ error: 'Could not send your login code. Please try again shortly.' });
+      emailFailed = true;
     }
 
     // Both are sent, but the client counts down from expiresInSeconds. An
@@ -1915,6 +1929,10 @@ router.post(
       expiresAt,
       expiresInSeconds: OTP_TTL_MINUTES * 60,
       publicDevice: !!publicDevice,
+      // Said out loud rather than left for the person to work out from an
+      // inbox that never fills. Nobody should sit refreshing their mail for a
+      // code that was never sent.
+      emailFailed,
     });
   })
 );
@@ -1958,15 +1976,19 @@ router.post(
       user.id,
     ]);
 
+    // As above: the code stands whether or not the email carrying it went out,
+    // so a resend during an outage is not a dead end either.
+    let emailFailed = false;
     try {
       await sendOtpEmail(user.email, user.name, code, OTP_TTL_MINUTES);
     } catch (err) {
       console.error('Failed to resend OTP email', err);
-      return res.status(500).json({ error: 'Could not send your login code. Please try again shortly.' });
+      emailFailed = true;
     }
 
     res.json({
       ok: true,
+      emailFailed,
       expiresInSeconds: OTP_TTL_MINUTES * 60,
       retryAfterSeconds: Math.ceil(OTP_RESEND_COOLDOWN_MS / 1000),
     });

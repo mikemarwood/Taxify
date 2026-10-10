@@ -10,6 +10,34 @@ import { publicOrigin, appOrigin } from '../lib/publicOrigin.js';
 
 const UNACTIVATED_LIFETIME_DAYS = 5;
 
+// How long the courtesy email gets to succeed before the account goes anyway.
+//
+// The send is tried first and a failure leaves the row alone, which is right
+// for a mail server having a bad minute and wrong for one having a bad week:
+// with SMTP broken, nothing was ever deleted, and the admin panel sat there
+// saying "due to be deleted" about accounts that were days past their date and
+// going nowhere. The retry is hourly, so this is seventy-odd attempts before
+// the account is removed without a word — which is the lesser fault of the two
+// by then, and it is written to the log either way.
+export const NOTICE_GRACE_DAYS = 3;
+
+// Whether the courtesy email has had its run and the account goes regardless.
+//
+// Pure, and exported, because the whole point of the grace period is that it
+// ends — a bug here either deletes somebody a day early or keeps the deadlock
+// it was written to break, and neither shows up until there is a real outage.
+//
+// Takes an age in hours rather than a timestamp, and the age is measured by
+// the database against its own NOW(). A DATETIME arrives here as a string with
+// no zone (dateStrings is on), so parsing it in Node reads it as local time,
+// which is a silent few hours either way the moment the two disagree. Letting
+// MariaDB subtract its own value from its own clock has no such gap.
+export function noticeGraceExpired(ageHours) {
+  const hours = Number(ageHours);
+  if (!Number.isFinite(hours)) return false;
+  return hours >= (UNACTIVATED_LIFETIME_DAYS + NOTICE_GRACE_DAYS) * 24;
+}
+
 // An account that was never activated is deleted after five days. Before that
 // happens the person gets a nudge, because the usual reason a sign-up stalls
 // is a first email that went to spam or got buried, not a change of mind.
@@ -73,12 +101,15 @@ export async function purgeUnactivatedAccounts(pool) {
   // the two would delete somebody with no word at all. This way a send that
   // fails leaves the row alone, and the next run an hour later tries again.
   const [doomed] = await pool.query(
-    `SELECT id, email, name, first_name FROM users
-     WHERE activated_at IS NULL
-       AND created_at < DATE_SUB(NOW(), INTERVAL ${UNACTIVATED_LIFETIME_DAYS} DAY)`
+    `SELECT id, email, name, first_name,
+            TIMESTAMPDIFF(HOUR, created_at, NOW()) AS age_hours
+       FROM users
+      WHERE activated_at IS NULL
+        AND created_at < DATE_SUB(NOW(), INTERVAL ${UNACTIVATED_LIFETIME_DAYS} DAY)`
   );
 
   let removed = 0;
+  let unannounced = 0;
   for (const user of doomed) {
     try {
       await sendAccountRemovedEmail(
@@ -88,11 +119,23 @@ export async function purgeUnactivatedAccounts(pool) {
         UNACTIVATED_LIFETIME_DAYS
       );
     } catch (err) {
-      // Left in place deliberately. A mail server having a bad minute is not a
-      // reason to delete somebody's sign-up without telling them, and this runs
-      // again in an hour.
-      console.error(`Could not tell ${user.email} their sign-up was removed — leaving it for now`, err.message);
-      continue;
+      // A mail server having a bad minute is not a reason to delete somebody's
+      // sign-up without telling them, so the row is left alone and this runs
+      // again in an hour — but only up to a point. Past the grace period the
+      // outage is the standing state of the world rather than a blip, and
+      // keeping the row for ever waiting on an email that will not go is not a
+      // kindness to anybody: the account is dead either way and the admin
+      // panel has been promising its removal for days.
+      if (!noticeGraceExpired(user.age_hours)) {
+        console.error(`Could not tell ${user.email} their sign-up was removed — leaving it for now`, err.message);
+        continue;
+      }
+      console.error(
+        `Could not tell ${user.email} their sign-up was removed after ${NOTICE_GRACE_DAYS} days of trying — ` +
+          `removing it anyway. Check Admin > Email server.`,
+        err.message
+      );
+      unannounced += 1;
     }
 
     await pool.execute('DELETE FROM users WHERE id = ?', [user.id]);
@@ -100,7 +143,10 @@ export async function purgeUnactivatedAccounts(pool) {
   }
 
   if (removed > 0) {
-    console.log(`[cleanup] removed ${removed} account(s) that were never activated`);
+    console.log(
+      `[cleanup] removed ${removed} account(s) that were never activated` +
+        (unannounced > 0 ? ` (${unannounced} without being able to email them)` : '')
+    );
   }
 }
 

@@ -109,7 +109,11 @@ export default function Login() {
     try {
       const result = await login(email, password, publicDevice);
       if (result.otpRequired) {
-        setOtpState({ userId: result.userId, deadline: deadlineFrom(result.expiresInSeconds) });
+        setOtpState({
+          userId: result.userId,
+          deadline: deadlineFrom(result.expiresInSeconds),
+          emailFailed: !!result.emailFailed,
+        });
         setCode('');
         setLockedUntil(null);
       } else {
@@ -181,11 +185,18 @@ export default function Login() {
     setResending(true);
     try {
       const res = await api.post('/auth/otp/resend', { userId: otpState.userId });
-      setOtpState({ ...otpState, deadline: deadlineFrom(res.data.expiresInSeconds) });
+      setOtpState({
+        ...otpState,
+        deadline: deadlineFrom(res.data.expiresInSeconds),
+        emailFailed: !!res.data.emailFailed,
+      });
       setResendIn(res.data.retryAfterSeconds ?? 300);
       setCode('');
       attemptedRef.current = null;
-      toast('A new code is on its way', 'success');
+      toast(
+        res.data.emailFailed ? 'A new code was made, but it could not be emailed' : 'A new code is on its way',
+        res.data.emailFailed ? 'error' : 'success'
+      );
     } catch (err) {
       if (err.retryAfterSeconds) setResendIn(err.retryAfterSeconds);
       toast(err.message, 'error');
@@ -207,8 +218,36 @@ export default function Login() {
 
   if (otpState) {
     return (
-      <AuthLayout title="Check your email" subtitle={`We sent a 4-digit code to ${email}.`}>
+      <AuthLayout
+        title={otpState.emailFailed ? 'We could not send your code' : 'Check your email'}
+        subtitle={
+          otpState.emailFailed
+            ? 'Your password was accepted, but the email carrying the code did not go out.'
+            : `We sent a 4-digit code to ${email}.`
+        }
+      >
         <form onSubmit={onVerify} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+          {/* Said before the empty box rather than after it. Somebody sitting
+              and refreshing an inbox for a code that was never sent is the one
+              thing this screen must not let happen — and the code itself is
+              live and waiting, so the box stays usable for a code handed over
+              another way. */}
+          {otpState.emailFailed && (
+            <div
+              style={{
+                padding: '11px 13px',
+                borderRadius: 'var(--radius)',
+                border: '1px solid var(--red)',
+                background: 'var(--bg-subtle)',
+                fontSize: 13,
+                lineHeight: 1.55,
+                color: 'var(--text)',
+              }}
+            >
+              Nothing will arrive in your inbox. The mail server is not accepting messages — ask whoever runs Taxify to
+              check <strong>Admin &rsaquo; Email server</strong>. They can issue you a code directly in the meantime.
+            </div>
+          )}
           <div>
             <label className="label">Login code</label>
             <input

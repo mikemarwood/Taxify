@@ -51,6 +51,7 @@ export function AuthProvider({ children }) {
         userId: res.data.userId,
         expiresAt: res.data.expiresAt,
         expiresInSeconds: res.data.expiresInSeconds,
+        emailFailed: res.data.emailFailed,
       };
     }
     setUser(res.data.user);
